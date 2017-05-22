@@ -1,7 +1,32 @@
-# NNS
+# NNS.jl: A Near Neighbor Search Library
 
-[![Build Status](https://travis-ci.org/sadit/NNS.jl.svg?branch=master)](https://travis-ci.org/sadit/NNS.jl)
 
-[![Coverage Status](https://coveralls.io/repos/sadit/NNS.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/sadit/NNS.jl?branch=master)
+NNS.jl is a library for approximate nearest neighbors, performing quite good as compared with the state of the art techniques.
 
-[![codecov.io](http://codecov.io/github/sadit/NNS.jl/coverage.svg?branch=master)](http://codecov.io/github/sadit/NNS.jl?branch=master)
+In constrast to other approaches, NNS.jl is not only designed to be fast and powerful but also easy to use.
+Basically, you only need to declare what kind of data and distance will be indexed, the desired performance, and NNS.jl will try to get a the best tradeoff between quality and performance under the desired algorithm.
+
+NNS.jl comes with some simple demonstation tools to help on the For instance, you can try the following
+
+```bash
+
+mkdir dbs && cd dbs
+curl -O http://ws.ingeotec.mx/~sadit/datasets/nasa.vecs.gz
+curl -O http://ws.ingeotec.mx/~sadit/datasets/nasa.vecs.queries.gz
+gzip -d nasa.vecs.gz nasa.vecs.queries.gz
+cd ..
+```
+
+Here you got a database of ~40K objects (dim. 20), splitted in two parts: a database and a set of queries
+
+```
+julia tools/nns.jl create,benchmark '{"db": "dbs/nasa.vecs", "index": "nasa.index", "queries": "dbs/nasa.vecs.queries", "results": "nasa.benchmark", "search_algo": "nsearch", "recall": 0.95}'
+```
+
+Take into account that the recall adjustment is computed using a set of random items from the dataset, so the real recall for an unseen query can be different depending on its distribution as compared with the known objects. The query set is never touched for the parameter optimization, for the sake of result soundness; however, real applications should know the distribution of their expected queries.
+
+
+## Final notes ##
+To reach maximum performance, please ensure that Julia has access to the specific instruction set of your CPUs
+
+[http://docs.julialang.org/en/latest/devdocs/sysimg/](http://docs.julialang.org/en/latest/devdocs/sysimg/)
