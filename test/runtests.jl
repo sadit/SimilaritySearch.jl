@@ -24,24 +24,37 @@ using Base.Test
     @test first(nn).dist == Vsorted[1]
 end
 
-@testset "some indexing" begin
+function test_index(search_algo)
     index = LocalSearchIndex()
-    index.options.verbose = false
-    n = 100
-    dim = 3
-    info("inserting items to the index")
-    for i in 1:n
-        vec = rand(Float32, dim)
-        # NNS.fit!(index, V)
-        push!(index, vec)
+
+    @testset "indexing with different search algorithms" begin
+        index.search_algo = search_algo()
+        index.options.verbose = false
+        n = 100
+        dim = 3
+        info("inserting items to the index")
+        for i in 1:n
+            vec = rand(Float32, dim)
+            # NNS.fit!(index, V)
+            push!(index, vec)
+        end
+        
+        info("done; now testing")
+        @test length(index.db) == n
+        res = search(index, rand(Float32, dim), KnnResult(10))
+        @show res
+        @test length(res) == 10    
     end
 
-    info("done; now testing")
-    @test length(index.db) == n
-    res = search(index, rand(Float32, dim), KnnResult(10))
-    @show res
-    @test length(res) == 10
+    return index
+end
 
+@testset "some indexing" begin
+    for search_algo in [IHCSearch, NeighborhoodSearch, BeamSearch]
+        index = test_index(search_algo)
+    end
+
+    n = length(index.db)
     k = 3
     @show "Showing AKNN ($k)"
     aknn = compute_aknn(index, k)
