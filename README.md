@@ -23,6 +23,7 @@ Here you got a database of ~40K objects (dim. 20), splitted in two parts: a data
 julia tools/nns.jl create,benchmark '{"db": "dbs/nasa.vecs", "index": "nasa.index", "queries": "dbs/nasa.vecs.queries", "results": "nasa.benchmark", "search_algo": "nsearch", "recall": 0.95}'
 ```
 
+
 Take into account that the recall adjustment is computed using a set of random items from the dataset, so the real recall for an unseen query can be different depending on its distribution as compared with the known objects. The query set is never touched for the parameter optimization, for the sake of result soundness; however, real applications should know the distribution of their expected queries.
 
 
