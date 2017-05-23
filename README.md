@@ -1,3 +1,7 @@
+[![Build Status](https://travis-ci.org/sadit/NNS.svg?branch=master)](https://travis-ci.org/sadit/NNS)
+
+[![Coverage Status](https://coveralls.io/repos/github/sadit/NNS/badge.svg?branch=master)](https://coveralls.io/github/sadit/NNS?branch=master)
+
 # NNS.jl: A Near Neighbor Search Library
 
 

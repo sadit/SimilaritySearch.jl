@@ -82,7 +82,7 @@ dist_lp computes a generic Minkowski's distance
 mutable struct LpDistance
     calls::Int
     p::Float32
-    LpDistance(p::Float32) = new(0, p)
+    LpDistance(p::F) where {F <: Real} = new(0, convert(Float32, p))
 end
 
 function (o::LpDistance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64

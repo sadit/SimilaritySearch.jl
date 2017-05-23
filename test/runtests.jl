@@ -24,12 +24,11 @@ using Base.Test
     @test first(nn).dist == Vsorted[1]
 end
 
-function test_index(search_algo)
-    index = LocalSearchIndex()
-
-    @testset "indexing with different search algorithms" begin
-        index.search_algo = search_algo()
+function test_index(search_algo, neighborhood_algo, dist, ksearch)
+    @testset "indexing with different algorithms" begin
+        index = LocalSearchIndex(Vector{Float32}, dist, search=Nullable{LocalSearchAlgorithm}(search_algo), neighborhood=Nullable{NeighborhoodAlgorithm}(neighborhood_algo))
         index.options.verbose = false
+
         n = 100
         dim = 3
         info("inserting items to the index")
@@ -41,18 +40,30 @@ function test_index(search_algo)
         
         info("done; now testing")
         @test length(index.db) == n
-        res = search(index, rand(Float32, dim), KnnResult(10))
+        res = search(index, rand(Float32, dim), KnnResult(ksearch))
         @show res
-        @test length(res) == 10    
     end
 
-    return index
+    return index, length(res)
 end
 
 @testset "some indexing" begin
-    for search_algo in [IHCSearch, NeighborhoodSearch, BeamSearch]
-        index = test_index(search_algo)
+    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
+    ksearch = 10
+    acc = 0
+    expected_acc = 0
+    for search_algo in [IHCSearch(), NeighborhoodSearch(), BeamSearch()]
+        for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
+            for dist in Any[L2SquaredDistance(), L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
+                index, numres = test_index(search_algo, neighborhood_algo, dist, ksearch)
+                acc += numres
+                expected_acc += ksearch
+            end
+        end
     end
+
+    # this is not really an error, but we test it anyway, it is more about the quality of the results
+    @test acc / expected_acc > 0.95
 
     n = length(index.db)
     k = 3
@@ -70,10 +81,13 @@ end
     u = Dict("el" => 0.9, "hola" => 0.1, "mundo" => 0.2)
     v = Dict("el" => 0.4, "hola" => 0.2, "mundo" => 0.4)
     w = Dict("xel" => 0.4, "xhola" => 0.2, "xmundo" => 0.4)
-    u1 = RBOW(u)
-    v1 = RBOW(v)
-    w1 = RBOW(w)
-    dist = AngleDistance()
-    @test (dist(u1, v1), dist(u1, u1), dist(w1, u1)) == (0.5975474841801046, 0.0, 1.5707963267948966)
+
+    for BOW in [RBOW, HBOW]
+        u1 = BOW(u)
+        v1 = BOW(v)
+        w1 = BOW(w)
+        dist = AngleDistance()
+        @test (dist(u1, v1), dist(u1, u1), dist(w1, u1)) == (0.5975474841801046, 0.0, 1.5707963267948966)
+    end
 end
 
