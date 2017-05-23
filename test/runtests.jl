@@ -24,7 +24,7 @@ using Base.Test
     @test first(nn).dist == Vsorted[1]
 end
 
-function test_index(search_algo, neighborhood_algo, dist, ksearch)
+function test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
     @testset "indexing with different algorithms" begin
         index = LocalSearchIndex(Vector{Float32}, dist, search=Nullable{LocalSearchAlgorithm}(search_algo), neighborhood=Nullable{NeighborhoodAlgorithm}(neighborhood_algo))
         index.options.verbose = false
@@ -47,7 +47,7 @@ function test_index(search_algo, neighborhood_algo, dist, ksearch)
     return index, length(res)
 end
 
-@testset "some indexing" begin
+@testset "some vector indexing" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
     ksearch = 10
     acc = 0
@@ -55,7 +55,58 @@ end
     for search_algo in [IHCSearch(), NeighborhoodSearch(), BeamSearch()]
         for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
             for dist in Any[L2SquaredDistance(), L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
-                index, numres = test_index(search_algo, neighborhood_algo, dist, ksearch)
+                index, numres = test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
+                acc += numres
+                expected_acc += ksearch
+            end
+        end
+    end
+
+    # this is not really an error, but we test it anyway, it is more about the quality of the results
+    @test acc / expected_acc > 0.95
+
+    n = length(index.db)
+    k = 3
+    @show "Showing AKNN ($k)"
+    aknn = compute_aknn(index, k)
+    @test n == length(aknn)
+    for p in aknn
+        @show p
+        @test length(p) > 0
+    end
+end
+
+function test_set_index(search_algo, neighborhood_algo, dist, ksearch)
+    @testset "indexing with different algorithms" begin
+        index = LocalSearchIndex(Vector{Int}, dist, search=Nullable{LocalSearchAlgorithm}(search_algo), neighborhood=Nullable{NeighborhoodAlgorithm}(neighborhood_algo))
+        index.options.verbose = false
+
+        n = 100
+        dim = 3
+        info("inserting items to the index")
+        for i in 1:n
+            s = unique(rand(1:10, dim))
+            push!(index, s)
+        end
+        
+        info("done; now testing")
+        @test length(index.db) == n
+        res = search(index, unique(rand(1:10, dim)), KnnResult(ksearch))
+        @show res
+    end
+
+    return index, length(res)
+end
+
+@testset "some set indexing" begin
+    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
+    ksearch = 10
+    acc = 0
+    expected_acc = 0
+    for search_algo in [BeamSearch()]
+        for neighborhood_algo in [LogNeighborhood(1.5)]
+            for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance()]
+                index, numres = test_set_index(search_algo, neighborhood_algo, dist, ksearch)
                 acc += numres
                 expected_acc += ksearch
             end
@@ -90,4 +141,3 @@ end
         @test (dist(u1, v1), dist(u1, u1), dist(w1, u1)) == (0.5975474841801046, 0.0, 1.5707963267948966)
     end
 end
-

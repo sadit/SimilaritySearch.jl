@@ -1,6 +1,6 @@
-export JaccardDistance, DiceDistance, union_intersection, IntersectionDissimilarity
+export JaccardDistance, DiceDistance, union_intersection, IntersectionDistance
 
-function union_intersection{T <: Any}(a::T, b::T)::Int
+function union_intersection{T <: Any}(a::T, b::T)
     len_a::Int = length(a)
     len_b::Int = length(b)
     ia::Int = 1
@@ -34,7 +34,7 @@ mutable struct JaccardDistance
     JaccardDistance() = new(0)
 end
 
-function (o::JaccardDistance){T <: Any}(a::T, b::T)::Int
+function (o::JaccardDistance){T <: Any}(a::T, b::T)
     o.calls += 1
     u, i = union_intersection(a, b)
     return 1.0 - u / i
@@ -45,18 +45,18 @@ mutable struct DiceDistance
     DiceDistance() = new(0)
 end
 
-function (o::DiceDistance){T <: Any}(a::T, b::T)::Int
+function (o::DiceDistance){T <: Any}(a::T, b::T)
     o.calls += 1
     u, i = union_intersection(a, b)
     return 1.0 - 2 * i / (length(a) + length(b))
 end
 
-mutable struct IntersectionDissimilarity
+mutable struct IntersectionDistance
     calls::Int
-    IntersectionDissimilarity() = new(0)
+    IntersectionDistance() = new(0)
 end
 
-function (o::IntersectionDissimilarity){T <: Any}(a::T, b::T)::Int
+function (o::IntersectionDistance){T <: Any}(a::T, b::T)
     o.calls += 1
     u, i = union_intersection(a, b)
 
