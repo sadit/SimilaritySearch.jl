@@ -168,10 +168,8 @@ end
 
 function (o::HammingDistance){T <: Any}(a::T, b::T)::Int32
     o.calls += 1
-    if length(a) != length(b)
-	throw(ArgumentError("dist_hamming length(a) != length(b)"))
-    end
     d::Int = 0
+
     @inbounds for i = 1:length(a)
 	if a[i] != b[i]
 	    d += 1
