@@ -63,7 +63,7 @@ end
     end
 
     # this is not really an error, but we test it anyway, it is more about the quality of the results
-    @test acc / expected_acc > 0.95
+    @test acc / expected_acc > 0.9
 
     n = length(index.db)
     k = 3
@@ -94,8 +94,7 @@ function test_seq_index(search_algo, neighborhood_algo, dist, ksearch)
         end
         info("inserting items to the index")
         for i in 1:n
-            s = create_item()
-            
+            s = create_item()            
             push!(index, s)
         end
         
@@ -125,7 +124,7 @@ end
     end
 
     # this is not really an error, but we test it anyway, it is more about the quality of the results
-    @test acc / expected_acc > 0.95
+    @test acc / expected_acc > 0.8
 
     n = length(index.db)
     k = 3
