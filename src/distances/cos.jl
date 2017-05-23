@@ -5,7 +5,7 @@ mutable struct AngleDistance
     AngleDistance() = new(0)
 end
 
-immutable DenseCosine{T <: Real}
+struct DenseCosine{T <: Real}
     vec::Vector{T}
     invnorm::T
 end

@@ -1,4 +1,4 @@
-module NNS
+module SimilaritySearch
 abstract type Index end
 abstract type Result end
 
