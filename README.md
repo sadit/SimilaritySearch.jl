@@ -2,15 +2,15 @@
 
 [![Coverage Status](https://coveralls.io/repos/github/sadit/SimilaritySearch.jl/badge.svg?branch=master)](https://coveralls.io/github/sadit/SimilaritySearch.jl?branch=master)
 
-# NNS.jl: A Near Neighbor Search Library
+# A Near Neighbor Search Library
 
 
-NNS.jl is a library for approximate nearest neighbors, performing quite good as compared with the state of the art techniques.
+SimilaritySearch.jl is a library for approximate nearest neighbors, performing quite good as compared with the state of the art techniques.
 
 In constrast to other approaches, NNS.jl is not only designed to be fast and powerful but also easy to use.
-Basically, you only need to declare what kind of data and distance will be indexed, the desired performance, and NNS.jl will try to get a the best tradeoff between quality and performance under the desired algorithm.
+Basically, you only need to declare what kind of data and distance will be indexed, the desired performance, and SimilaritySearch.jl will try to get a the best tradeoff between quality and performance under the desired algorithm.
 
-NNS.jl comes with some simple demonstation tools to help on the For instance, you can try the following
+SimilaritySearch.jl comes with some simple demonstation tools to help on the For instance, you can try the following
 
 ```bash
 
