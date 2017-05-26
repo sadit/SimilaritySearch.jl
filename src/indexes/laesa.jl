@@ -18,26 +18,27 @@ export Laesa
 # abstract PivotRowType <: Array{Float64, 1}
 
 struct Laesa{T, D} <: Index
-    db::Array{T,1}
+    db::Vector{T}
     dist::D
-    pivots::Array{T,1}
-    table::Array{Array{Float64},1}
+    pivots::Vector{T}
+    table::Vector{Vector{Float64}}
 end
 
-function Laesa{T, D}(db::Array{T,1}, dist::D, pivots::Array{T,1})
+function Laesa{T, D}(db::Vector{T}, dist::D, pivots::Vector{T})
     info("Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)")
-    table::Array{Array{Float64},1} = Array(Array{Float64}, length(db))
+    table = Vector{Vector{Float64}}(length(db))
     for i=1:length(db)
         obj = db[i]
-        row = table[i] = Array(Float64, length(pivots))
+        row = table[i] = Vector{Float64}(length(pivots))
         for pivID in 1:length(pivots)
-            row[pivID] = distance(dist, pivots[pivID], obj)
+            row[pivID] = dist(pivots[pivID], obj)
         end
     end
+
     Laesa(db, dist, pivots, table)
 end
 
-function Laesa{T, D}(db::Array{T,1}, dist::D, numPivots::Int)
+function Laesa{T, D}(db::Vector{T}, dist::D, numPivots::Int)
     pivots = rand(db, numPivots)
     Laesa(db, dist, pivots)
 end

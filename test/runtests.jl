@@ -138,6 +138,8 @@ end
 end
 
 
+
+
 @testset "DocumentType and RBOW" begin
     u = Dict("el" => 0.9, "hola" => 0.1, "mundo" => 0.2)
     v = Dict("el" => 0.4, "hola" => 0.2, "mundo" => 0.4)
