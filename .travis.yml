@@ -5,7 +5,7 @@ os:
   # - osx
 julia:
   - nightly
-  - 0.6
+  - 0.6.0-rc1
 
 notifications:
     email:
