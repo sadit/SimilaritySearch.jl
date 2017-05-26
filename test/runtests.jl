@@ -136,20 +136,3 @@ end
         @test length(p) > 0
     end
 end
-
-
-
-
-@testset "DocumentType and RBOW" begin
-    u = Dict("el" => 0.9, "hola" => 0.1, "mundo" => 0.2)
-    v = Dict("el" => 0.4, "hola" => 0.2, "mundo" => 0.4)
-    w = Dict("xel" => 0.4, "xhola" => 0.2, "xmundo" => 0.4)
-
-    for BOW in [RBOW, HBOW]
-        u1 = BOW(u)
-        v1 = BOW(v)
-        w1 = BOW(w)
-        dist = AngleDistance()
-        @test (dist(u1, v1), dist(u1, u1), dist(w1, u1)) == (0.5975474841801046, 0.0, 1.5707963267948966)
-    end
-end
