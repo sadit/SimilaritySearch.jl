@@ -12,9 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import Base.push!, Base.shift!, Base.pop!, Base.length, Base.start, Base.done, Base.next, Base.eltype, Base.last, Base.first
+import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first, clear!
 
-export Item, KnnResult, push!, first, last, shift!, pop!, length, maxlength, covrad, clear!, start, done, next, start, done, next, eltype
+export Item, KnnResult, maxlength, covrad
 
 struct Item
     objID::Int32

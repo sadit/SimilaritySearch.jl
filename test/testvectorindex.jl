@@ -1,7 +1,7 @@
 
 function test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
     @testset "indexing with different algorithms" begin
-        index = LocalSearchIndex(Vector{Float32}, dist, search=Nullable{LocalSearchAlgorithm}(search_algo), neighborhood=Nullable{NeighborhoodAlgorithm}(neighborhood_algo))
+        index = LocalSearchIndex(Vector{Float32}, dist, search=search_algo, neighborhood=neighborhood_algo)
         index.options.verbose = false
 
         n = 100

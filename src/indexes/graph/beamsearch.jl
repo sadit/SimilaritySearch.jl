@@ -25,7 +25,7 @@ BeamSearch(other::BeamSearch) = BeamSearch(other.candidates_size, other.montecar
 
 ### local search algorithm
 
-function beam_search{T, R <: Result}(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::BitVector, oracle::Nullable{Function})
+function beam_search{T, R <: Result, MemoryType}(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, oracle::Nullable{Function})
     # first beam
     beam = SlugKnnResult(bsearch.beam_size)
     if isnull(oracle)

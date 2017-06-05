@@ -27,16 +27,12 @@ end
 return the first item of the result set, the closest item
 """
 
-function first(p::NnResult)
-    return p.item
-end
+first(p::NnResult) = p.item
 
 """
 returns the last item of the result set
 """
-function last(p::NnResult)
-    return p.item
-end
+last(p::NnResult) = p.item
 
 """
 apply shift!(p.pool), an O(length(p.pool)) operation
@@ -60,20 +56,13 @@ end
 length returns the number of items in the result set
 """
 
-function length(p::NnResult)::Int
-    return p.item.objID == -1 ? 0 : 1
-end
-
-function maxlength(p::NnResult)
-    return 1
-end
+length(p::NnResult)::Int = p.item.objID == -1 ? 0 : 1
+maxlength(p::NnResult) = 1
 
 """
 covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float64) is returned
 """
-function covrad(p::NnResult)::Float32
-    return length(p) == 0 ? typemax(Float32) : p.item.dist
-end
+covrad(p::NnResult)::Float32 = (length(p) == 0 ? typemax(Float32) : p.item.dist)
 
 function clear!(p::NnResult)
     p.item = Item(-1, 0f0)
@@ -81,24 +70,10 @@ end
 
 ##### iterator interface
 ### NnResult
-function start(p::NnResult)
-    return length(p)
-end
-
-function done(p::NnResult, state)
-    if state == 1
-        return false
-    else
-        return true
-    end
-end
-
-function next(p::NnResult, state)
-    return (p.item, 0)
-end
-
+start(p::NnResult) = length(p)
+done(p::NnResult, state) = state != 1
+next(p::NnResult, state) = (p.item, 0)
 
 ### both
-function eltype(p::Result)
-    return Item
-end
+eltype(p::Result) = Item
+

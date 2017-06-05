@@ -39,14 +39,10 @@ end
 function LocalSearchIndex{D}(dtype::Type, dist::D;
                              recall=0.9,
                              k=10,
-                             search::Nullable{LocalSearchAlgorithm}=Nullable{LocalSearchAlgorithm}(),
-                             neighborhood::Nullable{NeighborhoodAlgorithm}=Nullable{NeighborhoodAlgorithm}(),
-                             options::Nullable{LocalSearchOptions}=Nullable{LocalSearchOptions}()
+                             search::LocalSearchAlgorithm=BeamSearch(),
+                             neighborhood::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
+                             options::LocalSearchOptions=LocalSearchOptions()
                              )
-    search = isnull(search) ? BeamSearch() : get(search)
-    neighborhood = isnull(neighborhood) ? LogSatNeighborhood(1.1) : get(neighborhood)
-    options = isnull(options) ? LocalSearchOptions() : get(options)
-    
     LocalSearchIndex(search, neighborhood, Vector{dtype}(), dist, recall, k, Vector{Vector{Int32}}(), options)
 end
 
