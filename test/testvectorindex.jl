@@ -17,9 +17,8 @@ function test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
         @test length(index.db) == n
         res = search(index, rand(Float32, dim), KnnResult(ksearch))
         @show res
+        return index, length(res) 
     end
-
-    return index, length(res)
 end
 
 
