@@ -23,5 +23,5 @@ include("indexes/pivotselectiontables.jl")
 include("indexes/kvp.jl")
 include("indexes/knr.jl")
 include("indexes/graph.jl")
-include("indexes/nodegraph/nodegraph.jl")
+
 end

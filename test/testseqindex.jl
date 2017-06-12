@@ -25,9 +25,9 @@ function test_seq_index(search_algo, neighborhood_algo, dist, ksearch)
         item = create_item()
         res = search(index, item, KnnResult(ksearch))
         @show res
+        return index, length(res)
     end
 
-    return index, length(res)
 end
 
 @testset "some sequence distances indexing" begin
@@ -35,6 +35,8 @@ end
     ksearch = 10
     acc = 0
     expected_acc = 0
+    local index
+
     for search_algo in [BeamSearch()]
         for neighborhood_algo in [LogNeighborhood(1.5)]
             for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]

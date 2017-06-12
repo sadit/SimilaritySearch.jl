@@ -19,7 +19,6 @@ function test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
         @show res
         return index, length(res)
     end
-
 end
 
 
@@ -28,6 +27,7 @@ end
     ksearch = 10
     acc = 0
     expected_acc = 0
+    local index 
     for search_algo in [IHCSearch(), NeighborhoodSearch(), BeamSearch()]
         for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
             for dist in Any[L2SquaredDistance(), L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
