@@ -6,12 +6,8 @@ end
 
 NnResult() = return NnResult(Item(-1, -1))
 
-function fromjson(::Type{NnResult}, dict)
-    NnResult(fromjson(Item, dict["item"]))
-end
-
-push!(p::NnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int32, objID), convert(Float32, dist))
-function push!(p::NnResult, objID::Int32, dist::Float32)
+push!(p::NnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
+function push!(p::NnResult, objID::Int64, dist::Float64)
     if p.item.objID == -1
         p.item = Item(objID, dist)
     elseif dist >= p.item.dist
@@ -62,7 +58,7 @@ maxlength(p::NnResult) = 1
 """
 covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float64) is returned
 """
-covrad(p::NnResult)::Float32 = (length(p) == 0 ? typemax(Float32) : p.item.dist)
+covrad(p::NnResult)::Float64 = (length(p) == 0 ? typemax(Float64) : p.item.dist)
 
 function clear!(p::NnResult)
     p.item = Item(-1, 0f0)

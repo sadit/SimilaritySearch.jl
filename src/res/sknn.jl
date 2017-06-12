@@ -76,10 +76,9 @@ end
 push! appends an item to the end of the result set
 """
 
-push!(p::SlugKnnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int32, objID), convert(Float32, dist))
+push!(p::SlugKnnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
 
-function push!(p::SlugKnnResult, objID::Int32, dist::Float32)
-
+function push!(p::SlugKnnResult, objID::Int64, dist::Float64)
     n = length(p)
 
     if n == 0   # handling as special case to improve speed
@@ -92,7 +91,7 @@ function push!(p::SlugKnnResult, objID::Int32, dist::Float32)
     @inbounds if n < maxlength(p)  # fewer items than the maximum capacity
         normalize_range!(p)  # normalizes the populated range if needed
         p.ep += 1
-        @inbounds p.pool[p.ep] = Item(objID, dist)
+        p.pool[p.ep] = Item(objID, dist)
         fix_order!(p)
         return true
     end
@@ -153,10 +152,10 @@ function maxlength(p::SlugKnnResult)
 end
 
 """
-covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
+covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float64) is returned
 """
-function covrad(p::SlugKnnResult)::Float32
-    return length(p) < maxlength(p) ? typemax(Float32) : last(p).dist
+function covrad(p::SlugKnnResult)::Float64
+    return length(p) < maxlength(p) ? typemax(Float64) : last(p).dist
 end
 
 

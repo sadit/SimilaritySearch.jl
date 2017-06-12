@@ -21,7 +21,7 @@ function estimate_knearest{T, D, R, M}(db::Vector{T}, dist::D, choosek::Int, fro
     estimate_knearest(db, dist, choosek, from, q, tabu, res, near)
 end
 
-function estimate_from_oracle{T, D, R, M}(index::LocalSearchIndex{T,D}, q::T, beam::SlugKnnResult, tabu::M, res::R, oracle::Function)
+function estimate_from_oracle{T, D, R, M}(index::LocalSearchIndex{T,D}, q::T, beam::Result, tabu::M, res::R, oracle::Function)
     for childID in oracle(q)
       if !tabu[childID]
         tabu[childID] = true

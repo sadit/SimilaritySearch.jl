@@ -17,17 +17,8 @@ import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first
 export Item, KnnResult, maxlength, covrad
 
 struct Item
-    objID::Int32
-    dist::Float32
-end
-
-function save(ostream, item::Item)
-    write(ostream, string(item.objID, ' ', item.dist, '\n'))
-end
-
-function load(istream, ::Type{Item})
-    a, b = split(readline(istream), ' ')
-    return Item(parse(Int32, a), parse(Float32, b))
+    objID::Int64
+    dist::Float64
 end
 
 include("nn.jl")
@@ -42,20 +33,6 @@ function KnnResult(k::Int)
     v = Vector{Item}()
     sizehint!(v, k)
     KnnResult(k, v)
-end
-
-function load(istream, ::Type{KnnResult})::KnnResult
-    a, b = split(readline(istream), ' ')
-    k = parse(Int32, a)
-    pop = parse(Int32, b)
-    KnnResult(k, [load(istream, Item) for i in 1:pop])
-end
-
-function save(ostream, obj::KnnResult)
-    write(ostream, string(obj.k, ' ', length(obj.pool), '\n'))
-    for item in obj.pool
-        save(ostream, item)
-    end
 end
 
 """
@@ -83,9 +60,9 @@ end
 """
 push! appends an item to the end of the result set
 """
-push!(p::KnnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int32, objID), convert(Float32, dist))
+push!(p::KnnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
 
-function push!(p::KnnResult, objID::Int32, dist::Float32)
+function push!(p::KnnResult, objID::Int64, dist::Float64)
     if length(p.pool) < p.k
         # fewer items than the maximum capacity
         push!(p.pool, Item(objID, dist))
@@ -146,8 +123,8 @@ maxlength(p::KnnResult) = p.k
 """
 covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-function covrad(p::KnnResult)::Float32
-    return length(p.pool) < p.k ? typemax(Float32) : last(p).dist
+function covrad(p::KnnResult)::Float64
+    return length(p.pool) < p.k ? typemax(Float64) : last(p).dist
 end
 
 function clear!(p::KnnResult)

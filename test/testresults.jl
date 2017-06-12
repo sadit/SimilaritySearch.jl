@@ -3,6 +3,7 @@
     V = rand(Float32, k*k)
     Vsorted = sort(V)[1:k]
     
+    bigres = KnnResult(BigInt, k)
     res = KnnResult(k)
     sres = SlugKnnResult(k)
     nn = NnResult()
@@ -12,6 +13,7 @@
         push!(res, i, V[i])
         push!(sres, i, V[i])
         push!(nn, i, V[i])
+        push!(bigres, BigInt(i), V[i])
     end
     
     @test [x.objID for x in res] == [x.objID for x in sres]
