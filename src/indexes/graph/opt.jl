@@ -61,12 +61,10 @@ function optimize_algo!{T, S <: LocalSearchAlgorithm}(algosearch::S, index::Loca
         opt_expand_neighborhood(prev_state, n, iter) do s
             if !in(s, tabu)
                 push!(tabu, s)
-                #for field in fieldnames(algosearch)
-                #    setfield!(algosearch, field, getfield(s, field))
-                #end
                 index.search_algo = s
 
-                p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
+                # p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
+                p = probe(perf, index, repeat=1, field=:seconds)
                 fitness = fitness_function(p)
                 push!(candidates, (fitness, s))
                 if fitness > best_fitness
@@ -85,7 +83,7 @@ function optimize_algo!{T, S <: LocalSearchAlgorithm}(algosearch::S, index::Loca
         end
     end
 
-    
+
     #for field in fieldnames(algosearch)
     #    setfield!(algosearch, field, getfield(best_state, field))
     #end

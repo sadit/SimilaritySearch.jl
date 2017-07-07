@@ -82,14 +82,14 @@ function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Int, iter::Int)
             opt_create_random_state(gsearch, ceil(Int, log2(n))) |> fun
         end
 
-        BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size |> g, gsearch.beam_size |> g) |> fun
-        BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size, gsearch.beam_size) |> fun
-        BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size |> g, gsearch.beam_size) |> fun
-        BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size, gsearch.beam_size |> g) |> fun
+        #BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size |> g, gsearch.beam_size |> g) |> fun
+        #BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size, gsearch.beam_size) |> fun
+        #BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size |> g, gsearch.beam_size) |> fun
+        #BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size, gsearch.beam_size |> g) |> fun
     end
 
     w = 2
-    while w <= div(32,iter)
+    while w <= div(8,iter)
         BeamSearch(f(gsearch.candidates_size,  w), gsearch.montecarlo_size, gsearch.beam_size) |> fun
         BeamSearch(f(gsearch.candidates_size, -w), gsearch.montecarlo_size, gsearch.beam_size) |> fun
         BeamSearch(gsearch.candidates_size, f(gsearch.montecarlo_size,  w), gsearch.beam_size) |> fun
