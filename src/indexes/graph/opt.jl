@@ -1,22 +1,14 @@
-# function fitness_performance(expected_recall::Float64, p::PerformanceResult)
-#     # computes the fitness of a given performance
-#     # expected_recall determines the minimum recall after reaching expected_recall,
-#     # the number of queries per second becomes the major parameter
-#     # a = 10.0 / (1.0 - expected_recall)  ## controlling the slope, put it in terms of the expected recall to obtain better approximations as the expected recall is near to 1.0
-#     # c = 1.0 / (1.0 + exp(-a*(p.recall-expected_recall)))
-#     # c = 1.0 / (1.0 + exp(-a*(p.recall-expected_recall)))
-#     # return p.recall + 1.0/ p.seconds * c
-#     # return min(p.recall, expected_recall) + 1.0/ p.distances * c
-#     # return (1 - c) * p.recall + c / p.seconds
-#     # return (1 - c) * p.recall + c / p.distances
-#     if p.recall < expected_recall
-#         return p.recall
-#     else
-#         return 1 + 1.0 / p.seconds
-#         # return 10.0 + 1.0 / p.distances
-#     end
-# end
+"""
+    create_fitness_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
 
+# Description
+Returns a fast discrete-sigmoid-like function with the desired behaviour
+
+- `expected_recall` determines the objective recall (the desired top-inflection point of the sigmoid)
+- `step` determines the `recall`'s decay to apply decrease
+- `decrease` the decrease factor of the output on each step
+- `numsteps` maximum number of steps to be applied
+"""
 function create_fitness_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
     function fitness(p::PerformanceResult)
         recall = expected_recall
@@ -38,7 +30,13 @@ function create_fitness_function(expected_recall::Float64; step::Float64=0.99, d
     return fitness
 end
 
-function optimize_algo!{T, S <: LocalSearchAlgorithm}(algosearch::S, index::LocalSearchIndex{T}, recall::Float64, perf::Performance)
+"""
+    optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
+
+Optimizes a local search index for an specific algorithm to get the desired recall. Note that optimize for low-recall will yield to faster searches.
+The train queries are specified as part of the `perf` struct.
+"""
+function optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
     n = length(index.db)
     optimize_neighborhood!(index.neighborhood_algo, index, perf, recall)
     tabu = Set{S}()
@@ -94,20 +92,4 @@ function optimize_algo!{T, S <: LocalSearchAlgorithm}(algosearch::S, index::Loca
 end
 
 
-# function dominates(a::PerformanceResult, b::PerformanceResult)
-#     # speedup =>    1.0 / a.seconds >= 1 / b.seconds
-#     return a.recall >= b.recall && a.seconds <= b.seconds
-#     # return a.recall >= b.recall && a.distances < b.distances
-# end
 
-# function dominates(minimum_recall::Float64, a::PerformanceResult, b::PerformanceResult)
-#     # determines if `a` performance dominates `b`; after minimum_recall is reached the search time determines the domination
-#     return fitness_performance(minimum_recall, a) > fitness_performance(minimum_recall, b)
-#     # dominates(a, b)
-#     # if a.recall < minimum_recall || b.recall < minimum_recall
-#     #     return performance_dominated(a, b)
-#     # else
-#     #     return a.seconds <= b.seconds
-#     # end
-#     # return performance_dominated(a, b)
-# end
