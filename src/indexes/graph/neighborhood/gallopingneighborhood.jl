@@ -16,7 +16,7 @@ function GallopingNeighborhood(factor)
     return GallopingNeighborhood(factor, 1f0/factor, 0.95, 1.05, 1)
 end
 
-function optimize_neighborhood!{T}(algo::GallopingNeighborhood, index::LocalSearchIndex{T}, perf, recall)
+function optimize_neighborhood!(algo::GallopingNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
     # restarts, beam_size, montecarlo_size = index.restarts, index.beam_size, index.montecarlo_size
     # index.restarts, index.beam_size, index.montecarlo_size = 1, 1, 1
     SearchType = typeof(index.search_algo)
@@ -35,7 +35,7 @@ function optimize_neighborhood!{T}(algo::GallopingNeighborhood, index::LocalSear
     # index.restarts, index.beam_size, index.montecarlo_size = restarts, beam_size, montecarlo_size
 end
 
-function neighborhood{T}(algo::GallopingNeighborhood, index::LocalSearchIndex{T}, item::T)
+function neighborhood(algo::GallopingNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
     k = algo.neighborhood
     nbuffer = Vector{Int32}(0)
     knn = search(index, item, KnnResult(k))

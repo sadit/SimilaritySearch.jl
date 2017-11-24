@@ -1,5 +1,5 @@
 
-function estimate_knearest{T, D, R, R2, M}(db::Vector{T}, dist::D, choosek::Int, from::Int, q::T, tabu::M, res::R, near::R2)::R2
+function estimate_knearest(db::Vector{T}, dist::D, choosek::Int, from::Int, q::T, tabu::M, res::R, near::R2)::R2 where {T, D, R, R2, M}
     n::Int32 = length(db)
     # from = max(choosek, from)  ## it has no sense from < choosek!
     nrange = 1:n
@@ -16,12 +16,12 @@ function estimate_knearest{T, D, R, R2, M}(db::Vector{T}, dist::D, choosek::Int,
     near
 end
 
-function estimate_knearest{T, D, R, M}(db::Vector{T}, dist::D, choosek::Int, from::Int, q::T, tabu::M, res::R)::KnnResult
+function estimate_knearest(db::Vector{T}, dist::D, choosek::Int, from::Int, q::T, tabu::M, res::R)::KnnResult where {T, D, R, M}
     near = KnnResult(choosek)
     estimate_knearest(db, dist, choosek, from, q, tabu, res, near)
 end
 
-function estimate_from_oracle{T, D, R, M}(index::LocalSearchIndex{T,D}, q::T, beam::Result, tabu::M, res::R, oracle::Function)
+function estimate_from_oracle(index::LocalSearchIndex{T,D}, q::T, beam::Result, tabu::M, res::R, oracle::Function) where {T, D, R, M}
     for childID in oracle(q)
       if !tabu[childID]
         tabu[childID] = true

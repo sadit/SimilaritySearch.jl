@@ -26,7 +26,7 @@ NeighborhoodSearch(g::NeighborhoodSearch) = NeighborhoodSearch(g.candidates_size
 ### Steady state local search
 ###
 
-function neighborhood_search{T, R <: Result, MemoryType}(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, candidates::Result)
+function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, candidates::Result) where {T,MemoryType}
     @inbounds while length(candidates) > 0
         nodeID = shift!(candidates).objID
         cov = last(res).dist
@@ -43,7 +43,7 @@ function neighborhood_search{T, R <: Result, MemoryType}(gsearch::NeighborhoodSe
     end
 end
 
-function search{T, R <: Result}(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R)
+function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::Result) where {T}
     n = length(index.db)
     tabu = falses(n)
     candidates = SlugKnnResult(gsearch.candidates_size)

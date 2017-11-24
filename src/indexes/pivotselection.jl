@@ -18,7 +18,7 @@ export compute_distances, select_sss, select_tournament
 Computes the distances of :param:q to the set of references :param:refs (each index point to an item in :param:db)
 It returns an array of tuples (distance, refID)
 """
-function compute_distances{T, D}(db::Array{T,1}, dist::D, q::T, refs::Array{Int,1})
+function compute_distances(db::Array{T,1}, dist::D, q::T, refs::Array{Int,1}) where {T,D}
     [(dist(q, db[refs[refID]]), refID) for refID in 1:length(refs)]
 end
 
@@ -26,7 +26,7 @@ end
 Computes the distances of :param:q to the set of references :param:refs
 It returns an array of tuples (distance, refID)
 """
-function compute_distances{T, D}(refs::Array{T,1}, dist::D, q::T)
+function compute_distances(refs::Array{T,1}, dist::D, q::T) where {T,D}
     [(dist(q, ref), refID) for (refID, ref) in enumerate(refs)]
 end
 
@@ -37,7 +37,7 @@ pesimistic value based on numrefs
 
 It returns a set of pivots as a list of integers pointing to elements in :param:db
 """
-function select_tournament{T, D}(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int=0)
+function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int=0) where {T,D}
     if tournamentsize == 0
         tournamentsize = min(div(length(db), numrefs) - 1, Int(ceil(log2(numrefs)^2)))
     end
@@ -75,7 +75,7 @@ If you need better a better random selection set :param:shuffle_db as true
 
 It returns a set of pivots as a list of integers pointing to elements in :param:db
 """
-function select_sss{T, D}(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=true)
+function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=true) where {T,D}
     info("select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuffle_db=$(shuffle_db)")
     dmax::Float64 = 0.0
     s = Int(round(sqrt(length(db))/2))

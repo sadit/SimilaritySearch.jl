@@ -1,3 +1,6 @@
+"""
+This file contains a set of tests for LocalSearchIndex over databases of vectors (of Float32)
+"""
 
 function test_vector_index(search_algo, neighborhood_algo, dist, ksearch)
     @testset "indexing with different algorithms" begin

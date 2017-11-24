@@ -21,7 +21,7 @@ mutable struct Kvp{T, D} <: Index
     sparsetable::Array{Array{Item}}
 end
 
-function Kvp{T, D}(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1})
+function Kvp(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1}) where {T,D}
     info("Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refList)), dist=$(dist)")
     sparsetable = Array(Array{Item}, 0)
     refs = [db[x] for x in refList]
@@ -37,12 +37,12 @@ function Kvp{T, D}(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1})
     return Kvp(db, dist, refs, sparsetable)
 end
 
-function Kvp{T, D}(db::Array{T,1}, dist::D, k::Int, numrefs::Int)
+function Kvp(db::Array{T,1}, dist::D, k::Int, numrefs::Int) where {T,D}
     refs = rand(1:length(db), numrefs)
     Kvp(db, dist, k, refs)
 end
 
-function kvprefs{T, D}(obj::T, refs::Array{T,1}, k::Int, dist::D)
+function kvprefs(obj::T, refs::Array{T,1}, k::Int, dist::D) where {T,D}
     near = KnnResult(k)
     far = KnnResult(k)
     for (refID, ref) in enumerate(refs)
@@ -64,7 +64,7 @@ function kvprefs{T, D}(obj::T, refs::Array{T,1}, k::Int, dist::D)
     return row
 end
 
-function search{T, R <: Result}(index::Kvp{T}, q::T, res::R)
+function search(index::Kvp{T}, q::T, res::Result) where {T}
     # for i in range(1, length(index.db))
     d::Float64 = 0.0
     qI = [index.dist(q, piv) for piv in index.refs]
@@ -92,11 +92,11 @@ function search{T, R <: Result}(index::Kvp{T}, q::T, res::R)
     return res
 end
 
-function search{T}(index::Kvp{T}, q::T)
+function search(index::Kvp{T}, q::T) where {T}
     return search(index, q, NnResult())
 end
 
-function push!{T}(index::Kvp{T}, obj::T)
+function push!(index::Kvp{T}, obj::T) where {T}
     push!(index.db, obj)
     row = kvprefs(obj, index.refs, index.k, index.dist)
     push!(index.sparsetable, row)

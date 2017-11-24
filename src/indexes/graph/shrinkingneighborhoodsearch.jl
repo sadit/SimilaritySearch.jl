@@ -23,7 +23,7 @@ end
 ShrinkingNeighborhoodSearch() = ShrinkingNeighborhoodSearch(1, 1, 1.0f0)
 ShrinkingNeighborhoodSearch(other::ShrinkingNeighborhoodSearch) = ShrinkingNeighborhoodSearch(other.candidates_size, other.montecarlo_size, other.shrinking_cov)
 
-function shrinking_neighborhood_search{T, R <: Result, MemoryType}(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, candidates::Result)
+function shrinking_neighborhood_search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, candidates::Result) where {T,R <: Result,MemoryType}
     @inbounds while length(candidates) > 0
         best = shift!(candidates)
         cov = last(res).dist
@@ -43,7 +43,7 @@ function shrinking_neighborhood_search{T, R <: Result, MemoryType}(nsearch::Shri
     end
 end
 
-function search{T, R <: Result}(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R)
+function search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R) where {T,R <: Result}
     n = length(index.db)
     tabu = falses(n)
     candidates = SlugKnnResult(nsearch.candidates_size)

@@ -25,7 +25,7 @@ mutable struct Knr{T, D} <: Index
     # seqlist::Array{Array{I,1},1}
 end
 
-function save{T, D}(index::Knr{T, D}, filename::AbstractString)
+function save(index::Knr{T, D}, filename::AbstractString) where {T,D}
     saveDB(index.refs, "$(filename).refs")
     saveDB(index.invindex, "$(filename).invindex")
 
@@ -43,7 +43,7 @@ function save{T, D}(index::Knr{T, D}, filename::AbstractString)
 
 end
 
-function Knr{T, D}(filename::AbstractString, db::Array{T,1}, dist::D)
+function Knr(filename::AbstractString, db::Array{T,1}, dist::D) where {T,D}
     refs = loadDB(T, "$(filename).refs")
     invindex = loadDB(Array{Int32,1}, "$(filename).invindex")
     header = JSON.parsefile(filename)
@@ -54,7 +54,7 @@ function Knr{T, D}(filename::AbstractString, db::Array{T,1}, dist::D)
     return Knr(db, dist, refs, header["k"], header["ksearch"], header["minmatches"], invindex)
 end
 
-function Knr{T, D}(db::Array{T,1}, dist::D, refs::Array{T,1}, k::Int, minmatches::Int=1)
+function Knr(db::Array{T,1}, dist::D, refs::Array{T,1}, k::Int, minmatches::Int=1) where {T,D}
     info("Knr, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
     invindex = [Array(Int32, 0) for i in 1:length(refs)]
     seqindex = Sequential(refs, dist)
@@ -74,13 +74,13 @@ function Knr{T, D}(db::Array{T,1}, dist::D, refs::Array{T,1}, k::Int, minmatches
     Knr(db, dist, refs, k, k, minmatches, invindex)
 end
 
-function Knr{T, D}(db::Array{T,1}, dist::D, numrefs::Int, k::Int, minmatches::Int=1)
+function Knr(db::Array{T,1}, dist::D, numrefs::Int, k::Int, minmatches::Int=1) where {T,D}
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(db, dist, numrefs)]
     Knr(db, dist, refs, k, minmatches)
 end
 
-function search{T, D, R <: Result}(index::Knr{T, D}, q::T, res::R)
+function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
     dz = zeros(Int8, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = Sequential(index.refs, index.dist)
@@ -146,11 +146,11 @@ end
 #     return res
 # end
 
-function search{T, D}(index::Knr{T, D}, q::T)
+function search(index::Knr{T, D}, q::T) where {T,D}
     return search(index, q, NnResult())
 end
 
-function push!{T,  D}(index::Knr{T, D}, obj::T)
+function push!(index::Knr{T, D}, obj::T) where {T,D}
     push!(index.db, obj)
     seqindex = Sequential(index.refs, index.dist)
     res = search(seqindex, obj, KnnResult(index.k))
@@ -160,7 +160,7 @@ function push!{T,  D}(index::Knr{T, D}, obj::T)
     return length(index.db)
 end
 
-function optimize!{T,  D}(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128)
+function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128) where {T,D}
     info("optimizing Knr index for recall=$(recall)")
     perf = Performance(index.db, index.dist, numqueries, k)
     index.minmatches = 1

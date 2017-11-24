@@ -20,12 +20,17 @@ import Base: search, push!
 
 export Sequential, search, push!, save
 
+"""
+    Sequential{T, D}
+
+A simple exhaustive search index
+"""
 struct Sequential{T, D} <: Index
     db::Array{T,1}
     dist::D
 end
 
-function Sequential{T, D}(filename::AbstractString, db::Array{T,1}, dist::D)
+function Sequential(filename::AbstractString, db::Array{T,1}, dist::D) where {T, D}
     header = JSON.parse(open(readlines, filename)[1])
     if header["length"] != length(db)
         throw(ArgumentError("the database's length doesn't match"))
@@ -37,7 +42,7 @@ function Sequential{T, D}(filename::AbstractString, db::Array{T,1}, dist::D)
     return index
 end
 
-function save{T, D}(index::Sequential{T, D}, filename::AbstractString)
+function save(index::Sequential{T,D}, filename::AbstractString) where {T, D}
     f = open(filename, "w")
     header = Dict(
         "length" => length(index.db),
@@ -47,7 +52,7 @@ function save{T, D}(index::Sequential{T, D}, filename::AbstractString)
     close(f)
 end
 
-function search{T, D, R <: Result}(index::Sequential{T, D}, q::T, res::R)
+function search(index::Sequential{T,D}, q::T, res::Result) where {T, D}
     # for i in range(1, length(index.db))
     i::Int32 = 1
     d::Float64 = 0.0
@@ -60,11 +65,11 @@ function search{T, D, R <: Result}(index::Sequential{T, D}, q::T, res::R)
     return res
 end
 
-function search{T, D}(index::Sequential{T, D}, q::T)
+function search(index::Sequential{T, D}, q::T) where {T, D}
     return search(index, q, NnResult())
 end
 
-function push!{T, D}(index::Sequential{T, D}, item::T)
+function push!(index::Sequential{T, D}, item::T) where {T, D}
     push!(index.db, item)
     return length(index.db)
 end

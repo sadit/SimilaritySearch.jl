@@ -1,4 +1,8 @@
-function test_seq_index(search_algo, neighborhood_algo, dist, ksearch)
+"""
+This file contains a set of tests for LocalSearchIndex over databases of sequences
+"""
+
+function test_index(search_algo, neighborhood_algo, dist, ksearch)
     @testset "indexing with different algorithms" begin
         index = LocalSearchIndex(Vector{Int}, dist, search=search_algo, neighborhood=neighborhood_algo)
         index.options.verbose = false
@@ -40,7 +44,7 @@ end
     for search_algo in [BeamSearch()]
         for neighborhood_algo in [LogNeighborhood(1.5)]
             for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
-                index, numres = test_seq_index(search_algo, neighborhood_algo, dist, ksearch)
+                index, numres = test_index(search_algo, neighborhood_algo, dist, ksearch)
                 acc += numres
                 expected_acc += ksearch
             end

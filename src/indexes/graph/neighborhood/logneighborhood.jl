@@ -8,10 +8,10 @@ function LogNeighborhood()
     return LogNeighborhood(2)
 end
 
-function optimize_neighborhood!{T}(algo::LogNeighborhood, index::LocalSearchIndex{T}, perf, recall)
+function optimize_neighborhood!(algo::LogNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
 end
 
-function neighborhood{T}(algo::LogNeighborhood, index::LocalSearchIndex{T}, item::T)
+function neighborhood(algo::LogNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
     n = length(index.db)
     k = max(1, log(algo.base, n) |> ceil |> Int)
 

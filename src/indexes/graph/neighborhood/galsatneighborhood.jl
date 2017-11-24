@@ -8,11 +8,11 @@ function GallopingSatNeighborhood()
     return GallopingSatNeighborhood(GallopingNeighborhood())
 end
 
-function optimize_neighborhood!{T}(algo::GallopingSatNeighborhood, index::LocalSearchIndex{T}, perf, recall)
+function optimize_neighborhood!(algo::GallopingSatNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
     optimize_neighborhood!(algo.g, index, perf, recall)
 end
 
-function neighborhood{T}(algo::GallopingSatNeighborhood, index::LocalSearchIndex{T}, item::T)
+function neighborhood(algo::GallopingSatNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
     knn = search(index, item, KnnResult(algo.g.neighborhood))
     N = Vector{Int32}(0)
 

@@ -17,14 +17,14 @@
 export Laesa
 # abstract PivotRowType <: Array{Float64, 1}
 
-struct Laesa{T, D} <: Index
+struct Laesa{T,D} <: Index
     db::Vector{T}
     dist::D
     pivots::Vector{T}
     table::Vector{Vector{Float64}}
 end
 
-function Laesa{T, D}(db::Vector{T}, dist::D, pivots::Vector{T})
+function Laesa(db::Vector{T}, dist::D, pivots::Vector{T}) where {T,D}
     info("Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)")
     table = Vector{Vector{Float64}}(length(db))
     for i=1:length(db)
@@ -38,12 +38,12 @@ function Laesa{T, D}(db::Vector{T}, dist::D, pivots::Vector{T})
     Laesa(db, dist, pivots, table)
 end
 
-function Laesa{T, D}(db::Vector{T}, dist::D, numPivots::Int)
+function Laesa(db::Vector{T}, dist::D, numPivots::Int) where {T,D}
     pivots = rand(db, numPivots)
     Laesa(db, dist, pivots)
 end
 
-function search{T, D, R <: Result}(index::Laesa{T,D}, q::T, res::R)
+function search(index::Laesa{T,D}, q::T, res::Result) where {T,D}
     # for i in range(1, length(index.db))
     d::Float64 = 0.0
     qD = [index.dist(q, piv) for piv in index.pivots]
@@ -69,11 +69,11 @@ function search{T, D, R <: Result}(index::Laesa{T,D}, q::T, res::R)
     return res
 end
 
-function search{T, D}(index::Laesa{T,D}, q::T)
+function search(index::Laesa{T,D}, q::T) where {T,D}
     return search(index, q, NnResult())
 end
 
-function push!{T, D}(index::Laesa{T,D}, obj::T)
+function push!(index::Laesa{T,D}, obj::T) where {T,D}
     push!(index.db, obj)
     row = Array(Float64, length(index.pivots))
     for pivID in 1:length(index.pivots)

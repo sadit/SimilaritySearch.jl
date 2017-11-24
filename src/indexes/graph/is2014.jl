@@ -46,7 +46,7 @@ end
 #    return best k elements from result;
 # }
 
-function greedy_search_is2014{T, R <: Result}(index::LocalSearchIndex{T}, q::T, res::R, tabu::BitVector, candidates::SlugKnnResult)
+function greedy_search_is2014(index::LocalSearchIndex{T}, q::T, res::R, tabu::BitVector, candidates::SlugKnnResult) where {T,R <: Result}
     nodeID::Int32 = rand(1:length(index.db))
     
     # if !in(nodeID, tabu)
@@ -78,7 +78,7 @@ function greedy_search_is2014{T, R <: Result}(index::LocalSearchIndex{T}, q::T, 
     end
 end
 
-function search{T, R <: Result}(algorithm::Is2014Search, index::LocalSearchIndex{T}, q::T, res::R)
+function search(algorithm::Is2014Search, index::LocalSearchIndex{T}, q::T, res::R) where {T,R <: Result}
     n = length(index.db)
     tabu = falses(n)
     restarts = min(abs(index.restarts), n)

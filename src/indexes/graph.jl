@@ -36,13 +36,13 @@ mutable struct LocalSearchIndex{T,D} <: Index
     options::LocalSearchOptions
 end
 
-function LocalSearchIndex{D}(dtype::Type, dist::D;
+function LocalSearchIndex(dtype::Type, dist::D;
                              recall=0.9,
                              k=10,
                              search::LocalSearchAlgorithm=BeamSearch(),
                              neighborhood::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
                              options::LocalSearchOptions=LocalSearchOptions()
-                             )
+                             ) where {D}
     LocalSearchIndex(search, neighborhood, Vector{dtype}(), dist, recall, k, Vector{Vector{Int32}}(), options)
 end
 
@@ -78,7 +78,7 @@ include("graph/deltasearch.jl")
 
 
 #### save index
-function save{T,D}(ostream, index::LocalSearchIndex{T,D}; saveitems=true, savelinks=true)
+function save(ostream, index::LocalSearchIndex{T,D}; saveitems=true, savelinks=true) where {T,D}
     header = Dict(
                   "search_algo" => string(index.search_algo),
                   "neighborhood_algo" => string(index.neighborhood_algo),
@@ -105,7 +105,7 @@ end
 
 
 #### load index
-function _load_index{T, D}(istream, ::Type{T}, dist::D)
+function _load_index(istream, ::Type{T}, dist::D) where {T,D}
     h = JSON.parse(readline(istream))
     index = LocalSearchIndex(T, dist, recall=h["recall"], k=h["k"])
     index.search_algo = eval(parse(h["search_algo"]))
@@ -114,19 +114,19 @@ function _load_index{T, D}(istream, ::Type{T}, dist::D)
     index
 end
 
-function load{T, D}(istream, ::Type{LocalSearchIndex}, db::Vector{T}, dist::D)
+function load(istream, ::Type{LocalSearchIndex}, db::Vector{T}, dist::D) where {T,D}
     index = _load_index(istream, T, dist)
     load(istream, index, db)
     return index
 end
 
-function load{T, D}(istream, ::Type{LocalSearchIndex}, ::Type{T}, dist::D; loaditems=true)
+function load(istream, ::Type{LocalSearchIndex}, ::Type{T}, dist::D; loaditems=true) where {T,D}
     index = _load_index(istream, T, dist)
     loaditems && load(istream, index)
     return index
 end
 
-function load{T, D}(istream, index::LocalSearchIndex{T, D}, db::Vector{T})
+function load(istream, index::LocalSearchIndex{T, D}, db::Vector{T}) where {T,D}
     for i in 1:length(db)
         assert(!eof(istream))
         item = db[i]
@@ -135,7 +135,7 @@ function load{T, D}(istream, index::LocalSearchIndex{T, D}, db::Vector{T})
     end
 end
 
-function load{T, D}(istream, index::LocalSearchIndex{T, D})
+function load(istream, index::LocalSearchIndex{T, D}) where {T,D}
     while !eof(istream)
         n = length(index.db)
         item = load(istream, T)
@@ -147,7 +147,7 @@ end
 ### Basic operations on the index
 const NNS_PUSH_LOGBASE = 2
 
-function find_neighborhood{T}(index::LocalSearchIndex{T}, item::T)
+function find_neighborhood(index::LocalSearchIndex{T}, item::T) where {T}
     n::Int = length(index.db)
     n == 0 && return (NnResult(), Int32[])
     k::Int = ceil(Int, log(NNS_PUSH_LOGBASE, 1+n))
@@ -160,7 +160,7 @@ function find_neighborhood{T}(index::LocalSearchIndex{T}, item::T)
     return neighborhood(index.neighborhood_algo, index, item)
 end
 
-function push_neighborhood!{T}(index::LocalSearchIndex{T}, item::T, L::Vector{Int32}, n::Int)
+function push_neighborhood!(index::LocalSearchIndex{T}, item::T, L::Vector{Int32}, n::Int) where {T}
     for objID in L
         push!(index.links[objID], 1+n)
     end
@@ -169,29 +169,29 @@ function push_neighborhood!{T}(index::LocalSearchIndex{T}, item::T, L::Vector{In
     push!(index.db, item)
 end
 
-function push!{T}(index::LocalSearchIndex{T}, item::T)
+function push!(index::LocalSearchIndex{T}, item::T) where {T}
     knn, neighbors = find_neighborhood(index, item)
     push_neighborhood!(index, item, neighbors, length(index.db))
     index.options.verbose && length(index.db) % 5000 == 0 && info("added n=$(n+1), neighborhood=$(length(neighbors)), $(now())")
     knn, neighbors
 end
 
-function fit!{T,D}(index::LocalSearchIndex{T,D}, dataset::Vector{T})
+function fit!(index::LocalSearchIndex{T,D}, dataset::Vector{T}) where {T,D}
     for item in dataset
         push!(index, item)
     end
 end
 
-function search{T, R <: Result}(index::LocalSearchIndex{T}, q::T, res::R)
+function search(index::LocalSearchIndex{T}, q::T, res::R) where {T,R <: Result}
     search(index.search_algo, index, q, res)
     return res
 end
 
-function search{T}(index::LocalSearchIndex{T}, q::T)
+function search(index::LocalSearchIndex{T}, q::T) where {T}
     return search(index, q, NnResult())
 end
 
-function optimize!{T}(index::LocalSearchIndex{T}, recall::Float64; perf::Nullable{Performance}=Nullable{Performance}())
+function optimize!(index::LocalSearchIndex{T}, recall::Float64; perf::Nullable{Performance}=Nullable{Performance}()) where {T}
     perf = isnull(perf) ? Performance(index.db, index.dist) : get(perf)
     optimize_algo!(index.search_algo, index, recall, perf)
 end
@@ -214,7 +214,7 @@ function search_at(index::LocalSearchIndex{T}, q::T, start::I, res::R) where {T,
     search_at(index, q, start, res, tabu)
 end
 
-function compute_aknn{T}(index::LocalSearchIndex{T}, k::Int) # k=index.k, recall=index.recall)
+function compute_aknn(index::LocalSearchIndex{T}, k::Int) where {T} # k=index.k, recall=index.recall)
     # optimize!(index, recall, perf=Performance(index.db, index.dist, k=k))
     n = length(index.db)
     aknn = [KnnResult(k) for i=1:n]

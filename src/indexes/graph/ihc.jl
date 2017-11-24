@@ -23,7 +23,7 @@ end
 IHCSearch() = IHCSearch(1, 1)
 IHCSearch(ihc::IHCSearch) = IHCSearch(ihc.restarts, ihc.montecarlo_size)
 
-function greedy_search_with_tabu{T, R <: Result, MemoryType}(isearch::IHCSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, nodeID::Int64)
+function greedy_search_with_tabu(isearch::IHCSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, nodeID::Int64) where {T,MemoryType}
     omin::Int=-1
     dmin::Float32 = typemax(Float32)
 
@@ -51,7 +51,7 @@ function greedy_search_with_tabu{T, R <: Result, MemoryType}(isearch::IHCSearch,
     end
 end
 
-function search{T, R <: Result}(isearch::IHCSearch, index::LocalSearchIndex{T}, q::T, res::R)
+function search(isearch::IHCSearch, index::LocalSearchIndex{T}, q::T, res::Result) where {T}
     n = length(index.db)
     tabu = falses(n)
     restarts = min(isearch.restarts, ceil(Int, log2(n)))

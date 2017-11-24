@@ -10,7 +10,7 @@ DeltaSearch(other::DeltaSearch) = DeltaSearch(other.montecarlo_size, other.delta
 
 ### local search algorithm
 
-function delta_search{T, R <: Result, MemoryType}(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType)
+function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType) where {T, MemoryType}
     # first beam
     beam = SlugKnnResult(Int(bsearch.delta * maxlength(res)))
     if isnull(index.options.oracle)
@@ -47,7 +47,7 @@ function delta_search{T, R <: Result, MemoryType}(bsearch::DeltaSearch, index::L
     return res
 end
 
-function search{T, R <: Result}(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::R)
+function search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::Result) where {T}
     length(index.db) == 0 && return res
     tabu = falses(length(index.db))
     delta_search(bsearch, index, q, res, tabu)

@@ -8,11 +8,11 @@ function LogSatNeighborhood()
     return LogSatNeighborhood(1.1)
 end
 
-function optimize_neighborhood!{T}(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, perf, recall)
+function optimize_neighborhood!(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
     # optimize_neighborhood!(algo.g, index, perf, recall)
 end
 
-function neighborhood{T}(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, item::T)
+function neighborhood(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
     knn = search(index, item, KnnResult(k))

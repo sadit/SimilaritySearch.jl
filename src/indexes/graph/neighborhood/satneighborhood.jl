@@ -8,10 +8,10 @@ function SatNeighborhood()
     return SatNeighborhood(64)
 end
 
-function optimize_neighborhood!{T}(algo::SatNeighborhood, index::LocalSearchIndex{T}, perf, recall)
+function optimize_neighborhood!(algo::SatNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
 end
 
-function neighborhood{T}(algo::SatNeighborhood, index::LocalSearchIndex{T}, item::T)
+function neighborhood(algo::SatNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
     N = Int32[]
     knn = search(index, item, KnnResult(algo.k))
     @inbounds for p in knn

@@ -24,8 +24,18 @@ BeamSearch() = BeamSearch(1, 1, 1)
 BeamSearch(other::BeamSearch) = BeamSearch(other.candidates_size, other.montecarlo_size, other.beam_size)
 
 ### local search algorithm
+"""
+    beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle::Nullable{Function}) where {T, MemoryType}
 
-function beam_search{T, R <: Result, MemoryType}(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, oracle::Nullable{Function})
+Tries to reach the set of nearest neighbors specified in `res` for `q`.
+- `bsearch`: the parameters of `BeamSearch`
+- `index`: the local search index
+- `q`: the query
+- `res`: The result object, it stores the results and also specifies the kind of query
+- `tabu`: A dictionary like object to memorize all already-computed items
+- `oracle`: A _hint_ function that returns _near_ objects for `q`, the idea is to avoid most of the searching cost at the cost of domain dependencies (encoded in `oracle`)
+"""
+function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle::Nullable{Function}) where {T, MemoryType}
     # first beam
     beam = SlugKnnResult(bsearch.beam_size)
     if isnull(oracle)
@@ -59,7 +69,7 @@ function beam_search{T, R <: Result, MemoryType}(bsearch::BeamSearch, index::Loc
     beam
 end
 
-function search{T, R <: Result}(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::R)
+function search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result) where {T}
     length(index.db) == 0 && return res
     tabu = falses(length(index.db))
     beam_search(bsearch, index, q, res, tabu, index.options.oracle)
