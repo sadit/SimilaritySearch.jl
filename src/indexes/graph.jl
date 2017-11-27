@@ -28,7 +28,7 @@ LocalSearchOptions() = LocalSearchOptions(true)
 mutable struct LocalSearchIndex{T,D} <: Index
     search_algo::LocalSearchAlgorithm
     neighborhood_algo::NeighborhoodAlgorithm
-    db::Vector{T}
+    db::AbstractVector{T}
     dist::D
     recall::Float64
     k::Int
@@ -36,28 +36,29 @@ mutable struct LocalSearchIndex{T,D} <: Index
     options::LocalSearchOptions
 end
 
-function LocalSearchIndex(dtype::Type, dist::D;
-                             recall=0.9,
-                             k=10,
-                             search::LocalSearchAlgorithm=BeamSearch(),
-                             neighborhood::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
-                             options::LocalSearchOptions=LocalSearchOptions()
-                             ) where {D}
+function LocalSearchIndex(
+    dtype::Type, dist::D;
+    recall=0.9,
+    k=10,
+    search::LocalSearchAlgorithm=BeamSearch(),
+    neighborhood::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
+    options::LocalSearchOptions=LocalSearchOptions()
+) where {D}
     LocalSearchIndex(search, neighborhood, Vector{dtype}(), dist, recall, k, Vector{Vector{Int32}}(), options)
 end
 
-function LocalSearchIndex(recall=0.9, k=10)
-    LocalSearchIndex(
-                     BeamSearch(),
-                     LogSatNeighborhood(1.1),
-                     Vector{Vector{Float32}}(),
-                     L2SquaredDistance(),
-                     recall,
-                     k,
-                     Vector{Vector{Int32}}(),
-                     LocalSearchOptions()
-                     )
-end
+# function LocalSearchIndex(recall::Float64=0.9, k::Int=10)
+#     LocalSearchIndex(
+#                      BeamSearch(),
+#                      LogSatNeighborhood(1.1),
+#                      Vector{Vector{Float32}}(),
+#                      L2SquaredDistance(),
+#                      recall,
+#                      k,
+#                      Vector{Vector{Int32}}(),
+#                      LocalSearchOptions()
+#                      )
+# end
 
 include("graph/utils.jl")
 include("graph/opt.jl")

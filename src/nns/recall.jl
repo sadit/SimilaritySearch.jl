@@ -22,7 +22,7 @@ function equals(a::AbstractFloat, b::AbstractFloat)
     return abs(a - b) <= eps(typeof(a))
 end
 
-function generic_recall(a::Array{T,1}, b::Array{T,1}, shiftK::Int=0) where {T <: Real}
+function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}, shiftK::Int=0) where {T <: Real}
     ai::Int = 1
     bi::Int = 1
     matches::Int = 0
@@ -42,7 +42,7 @@ function generic_recall(a::Array{T,1}, b::Array{T,1}, shiftK::Int=0) where {T <:
     return (matches-shiftK) / (length(a)-shiftK)
 end
 
-function recall(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
+function recall(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Real}
     A = [item for item in a]
     B = [item for item in b]
     sort!(A)
@@ -50,7 +50,7 @@ function recall(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
     generic_recall(A, B)
 end
 
-function recall(a::Array{Item,1}, b::Array{Item,1})
+function recall(a::AbstractVector{Item}, b::AbstractVector{Item})
     A = [item.objID for item in a]
     B = [item.objID for item in b]
     sort!(A)
@@ -67,7 +67,7 @@ function recall(a::Result, b::Result)
     generic_recall(A, B)
 end
 
-function recallByDist(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
+function recallByDist(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Real}
     A = [d for d in a]
     B = [d for d in b]
     sort!(A)
@@ -75,7 +75,7 @@ function recallByDist(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
     generic_recall(A, B)
 end
 
-function recallByDist(a::Array{Item,1}, b::Array{Item,1})
+function recallByDist(a::AbstractVector{Item}, b::AbstractVector{Item})
     A = [item.dist for item in a]
     B = [item.dist for item in b]
     sort!(A)

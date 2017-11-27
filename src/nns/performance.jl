@@ -20,16 +20,16 @@ mutable struct PerformanceResult
     distances::Float64
 end
 
-mutable struct Performance{T, R <: Result}
-    db::Vector{T}
-    querySet::Vector{T}
-    results::Vector{R}
+mutable struct Performance{T}
+    db::AbstractVector{T}
+    querySet::AbstractVector{T}
+    results::Vector{Result}
     expected_k::Int
     shift_expected_k::Int
     seqtime::Float64
 end
 
-function Performance{T, D}(db::Vector{T}, dist::D, querySet::Vector{T}; expected_k::Int=10)
+function Performance(db::AbstractVector{T}, dist::D, querySet::AbstractVector{T}; expected_k::Int=10) where {T,D}
     results = Vector{Result}(length(querySet))
     s = Sequential(db, dist)
 
@@ -38,11 +38,10 @@ function Performance{T, D}(db::Vector{T}, dist::D, querySet::Vector{T}; expected
         results[i] = search(s, querySet[i], KnnResult(expected_k))
     end
     
-    
     return Performance(db, querySet, results, expected_k, 0, (time() - start_time) / length(querySet))
 end
 
-function Performance{T, D}(db::Vector{T}, dist::D; numQueries::Int=128, expected_k::Int=10)
+function Performance(db::AbstractVector{T}, dist::D; numQueries::Int=128, expected_k::Int=10) where {T,D}
     querySet = rand(db, numQueries)
     expected_k += 1  # necessary since we are using items from the same dataset
     results = Vector{Result}(numQueries)
