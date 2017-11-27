@@ -22,7 +22,7 @@ function equals(a::AbstractFloat, b::AbstractFloat)
     return abs(a - b) <= eps(typeof(a))
 end
 
-function generic_recall{T <: Real}(a::Array{T,1}, b::Array{T,1}, shiftK::Int=0)
+function generic_recall(a::Array{T,1}, b::Array{T,1}, shiftK::Int=0) where {T <: Real}
     ai::Int = 1
     bi::Int = 1
     matches::Int = 0
@@ -42,7 +42,7 @@ function generic_recall{T <: Real}(a::Array{T,1}, b::Array{T,1}, shiftK::Int=0)
     return (matches-shiftK) / (length(a)-shiftK)
 end
 
-function recall{T <: Real}(a::Array{T,1}, b::Array{T,1})
+function recall(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
     A = [item for item in a]
     B = [item for item in b]
     sort!(A)
@@ -67,7 +67,7 @@ function recall(a::Result, b::Result)
     generic_recall(A, B)
 end
 
-function recallByDist{T <: Real}(a::Array{T,1}, b::Array{T,1})
+function recallByDist(a::Array{T,1}, b::Array{T,1}) where {T <: Real}
     A = [d for d in a]
     B = [d for d in b]
     sort!(A)

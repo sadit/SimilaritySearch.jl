@@ -13,17 +13,17 @@
 #    limitations under the License.
 
 # using StaticArrays
-export loadDB, saveDB, loadGloveDB, load, save, loads, saves
+export loadDB, saveDB, loadWordVectors, load, save, loads, saves
 
-function loads{T <: Real}(line::String, ::Type{Vector{T}})::Vector{T}
+function loads(line::String, ::Type{Vector{T}})::Vector{T} where {T <: Real}
     T[parse(T, x) for x in split(line)]
 end
 
-function saves{T <: Real}(vec::Vector{T})
+function saves(vec::Vector{T}) where {T <: Real}
     join([string(x) for x in vec], ' ')
 end
 
-function load{T <: Real}(istream::IO, ::Type{Vector{T}})::Vector{T}
+function load(istream::IO, ::Type{Vector{T}})::Vector{T} where {T <: Real}
     # T[parse(T, x) for x in split(readline(istream))]
     len = read(istream, Int32)
     vec = Vector{T}(len)
@@ -33,7 +33,7 @@ function load{T <: Real}(istream::IO, ::Type{Vector{T}})::Vector{T}
     vec
 end
 
-function save{T <: Real}(ostream::IO, vec::Vector{T})
+function save(ostream::IO, vec::Vector{T}) where {T <: Real}
     write(ostream, length(vec) |> Int32)
     for i in 1:length(vec)
         write(ostream, vec[i])
@@ -56,7 +56,7 @@ function loadDB(t::Type, filename::String)
     return db
 end
 
-function saveDB{T}(db::Vector{T}, filename::AbstractString)
+function saveDB(db::Vector{T}, filename::AbstractString) where {T}
     f = open(filename, "w")
     for (i, item) in enumerate(db)
         i % 10000 == 0 && info("saving $(filename), advance  $(i) of $(length(db))")
@@ -65,7 +65,7 @@ function saveDB{T}(db::Vector{T}, filename::AbstractString)
     close(f)
 end
 
-function loadGloveDB(filename::AbstractString)
+function loadWordVectors(filename::AbstractString)
     words = Vector{String}(0)
     db = Vector{Vector{Float32}}(0)
 
