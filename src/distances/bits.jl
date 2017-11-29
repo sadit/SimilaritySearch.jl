@@ -6,12 +6,12 @@ export BinHammingDistance, setbit, resetbit
 
 mutable struct BinHammingDistance
     calls::Int
-    HammingDistance() = new(0)
+    BinHammingDistance() = new(0)
 end
 
-function (o::BinHammingDistance){T <: Unsigned}(a::T, b::T)
+function (o::BinHammingDistance)(a::T, b::T) where {T <: Unsigned}
     o.calls += 1
-    return count_ones(a $ b)
+    return count_ones(a ⊻ b) 
 end
 
 const ONE8 = UInt8(1)

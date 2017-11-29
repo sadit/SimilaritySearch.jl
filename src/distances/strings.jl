@@ -6,7 +6,7 @@ sim_common_prefix computes the length of the common prefix among
 two strings represented as arrays
 """
 
-function sim_common_prefix{T <: Any}(a::T, b::T)::Int32
+function sim_common_prefix(a::T, b::T)::Int where {T <: Any}
     len_a::Int = length(a)
     len_b::Int = length(b)
     i::Int = 1
@@ -23,7 +23,7 @@ mutable struct CommonPrefixDistance
 	CommonPrefixDistance() = new(0)
 end
 
-function (o::CommonPrefixDistance){T}(a::T, b::T)
+function (o::CommonPrefixDistance)(a::T, b::T) where {T}
 	o.calls += 1
 	return sim_common_prefix(a, b) / max(length(a), length(b))
 end
@@ -45,7 +45,7 @@ LevDistance() = GenericLevenshtein(0, 1, 1, 1)
 """LCS computes the distance associated to the longest common subsequence"""
 LcsDistance() = GenericLevenshtein(0, 1, 1, 2)
 
-function (o::GenericLevenshtein){T <: Any}(a::T, b::T)::Int32
+function (o::GenericLevenshtein)(a::T, b::T)::Int where {T <: Any}
     if length(a) < length(b)
         a, b = b, a
     end
@@ -81,7 +81,7 @@ function (o::GenericLevenshtein){T <: Any}(a::T, b::T)::Int32
     return prevA
 end
 
-function kerrormatch{T1 <: Any, T2 <: Any}(a::T1, b::T2, errors::Int)::Bool
+function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any}
     # if length(a) < length(b)
     #     a, b = b, a
     # end
@@ -119,7 +119,7 @@ function kerrormatch{T1 <: Any, T2 <: Any}(a::T1, b::T2, errors::Int)::Bool
     return false
 end
 
-function best_match_levenshtein{T1 <: Any, T2 <: Any}(a::T1, b::T2)::Int32
+function best_match_levenshtein(a::T1, b::T2)::Int where {T1 <: Any,T2 <: Any}
     # if length(a) < length(b)
     #     a, b = b, a
     # end
@@ -130,7 +130,7 @@ function best_match_levenshtein{T1 <: Any, T2 <: Any}(a::T1, b::T2)::Int32
     alen == 0 && return blen
     blen == 0 && return alen
 
-    C::Vector{Int} = Vector{Int}(0:blen)
+    C::Vector{Int} = 1:blen |> collect
 
     mindist = alen
     @inbounds for i in 1:alen
@@ -141,7 +141,7 @@ function best_match_levenshtein{T1 <: Any, T2 <: Any}(a::T1, b::T2)::Int32
 	while j <= blen
 	    cost::Int = 1
 	    if a[i] == b[j]
-		cost = 0
+	    	cost = 0
 	    end
 	    C[j] = prevA
 	    j += 1
@@ -166,7 +166,7 @@ mutable struct HammingDistance
     HammingDistance() = new(0)
 end
 
-function (o::HammingDistance){T <: Any}(a::T, b::T)::Int32
+function (o::HammingDistance)(a::T, b::T)::Int where {T <: Any}
     o.calls += 1
     d::Int = 0
 

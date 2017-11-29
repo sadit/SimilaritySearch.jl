@@ -7,7 +7,7 @@ mutable struct L1Distance
     L1Distance() = new(0)
 end
 
-function (o::L1Distance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
+function (o::L1Distance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -25,7 +25,7 @@ mutable struct L2Distance
     L2Distance() = new(0)
 end
 
-function (o::L2Distance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
+function (o::L2Distance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -43,7 +43,7 @@ mutable struct L2SquaredDistance
     L2SquaredDistance() = new(0)
 end
 
-function (o::L2SquaredDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
+function (o::L2SquaredDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -62,7 +62,7 @@ mutable struct LInfDistance
     LInfDistance() = new(0)
 end
 
-function (o::LInfDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
+function (o::LInfDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -83,7 +83,7 @@ mutable struct LpDistance
     LpDistance(p::F) where {F <: Real} = new(0, convert(Float32, p))
 end
 
-function (o::LpDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
+function (o::LpDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 

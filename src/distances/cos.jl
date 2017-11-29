@@ -18,7 +18,7 @@ function DenseCosine{T}(vec::Vector{T})
     DenseCosine(vec, 1/sqrt(xnorm))
 end
 
-function (o::AngleDistance){T <: Real}(a::DenseCosine{T}, b::DenseCosine{T})::Float64
+function (o::AngleDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     o.calls += 1
     m = max(-1, sim_cos(a, b))
     return acos(min(1, m))
@@ -29,12 +29,12 @@ mutable struct CosineDistance
     CosineDistance() = new(0)
 end
 
-function (o::CosineDistance){T <: Real}(a::DenseCosine{T}, b::DenseCosine{T})::Float64
+function (o::CosineDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     o.calls += 1
     return -sim_cos(a, b) + 1
 end
 
-function sim_cos{T <: Real}(a::DenseCosine{T}, b::DenseCosine{T})::Float64
+function sim_cos(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     sum::T = zero(T)
     avec = a.vec
     bvec = b.vec
@@ -44,30 +44,4 @@ function sim_cos{T <: Real}(a::DenseCosine{T}, b::DenseCosine{T})::Float64
     end
 
     sum * a.invnorm * b.invnorm
-end
-
-function save(ostream, item::DenseCosine)
-    write(ostream, length(item.vec) |> Int32)
-    for x in item.vec
-        write(ostream, x)
-    end
-    write(ostream, item.invnorm)
-end
-
-function load{T}(istream, ::Type{DenseCosine{T}})::DenseCosine{T}
-    vec = Vector{T}(read(istream, Int32))
-    @inbounds for i in 1:length(vec)
-        vec[i] = read(istream, T)
-    end
-    invnorm = read(istream, T)
-    DenseCosine(vec, invnorm)
-end
-
-function saves(item::DenseCosine)
-    join([string(x) for x in item.vec], ' ')
-end
-
-function loads{T}(line::String, ::Type{DenseCosine{T}})::DenseCosine{T}
-    vec = [parse(T, x) for x in split(line, ' ')]
-    DenseCosine(vec)
 end

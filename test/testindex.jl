@@ -7,29 +7,31 @@ using SimilaritySearch
 function test_index(dist, ksearch)
     @testset "indexing with different algorithms" begin
         n = 1000
-        dim = 2
+        dim = 7
         σ = 127
         κ = 3
+        V = collect(1:30)
         function create_item()
-            s = unique(rand(1:10, dim))
+            s = unique(rand(V, dim))
             if dist isa JaccardDistance || dist isa DiceDistance || dist isa IntersectionDistance
                 sort!(s)
             end
             return s
         end
         info("inserting items into the index")
-        db = Vector{Vector{Int}}(n)        
+        db = Vector{Vector{Int}}(n)
         for i in 1:n
-            db[i] = rand(Int, dim)
+            db[i] = create_item()
         end
         index = Knr(db, dist, σ, κ)
         optimize!(index, recall=0.9)
         info("done; now testing")
+        info("#refs:", index.refs |> length, ", #n:", length(index.db))
         @test length(index.db) == n
         item = create_item()
         res = search(index, item, KnnResult(ksearch))
         @show res
-        @show index.invindex[1]
+        @show "invindex voc:", index.invindex |> length, index.invindex
         return index, length(res)
     end
 end
@@ -41,7 +43,8 @@ end
     expected_acc = 0
     local index
 
-    for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
+    #for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
+    for dist in [JaccardDistance()]
         index, numres = test_index(dist, ksearch)
         acc += numres
         expected_acc += ksearch
