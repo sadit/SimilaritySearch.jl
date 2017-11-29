@@ -7,19 +7,22 @@ using SimilaritySearch
 function test_vector_index(dist, ksearch)
     @testset "indexing with different algorithms" begin
         n = 1000
-        dim = 3
-        info("inserting items to the index")
-        db = Vector{Float32}[]
+        dim = 2
+        σ = 127
+        κ = 3
+        info("inserting items into the index")
+        db = Vector{Vector{Float32}}(n)        
         for i in 1:n
-            vec = rand(Float32, dim)
-            push!(db, vec)
+            db[i] = rand(Float32, dim)
         end
     
-        index = Knr(db, dist, 100, 7)
+        index = Knr(db, dist, σ, κ)
+        optimize!(index, recall=0.9)
         info("done; now testing")
         @test length(index.db) == n
         res = search(index, rand(Float32, dim), KnnResult(ksearch))
         @show res
+        @show index.invindex[1]
         return index, length(res)
     end
 end
@@ -31,7 +34,8 @@ end
     expected_acc = 0
     local index 
 
-    for dist in Any[L2SquaredDistance(), L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
+    #for dist in Any[L2SquaredDistance(), L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
+    for dist in Any[LInfDistance(), LpDistance(0.5)]
         index, numres = test_vector_index(dist, ksearch)
         acc += numres
         expected_acc += ksearch

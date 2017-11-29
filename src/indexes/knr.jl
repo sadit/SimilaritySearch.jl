@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -24,41 +24,15 @@ mutable struct Knr{T, D} <: Index
     invindex::Vector{Vector{Int32}}
 end
 
-# function save(index::Knr{T, D}, filename::AbstractString) where {T,D}
-#     saveDB(index.refs, "$(filename).refs")
-#     saveDB(index.invindex, "$(filename).invindex")
-#     f = open(filename, "w")
-#     header = Dict(
-#         "length" => length(index.db),
-#         "type" => string(typeof(index)),
-#         "numrefs" => length(index.refs),
-#         "k" => index.k,
-#         "ksearch" => index.ksearch,
-#         "minmatches" => index.minmatches,
-#     )
-#     write(f, JSON.json(header, 2), "\n")
-#     close(f)
-# end
-
-# function Knr(filename::AbstractString, db::Array{T,1}, dist::D) where {T,D}
-#     refs = loadDB(T, "$(filename).refs")
-#     invindex = loadDB(Array{Int32,1}, "$(filename).invindex")
-#     header = JSON.parsefile(filename)
-#     if length(refs) != header["numrefs"] || length(db) != header["length"]
-#         warn("length(db) or length(refs) doesn't match with those given in $(filename)")
-#     end
-#     return Knr(db, dist, refs, header["k"], header["ksearch"], header["minmatches"], invindex)
-# end
-
 function Knr(db::Vector{T}, dist::D, refs::Vector{T}, k::Int, minmatches::Int=1) where {T,D}
-    info("Knr, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
+    info("Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
     invindex = [Vector{Int32}(0) for i in 1:length(refs)]
     seqindex = Sequential(refs, dist)
 
     pc = round(Int, length(db) / 20)
     for i=1:length(db)
         if i % pc == 0
-            info("advance $(round(i/length(db), 4)), now: $(now())")
+            info("Knr> advance $(round(i/length(db), 4)), now: $(now())")
         end
 
         res = search(seqindex, db[i], KnnResult(k))
@@ -76,6 +50,11 @@ function Knr(db::Array{T,1}, dist::D, numrefs::Int, k::Int; minmatches::Int=1, t
     Knr(db, dist, refs, k, minmatches)
 end
 
+"""
+    search(index::Knr{T, D}, q::T) where {T,D}
+
+Solves the search specified by `q`and `res` using `index`
+"""
 function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
     dz = zeros(Int8, length(index.db))
     # M = BitArray(length(index.db))
@@ -88,59 +67,14 @@ function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
             dz[objID] = c
 
             if c == index.minmatches
-                # if !M[objID]
-                # M[objID] = true
-                @inbounds d = index.dist(q, index.db[objID])
-                push!(res, objID, convert(Float32, d))
+                d = index.dist(q, index.db[objID])
+                push!(res, objID, d)
             end
         end
     end
 
     return res
 end
-
-# type knr_join_tuple
-#     curr::Int
-#     list::Vector{Int}
-# end
-
-# function isless(a::knr_join_tuple, b::knr_join_tuple)
-#     return @inbounds isless(a.list[a.curr], b.list[b.curr])
-# end
-
-# function search{T, D <: Distance, R <: Result}(index::Knr{T, D}, q::T, res::R)
-#     seqindex = Sequential(index.refs, index.dist)
-#     knr = search(seqindex, q, KnnResult(index.ksearch))
-#     queue = Array(knr_join_tuple, 0)
-    
-#     for item in knr
-#         @inbounds list = index.invindex[item.objID]
-#         if length(list) > 0
-#             t = knr_join_tuple(1, list)
-#             @inbounds push!(queue, t)
-#         end
-#     end
-    
-#     Collections.heapify!(queue)
-#     prevID::Int = 0
-#     while length(queue) > 0
-#         t = Collections.heappop!(queue)
-#         @inbounds currID::Int = t.list[t.curr]
-#         if currID != prevID
-#             # if c == index.minmatches
-#             # end
-#             @inbounds d = index.dist(q, index.db[currID])
-#             @inbounds push!(res, currID, d)
-#         end
-#         prevID = currID
-        
-#         if t.curr < length(t.list)
-#             t.curr +=1
-#             @inbounds Collections.heappush!(queue, t)
-#         end
-#     end
-#     return res
-# end
 
 function search(index::Knr{T, D}, q::T) where {T,D}
     return search(index, q, NnResult())
@@ -157,8 +91,8 @@ function push!(index::Knr{T, D}, obj::T) where {T,D}
 end
 
 function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128) where {T,D}
-    info("optimizing Knr index for recall=$(recall)")
-    perf = Performance(index.db, index.dist, numqueries, k)
+    info("Knr> optimizing index for recall=$(recall)")
+    perf = Performance(index.db, index.dist; numqueries=numqueries, expected_k=k)
     index.minmatches = 1
     index.ksearch = 1
     p = probe(perf, index)
@@ -167,6 +101,6 @@ function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::
         index.ksearch += 1
         p = probe(perf, index)
     end
-    info("reached performance $(p)")
+    info("Knr> reached performance $(p)")
     return index
 end

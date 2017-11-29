@@ -5,6 +5,6 @@ using Base.Test
 
 include("testresults.jl")
 include("testvectorindex.jl")
-include("testindex.jl")
+# include("testindex.jl")
 # include("testlaesa.jl")
 

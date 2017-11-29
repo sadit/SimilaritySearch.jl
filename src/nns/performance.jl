@@ -41,10 +41,10 @@ function Performance(db::AbstractVector{T}, dist::D, querySet::AbstractVector{T}
     return Performance(db, querySet, results, expected_k, 0, (time() - start_time) / length(querySet))
 end
 
-function Performance(db::AbstractVector{T}, dist::D; numQueries::Int=128, expected_k::Int=10) where {T,D}
-    querySet = rand(db, numQueries)
+function Performance(db::AbstractVector{T}, dist::D; numqueries::Int=128, expected_k::Int=10) where {T,D}
+    querySet = rand(db, numqueries)
     expected_k += 1  # necessary since we are using items from the same dataset
-    results = Vector{Result}(numQueries)
+    results = Vector{Result}(numqueries)
     s = Sequential(db, dist)
 
     start_time = time()

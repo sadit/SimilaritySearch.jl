@@ -7,7 +7,7 @@ mutable struct L1Distance
     L1Distance() = new(0)
 end
 
-function (o::L1Distance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64
+function (o::L1Distance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -22,12 +22,10 @@ end
 """ L2Distance computes the Euclidean's distance """
 mutable struct L2Distance
     calls::Int
-    # P::Vector{Float32}
-    # L2Distance() = new(0, Vector{Float64}(112))
     L2Distance() = new(0)
 end
 
-function (o::L2Distance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64
+function (o::L2Distance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -45,7 +43,7 @@ mutable struct L2SquaredDistance
     L2SquaredDistance() = new(0)
 end
 
-function (o::L2SquaredDistance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64
+function (o::L2SquaredDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
@@ -64,12 +62,12 @@ mutable struct LInfDistance
     LInfDistance() = new(0)
 end
 
-function (o::LInfDistance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64
+function (o::LInfDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 
     @fastmath @inbounds @simd for i = 1:length(a)
-	m = a[i] - b[i]
+        m = abs(a[i] - b[i])
         d = max(d, m)
     end
 
@@ -85,7 +83,7 @@ mutable struct LpDistance
     LpDistance(p::F) where {F <: Real} = new(0, convert(Float32, p))
 end
 
-function (o::LpDistance){T <: Real}(a::Vector{T}, b::Vector{T})::Float64
+function (o::LpDistance)(a::Vector{T}, b::Vector{T})::Float64 where {T <: Real}
     o.calls += 1
     d::T = zero(T)
 

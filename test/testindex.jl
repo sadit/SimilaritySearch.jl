@@ -7,10 +7,9 @@ using SimilaritySearch
 function test_index(dist, ksearch)
     @testset "indexing with different algorithms" begin
         n = 1000
-        dim = 3
-        info("inserting items to the index")
-        db = Vector{Int}[]
-    
+        dim = 2
+        σ = 127
+        κ = 3
         function create_item()
             s = unique(rand(1:10, dim))
             if dist isa JaccardDistance || dist isa DiceDistance || dist isa IntersectionDistance
@@ -18,13 +17,13 @@ function test_index(dist, ksearch)
             end
             return s
         end
-        info("inserting items to the index")
+        info("inserting items into the index")
+        db = Vector{Vector{Int}}(n)        
         for i in 1:n
-            s = create_item()            
-            push!(db, s)
+            db[i] = rand(Int, dim)
         end
-        index = Knr(db, dist, 100, 7)
-        
+        index = Knr(db, dist, σ, κ)
+        optimize!(index, recall=0.9)
         info("done; now testing")
         @test length(index.db) == n
         item = create_item()
