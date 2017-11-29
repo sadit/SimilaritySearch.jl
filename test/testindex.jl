@@ -31,7 +31,6 @@ function test_index(dist, ksearch)
         item = create_item()
         res = search(index, item, KnnResult(ksearch))
         @show res
-        @show "invindex voc:", index.invindex |> length, index.invindex
         return index, length(res)
     end
 end
@@ -43,8 +42,7 @@ end
     expected_acc = 0
     local index
 
-    #for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
-    for dist in [JaccardDistance()]
+    for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
         index, numres = test_index(dist, ksearch)
         acc += numres
         expected_acc += ksearch

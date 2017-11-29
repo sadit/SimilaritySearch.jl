@@ -22,7 +22,6 @@ function test_vector_index(dist, ksearch)
         @test length(index.db) == n
         res = search(index, rand(Float32, dim), KnnResult(ksearch))
         @show res
-        @show index.invindex
         return index, length(res)
     end
 end
