@@ -3,7 +3,7 @@ abstract type Index end
 abstract type Result end
 
 # export Index, DistanceType, Distance, Result
-export Index, DistanceType, Result, fromjson, save, load
+export Index, DistanceType, Result, fromjson # save, load
 import JSON
 
 include("distances/bits.jl")
@@ -22,6 +22,4 @@ include("indexes/laesa.jl")
 include("indexes/pivotselectiontables.jl")
 include("indexes/kvp.jl")
 include("indexes/knr.jl")
-include("indexes/graph.jl")
-
 end

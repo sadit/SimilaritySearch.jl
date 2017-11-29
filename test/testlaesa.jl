@@ -1,7 +1,6 @@
 using SimilaritySearch
 using Base.Test
 
-
 @testset "exact-indexes" begin
     n = 100
     dim = 3

@@ -22,44 +22,40 @@ mutable struct Knr{T, D} <: Index
     ksearch::Int
     minmatches::Int
     invindex::Vector{Vector{Int32}}
-    # seqlist::Array{Array{I,1},1}
 end
 
-function save(index::Knr{T, D}, filename::AbstractString) where {T,D}
-    saveDB(index.refs, "$(filename).refs")
-    saveDB(index.invindex, "$(filename).invindex")
+# function save(index::Knr{T, D}, filename::AbstractString) where {T,D}
+#     saveDB(index.refs, "$(filename).refs")
+#     saveDB(index.invindex, "$(filename).invindex")
+#     f = open(filename, "w")
+#     header = Dict(
+#         "length" => length(index.db),
+#         "type" => string(typeof(index)),
+#         "numrefs" => length(index.refs),
+#         "k" => index.k,
+#         "ksearch" => index.ksearch,
+#         "minmatches" => index.minmatches,
+#     )
+#     write(f, JSON.json(header, 2), "\n")
+#     close(f)
+# end
 
-    f = open(filename, "w")
-    header = Dict(
-        "length" => length(index.db),
-        "type" => string(typeof(index)),
-        "numrefs" => length(index.refs),
-        "k" => index.k,
-        "ksearch" => index.ksearch,
-        "minmatches" => index.minmatches,
-    )
-    write(f, JSON.json(header, 2), "\n")
-    close(f)
+# function Knr(filename::AbstractString, db::Array{T,1}, dist::D) where {T,D}
+#     refs = loadDB(T, "$(filename).refs")
+#     invindex = loadDB(Array{Int32,1}, "$(filename).invindex")
+#     header = JSON.parsefile(filename)
+#     if length(refs) != header["numrefs"] || length(db) != header["length"]
+#         warn("length(db) or length(refs) doesn't match with those given in $(filename)")
+#     end
+#     return Knr(db, dist, refs, header["k"], header["ksearch"], header["minmatches"], invindex)
+# end
 
-end
-
-function Knr(filename::AbstractString, db::Array{T,1}, dist::D) where {T,D}
-    refs = loadDB(T, "$(filename).refs")
-    invindex = loadDB(Array{Int32,1}, "$(filename).invindex")
-    header = JSON.parsefile(filename)
-    if length(refs) != header["numrefs"] || length(db) != header["length"]
-        warn("length(db) or length(refs) doesn't match with those given in $(filename)")
-    end
-
-    return Knr(db, dist, refs, header["k"], header["ksearch"], header["minmatches"], invindex)
-end
-
-function Knr(db::Array{T,1}, dist::D, refs::Array{T,1}, k::Int, minmatches::Int=1) where {T,D}
+function Knr(db::Vector{T}, dist::D, refs::Vector{T}, k::Int, minmatches::Int=1) where {T,D}
     info("Knr, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
-    invindex = [Array(Int32, 0) for i in 1:length(refs)]
+    invindex = [Vector{Int32}(0) for i in 1:length(refs)]
     seqindex = Sequential(refs, dist)
 
-    pc = Int(round(length(db) / 20))
+    pc = round(Int, length(db) / 20)
     for i=1:length(db)
         if i % pc == 0
             info("advance $(round(i/length(db), 4)), now: $(now())")
@@ -74,9 +70,9 @@ function Knr(db::Array{T,1}, dist::D, refs::Array{T,1}, k::Int, minmatches::Int=
     Knr(db, dist, refs, k, k, minmatches, invindex)
 end
 
-function Knr(db::Array{T,1}, dist::D, numrefs::Int, k::Int, minmatches::Int=1) where {T,D}
+function Knr(db::Array{T,1}, dist::D, numrefs::Int, k::Int; minmatches::Int=1, tournamentsize=3) where {T,D}
     # refs = rand(db, numrefs)
-    refs = [db[x] for x in select_tournament(db, dist, numrefs)]
+    refs = [db[x] for x in select_tournament(db, dist, numrefs, tournamentsize)]
     Knr(db, dist, refs, k, minmatches)
 end
 

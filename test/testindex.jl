@@ -1,37 +1,38 @@
-"""
-This file contains a set of tests for LocalSearchIndex over databases of sequences
-"""
+#
+# This file contains a set of tests for LocalSearchIndex over databases of #sequences
+#
 
-function test_index(search_algo, neighborhood_algo, dist, ksearch)
+using SimilaritySearch
+
+function test_index(dist, ksearch)
     @testset "indexing with different algorithms" begin
-        index = LocalSearchIndex(Vector{Int}, dist, search=search_algo, neighborhood=neighborhood_algo)
-        index.options.verbose = false
-
-        n = 100
+        n = 1000
         dim = 3
+        info("inserting items to the index")
+        db = Vector{Int}[]
+    
         function create_item()
-            if search_algo isa JaccardDistance || search_algo isa DiceDistance || search_algo isa IntersectionDistance
-                s = unique(rand(1:10, dim))
+            s = unique(rand(1:10, dim))
+            if dist isa JaccardDistance || dist isa DiceDistance || dist isa IntersectionDistance
                 sort!(s)
-                return s
-            else
-                return rand(1:10, dim)
             end
+            return s
         end
         info("inserting items to the index")
         for i in 1:n
             s = create_item()            
-            push!(index, s)
+            push!(db, s)
         end
+        index = Knr(db, dist, 100, 7)
         
         info("done; now testing")
         @test length(index.db) == n
         item = create_item()
         res = search(index, item, KnnResult(ksearch))
         @show res
+        @show index.invindex[1]
         return index, length(res)
     end
-
 end
 
 @testset "some sequence distances indexing" begin
@@ -41,26 +42,12 @@ end
     expected_acc = 0
     local index
 
-    for search_algo in [BeamSearch()]
-        for neighborhood_algo in [LogNeighborhood(1.5)]
-            for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
-                index, numres = test_index(search_algo, neighborhood_algo, dist, ksearch)
-                acc += numres
-                expected_acc += ksearch
-            end
-        end
+    for dist in Any[JaccardDistance(), DiceDistance(), IntersectionDistance(), CommonPrefixDistance(), LevDistance(), LcsDistance(), HammingDistance()]
+        index, numres = test_index(dist, ksearch)
+        acc += numres
+        expected_acc += ksearch
     end
 
     # this is not really an error, but we test it anyway, it is more about the quality of the results
     @test acc / expected_acc > 0.8
-
-    n = length(index.db)
-    k = 3
-    @show "Showing AKNN ($k)"
-    aknn = compute_aknn(index, k)
-    @test n == length(aknn)
-    for p in aknn
-        @show p
-        @test length(p) > 0
-    end
 end

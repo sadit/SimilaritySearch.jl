@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016, 2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,39 +15,35 @@
 export compute_distances, select_sss, select_tournament
 
 """
-Computes the distances of :param:q to the set of references :param:refs (each index point to an item in :param:db)
-It returns an array of tuples (distance, refID)
+Computes the distances of `q` to the set of references `refs` (each index point to an item in `db`)
+It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(db::Array{T,1}, dist::D, q::T, refs::Array{Int,1}) where {T,D}
+function compute_distances(db::AbstractVector{T}, dist::D, q::T, refs::AbstractVector{Int}) where {T,D}
     [(dist(q, db[refs[refID]]), refID) for refID in 1:length(refs)]
 end
 
 """
-Computes the distances of :param:q to the set of references :param:refs
-It returns an array of tuples (distance, refID)
+Computes the distances of `q` to the set of references `refs`
+It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(refs::Array{T,1}, dist::D, q::T) where {T,D}
+function compute_distances(refs::AbstractVector{T}, dist::D, q::T) where {T,D}
     [(dist(q, ref), refID) for (refID, ref) in enumerate(refs)]
 end
 
 """
-select_tournament selects :param:numrefs references from :param:db using a tournament criterion; each
-tournament uses :param:tournamentsize individuals. When :param:tournamentsize is zero it is set to a
-pesimistic value based on numrefs
+select_tournament selects `numrefs` references from `db` using a tournament criterion; each
+individual is selected among `tournamentsize` individuals.
 
-It returns a set of pivots as a list of integers pointing to elements in :param:db
+It returns a set of pivots as a list of integers pointing to elements in `db`
 """
-function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int=0) where {T,D}
-    if tournamentsize == 0
-        tournamentsize = min(div(length(db), numrefs) - 1, Int(ceil(log2(numrefs)^2)))
-    end
-
-    refs = Array(Int, 1)
-    xdb = Array(1:length(db)); shuffle!(xdb)
-    refs[1] = xdb[end]
+function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int) where {T,D}
+    refs = Vector{Int}()
+    perm = 1:length(db) |> collect
+    shuffle!(perm)
+    push!(refs, perm[end])
 
     for i=1:(numrefs-1)
-        sample = xdb[(i-1)*tournamentsize+1:i*tournamentsize]
+        sample = perm[(i-1)*tournamentsize+1:i*tournamentsize]
         distant = 0
         distantRef = 0
         for x in sample
