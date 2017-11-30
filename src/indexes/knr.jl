@@ -44,7 +44,7 @@ function Knr(db::Vector{T}, dist::D, refs::Vector{T}, k::Int, minmatches::Int=1)
     Knr(db, dist, refs, k, k, minmatches, invindex)
 end
 
-function Knr(db::Array{T,1}, dist::D, numrefs::Int, k::Int; minmatches::Int=1, tournamentsize=3) where {T,D}
+function Knr(db::Array{T,1}, dist::D; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where {T,D}
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(db, dist, numrefs, tournamentsize)]
     Knr(db, dist, refs, k, minmatches)
@@ -56,7 +56,7 @@ end
 Solves the search specified by `q`and `res` using `index`
 """
 function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
-    dz = zeros(Int8, length(index.db))
+    dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = Sequential(index.refs, index.dist)
     kres = search(seqindex, q, KnnResult(index.ksearch))
@@ -90,16 +90,18 @@ function push!(index::Knr{T, D}, obj::T) where {T,D}
     return length(index.db)
 end
 
-function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128) where {T,D}
+function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128, use_distances::Bool=false) where {T,D}
     info("Knr> optimizing index for recall=$(recall)")
     perf = Performance(index.db, index.dist; numqueries=numqueries, expected_k=k)
     index.minmatches = 1
     index.ksearch = 1
-    p = probe(perf, index)
+    p = probe(perf, index, use_distances=use_distances)
 
     while p.recall < recall && index.ksearch < length(index.refs)
         index.ksearch += 1
-        p = probe(perf, index)
+        info("Knr> opt step ksearch=$(index.ksearch), performance $(p)")
+        p = probe(perf, index, use_distances=use_distances)
+
     end
     info("Knr> reached performance $(p)")
     return index

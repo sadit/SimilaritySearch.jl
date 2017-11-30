@@ -126,6 +126,7 @@ function _probe(perf::Performance, index::Index; use_distances::Bool=false)
         end
         rlist[i] = recall
     end
+    
     p.recall = mean(rlist)
     # p.recall = mean(rlist) - std(rlist)
     p.seconds = mean(tlist)

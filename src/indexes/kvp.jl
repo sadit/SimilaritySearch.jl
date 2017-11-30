@@ -12,16 +12,16 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-export Kvp, kvprefs
+export Kvp, near_and_far
 
 mutable struct Kvp{T, D} <: Index
-    db::Array{T,1}
+    db::Vector{T}
     dist::D
-    refs::Array{T,1}
-    sparsetable::Array{Array{Item}}
+    refs::Vector{T}
+    sparsetable::Vector{Vector{Item}}
 end
 
-function Kvp(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1}) where {T,D}
+function Kvp(db::Vector{T}, dist::D, k::Int, refList::Vector{Int}) where {T,D}
     info("Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refList)), dist=$(dist)")
     sparsetable = Array(Array{Item}, 0)
     refs = [db[x] for x in refList]
@@ -29,7 +29,7 @@ function Kvp(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1}) where {T,D}
         if (i % 10000) == 0
             info("advance $(i)/$(length(db))")
         end
-        row = kvprefs(db[i], refs, k, dist)
+        row = near_and_far(db[i], refs, k, dist)
         # println(row)
         push!(sparsetable, row)
     end
@@ -37,12 +37,12 @@ function Kvp(db::Array{T,1}, dist::D, k::Int, refList::Array{Int,1}) where {T,D}
     return Kvp(db, dist, refs, sparsetable)
 end
 
-function Kvp(db::Array{T,1}, dist::D, k::Int, numrefs::Int) where {T,D}
+function Kvp(db::Vector{T}, dist::D, k::Int, numrefs::Int) where {T,D}
     refs = rand(1:length(db), numrefs)
     Kvp(db, dist, k, refs)
 end
 
-function kvprefs(obj::T, refs::Array{T,1}, k::Int, dist::D) where {T,D}
+function near_and_far(obj::T, refs::Vector{T}, k::Int, dist::D) where {T,D}
     near = KnnResult(k)
     far = KnnResult(k)
     for (refID, ref) in enumerate(refs)
@@ -98,7 +98,7 @@ end
 
 function push!(index::Kvp{T}, obj::T) where {T}
     push!(index.db, obj)
-    row = kvprefs(obj, index.refs, index.k, index.dist)
+    row = near_and_far(obj, index.refs, index.k, index.dist)
     push!(index.sparsetable, row)
     return length(index.db)
 end

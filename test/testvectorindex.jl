@@ -16,8 +16,8 @@ function test_vector_index(dist, ksearch)
             db[i] = rand(Float32, dim)
         end
     
-        index = Knr(db, dist, σ, κ)
-        optimize!(index, recall=0.9)
+        index = Knr(db, dist, numrefs=σ, k=κ)
+        optimize!(index, recall=0.9, use_distances=false)
         info("done; now testing")
         @test length(index.db) == n
         res = search(index, rand(Float32, dim), KnnResult(ksearch))

@@ -23,8 +23,8 @@ function test_index(dist, ksearch)
         for i in 1:n
             db[i] = create_item()
         end
-        index = Knr(db, dist, σ, κ)
-        optimize!(index, recall=0.9)
+        index = Knr(db, dist, numrefs=σ, k=κ)
+        optimize!(index, recall=0.9,  use_distances=true)
         info("done; now testing")
         info("#refs:", index.refs |> length, ", #n:", length(index.db))
         @test length(index.db) == n
