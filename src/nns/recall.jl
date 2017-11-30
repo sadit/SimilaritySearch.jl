@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ function equals(a::Integer, b::Integer)
 end
 
 function equals(a::AbstractFloat, b::AbstractFloat)
-    return abs(a - b) <= 1e6  # eps(typeof(a))
+    return abs(a - b) <= 1e-6  # eps(typeof(a))
 end
 
 function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}, shiftK::Int=0) where {T <: Real}
