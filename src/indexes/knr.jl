@@ -76,10 +76,6 @@ function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
     return res
 end
 
-function search(index::Knr{T, D}, q::T) where {T,D}
-    return search(index, q, NnResult())
-end
-
 function push!(index::Knr{T, D}, obj::T) where {T,D}
     push!(index.db, obj)
     seqindex = Sequential(index.refs, index.dist)

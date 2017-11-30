@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -27,12 +27,8 @@ end
 function Laesa(db::Vector{T}, dist::D, pivots::Vector{T}) where {T,D}
     info("Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)")
     table = Vector{Vector{Float64}}(length(db))
-    for i=1:length(db)
-        obj = db[i]
-        row = table[i] = Vector{Float64}(length(pivots))
-        for pivID in 1:length(pivots)
-            row[pivID] = dist(pivots[pivID], obj)
-        end
+    for i in 1:length(db)
+        table[i] = [dist(piv, db[i]) for piv in pivots]
     end
 
     Laesa(db, dist, pivots, table)
@@ -44,40 +40,34 @@ function Laesa(db::Vector{T}, dist::D, numPivots::Int) where {T,D}
 end
 
 function search(index::Laesa{T,D}, q::T, res::Result) where {T,D}
-    # for i in range(1, length(index.db))
-    d::Float64 = 0.0
-    qD = [index.dist(q, piv) for piv in index.pivots]
-
+    dist = index.dist
+    dqp = [dist(q, piv) for piv in index.pivots]
     for i = 1:length(index.db)
-        obj::T = index.db[i]
-        objD::Array{Float64,1} = index.table[i]
+        dpu = index.table[i]
 
-        discarded::Bool = false
-        @inbounds for pivID in 1:length(qD)
-            if abs(objD[pivID] - qD[pivID]) > covrad(res)
-                discarded = true
+        evaluate = true
+        @inbounds for pivID in 1:length(index.pivots)
+            if abs(dqp[pivID] - dpu[pivID]) > covrad(res)
+                evaluate = false
                 break
             end
         end
-        if discarded
-            continue
+
+        if evaluate
+            d = dist(q, index.db[i])
+            push!(res, i, d)
         end
-        d = index.dist(q, obj)
-        push!(res, i, d)
     end
 
     return res
 end
 
-function search(index::Laesa{T,D}, q::T) where {T,D}
-    return search(index, q, NnResult())
-end
-
 function push!(index::Laesa{T,D}, obj::T) where {T,D}
+    dist = index.dist
     push!(index.db, obj)
     row = Array(Float64, length(index.pivots))
     for pivID in 1:length(index.pivots)
-        row[pivID] = index.dist(pivots[pivID], obj)
+        row[pivID] = dist(index.pivots[pivID], obj)
     end
     push!(index.table, row)
     return length(index.db)

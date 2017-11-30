@@ -57,7 +57,7 @@ end
 
 function probe(perf::Performance, index::Index; repeat::Int=1, aggregation=:mean, field=:seconds, use_distances::Bool=false)
     if repeat == 1
-        return _probe(perf, index, use_distances = use_distances)
+        return _probe(perf, index, use_distances=use_distances)
     end
 
     if aggregation == :mean
@@ -73,6 +73,7 @@ function probe(perf::Performance, index::Index; repeat::Int=1, aggregation=:mean
         p.distances /= repeat
         return p
     end
+
     M = [_probe(perf, index, use_distances=use_distances) for i in 1:repeat]
     sort!(M, by=(x) -> getfield(x, field))
 
@@ -84,7 +85,7 @@ function probe(perf::Performance, index::Index; repeat::Int=1, aggregation=:mean
         return M[end]
     else
         error("Unknown aggregation strategy $aggregation")
-    end
+    end    
 end
 
 function _probe(perf::Performance, index::Index; use_distances::Bool=false)
@@ -126,7 +127,7 @@ function _probe(perf::Performance, index::Index; use_distances::Bool=false)
         end
         rlist[i] = recall
     end
-    
+
     p.recall = mean(rlist)
     # p.recall = mean(rlist) - std(rlist)
     p.seconds = mean(tlist)

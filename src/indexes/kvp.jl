@@ -92,10 +92,6 @@ function search(index::Kvp{T}, q::T, res::Result) where {T}
     return res
 end
 
-function search(index::Kvp{T}, q::T) where {T}
-    return search(index, q, NnResult())
-end
-
 function push!(index::Kvp{T}, obj::T) where {T}
     push!(index.db, obj)
     row = near_and_far(obj, index.refs, index.k, index.dist)

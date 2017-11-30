@@ -19,7 +19,7 @@ function equals(a::Integer, b::Integer)
 end
 
 function equals(a::AbstractFloat, b::AbstractFloat)
-    return abs(a - b) <= eps(typeof(a))
+    return abs(a - b) <= 1e6  # eps(typeof(a))
 end
 
 function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}, shiftK::Int=0) where {T <: Real}

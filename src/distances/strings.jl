@@ -45,7 +45,7 @@ LevDistance() = GenericLevenshtein(0, 1, 1, 1)
 """LCS computes the distance associated to the longest common subsequence"""
 LcsDistance() = GenericLevenshtein(0, 1, 1, 2)
 
-function (o::GenericLevenshtein)(a::T, b::T)::Int where {T <: Any}
+function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
     if length(a) < length(b)
         a, b = b, a
     end
@@ -166,7 +166,7 @@ mutable struct HammingDistance
     HammingDistance() = new(0)
 end
 
-function (o::HammingDistance)(a::T, b::T)::Int where {T <: Any}
+function (o::HammingDistance)(a::T, b::T)::Float64 where {T <: Any}
     o.calls += 1
     d::Int = 0
 

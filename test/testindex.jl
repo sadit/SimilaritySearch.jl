@@ -24,7 +24,7 @@ function test_index(dist, ksearch)
             db[i] = create_item()
         end
         index = Knr(db, dist, numrefs=σ, k=κ)
-        optimize!(index, recall=0.9,  use_distances=true)
+        optimize!(index, recall=0.9, use_distances=true)
         info("done; now testing")
         info("#refs:", index.refs |> length, ", #n:", length(index.db))
         @test length(index.db) == n
