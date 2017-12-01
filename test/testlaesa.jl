@@ -1,21 +1,21 @@
 using SimilaritySearch
 using Base.Test
 
-function test_cos(create_index, dist, ksearch, nick; repeat=1, aggregation=:mean)
+function test_cos(create_index, ksearch, nick; repeat=1, aggregation=:mean)
     @testset "indexing vectors with $nick with cos or angle's distance" begin
         n = 1000 # number of items in the dataset
         m = 100  # number of queries
         dim = 3  # vector's dimension
 
-        db = [rand(Float32, dim) for i in 1:n]
-        queries = [rand(Float32, dim) for i in 1:m]
+        db = [DenseCosine(rand(Float32, dim)) for i in 1:n]
+        queries = [DenseCosine(rand(Float32, dim)) for i in 1:m]
 
         index = create_index(db)
         # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(index.db, index.dist, queries, expected_k=10)
         p = probe(perf, index, use_distances=false, repeat=repeat, aggregation=aggregation)
-        @show dist, p
+        @show p
         return p
     end
 end
@@ -92,9 +92,8 @@ end
         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
     end
 
-    dist = L2Distance()
-    p1 = test_vectors((db) -> Sequential(db, dist), dist, ksearch, "Sequential", repeat=3, aggregation=:median)
-    p2 = test_vectors((db) -> Sequential(db, dist), dist, ksearch, "Sequential", repeat=3, aggregation=:min)
+    p1 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:median)
+    p2 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:min)
     @show p1, p2
     @test p1.recall > 0.999
     @test p2.recall > 0.99
