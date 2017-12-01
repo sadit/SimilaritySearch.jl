@@ -51,20 +51,11 @@ function recall(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) where 
 end
 
 function recall(a::AbstractVector{Item}, b::AbstractVector{Item}; shift::Int=0)
-    A = [item.objID for item in a]
-    B = [item.objID for item in b]
-    sort!(A)
-    sort!(B)
-    generic_recall(A, B, shift=shift)
+    recall([item.objID for item in a], [item.objID for item in b], shift=shift)
 end
 
-
 function recall(a::Result, b::Result; shift::Int=0)
-    A = [item.objID for item in a]
-    B = [item.objID for item in b]
-    sort!(A)
-    sort!(B)
-    generic_recall(A, B, shift=shift)
+    recall(collect(Item, a), collect(Item, b), shift=shift)
 end
 
 function recallByDist(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) where {T <: Real}
@@ -76,17 +67,9 @@ function recallByDist(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) 
 end
 
 function recallByDist(a::AbstractVector{Item}, b::AbstractVector{Item}; shift::Int=0)
-    A = [item.dist for item in a]
-    B = [item.dist for item in b]
-    sort!(A)
-    sort!(B)
-    generic_recall(A, B, shift=shift)
+    recallByDist([item.dist for item in a], [item.dist for item in b], shift=shift)
 end
 
 function recallByDist(a::Result, b::Result; shift::Int=0)
-    A = [item.dist for item in a]
-    B = [item.dist for item in b]
-    # sort!(A)
-    # sort!(B)
-    generic_recall(A, B, shift=shift)
+    recallByDist(collect(Item, a), collect(Item, b), shift=shift)
 end
