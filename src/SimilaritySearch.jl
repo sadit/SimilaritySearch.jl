@@ -4,7 +4,6 @@ abstract type Result end
 
 # export Index, DistanceType, Distance, Result
 export Index, DistanceType, Result, fromjson # save, load
-import JSON
 
 include("distances/bits.jl")
 include("distances/sets.jl")

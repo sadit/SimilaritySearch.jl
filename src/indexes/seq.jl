@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016, 2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
 
 # abstract Sequential
 
-#type Seq <: Sequential
-#include("Result.jl")
 import Base: search, push!
 
-export Sequential, search, push!, save
+export Sequential, search, push!
 
 """
     Sequential{T, D}
@@ -28,28 +26,6 @@ A simple exhaustive search index
 struct Sequential{T, D} <: Index
     db::Array{T,1}
     dist::D
-end
-
-function Sequential(filename::AbstractString, db::Array{T,1}, dist::D) where {T, D}
-    header = JSON.parse(open(readlines, filename)[1])
-    if header["length"] != length(db)
-        throw(ArgumentError("the database's length doesn't match"))
-    end
-    index = Sequential(db, dist)
-    if header["type"] != string(typeof(index))
-        throw(ArgumentError("the index's type doesn't match"))
-    end
-    return index
-end
-
-function save(index::Sequential{T,D}, filename::AbstractString) where {T, D}
-    f = open(filename, "w")
-    header = Dict(
-        "length" => length(index.db),
-        "type" => string(typeof(index)),
-    )
-    write(f, JSON.json(header), "\n")
-    close(f)
 end
 
 function search(index::Sequential{T,D}, q::T, res::Result) where {T, D}

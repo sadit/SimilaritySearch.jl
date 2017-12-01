@@ -12,10 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-# abstract Sequential
 
 export Laesa
-# abstract PivotRowType <: Array{Float64, 1}
 
 struct Laesa{T,D} <: Index
     db::Vector{T}
