@@ -12,7 +12,7 @@ function sim_common_prefix(a::T, b::T)::Int where {T <: Any}
     i::Int = 1
     min_len::Int = min(len_a, len_b)
     @inbounds while i <= min_len && a[i] == b[i]
-	i += 1
+    	i += 1
     end
     
     return i - 1
@@ -60,20 +60,20 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
 
     prevA::Int = 0
     @inbounds for i in 1:alen
-	prevA = i
-	prevC::Int = C[1]
-	j::Int = 1
-        
-	while j <= blen
-	    cost::Int = o.rcost
-	    if a[i] == b[j]
-		cost = 0
-	    end
-	    C[j] = prevA
-	    j += 1
-	    prevA = min(C[j]+o.dcost, prevA+o.icost, prevC+cost)
-	    prevC = C[j]
-	end
+        prevA = i
+        prevC::Int = C[1]
+        j::Int = 1
+            
+        while j <= blen
+            cost::Int = o.rcost
+            if a[i] == b[j]
+               cost = 0
+            end
+            C[j] = prevA
+            j += 1
+            prevA = min(C[j]+o.dcost, prevA+o.icost, prevC+cost)
+            prevC = C[j]
+        end
 	
         C[j] = prevA
     end
@@ -95,20 +95,20 @@ function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any
     C::Vector{Int} = Vector{Int}(0:blen)
 
     @inbounds for i in 1:alen
-	prevA::Int = 0
-	prevC::Int = C[1]
-	j::Int = 1
-        
-	while j <= blen
-	    cost::Int = 1
-	    if a[i] == b[j]
-		cost = 0
+        prevA::Int = 0
+        prevC::Int = C[1]
+        j::Int = 1
+            
+        while j <= blen
+            cost::Int = 1
+            if a[i] == b[j]
+                cost = 0
+            end
+            C[j] = prevA
+            j += 1
+            prevA = min(C[j]+1, prevA+1, prevC+cost)
+            prevC = C[j]
 	    end
-	    C[j] = prevA
-	    j += 1
-	    prevA = min(C[j]+1, prevA+1, prevC+cost)
-	    prevC = C[j]
-	end
 	
         C[j] = prevA
         if prevA <= errors
@@ -134,20 +134,20 @@ function best_match_levenshtein(a::T1, b::T2)::Int where {T1 <: Any,T2 <: Any}
 
     mindist = alen
     @inbounds for i in 1:alen
-	prevA::Int = 0
-	prevC::Int = C[1]
-	j::Int = 1
-        
-	while j <= blen
-	    cost::Int = 1
-	    if a[i] == b[j]
-	    	cost = 0
-	    end
-	    C[j] = prevA
-	    j += 1
-	    prevA = min(C[j]+1, prevA+1, prevC+cost)
-	    prevC = C[j]
-	end
+        prevA::Int = 0
+        prevC::Int = C[1]
+        j::Int = 1
+            
+        while j <= blen
+            cost::Int = 1
+            if a[i] == b[j]
+                cost = 0
+            end
+            C[j] = prevA
+            j += 1
+            prevA = min(C[j]+1, prevA+1, prevC+cost)
+            prevC = C[j]
+        end
 	
         C[j] = prevA
         if prevA < mindist
@@ -171,9 +171,10 @@ function (o::HammingDistance)(a::T, b::T)::Float64 where {T <: Any}
     d::Int = 0
 
     @inbounds for i = 1:length(a)
-	if a[i] != b[i]
-	    d += 1
-	end
+        #if a[i] != b[i]
+        #    d += 1
+        #end
+        d += Int(a[i] != b[i])
     end
 
     return d

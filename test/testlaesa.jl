@@ -29,9 +29,10 @@ function test_sequences(create_index, dist, ksearch, nick)
         V = collect(1:10)  # vocabulary of the sequences
 
         function create_item()
-            s = unique(rand(V, dim))
+            s = rand(V, dim)
             if dist isa JaccardDistance || dist isa DiceDistance || dist isa IntersectionDistance
                 sort!(s)
+                s = unique(s)
             end
 
             return s
