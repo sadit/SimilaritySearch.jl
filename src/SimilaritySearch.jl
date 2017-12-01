@@ -20,6 +20,4 @@ include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/laesa.jl")
 include("indexes/pivotselectiontables.jl")
-include("indexes/kvp.jl")
-include("indexes/knr.jl")
 end
