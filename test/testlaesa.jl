@@ -52,27 +52,27 @@ function test_sequences(create_index, dist, ksearch, nick)
     end
 end
 
-# @testset "indexing vectors" begin
-#     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
-#     ksearch = 10
-#     local index
+@testset "indexing vectors" begin
+    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
+    ksearch = 10
+    local index
 
-#     for (recall_lower_bound, dist) in [
-#         (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
-#         (1.0, L1Distance()),
-#         (1.0, LInfDistance()),
-#         # (1.0, AngleDistance()),
-#         (1.0, LpDistance(3)),
-#         (0.1, LpDistance(0.5))
-#     ]
-#         @show recall_lower_bound, dist
-#         p = test_vectors((db) -> Sequential(db, dist), dist, ksearch, "Sequential")
-#         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
+    for (recall_lower_bound, dist) in [
+        (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
+        (1.0, L1Distance()),
+        (1.0, LInfDistance()),
+        # (1.0, AngleDistance()),
+        (1.0, LpDistance(3)),
+        (0.1, LpDistance(0.5))
+    ]
+        @show recall_lower_bound, dist
+        p = test_vectors((db) -> Sequential(db, dist), dist, ksearch, "Sequential")
+        @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
 
-#         p = test_vectors((db) -> Laesa(db, dist, 16), dist, ksearch, "Laesa")
-#         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
-#     end
-# end
+        p = test_vectors((db) -> Laesa(db, dist, 16), dist, ksearch, "Laesa")
+        @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
+    end
+end
 
 @testset "indexing sequences" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
