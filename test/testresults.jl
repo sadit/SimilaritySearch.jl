@@ -1,3 +1,6 @@
+using SimilaritySearch
+using Base.Test
+
 @testset "Result set implementations" begin
     k=4
     V = rand(Float32, k*k)

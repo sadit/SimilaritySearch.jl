@@ -1,7 +1,6 @@
 using SimilaritySearch
 using Base.Test
 
-
 function test_vectors(create_index, dist, ksearch, nick)
     @testset "indexing vectors with $nick and $dist" begin
         n = 1000 # number of items in the dataset

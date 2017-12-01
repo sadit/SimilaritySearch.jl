@@ -13,35 +13,36 @@
 #    limitations under the License.
 
 import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first, clear!
+export Item, KnnResult, maxlength, covrad, SlugKnnResult, NnResult
 
-export Item, KnnResult, maxlength, covrad
-
-struct Item
-    objID::Int64
+struct Item{T}
+    objID::T
     dist::Float64
 end
 
-include("nn.jl")
-include("sknn.jl")
-
-mutable struct KnnResult <: Result
+mutable struct KnnResult{T} <: Result
     k::Int
-    pool::Vector{Item}
+    pool::Vector{Item{T}}
 end
 
-function KnnResult(k::Int)
-    v = Vector{Item}()
+function KnnResult(T::Type, k::Int)
+    v = Vector{Item{T}}()
     sizehint!(v, k)
     KnnResult(k, v)
 end
+
+KnnResult(k::Integer) = KnnResult(Int64, k)
+SlugKnnResult(k::Integer) = KnnResult(Int64, k)
+NnResult() = KnnResult(Int64, 1)
+
 
 """
 fix_order! fixes the sorted state of the array. It implements a kind of insertion sort
 It is efficient due to the expected distribution of the items being inserted
 (few smaller than the ones already inside)
 """
-@inline function fix_order!(res::KnnResult)
-    arr::Vector{Item} = res.pool
+@inline function fix_order!(res::KnnResult{T}) where T
+    arr::Vector{Item{T}} = res.pool
 
     item = arr[end]
     i = length(arr)
@@ -60,9 +61,11 @@ end
 """
 push! appends an item to the end of the result set
 """
-push!(p::KnnResult, objID::I, dist::F) where {I <: Integer, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
 
-function push!(p::KnnResult, objID::Int64, dist::Float64)
+push!(p::KnnResult{Int64}, objID::I, dist::F) where {I <: Union{Int32,Int16}, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
+push!(p::KnnResult{T}, objID::T, dist::F) where {T, F <: Union{Float16, Float32}} = push!(p, objID, convert(Float64, dist))
+
+function push!(p::KnnResult{T}, objID::T, dist::Float64) where T
     if length(p.pool) < p.k
         # fewer items than the maximum capacity
         push!(p.pool, Item(objID, dist))
@@ -85,62 +88,63 @@ end
 """
 return the first item of the result set, the closest item
 """
-function first(p::KnnResult)
+function first(p::KnnResult{T}) where T
     @inbounds return p.pool[1]
 end
 
 """
 returns the last item of the result set
 """
-function last(p::KnnResult)
+function last(p::KnnResult{T}) where T
     @inbounds return p.pool[end]
 end
 
 """
 apply shift!(p.pool), an O(length(p.pool)) operation
 """
-function shift!(p::KnnResult)
+function shift!(p::KnnResult{T}) where T
     shift!(p.pool)
 end
 
 """
 apply pop!(p), an O(1) operation
 """
-function pop!(p::KnnResult)
+function pop!(p::KnnResult{T}) where T
     return pop!(p.pool)
 end
 
 """
 length returns the number of items in the result set
 """
-Base.length(p::KnnResult) = length(p.pool)
+Base.length(p::KnnResult{T}) where T = length(p.pool)
 
 """
 The maximum allowed cardinality (the k of knn)
 """
-maxlength(p::KnnResult) = p.k
+maxlength(p::KnnResult{T}) where T = p.k
 
 """
 covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-function covrad(p::KnnResult)::Float64
+function covrad(p::KnnResult{T})::Float64 where T
     return length(p.pool) < p.k ? typemax(Float64) : last(p).dist
 end
 
-function clear!(p::KnnResult)
+function clear!(p::KnnResult{T}) where T
     resize!(p.pool, 0)
 end
 
 ##### iterator interface
 ### KnnResult
-function start(p::KnnResult)
+function start(p::KnnResult{T}) where T
     return 1
 end
 
-function done(p::KnnResult, state)
+function done(p::KnnResult{T}, state) where T
     return state > length(p)
 end
 
-function next(p::KnnResult, state)
+function next(p::KnnResult{T}, state) where T
     return (p.pool[state], state + 1)
 end
+

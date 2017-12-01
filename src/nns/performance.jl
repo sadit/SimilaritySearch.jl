@@ -119,13 +119,10 @@ function _probe(perf::Performance, index::Index; use_distances::Bool=false)
 
         base_res = perf.results[i]
         if use_distances
-            #p.recall += generic_recall([item.dist for item in base_res], [item.dist for item in res], perf.shift_expected_k)
-            recall = generic_recall([item.dist for item in base_res], [item.dist for item in res], perf.shift_expected_k)
+            rlist[i] = recallByDist(base_res, res, shift=perf.shift_expected_k)
         else
-            #p.recall += generic_recall([item.objID for item in base_res], [item.objID for item in res], perf.shift_expected_k)
-            recall = generic_recall([item.objID for item in base_res], [item.objID for item in res], perf.shift_expected_k)
+            rlist[i] = recall(base_res, res, shift=perf.shift_expected_k)
         end
-        rlist[i] = recall
     end
 
     p.recall = mean(rlist)

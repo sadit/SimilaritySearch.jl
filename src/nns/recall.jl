@@ -22,7 +22,7 @@ function equals(a::AbstractFloat, b::AbstractFloat)
     return abs(a - b) <= 1e-6  # eps(typeof(a))
 end
 
-function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}, shiftK::Int=0) where {T <: Real}
+function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) where {T <: Real}
     ai::Int = 1
     bi::Int = 1
     matches::Int = 0
@@ -39,54 +39,54 @@ function generic_recall(a::AbstractVector{T}, b::AbstractVector{T}, shiftK::Int=
             bi += 1
         end
     end
-    return (matches-shiftK) / (length(a)-shiftK)
+    return (matches-shift) / (length(a)-shift)
 end
 
-function recall(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Real}
+function recall(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) where {T <: Real}
     A = [item for item in a]
     B = [item for item in b]
     sort!(A)
     sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
 
-function recall(a::AbstractVector{Item}, b::AbstractVector{Item})
+function recall(a::AbstractVector{Item}, b::AbstractVector{Item}; shift::Int=0)
     A = [item.objID for item in a]
     B = [item.objID for item in b]
     sort!(A)
     sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
 
 
-function recall(a::Result, b::Result)
+function recall(a::Result, b::Result; shift::Int=0)
     A = [item.objID for item in a]
     B = [item.objID for item in b]
     sort!(A)
     sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
 
-function recallByDist(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Real}
+function recallByDist(a::AbstractVector{T}, b::AbstractVector{T}; shift::Int=0) where {T <: Real}
     A = [d for d in a]
     B = [d for d in b]
     sort!(A)
     sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
 
-function recallByDist(a::AbstractVector{Item}, b::AbstractVector{Item})
+function recallByDist(a::AbstractVector{Item}, b::AbstractVector{Item}; shift::Int=0)
     A = [item.dist for item in a]
     B = [item.dist for item in b]
     sort!(A)
     sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
 
-function recallByDist(a::Result, b::Result)
+function recallByDist(a::Result, b::Result; shift::Int=0)
     A = [item.dist for item in a]
     B = [item.dist for item in b]
     # sort!(A)
     # sort!(B)
-    generic_recall(A, B)
+    generic_recall(A, B, shift=shift)
 end
