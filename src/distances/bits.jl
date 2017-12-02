@@ -9,9 +9,14 @@ mutable struct BinHammingDistance
     BinHammingDistance() = new(0)
 end
 
-function (o::BinHammingDistance)(a::T, b::T) where {T <: Unsigned}
+function (o::BinHammingDistance)(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Unsigned}
     o.calls += 1
-    return count_ones(a ⊻ b) 
+    d = 0
+    @inbounds for i in eachindex(a)
+        d += count_ones(a[i] ⊻ b[i])
+    end
+    
+    return d
 end
 
 const ONE8 = UInt8(1)

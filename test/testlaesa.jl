@@ -1,6 +1,29 @@
 using SimilaritySearch
 using Base.Test
 
+function test_binhamming(create_index, ksearch, nick)
+    @testset "indexing vectors with $nick with BinHammingDistance" begin
+        n = 1000 # number of items in the dataset
+        m = 100  # number of queries
+        dim = 3  # vector's dimension
+
+        function create()
+            [rand(UInt32) for x in 1:dim]
+        end
+        db = [create() for i in 1:n]
+        queries = [create() for i in 1:m]
+
+        index = create_index(db)
+        @test length(index.db) == n
+        push!(index, create())
+        @test length(index.db) == 1 + n
+        perf = Performance(index.db, index.dist, queries, expected_k=10)
+        p = probe(perf, index, use_distances=false)
+        @show p
+        return p
+    end
+end
+
 function test_cos(create_index, ksearch, nick; repeat=1, aggregation=:mean)
     @testset "indexing vectors with $nick with cos or angle's distance" begin
         n = 1000 # number of items in the dataset
@@ -75,7 +98,6 @@ end
 @testset "indexing vectors" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
-    local index
 
     for (recall_lower_bound, dist) in [
         (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
@@ -92,22 +114,11 @@ end
         p = test_vectors((db) -> Laesa(db, dist, 16), dist, ksearch, "Laesa")
         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
     end
-
-    p1 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:median)
-    p2 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:min)
-    p3 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:max)
-    p4 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:mean)
-    @show p1, p2, p3, p4
-    @test p1.recall > 0.99
-    @test p2.recall > 0.99
-    @test p3.recall > 0.99
-    @test p4.recall > 0.99
 end
 
 @testset "indexing sequences" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
-    local index
 
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for (recall_lower_bound, dist) in [
@@ -125,4 +136,22 @@ end
         p = test_sequences((db) -> Laesa(db, dist, 1), dist, ksearch, "Laesa")
         @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
     end
+end
+
+@testset "misc" begin
+    # cosine and angle distance
+    ksearch = 10
+
+    p1 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:median)
+    p2 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:min)
+    p3 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:max)
+    p4 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:mean)
+    @show p1, p2, p3, p4
+    @test p1.recall > 0.99
+    @test p2.recall > 0.99
+    @test p3.recall > 0.99
+    @test p4.recall > 0.99
+
+    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential")
+    @test p.recall > 0.99
 end
