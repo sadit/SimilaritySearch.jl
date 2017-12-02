@@ -1,5 +1,5 @@
 # write your own tests here
 
+include("testbits.jl")
 include("testresults.jl")
-include("testlaesa.jl")
-
+include("testdistances.jl")
