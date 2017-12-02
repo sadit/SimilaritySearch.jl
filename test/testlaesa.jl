@@ -13,6 +13,8 @@ function test_cos(create_index, ksearch, nick; repeat=1, aggregation=:mean)
         index = create_index(db)
         # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
+        push!(index, DenseCosine(rand(Float32, dim)))
+        @test length(index.db) == 1 + n
         perf = Performance(index.db, index.dist, queries, expected_k=10)
         p = probe(perf, index, use_distances=false, repeat=repeat, aggregation=aggregation)
         @show p
@@ -30,8 +32,9 @@ function test_vectors(create_index, dist, ksearch, nick; repeat=1, aggregation=:
         queries = [rand(Float32, dim) for i in 1:m]
 
         index = create_index(db)
-        # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
+        push!(index, rand(Float32, dim))
+        @test length(index.db) == 1 + n
         perf = Performance(index.db, dist, queries, expected_k=10)
         p = probe(perf, index, use_distances=false, repeat=repeat, aggregation=aggregation)
         @show dist, p
@@ -61,8 +64,6 @@ function test_sequences(create_index, dist, ksearch, nick)
         info("inserting items into the index")
         # index = Laesa(db, dist, σ)
         index = create_index(db)
-        # optimize!(index, recall=0.9, use_distances=true)
-        # info("done; now testing")
         @test length(index.db) == n
         perf = Performance(index.db, dist, queries, expected_k=10)
         p = probe(perf, index, use_distances=true)
@@ -80,7 +81,7 @@ end
         (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
         (1.0, L1Distance()),
         (1.0, LInfDistance()),
-        # (1.0, AngleDistance()),
+        (0.1, L2SquaredDistance()),
         (1.0, LpDistance(3)),
         (0.1, LpDistance(0.5))
     ]

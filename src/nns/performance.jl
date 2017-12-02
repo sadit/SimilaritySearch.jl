@@ -43,16 +43,7 @@ end
 
 function Performance(db::AbstractVector{T}, dist::D; numqueries::Int=128, expected_k::Int=10) where {T,D}
     querySet = rand(db, numqueries)
-    expected_k += 1  # necessary since we are using items from the same dataset
-    results = Vector{Result}(numqueries)
-    s = Sequential(db, dist)
-
-    start_time = time()
-    for i in 1:length(querySet)
-        results[i] = search(s, querySet[i], KnnResult(expected_k))
-    end
-
-    return Performance(db, querySet, results, expected_k, 1, (time() - start_time) / length(querySet))
+    Performance(db, dist, querySet, expected_k=expected_k)
 end
 
 function probe(perf::Performance, index::Index; repeat::Int=1, aggregation=:mean, field=:seconds, use_distances::Bool=false)

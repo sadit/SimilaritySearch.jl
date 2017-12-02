@@ -41,10 +41,6 @@ function search(index::Sequential{T,D}, q::T, res::Result) where {T, D}
     return res
 end
 
-function search(index::Sequential{T, D}, q::T) where {T, D}
-    return search(index, q, NnResult())
-end
-
 function push!(index::Sequential{T, D}, item::T) where {T, D}
     push!(index.db, item)
     return length(index.db)
