@@ -95,9 +95,13 @@ end
 
     p1 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:median)
     p2 = test_cos((db) -> Sequential(db, AngleDistance()), ksearch, "Sequential", repeat=3, aggregation=:min)
-    @show p1, p2
-    @test p1.recall > 0.999
+    p3 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:max)
+    p4 = test_cos((db) -> Sequential(db, CosineDistance()), ksearch, "Sequential", repeat=3, aggregation=:mean)
+    @show p1, p2, p3, p4
+    @test p1.recall > 0.99
     @test p2.recall > 0.99
+    @test p3.recall > 0.99
+    @test p4.recall > 0.99
 end
 
 @testset "indexing sequences" begin

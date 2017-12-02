@@ -63,7 +63,7 @@ end
 function push!(index::Laesa{T,D}, obj::T) where {T,D}
     dist = index.dist
     push!(index.db, obj)
-    row = Array(Float64, length(index.pivots))
+    row = Vector{Float64}(length(index.pivots))
     for pivID in 1:length(index.pivots)
         row[pivID] = dist(index.pivots[pivID], obj)
     end
