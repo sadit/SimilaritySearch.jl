@@ -148,9 +148,9 @@ end
     @test p3.recall > 0.99
     @test p4.recall > 0.99
 
-    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
+    p = test_binhamming((db) -> Sss(db, BinHammingDistance(), 0.35), ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
     @test p.recall > 0.99
 
-    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential", () -> rand(UInt64))
+    p = test_binhamming((db) -> LaesaTournament(db, BinHammingDistance(), 16, 3), ksearch, "Sequential", () -> rand(UInt64))
     @test p.recall > 0.99
 end

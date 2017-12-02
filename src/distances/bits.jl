@@ -9,12 +9,12 @@ mutable struct BinHammingDistance
     BinHammingDistance() = new(0)
 end
 
-function (o::BinHammingDistance)(a::T, b::T) where {T <: Unsigned}
+function (o::BinHammingDistance)(a::T, b::T)::Float64 where {T <: Unsigned}
     o.calls += 1
     count_ones(a ⊻ b)
 end
 
-function (o::BinHammingDistance)(a::AbstractVector{T}, b::AbstractVector{T}) where {T <: Unsigned}
+function (o::BinHammingDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Unsigned}
     o.calls += 1
     d = 0
     @inbounds for i in eachindex(a)

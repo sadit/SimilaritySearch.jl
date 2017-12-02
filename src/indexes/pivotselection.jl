@@ -1,4 +1,4 @@
-#  Copyright 2016, 2017 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -87,7 +87,7 @@ function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=tr
     end
     #pivots::Array{T,1} = Array(T, 1)
     #pivots[1] = xdb[1]
-    pivots::Array{Int,1} = Array(Int, 1)
+    pivots = Vector{Int}(1)
     pivots[1] = xdb[1]
     for i=2:length(xdb)
         obj = db[xdb[i]]
