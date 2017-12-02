@@ -81,82 +81,82 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
     return prevA
 end
 
-function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any}
-    # if length(a) < length(b)
-    #     a, b = b, a
-    # end
+# function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any}
+#     # if length(a) < length(b)
+#     #     a, b = b, a
+#     # end
 
-    alen::Int = length(a)
-    blen::Int = length(b)
+#     alen::Int = length(a)
+#     blen::Int = length(b)
 
-    alen == 0 && return alen == blen
-    blen == 0 && return true
+#     alen == 0 && return alen == blen
+#     blen == 0 && return true
 
-    C::Vector{Int} = Vector{Int}(0:blen)
+#     C::Vector{Int} = Vector{Int}(0:blen)
 
-    @inbounds for i in 1:alen
-        prevA::Int = 0
-        prevC::Int = C[1]
-        j::Int = 1
+#     @inbounds for i in 1:alen
+#         prevA::Int = 0
+#         prevC::Int = C[1]
+#         j::Int = 1
             
-        while j <= blen
-            cost::Int = 1
-            if a[i] == b[j]
-                cost = 0
-            end
-            C[j] = prevA
-            j += 1
-            prevA = min(C[j]+1, prevA+1, prevC+cost)
-            prevC = C[j]
-	    end
+#         while j <= blen
+#             cost::Int = 1
+#             if a[i] == b[j]
+#                 cost = 0
+#             end
+#             C[j] = prevA
+#             j += 1
+#             prevA = min(C[j]+1, prevA+1, prevC+cost)
+#             prevC = C[j]
+# 	    end
 	
-        C[j] = prevA
-        if prevA <= errors
-            return true
-        end
-    end
+#         C[j] = prevA
+#         if prevA <= errors
+#             return true
+#         end
+#     end
 
-    return false
-end
+#     return false
+# end
 
-function best_match_levenshtein(a::T1, b::T2)::Int where {T1 <: Any,T2 <: Any}
-    # if length(a) < length(b)
-    #     a, b = b, a
-    # end
+# function best_match_levenshtein(a::T1, b::T2)::Int where {T1 <: Any,T2 <: Any}
+#     # if length(a) < length(b)
+#     #     a, b = b, a
+#     # end
 
-    alen::Int = length(a)
-    blen::Int = length(b)
+#     alen::Int = length(a)
+#     blen::Int = length(b)
 
-    alen == 0 && return blen
-    blen == 0 && return alen
+#     alen == 0 && return blen
+#     blen == 0 && return alen
 
-    C::Vector{Int} = 1:blen |> collect
+#     C::Vector{Int} = 1:blen |> collect
 
-    mindist = alen
-    @inbounds for i in 1:alen
-        prevA::Int = 0
-        prevC::Int = C[1]
-        j::Int = 1
+#     mindist = alen
+#     @inbounds for i in 1:alen
+#         prevA::Int = 0
+#         prevC::Int = C[1]
+#         j::Int = 1
             
-        while j <= blen
-            cost::Int = 1
-            if a[i] == b[j]
-                cost = 0
-            end
-            C[j] = prevA
-            j += 1
-            prevA = min(C[j]+1, prevA+1, prevC+cost)
-            prevC = C[j]
-        end
+#         while j <= blen
+#             cost::Int = 1
+#             if a[i] == b[j]
+#                 cost = 0
+#             end
+#             C[j] = prevA
+#             j += 1
+#             prevA = min(C[j]+1, prevA+1, prevC+cost)
+#             prevC = C[j]
+#         end
 	
-        C[j] = prevA
-        if prevA < mindist
-            mindist = prevA
-        end
-    end
+#         C[j] = prevA
+#         if prevA < mindist
+#             mindist = prevA
+#         end
+#     end
     
-    return mindist
-end
+#     return mindist
+# end
 
 """
 dist_hamming computes the hamming distance between two slices of integers

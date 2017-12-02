@@ -1,15 +1,11 @@
 using SimilaritySearch
 using Base.Test
 
-function test_binhamming(create_index, ksearch, nick)
+function test_binhamming(create_index, ksearch, nick, create)
     @testset "indexing vectors with $nick with BinHammingDistance" begin
         n = 1000 # number of items in the dataset
         m = 100  # number of queries
-        dim = 3  # vector's dimension
 
-        function create()
-            [rand(UInt32) for x in 1:dim]
-        end
         db = [create() for i in 1:n]
         queries = [create() for i in 1:m]
 
@@ -152,6 +148,9 @@ end
     @test p3.recall > 0.99
     @test p4.recall > 0.99
 
-    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential")
+    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
+    @test p.recall > 0.99
+
+    p = test_binhamming((db) -> Sequential(db, BinHammingDistance()), ksearch, "Sequential", () -> rand(UInt64))
     @test p.recall > 0.99
 end
