@@ -10,7 +10,7 @@ struct DenseCosine{T <: Real}
     invnorm::T
 end
 
-function DenseCosine{T}(vec::Vector{T})
+function DenseCosine(vec::Vector{T}) where T
     xnorm = zero(T)
     @fastmath @inbounds @simd for i in eachindex(vec)
         xnorm += vec[i]^2
