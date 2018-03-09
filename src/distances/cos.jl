@@ -24,6 +24,18 @@ function (o::AngleDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where
     return acos(min(1, m))
 end
 
+function (o::AngleDistance)(a::AbstractVector{T}, b::DenseCosine{T})::Float64 where {T <: Real}
+    o.calls += 1
+    m = max(-1, sim_cos(DenseCosine(a), b))
+    return acos(min(1, m))
+end
+
+function (o::AngleDistance)(a::DenseCosine{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+    o.calls += 1
+    m = max(-1, sim_cos(a, DenseCosine(b)))
+    return acos(min(1, m))
+end
+
 mutable struct CosineDistance
     calls::Int
     CosineDistance() = new(0)
@@ -32,6 +44,16 @@ end
 function (o::CosineDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     o.calls += 1
     return -sim_cos(a, b) + 1
+end
+
+function (o::CosineDistance)(a::AbstractVector{T}, b::DenseCosine{T})::Float64 where {T <: Real}
+    o.calls += 1
+    return -sim_cos(DenseCosine(a), b) + 1
+end
+
+function (o::CosineDistance)(a::DenseCosine{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+    o.calls += 1
+    return -sim_cos(a, DenseCosine(b)) + 1
 end
 
 function sim_cos(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
