@@ -15,25 +15,27 @@ function DenseCosine(vec::Vector{T}) where T
     @fastmath @inbounds @simd for i in eachindex(vec)
         xnorm += vec[i]^2
     end
+    
+    (xnorm <= eps(T)) && error("A valid DenseCosine object cannot have a zero norm $xnorm -- vec: $vec")
     DenseCosine(vec, 1/sqrt(xnorm))
 end
 
 function (o::AngleDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     o.calls += 1
-    m = max(-1, sim_cos(a, b))
-    return acos(min(1, m))
+    m = max(-1.0, sim_cos(a, b))
+    acos(min(1.0, m))
 end
 
 function (o::AngleDistance)(a::AbstractVector{T}, b::DenseCosine{T})::Float64 where {T <: Real}
     o.calls += 1
-    m = max(-1, sim_cos(DenseCosine(a), b))
-    return acos(min(1, m))
+    m = max(-1.0, sim_cos(DenseCosine(a), b))
+    acos(min(1.0, m))
 end
 
 function (o::AngleDistance)(a::DenseCosine{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     o.calls += 1
-    m = max(-1, sim_cos(a, DenseCosine(b)))
-    return acos(min(1, m))
+    m = max(-1.0, sim_cos(a, DenseCosine(b)))
+    acos(min(1.0, m))
 end
 
 mutable struct CosineDistance
