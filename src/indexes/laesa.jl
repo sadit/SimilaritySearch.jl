@@ -23,8 +23,8 @@ struct Laesa{T,D} <: Index
 end
 
 function Laesa(db::Vector{T}, dist::D, pivots::Vector{T}) where {T,D}
-    info("Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)")
-    table = Vector{Vector{Float64}}(length(db))
+    @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
+    table = Vector{Vector{Float64}}(undef, length(db))
     for i in 1:length(db)
         table[i] = [dist(piv, db[i]) for piv in pivots]
     end
@@ -63,7 +63,7 @@ end
 function push!(index::Laesa{T,D}, obj::T) where {T,D}
     dist = index.dist
     push!(index.db, obj)
-    row = Vector{Float64}(length(index.pivots))
+    row = Vector{Float64}(undef, length(index.pivots))
     for pivID in 1:length(index.pivots)
         row[pivID] = dist(index.pivots[pivID], obj)
     end

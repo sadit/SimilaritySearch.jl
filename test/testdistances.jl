@@ -1,5 +1,5 @@
 using SimilaritySearch
-using Base.Test
+using Test
 
 function test_binhamming(create_index, ksearch, nick, create)
     @testset "indexing vectors with $nick with BinHammingDistance" begin
@@ -80,7 +80,7 @@ function test_sequences(create_index, dist, ksearch, nick)
         db = [create_item() for i in 1:n]
         queries = [create_item() for i in 1:m]
 
-        info("inserting items into the index")
+        @info "inserting items into the index"
         # index = Laesa(db, dist, σ)
         index = create_index(db)
         @test length(index.db) == n

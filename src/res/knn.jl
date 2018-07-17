@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first, clear!
+import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first, empty!
 export Item, KnnResult, maxlength, covrad, SlugKnnResult, NnResult
 
 struct Item{T}
@@ -61,7 +61,6 @@ end
 """
 push! appends an item to the end of the result set
 """
-
 push!(p::KnnResult{Int64}, objID::I, dist::F) where {I <: Union{Int32,Int16}, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
 push!(p::KnnResult{T}, objID::T, dist::F) where {T, F <: Union{Float16, Float32}} = push!(p, objID, convert(Float64, dist))
 
@@ -130,7 +129,7 @@ function covrad(p::KnnResult{T})::Float64 where T
     return length(p.pool) < p.k ? typemax(Float64) : last(p).dist
 end
 
-function clear!(p::KnnResult{T}) where T
+function empty!(p::KnnResult{T}) where T
     resize!(p.pool, 0)
 end
 
@@ -147,4 +146,3 @@ end
 function next(p::KnnResult{T}, state) where T
     return (p.pool[state], state + 1)
 end
-

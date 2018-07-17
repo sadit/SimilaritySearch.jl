@@ -13,6 +13,7 @@
 #    limitations under the License.
 
 export Performance, PerformanceResult, probe
+using Statistics: mean
 
 mutable struct PerformanceResult
     recall::Float64
@@ -30,14 +31,14 @@ mutable struct Performance{T}
 end
 
 function Performance(db::AbstractVector{T}, dist::D, querySet::AbstractVector{T}; expected_k::Int=10) where {T,D}
-    results = Vector{Result}(length(querySet))
+    results = Vector{Result}(undef, length(querySet))
     s = Sequential(db, dist)
 
     start_time = time()
     for i in 1:length(querySet)
         results[i] = search(s, querySet[i], KnnResult(expected_k))
     end
-    
+
     return Performance(db, querySet, results, expected_k, 0, (time() - start_time) / length(querySet))
 end
 
@@ -76,17 +77,17 @@ function probe(perf::Performance, index::Index; repeat::Int=1, aggregation=:mean
         return M[end]
     else
         error("Unknown aggregation strategy $aggregation")
-    end    
+    end
 end
 
 function _probe(perf::Performance, index::Index; use_distances::Bool=false)
     p::PerformanceResult = PerformanceResult(0.0, 0.0, 0.0)
     m::Int = length(perf.querySet)
-    tlist = Vector{Float64}(m)
-    rlist = Vector{Float64}(m)
-    dlist = Vector{Int}(m)
+    tlist = Vector{Float64}(undef, m)
+    rlist = Vector{Float64}(undef, m)
+    dlist = Vector{Int}(undef, m)
 
-    counting_calls = :calls in fieldnames(index.dist)
+    counting_calls = :calls in fieldnames(typeof(index.dist))
 
     for i = 1:m
         q = perf.querySet[i]

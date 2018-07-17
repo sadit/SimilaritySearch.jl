@@ -1,5 +1,5 @@
 using SimilaritySearch
-using Base.Test
+using Test
 
 @testset "bit ops" begin
     u = zero(UInt128)

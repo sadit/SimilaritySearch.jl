@@ -28,7 +28,6 @@ sim_jaccard computes the Jaccard's coefficient between two sets
 represented as sorted arrays.
 Note: 1.0 - sim_jaccard computes the Jaccard's distance
 """
-
 mutable struct JaccardDistance
     calls::Int
     JaccardDistance() = new(0)

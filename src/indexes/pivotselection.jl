@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 export compute_distances, select_sss, select_tournament
-
+using Random
 """
 Computes the distances of `q` to the set of references `refs` (each index point to an item in `db`)
 It returns an array of tuples `(distance, refID)`
@@ -72,15 +72,14 @@ If you need better a better random selection set :param:shuffle_db as true
 It returns a set of pivots as a list of integers pointing to elements in :param:db
 """
 function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=true) where {T,D}
-    info("select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuffle_db=$(shuffle_db)")
+    @info "select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuffle_db=$(shuffle_db)"
     dmax::Float64 = 0.0
     s = Int(round(sqrt(length(db))/2))
     sample1, sample2 = rand(db, s), rand(db, s)
     dmax = maximum([dist(sample1[i], sample2[i]) for i=1:s])
-    # info("computing", length(X))
     # plot(x=X, Geom.histogram(bincount=100))
 
-    info("the maximum distance estimated as $(dmax), now selecting pivots")
+    @info "the maximum distance estimated as $(dmax), now selecting pivots"
     xdb = Array(1:length(db))
     if shuffle_db
         shuffle!(xdb)

@@ -5,7 +5,6 @@ export CommonPrefixDistance, HammingDistance, GenericLevenshtein, LevDistance, L
 sim_common_prefix computes the length of the common prefix among
 two strings represented as arrays
 """
-
 function sim_common_prefix(a::T, b::T)::Int where {T <: Any}
     len_a::Int = length(a)
     len_b::Int = length(b)
@@ -14,7 +13,7 @@ function sim_common_prefix(a::T, b::T)::Int where {T <: Any}
     @inbounds while i <= min_len && a[i] == b[i]
     	i += 1
     end
-    
+
     return i - 1
 end
 
@@ -63,7 +62,7 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
         prevA = i
         prevC::Int = C[1]
         j::Int = 1
-            
+
         while j <= blen
             cost::Int = o.rcost
             if a[i] == b[j]
@@ -74,10 +73,10 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
             prevA = min(C[j]+o.dcost, prevA+o.icost, prevC+cost)
             prevC = C[j]
         end
-	
+
         C[j] = prevA
     end
-    
+
     return prevA
 end
 
@@ -98,7 +97,7 @@ end
 #         prevA::Int = 0
 #         prevC::Int = C[1]
 #         j::Int = 1
-            
+
 #         while j <= blen
 #             cost::Int = 1
 #             if a[i] == b[j]
@@ -109,7 +108,7 @@ end
 #             prevA = min(C[j]+1, prevA+1, prevC+cost)
 #             prevC = C[j]
 # 	    end
-	
+
 #         C[j] = prevA
 #         if prevA <= errors
 #             return true
@@ -137,7 +136,7 @@ end
 #         prevA::Int = 0
 #         prevC::Int = C[1]
 #         j::Int = 1
-            
+
 #         while j <= blen
 #             cost::Int = 1
 #             if a[i] == b[j]
@@ -148,13 +147,13 @@ end
 #             prevA = min(C[j]+1, prevA+1, prevC+cost)
 #             prevC = C[j]
 #         end
-	
+
 #         C[j] = prevA
 #         if prevA < mindist
 #             mindist = prevA
 #         end
 #     end
-    
+
 #     return mindist
 # end
 
