@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import Base: push!, shift!, pop!, length, start, done, next, eltype, last, first, empty!
+import Base: push!, popfirst!, pop!, length, start, done, next, eltype, last, first, empty!
 export Item, KnnResult, maxlength, covrad, SlugKnnResult, NnResult
 
 struct Item{T}
@@ -99,10 +99,10 @@ function last(p::KnnResult{T}) where T
 end
 
 """
-apply shift!(p.pool), an O(length(p.pool)) operation
+apply popfirst!(p.pool), an O(length(p.pool)) operation
 """
-function shift!(p::KnnResult{T}) where T
-    shift!(p.pool)
+function popfirst!(p::KnnResult{T}) where T
+    popfirst!(p.pool)
 end
 
 """
