@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import Base: push!, popfirst!, pop!, length, start, done, next, eltype, last, first, empty!
+import Base: push!, popfirst!, pop!, length, last, first, empty!
 export Item, KnnResult, maxlength, covrad, SlugKnnResult, NnResult
 
 struct Item{T}
@@ -135,14 +135,14 @@ end
 
 ##### iterator interface
 ### KnnResult
-function start(p::KnnResult{T}) where T
-    return 1
+function Base.iterate(p::KnnResult{T}) where T
+    return length(p) == 0 ? nothing : (first(p), 2)
 end
 
-function done(p::KnnResult{T}, state) where T
-    return state > length(p)
-end
+function Base.iterate(p::KnnResult{T}, state::Int) where T
+    if state > length(p)
+        return nothing
+    end
 
-function next(p::KnnResult{T}, state) where T
-    return (p.pool[state], state + 1)
+    return p.pool[state], state + 1
 end

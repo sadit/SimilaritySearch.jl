@@ -17,7 +17,6 @@ using Test
         push!(nn, i, V[i])
         push!(bigres, BigInt(i), V[i])
     end
-
     @test [x.objID for x in res] == [x.objID for x in sres]
     @test [x.dist for x in res] == [x.dist for x in sres] == Vsorted
     @test first(nn).dist == Vsorted[1]
