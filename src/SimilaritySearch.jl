@@ -17,4 +17,6 @@ include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/laesa.jl")
 include("indexes/pivotselectiontables.jl")
+include("knr/SimilarReferences.jl")
+include("graph/NearNeighborGraph.jl")
 end

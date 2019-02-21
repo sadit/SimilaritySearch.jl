@@ -86,14 +86,14 @@ function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=tr
     end
     #pivots::Array{T,1} = Array(T, 1)
     #pivots[1] = xdb[1]
-    pivots = Vector{Int}(1)
-    pivots[1] = xdb[1]
+    pivots = Int[xdb[1]]
+
     for i=2:length(xdb)
         obj = db[xdb[i]]
         if minimum([dist(db[pivID], obj) for pivID in pivots]) / dmax < alpha
             continue
         end
-        # push!(pivots, obj)
+
         push!(pivots, i)
     end
 

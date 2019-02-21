@@ -14,7 +14,7 @@
 
 # abstract Sequential
 
-import Base: search, push!
+import Base: push!
 
 export Sequential, search, push!
 
