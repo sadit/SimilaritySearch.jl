@@ -1,4 +1,4 @@
-#  Copyright 2016-2018 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -63,13 +63,13 @@ include("deltasearch.jl")
 
 
 ### Basic operations on the index
-const NNS_PUSH_LOGBASE = 2
+const OPTIMIZE_LOGBASE = 2
 
 function find_neighborhood(index::LocalSearchIndex{T}, item::T) where {T}
     n::Int = length(index.db)
     n == 0 && return (NnResult(), Int32[])
-    k::Int = ceil(Int, log(NNS_PUSH_LOGBASE, 1+n))
-    k_1::Int = ceil(Int, log(NNS_PUSH_LOGBASE, 2+n))
+    k::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
+    k_1::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
 
     if n > 4 && k != k_1
         optimize!(index, index.recall)
