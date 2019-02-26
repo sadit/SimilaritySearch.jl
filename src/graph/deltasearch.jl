@@ -12,7 +12,7 @@ DeltaSearch(other::DeltaSearch) = DeltaSearch(other.montecarlo_size, other.delta
 
 function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
     # first beam
-    beam = SlugKnnResult(Int(bsearch.delta * maxlength(res)))
+    beam = KnnResult(Int(bsearch.delta * maxlength(res)))
     if oracle == nothing
         estimate_knearest(index.db, index.dist, maxlength(beam), bsearch.montecarlo_size, q, tabu, beam)
     else

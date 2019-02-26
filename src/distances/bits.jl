@@ -1,26 +1,20 @@
-export BinHammingDistance, setbit, resetbit
+export hamming_distance, setbit, resetbit
 
 # we export a few bit-handling primitives
 # BitArray contains too much extra functionality at the cost of O(1) extra words,
 # however this could be an issue, since we represent our database as n vectors
 
-mutable struct BinHammingDistance
-    calls::Int
-    BinHammingDistance() = new(0)
-end
 
-function (o::BinHammingDistance)(a::T, b::T)::Float64 where {T <: Unsigned}
-    o.calls += 1
+function hamming_distance(a::T, b::T)::Float64 where {T <: Unsigned}
     count_ones(a ⊻ b)
 end
 
-function (o::BinHammingDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Unsigned}
-    o.calls += 1
+function hamming_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Unsigned}
     d = 0
-    @inbounds for i in eachindex(a)
+    @inbounds @simd for i in eachindex(a)
         d += count_ones(a[i] ⊻ b[i])
     end
-    
+
     return d
 end
 

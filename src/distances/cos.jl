@@ -1,71 +1,63 @@
-export AngleDistance, CosineDistance,  DenseCosine, sim_cos
+export dot_similarity, normalize!, cosine_similarity, cosine_distance, angle_distance
 
-mutable struct AngleDistance
-    calls::Int
-    AngleDistance() = new(0)
-end
-
-struct DenseCosine{T <: Real}
-    vec::Vector{T}
-    invnorm::T
-end
-
-function DenseCosine(vec::Vector{T}) where T
-    xnorm = zero(T)
-    @fastmath @inbounds @simd for i in eachindex(vec)
-        xnorm += vec[i]^2
-    end
-    
-    (xnorm <= eps(T)) && error("A valid DenseCosine object cannot have a zero norm $xnorm -- vec: $vec")
-    DenseCosine(vec, 1/sqrt(xnorm))
-end
-
-function (o::AngleDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
-    o.calls += 1
-    m = max(-1.0, sim_cos(a, b))
-    acos(min(1.0, m))
-end
-
-function (o::AngleDistance)(a::AbstractVector{T}, b::DenseCosine{T})::Float64 where {T <: Real}
-    o.calls += 1
-    m = max(-1.0, sim_cos(DenseCosine(a), b))
-    acos(min(1.0, m))
-end
-
-function (o::AngleDistance)(a::DenseCosine{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
-    m = max(-1.0, sim_cos(a, DenseCosine(b)))
-    acos(min(1.0, m))
-end
-
-mutable struct CosineDistance
-    calls::Int
-    CosineDistance() = new(0)
-end
-
-function (o::CosineDistance)(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
-    o.calls += 1
-    return -sim_cos(a, b) + 1
-end
-
-function (o::CosineDistance)(a::AbstractVector{T}, b::DenseCosine{T})::Float64 where {T <: Real}
-    o.calls += 1
-    return -sim_cos(DenseCosine(a), b) + 1
-end
-
-function (o::CosineDistance)(a::DenseCosine{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
-    return -sim_cos(a, DenseCosine(b)) + 1
-end
-
-function sim_cos(a::DenseCosine{T}, b::DenseCosine{T})::Float64 where {T <: Real}
-    sum::T = zero(T)
-    avec = a.vec
-    bvec = b.vec
-
-    @fastmath @inbounds @simd for i in eachindex(avec)
-        sum += avec[i] * bvec[i]
+"""
+Computes the dot product between vectors (it may disapear in a near future in favor of LinearAlgebra.dot)
+"""
+function dot_similarity(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+    s = 0.0
+    @fastmath @inbounds @simd for i in eachindex(a)
+        s += a[i] * b[i]
     end
 
-    sum * a.invnorm * b.invnorm
+    s
+end
+
+"""
+normalize!
+
+Divides the vector by its norm (in-place operation)
+"""
+function normalize!(a::AbstractVector{T}) where {T <: Real}
+    xnorm = sqrt(dot_similarity(a, a))
+    (xnorm <= eps(T)) && error("A valid vector for cosine's normalize! cannot have a zero norm $xnorm -- vec: $a")
+    invnorm = 1.0 / xnorm
+    @fastmath @inbounds @simd for i in eachindex(a)
+        a[i] = a[i] * invnorm
+    end
+
+    a
+end
+
+"""
+normalize!
+
+Divides all column vectors of the matrix by its norm (in-place operation)
+"""
+function normalize!(a::AbstractMatrix{T}) where {T <: Real}
+    for i in size(a, 2)
+        normalize!(@view a[:, i])
+    end
+
+    a
+end
+
+"""
+angle_distance
+
+Computes the angle between two vectors, it expects normalized vectors (see normalize! method)
+"""
+function angle_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+    m = max(-1.0, dot_similarity(a, b))
+    acos(min(1.0, m))
+end
+
+"""
+cosine_distance
+
+Computes the cosine distance between two vectors, it expects normalized vectors (see normalize! method).
+Please use angle_distance if you are expecting a metric function (instead cosine_distance is a faster
+alternative whenever the triangle inequality is not needed)
+"""
+function cosine_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+    1 - dot_similarity(a, b)
 end

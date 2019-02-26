@@ -1,32 +1,19 @@
-export sim_jaccard, sim_common_prefix, distance
-export L1Distance, L2Distance, L2SquaredDistance, LInfDistance, LpDistance
+export l1_distance, l2_distance, squared_l2_distance, linf_distance, lp_distance
 
-""" L1Distance computes the Manhattan's distance """
-mutable struct L1Distance
-    calls::Int
-    L1Distance() = new(0)
-end
-
-function (o::L1Distance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
+""" l1_distance computes the Manhattan's distance """
+function l1_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     d::T = zero(T)
 
     @fastmath @inbounds @simd for i = 1:length(a)
-	m = a[i] - b[i]
+	    m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
     end
 
     return d
 end
 
-""" L2Distance computes the Euclidean's distance """
-mutable struct L2Distance
-    calls::Int
-    L2Distance() = new(0)
-end
-
-function (o::L2Distance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
+""" l2_distance computes the Euclidean's distance """
+function l2_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     d::T = zero(T)
 
     @fastmath @inbounds @simd for i = 1:length(a)
@@ -37,14 +24,8 @@ function (o::L2Distance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 wh
     return sqrt(d)
 end
 
-""" L2SquaredDistance computes the Euclidean's distance but squared """
-mutable struct L2SquaredDistance
-    calls::Int
-    L2SquaredDistance() = new(0)
-end
-
-function (o::L2SquaredDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
+""" squared_l2_distance computes the Euclidean's distance but squared """
+function squared_l2_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
     d::T = zero(T)
 
     @fastmath @inbounds @simd for i = 1:length(a)
@@ -56,15 +37,9 @@ function (o::L2SquaredDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Flo
 end
 
 
-""" LInfDistance computes the max distance """
-mutable struct LInfDistance
-    calls::Int
-    LInfDistance() = new(0)
-end
-
-function (o::LInfDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
-    d::T = zero(T)
+""" linf_distance computes the max distance """
+function linf_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+   d::T = zero(T)
 
     @fastmath @inbounds @simd for i = 1:length(a)
         m = abs(a[i] - b[i])
@@ -75,23 +50,21 @@ function (o::LInfDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 
 end
 
 """
-dist_lp computes a generic Minkowski's distance
+lp_distance creates a function that computes computes generic Minkowski's distance
 """
-mutable struct LpDistance
-    calls::Int
-    p::Float32
-    LpDistance(p::F) where {F <: Real} = new(0, convert(Float32, p))
-end
+function lp_distance(p_::Real)
+    p::Float64 = convert(Float64, p_)
+    invp = 1.0 / p
 
-function (o::LpDistance)(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    o.calls += 1
-    d::T = zero(T)
+    function _lp(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where T
+        d::T = zero(T)
 
-    @fastmath @inbounds @simd for i = 1:length(a)
-	m = abs(a[i] - b[i])
-	d += m ^ o.p
+        @fastmath @inbounds @simd for i = 1:length(a)
+            m = abs(a[i] - b[i])
+            d += m ^ p
+        end
+
+        d ^ invp
     end
-
-    return d ^ (1f0 / o.p)
 end
 

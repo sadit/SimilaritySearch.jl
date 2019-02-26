@@ -46,7 +46,7 @@ end
 function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::Result; oracle=nothing) where {T}
     n = length(index.db)
     tabu = falses(n)
-    candidates = SlugKnnResult(gsearch.candidates_size)
+    candidates = KnnResult(gsearch.candidates_size)
     if oracle == nothing
         estimate_knearest(index.db, index.dist, gsearch.candidates_size, gsearch.montecarlo_size, q, tabu, res, candidates)
     else

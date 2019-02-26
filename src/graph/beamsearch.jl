@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -37,14 +37,14 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 """
 function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
     # first beam
-    beam = SlugKnnResult(bsearch.beam_size)
+    beam = KnnResult(bsearch.beam_size)
     if oracle == nothing
         estimate_knearest(index.db, index.dist, bsearch.candidates_size, bsearch.montecarlo_size, q, tabu, res, beam)
     else
         estimate_from_oracle(index, q, beam, tabu, res, oracle)
     end
 
-    new_beam = SlugKnnResult(bsearch.beam_size)
+    new_beam = KnnResult(bsearch.beam_size)
     # new_beam = KnnResult(bsearch.beam_size)
     # cov::Float32 = -1.0
     # while cov != last(res).dist

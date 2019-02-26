@@ -1,4 +1,4 @@
-#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,36 +15,37 @@
 
 export Laesa
 
-struct Laesa{T,D} <: Index
+mutable struct Laesa{T} <: Index
     db::Vector{T}
-    dist::D
     pivots::Vector{T}
-    table::Vector{Vector{Float64}}
+    table::Matrix{Float64} # rows: number of pivots; cols: number of objects 
 end
 
-function Laesa(db::Vector{T}, dist::D, pivots::Vector{T}) where {T,D}
+function fit(::Type{Laesa}, db::AbstractVector{T}, dist::Function, pivots::Vector{T})  where T
     @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
-    table = Vector{Vector{Float64}}(undef, length(db))
-    for i in 1:length(db)
-        table[i] = [dist(piv, db[i]) for piv in pivots]
+    table = Matrix{Float64}(undef, length(pivots), length(db))
+
+    for j in 1:length(db)
+        for i in 1:length(pivots)
+            table[i, j] = dist(db[j], pivots[i])
+        end
     end
 
-    Laesa(db, dist, pivots, table)
+    Laesa(db, pivots, table)
 end
 
-function Laesa(db::Vector{T}, dist::D, numPivots::Int) where {T,D}
+function fit(::Type{Laesa}, db::AbstractVector{T}, dist::Function, numPivots::Integer) where T
     pivots = rand(db, numPivots)
-    Laesa(db, dist, pivots)
+    fit(Laesa, db, dist, pivots)
 end
 
-function search(index::Laesa{T,D}, q::T, res::Result) where {T,D}
-    dist = index.dist
+function search(index::Laesa{T}, dist::Function, q::T, res::Result) where T
     dqp = [dist(q, piv) for piv in index.pivots]
-    for i = 1:length(index.db)
-        dpu = index.table[i]
-
+    for i in 1:length(index.db)
+        dpu = @view index.table[:, i]
+        
         evaluate = true
-        @inbounds for pivID in 1:length(index.pivots)
+        for pivID in 1:length(index.pivots)
             if abs(dqp[pivID] - dpu[pivID]) > covrad(res)
                 evaluate = false
                 break
@@ -60,13 +61,13 @@ function search(index::Laesa{T,D}, q::T, res::Result) where {T,D}
     return res
 end
 
-function push!(index::Laesa{T,D}, obj::T) where {T,D}
-    dist = index.dist
+function push!(index::Laesa{T}, dist::Function, obj::T) where T
     push!(index.db, obj)
-    row = Vector{Float64}(undef, length(index.pivots))
-    for pivID in 1:length(index.pivots)
-        row[pivID] = dist(index.pivots[pivID], obj)
+    vec = Vector{Float64}(undef, length(index.pivots))
+    for pivID in 1:length(vec)
+        vec[pivID] = dist(index.pivots[pivID], obj)
     end
-    push!(index.table, row)
-    return length(index.db)
+
+    index.table = hcat(index.table, vec)
+    length(index.db)
 end

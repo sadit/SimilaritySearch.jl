@@ -16,16 +16,12 @@ using SimilaritySearch
 using Dates
 
 import SimilaritySearch:
-    search
-
-import Base:
-    push!
+    search, fit, push!
 
 export Knr, optimize!
 
-mutable struct Knr{T, D} <: Index
+mutable struct Knr{T} <: Index
     db::Vector{T}
-    dist::D
     refs::Vector{T}
     k::Int
     ksearch::Int
@@ -33,10 +29,10 @@ mutable struct Knr{T, D} <: Index
     invindex::Vector{Vector{Int32}}
 end
 
-function Knr(db::Vector{T}, dist::D, refs::Vector{T}, k::Int, minmatches::Int=1) where {T,D}
+function fit(Knr, db::Vector{T}, dist::Function, refs::Vector{T}, k::Int, minmatches::Int=1) where T
     @info "Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)"
     invindex = [Vector{Int32}(undef, 0) for i in 1:length(refs)]
-    seqindex = Sequential(refs, dist)
+    seqindex = fit(Sequential, refs)
 
     pc = round(Int, length(db) / 20)
     for i=1:length(db)
@@ -44,31 +40,31 @@ function Knr(db::Vector{T}, dist::D, refs::Vector{T}, k::Int, minmatches::Int=1)
             @info "Knr> advance $(round(i/length(db), digits=4)), now: $(now())"
         end
 
-        res = search(seqindex, db[i], KnnResult(k))
+        res = search(seqindex, dist, db[i], KnnResult(k))
         for p in res
             push!(invindex[p.objID], i)
         end
     end
 
-    Knr(db, dist, refs, k, k, minmatches, invindex)
+    Knr(db, refs, k, k, minmatches, invindex)
 end
 
-function Knr(db::Array{T,1}, dist::D; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where {T,D}
+function fit(Knr, db::Vector{T}, dist::Function; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where T
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(db, dist, numrefs, tournamentsize)]
-    Knr(db, dist, refs, k, minmatches)
+    fit(Knr, db, dist, refs, k, minmatches)
 end
 
 """
-    search(index::Knr{T, D}, q::T) where {T,D}
+search
 
 Solves the search specified by `q`and `res` using `index`
 """
-function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
+function search(index::Knr{T}, dist::Function, q::T, res::Result) where {T}
     dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
-    seqindex = Sequential(index.refs, index.dist)
-    kres = search(seqindex, q, KnnResult(index.ksearch))
+    seqindex = fit(Sequential, index.refs)
+    kres = search(seqindex, dist, q, KnnResult(index.ksearch))
 
     for p in kres
         @inbounds for objID in index.invindex[p.objID]
@@ -76,7 +72,7 @@ function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
             dz[objID] = c
 
             if c == index.minmatches
-                d = index.dist(q, index.db[objID])
+                d = dist(q, index.db[objID])
                 push!(res, objID, d)
             end
         end
@@ -85,30 +81,29 @@ function search(index::Knr{T,D}, q::T, res::Result) where {T,D}
     return res
 end
 
-function push!(index::Knr{T, D}, obj::T) where {T,D}
+function push!(index::Knr{T}, dist::Function, obj::T) where T
     push!(index.db, obj)
-    seqindex = Sequential(index.refs, index.dist)
-    res = search(seqindex, obj, KnnResult(index.k))
+    seqindex = fit(Sequential, index.refs)
+    res = search(seqindex, dist, obj, KnnResult(index.k))
     for p in res
         push!(index.invindex[p.objID], length(index.db))
     end
     return length(index.db)
 end
 
-function optimize!(index::Knr{T, D}; recall::Float64=0.9, k::Int=1, numqueries::Int=128, use_distances::Bool=false) where {T,D}
+function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=1, numqueries::Int=128, use_distances::Bool=false) where T
     @info "Knr> optimizing index for recall=$(recall)"
-    perf = Performance(index.db, index.dist; numqueries=numqueries, expected_k=k)
+    perf = Performance(index.db, dist; numqueries=numqueries, expected_k=k)
     index.minmatches = 1
     index.ksearch = 1
-    p = probe(perf, index, use_distances=use_distances)
+    p = probe(perf, index, dist, use_distances=use_distances)
 
     while p.recall < recall && index.ksearch < length(index.refs)
         index.ksearch += 1
         @info "Knr> opt step ksearch=$(index.ksearch), performance $(p)"
-        p = probe(perf, index, use_distances=use_distances)
+        p = probe(perf, index, dist, use_distances=use_distances)
 
     end
     @info "Knr> reached performance $(p)"
     return index
 end
-

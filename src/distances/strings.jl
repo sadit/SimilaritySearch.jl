@@ -1,5 +1,4 @@
-export sim_common_prefix, best_match_levenshtein, kerrormatch
-export CommonPrefixDistance, HammingDistance, GenericLevenshtein, LevDistance, LcsDistance
+export common_prefix_distance, generic_levenshtein, hamming_distance, levenshtein_distance, lcs_distance
 
 """
 sim_common_prefix computes the length of the common prefix among
@@ -22,29 +21,15 @@ mutable struct CommonPrefixDistance
 	CommonPrefixDistance() = new(0)
 end
 
-function (o::CommonPrefixDistance)(a::T, b::T) where {T}
-	o.calls += 1
+function common_prefix_distance(a::T, b::T) where T
 	return sim_common_prefix(a, b) / max(length(a), length(b))
 end
 
 """
-dist_levenshtein computes the edit distance between two strings,
+generic_levenshtein computes the edit distance between two strings,
 this is a low level function. Please use dist_lev
 """
-mutable struct GenericLevenshtein
-    calls::Int
-    icost::Int
-    dcost::Int
-    rcost::Int
-end
-
-"""LevDistance computes the edit distance"""
-LevDistance() = GenericLevenshtein(0, 1, 1, 1)
-
-"""LCS computes the distance associated to the longest common subsequence"""
-LcsDistance() = GenericLevenshtein(0, 1, 1, 2)
-
-function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
+function generic_levenshtein(a::T, b::T, icost::Int, dcost::Int, rcost::Int)::Int where T
     if length(a) < length(b)
         a, b = b, a
     end
@@ -64,13 +49,13 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
         j::Int = 1
 
         while j <= blen
-            cost::Int = o.rcost
+            cost::Int = rcost
             if a[i] == b[j]
                cost = 0
             end
             C[j] = prevA
             j += 1
-            prevA = min(C[j]+o.dcost, prevA+o.icost, prevC+cost)
+            prevA = min(C[j]+dcost, prevA+icost, prevC+cost)
             prevC = C[j]
         end
 
@@ -78,6 +63,23 @@ function (o::GenericLevenshtein)(a::T, b::T)::Float64 where {T <: Any}
     end
 
     return prevA
+end
+
+
+"""
+levenstein_distance 
+computes edit distance over two strings or arrays of comparable objects
+"""
+function levenshtein_distance(a::T, b::T)::Float64 where T
+    generic_levenshtein(a, b, 1, 1, 1)
+end
+
+"""
+lcs_distance 
+computes lcs distance over associated to the longest common subsequence; it accepts two strings or arrays of comparable objects
+"""
+function lcs_distance(a::T, b::T)::Float64 where T
+    generic_levenshtein(a, b, 1, 1, 2)
 end
 
 # function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any}
@@ -158,15 +160,10 @@ end
 # end
 
 """
-dist_hamming computes the hamming distance between two slices of integers
+hamming_distance computes the hamming distance between two slices of integers
 """
-mutable struct HammingDistance
-    calls::Int
-    HammingDistance() = new(0)
-end
 
-function (o::HammingDistance)(a::T, b::T)::Float64 where {T <: Any}
-    o.calls += 1
+function hamming_distance(a::T, b::T)::Float64 where T
     d::Int = 0
 
     @inbounds for i = 1:length(a)

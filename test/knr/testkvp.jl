@@ -3,10 +3,10 @@ using SimilaritySearch.SimilarReferences
 using Test
 
 
-function test_vectors(create_index, dist, ksearch, nick)
+function test_vectors(create_index, dist::Function, ksearch, nick)
     @testset "indexing vectors with $nick and $dist" begin
-        n = 1000 # number of items in the dataset
-        m = 100  # number of queries
+        n = 300 # number of items in the dataset
+        m = 30  # number of queries
         dim = 3  # vector's dimension
 
         db = [rand(Float32, dim) for i in 1:n]
@@ -14,25 +14,25 @@ function test_vectors(create_index, dist, ksearch, nick)
 
         index = create_index(db)
         # testing pushes
-        push!(index, rand(Float32, dim))
+        push!(index, dist, rand(Float32, dim))
         @test length(index.db) == n + 1
         perf = Performance(index.db, dist, queries, expected_k=10)
-        p = probe(perf, index, use_distances=false)
+        p = probe(perf, index, dist, use_distances=false)
         @show dist, p
         return p
     end
 end
 
-function test_sequences(create_index, dist, ksearch, nick)
+function test_sequences(create_index, dist::Function, ksearch, nick)
     @testset "indexing sequences with $nick and $dist" begin
-        n = 1000 # number of items in the dataset
-        m = 100  # number of queries
+        n = 300 # number of items in the dataset
+        m = 30  # number of queries
         dim = 5  # the length of sequences
         V = collect(1:10)  # vocabulary of the sequences
 
         function create_item()
             s = rand(V, dim)
-            if dist isa JaccardDistance || dist isa DiceDistance || dist isa IntersectionDistance
+            if dist == jaccard_distance || dist == dice_distance || dist == intersection_distance
                 sort!(s)
                 s = unique(s)
             end
@@ -48,7 +48,7 @@ function test_sequences(create_index, dist, ksearch, nick)
         # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
         perf = Performance(index.db, dist, queries, expected_k=10)
-        p = probe(perf, index, use_distances=true)
+        p = probe(perf, index, dist, use_distances=true)
         # @show dist, p
         return p
     end
@@ -60,17 +60,17 @@ end
     local index
 
     for (recall_lower_bound, dist) in [
-        (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
-        (1.0, L1Distance()),
-        (1.0, LInfDistance()),
+        (1.0, l2_distance), # 1.0 -> metric, < 1.0 if dist is not a metric
+        (1.0, l1_distance),
+        (1.0, linf_distance),
         # (1.0, AngleDistance()),
-        (1.0, LpDistance(3)),
-        (0.1, LpDistance(0.5))
+        (1.0, lp_distance(3.0)),
+        (0.1, lp_distance(0.5))
     ]
         @show recall_lower_bound, dist
 
         @show Kvp
-        p = test_vectors((db) -> Kvp(db, dist, 3, 32), dist, ksearch, "Kvp")
+        p = test_vectors((db) -> fit(Kvp, db, dist, 3, 32), dist, ksearch, "Kvp")
         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
     end
 end
@@ -82,15 +82,15 @@ end
 
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for (recall_lower_bound, dist) in [
-        (1.0, JaccardDistance()),
-        (0.1, DiceDistance()),
-        (0.1, IntersectionDistance()),
-        (0.1, CommonPrefixDistance()),
-        (1.0, LevDistance()),
-        (1.0, LcsDistance()),
-        (1.0, HammingDistance())
+        (1.0, jaccard_distance),
+        (0.1, dice_distance),
+        (0.1, intersection_distance),
+        (0.1, common_prefix_distance),
+        (1.0, levenshtein_distance),
+        (1.0, lcs_distance),
+        (1.0, hamming_distance)
     ]
-        p = test_sequences((db) -> Kvp(db, dist, 3, 32), dist, ksearch, "Kvp")
+        p = test_sequences((db) -> fit(Kvp, db, dist, 3, 32), dist, ksearch, "Kvp")
         @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
     end
 end

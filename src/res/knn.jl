@@ -13,7 +13,7 @@
 #    limitations under the License.
 
 import Base: push!, popfirst!, pop!, length, last, first, empty!
-export Item, KnnResult, maxlength, covrad, SlugKnnResult, NnResult
+export Item, KnnResult, maxlength, covrad, NnResult
 
 struct Item{T}
     objID::T
@@ -32,7 +32,6 @@ function KnnResult(T::Type, k::Int)
 end
 
 KnnResult(k::Integer) = KnnResult(Int64, k)
-SlugKnnResult(k::Integer) = KnnResult(Int64, k)
 NnResult() = KnnResult(Int64, 1)
 
 

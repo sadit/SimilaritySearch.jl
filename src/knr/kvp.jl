@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,43 +15,40 @@
 using SimilaritySearch
 
 import SimilaritySearch:
-    search
+    search, fit, push!
 
-import Base:
-    push!
+export Kvp, near_and_far, fit, search, push!
 
-export Kvp, near_and_far
-
-mutable struct Kvp{T, D} <: Index
+mutable struct Kvp{T} <: Index
     db::Vector{T}
-    dist::D
     refs::Vector{T}
     sparsetable::Vector{Vector{Item}}
     k::Int
 end
 
-function Kvp(db::Vector{T}, dist::D, k::Int, refList::Vector{Int}) where {T,D}
-    @info "Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refList)), dist=$(dist)"
+function fit(::Type{Kvp}, db::Vector{T}, dist::Function, k::Int, refs::Vector{T}) where T
+    @info "Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)"
     sparsetable = Vector{Item}[]
-    refs = [db[x] for x in refList]
-    for i=1:length(db)
+
+    for i in 1:length(db)
         if (i % 10000) == 0
             @info "advance $(i)/$(length(db))"
         end
+
         row = near_and_far(db[i], refs, k, dist)
-        # println(row)
         push!(sparsetable, row)
     end
 
-    return Kvp(db, dist, refs, sparsetable, k)
+    Kvp(db, refs, sparsetable, k)
 end
 
-function Kvp(db::Vector{T}, dist::D, k::Int, numrefs::Int) where {T,D}
-    refs = rand(1:length(db), numrefs)
-    Kvp(db, dist, k, refs)
+function fit(::Type{Kvp}, db::Vector{T}, dist::Function, k::Int, numrefs::Int) where T
+    refList = rand(1:length(db), numrefs)
+    refs = [db[x] for x in refList]
+    fit(Kvp, db, dist, k, refs)
 end
 
-function near_and_far(obj::T, refs::Vector{T}, k::Int, dist::D) where {T,D}
+function near_and_far(obj::T, refs::Vector{T}, k::Int, dist::Function) where T
     near = KnnResult(k)
     far = KnnResult(k)
     for (refID, ref) in enumerate(refs)
@@ -69,16 +66,14 @@ function near_and_far(obj::T, refs::Vector{T}, k::Int, dist::D) where {T,D}
         row[k+j] = Item(item.objID, -item.dist)
     end
 
-    return row
+    row
 end
 
-function search(index::Kvp{T,D}, q::T, res::Result) where {T,D}
-    # for i in range(1, length(index.db))
+function search(index::Kvp{T}, dist::Function, q::T, res::Result) where T
     d::Float64 = 0.0
-    dist = index.dist
     qI = [dist(q, piv) for piv in index.refs]
 
-    for i = 1:length(index.db)
+    for i in 1:length(index.db)
         obj::T = index.db[i]
         objSparseRow = index.sparsetable[i]
 
@@ -91,19 +86,20 @@ function search(index::Kvp{T,D}, q::T, res::Result) where {T,D}
                 break
             end
         end
+
         if discarded
             continue
         end
-        d =dist(q, obj)
+        d = dist(q, obj)
         push!(res, i, d)
     end
 
     return res
 end
 
-function push!(index::Kvp{T}, obj::T) where {T}
+function push!(index::Kvp{T}, dist::Function, obj::T) where T
     push!(index.db, obj)
-    row = near_and_far(obj, index.refs, index.k, index.dist)
+    row = near_and_far(obj, index.refs, index.k, dist)
     push!(index.sparsetable, row)
     return length(index.db)
 end

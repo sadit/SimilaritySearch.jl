@@ -16,32 +16,34 @@
 
 import Base: push!
 
-export Sequential, search, push!
+export Sequential, search, push!, fit
 
 """
-    Sequential{T, D}
+    Sequential{T}
 
 A simple exhaustive search index
 """
-struct Sequential{T, D} <: Index
-    db::Array{T,1}
-    dist::D
+struct Sequential{T} <: Index
+    db::Vector{T}
 end
 
-function search(index::Sequential{T,D}, q::T, res::Result) where {T, D}
-    # for i in range(1, length(index.db))
+function fit(::Type{Sequential}, db::Vector{T}) where T
+    Sequential(db)
+end
+
+function search(index::Sequential{T}, dist::Function, q::T, res::Result) where T
     i::Int32 = 1
     d::Float64 = 0.0
     for obj in index.db
-        d = index.dist(q, obj)
-        push!(res, i, convert(Float32,d))
+        d = dist(q, obj)
+        push!(res, i, convert(Float32, d))
         i += 1
     end
 
-    return res
+    res
 end
 
-function push!(index::Sequential{T, D}, item::T) where {T, D}
+function push!(index::Sequential{T}, dist::Function, item::T) where T
     push!(index.db, item)
-    return length(index.db)
+    length(index.db)
 end

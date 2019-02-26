@@ -8,7 +8,7 @@ using Test
 
     bigres = KnnResult(BigInt, k)
     res = KnnResult(k)
-    sres = SlugKnnResult(k)
+    sres = KnnResult(k)
     nn = NnResult()
 
     for i=1:length(V)
