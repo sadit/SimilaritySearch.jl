@@ -31,7 +31,7 @@ mutable struct Performance{T}
     count_calls::Bool
 end
 
-function Performance(db::AbstractVector{T}, dist::Function, querySet::AbstractVector{T}; expected_k::Int=10, count_calls=true) where T
+function Performance(dist::Function, db::AbstractVector{T}, querySet::AbstractVector{T}; expected_k::Int=10, count_calls=true) where T
     results = Vector{Result}(undef, length(querySet))
     s = Sequential(db)
 
@@ -45,7 +45,7 @@ end
 
 function Performance(db::AbstractVector{T}, dist::D; numqueries::Int=128, expected_k::Int=10, count_calls=true) where {T,D}
     querySet = rand(db, numqueries)
-    Performance(db, dist, querySet, expected_k=expected_k, count_calls=count_calls)
+    Performance(dist, db, querySet, expected_k=expected_k, count_calls=count_calls)
 end
 
 function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, aggregation=:mean, field=:seconds, use_distances::Bool=false)

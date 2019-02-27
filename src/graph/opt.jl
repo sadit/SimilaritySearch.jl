@@ -38,13 +38,13 @@ end
 Optimizes a local search index for an specific algorithm to get the desired recall. Note that optimize for low-recall will yield to faster searches.
 The train queries are specified as part of the `perf` struct.
 """
-function optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
+function optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, dist::Function, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
     n = length(index.db)
-    optimize_neighborhood!(index.neighborhood_algo, index, perf, recall)
+    optimize_neighborhood!(index.neighborhood_algo, index, dist, perf, recall)
     tabu = Set{S}()
     candidates_population = 2  ## a magic number
     candidates = Vector{Tuple{Float64,S}}()
-    best_perf = probe(perf, index)
+    best_perf = probe(perf, index, dist)
     fitness_function = create_fitness_function(recall)
 
     # push!(candidates, (fitness_performance(recall, best_perf), algosearch))
@@ -64,7 +64,7 @@ function optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, recall::Float
                 index.search_algo = s
 
                 # p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
-                p = probe(perf, index, repeat=1, field=:seconds)
+                p = probe(perf, index, dist, repeat=1, field=:seconds)
                 fitness = fitness_function(p)
                 push!(candidates, (fitness, s))
                 if fitness > best_fitness

@@ -8,12 +8,12 @@ function EssencialNeighborhood()
     return EssencialNeighborhood(32)
 end
 
-function optimize_neighborhood!(algo::EssencialNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
+function optimize_neighborhood!(algo::EssencialNeighborhood, index::LocalSearchIndex{T}, dist::Function, perf, recall) where {T}
 end
 
-function neighborhood(algo::EssencialNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
+function neighborhood(algo::EssencialNeighborhood, index::LocalSearchIndex{T}, dist::Function, item::T) where {T}
     nbuffer::Vector{Int32} = Vector{Int}(undef, 0)
-    knn = search(index, item, KnnResult(algo.k))
+    knn = search(index, dist::Function, item, KnnResult(algo.k))
     visible = Set{Int32}()
 
     @inbounds for p in knn

@@ -1,4 +1,4 @@
-#  Copyright 2016,2017 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -15,17 +15,17 @@
 
 export Sss, LaesaTournament #, KvpTournament
 
-function Sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=false) where {T,D}
-    pivots = [db[refID] for refID in select_sss(db, dist, alpha, shuffle_db)]
-    fit(Laesa, db, dist, pivots)
+function Sss(dist::Function, db::Array{T,1}, alpha::Float64; shuf=false) where T
+    pivots = [db[refID] for refID in select_sss(dist, db, alpha, shuf=shuf)]
+    fit(Laesa, dist, db, pivots)
 end
 
-function LaesaTournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int=3) where {T,D}
-    pivots = [db[refID] for refID in select_tournament(db, dist, numrefs, tournamentsize)]
-    fit(Laesa, db, dist, pivots)
+function LaesaTournament(dist::Function, db::Array{T,1}, numrefs::Int, tournamentsize::Int=3) where T
+    pivots = [db[refID] for refID in select_tournament(dist, db, numrefs, tournamentsize)]
+    fit(Laesa, dist, db, pivots)
 end
 
-# function KvpTournament(db::Array{T,1}, dist::D, k::Int, numrefs::Int, tournamentsize::Int=0) where {T,D}
+# function KvpTournament(db::Array{T,1}, dist::Function, k::Int, numrefs::Int, tournamentsize::Int=0) where T
 #     #pivots = [db[refID] for refID in select_tournament(db, numrefs, tournamentsize, dist)]
 #     pivots = select_tournament(db, dist, numrefs, tournamentsize)
 #     Kvp(db, dist, k, pivots)

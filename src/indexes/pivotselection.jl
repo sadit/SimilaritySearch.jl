@@ -18,7 +18,7 @@ using Random
 Computes the distances of `q` to the set of references `refs` (each index point to an item in `db`)
 It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(db::AbstractVector{T}, dist::D, q::T, refs::AbstractVector{Int}) where {T,D}
+function compute_distances(dist::Function, db::AbstractVector{T}, refs::AbstractVector{Int}, q::T) where T
     [(dist(q, db[refs[refID]]), refID) for refID in 1:length(refs)]
 end
 
@@ -26,7 +26,7 @@ end
 Computes the distances of `q` to the set of references `refs`
 It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(refs::AbstractVector{T}, dist::D, q::T) where {T,D}
+function compute_distances(dist::Function, refs::AbstractVector{T}, q::T) where T
     [(dist(q, ref), refID) for (refID, ref) in enumerate(refs)]
 end
 
@@ -36,7 +36,7 @@ individual is selected among `tournamentsize` individuals.
 
 It returns a set of pivots as a list of integers pointing to elements in `db`
 """
-function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize::Int) where {T,D}
+function select_tournament(dist::Function, db::AbstractVector{T}, numrefs::Int, tournamentsize::Int) where T
     refs = Vector{Int}()
     perm = 1:length(db) |> collect
     shuffle!(perm)
@@ -47,7 +47,7 @@ function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize
         distant = 0
         distantRef = 0
         for x in sample
-            M = compute_distances(db, dist, db[x], refs)
+            M = compute_distances(dist, db, refs, db[x])
             d, refID = minimum(M)
             if d > distant
                 distant = d
@@ -64,15 +64,15 @@ function select_tournament(db::Array{T,1}, dist::D, numrefs::Int, tournamentsize
 end
 
 """
-select_sss selects the necessary pivots to fullfill the SSS criterion using :param:alpha.
+select_sss selects the necessary pivots to fulfill the SSS criterion using :param:alpha.
 If :param:shuffle_db is true then the database is shuffled before the selection process; in any case,
 the estimation of the maximum distance introduces indeterminism, however it could be too small.
-If you need better a better random selection set :param:shuffle_db as true
+If you need better a better random selection set :param:shuf as true
 
 It returns a set of pivots as a list of integers pointing to elements in :param:db
 """
-function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=true) where {T,D}
-    @info "select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuffle_db=$(shuffle_db)"
+function select_sss(dist::Function, db::AbstractVector{T}, alpha::Float64; shuf::Bool=true) where T
+    @info "select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuf=$(shuf)"
     dmax::Float64 = 0.0
     s = Int(round(sqrt(length(db))/2))
     sample1, sample2 = rand(db, s), rand(db, s)
@@ -81,7 +81,7 @@ function select_sss(db::Array{T,1}, dist::D, alpha::Float64, shuffle_db::Bool=tr
 
     @info "the maximum distance estimated as $(dmax), now selecting pivots"
     xdb = Array(1:length(db))
-    if shuffle_db
+    if shuf
         shuffle!(xdb)
     end
     #pivots::Array{T,1} = Array(T, 1)

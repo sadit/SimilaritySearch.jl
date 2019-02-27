@@ -29,7 +29,7 @@ mutable struct Knr{T} <: Index
     invindex::Vector{Vector{Int32}}
 end
 
-function fit(Knr, db::Vector{T}, dist::Function, refs::Vector{T}, k::Int, minmatches::Int=1) where T
+function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1) where T
     @info "Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)"
     invindex = [Vector{Int32}(undef, 0) for i in 1:length(refs)]
     seqindex = fit(Sequential, refs)
@@ -49,10 +49,10 @@ function fit(Knr, db::Vector{T}, dist::Function, refs::Vector{T}, k::Int, minmat
     Knr(db, refs, k, k, minmatches, invindex)
 end
 
-function fit(Knr, db::Vector{T}, dist::Function; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where T
+function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where T
     # refs = rand(db, numrefs)
-    refs = [db[x] for x in select_tournament(db, dist, numrefs, tournamentsize)]
-    fit(Knr, db, dist, refs, k, minmatches)
+    refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
+    fit(Knr, dist, db, refs, k, minmatches)
 end
 
 """

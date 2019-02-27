@@ -8,18 +8,18 @@ function SatNeighborhood()
     return SatNeighborhood(64)
 end
 
-function optimize_neighborhood!(algo::SatNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
+function optimize_neighborhood!(algo::SatNeighborhood, index::LocalSearchIndex{T}, dist::Function, perf, recall) where {T}
 end
 
-function neighborhood(algo::SatNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
+function neighborhood(algo::SatNeighborhood, index::LocalSearchIndex{T}, dist::Function, item::T) where {T}
     N = Int32[]
-    knn = search(index, item, KnnResult(algo.k))
+    knn = search(index, dist, item, KnnResult(algo.k))
     @inbounds for p in knn
         pobj = index.db[p.objID]
         near = NnResult()
         push!(near, zero(Int32), p.dist)
         for nearID in N
-            d = convert(Float32, index.dist(index.db[nearID], pobj)) 
+            d = convert(Float32, dist(index.db[nearID], pobj)) 
             push!(near, nearID, d)
         end
 

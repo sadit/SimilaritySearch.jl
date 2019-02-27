@@ -16,7 +16,7 @@ function test_vectors(create_index, dist::Function, ksearch, nick)
         # testing pushes
         push!(index, dist, rand(Float32, dim))
         @test length(index.db) == n + 1
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=false)
         @show dist, p
         return p
@@ -47,7 +47,7 @@ function test_sequences(create_index, dist::Function, ksearch, nick)
         index = create_index(db)
         # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=true)
         # @show dist, p
         return p
@@ -70,7 +70,7 @@ end
         @show recall_lower_bound, dist
 
         @show Kvp
-        p = test_vectors((db) -> fit(Kvp, db, dist, 3, 32), dist, ksearch, "Kvp")
+        p = test_vectors((db) -> fit(Kvp, dist, db, 3, 32), dist, ksearch, "Kvp")
         @test p.recall >= recall_lower_bound * 0.99 # not 1 to allow some "numerical" deviations
     end
 end
@@ -90,7 +90,7 @@ end
         (1.0, lcs_distance),
         (1.0, hamming_distance)
     ]
-        p = test_sequences((db) -> fit(Kvp, db, dist, 3, 32), dist, ksearch, "Kvp")
+        p = test_sequences((db) -> fit(Kvp, dist, db, 3, 32), dist, ksearch, "Kvp")
         @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
     end
 end

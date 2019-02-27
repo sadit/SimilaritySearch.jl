@@ -21,7 +21,7 @@ mutable struct Laesa{T} <: Index
     table::Matrix{Float64} # rows: number of pivots; cols: number of objects 
 end
 
-function fit(::Type{Laesa}, db::AbstractVector{T}, dist::Function, pivots::Vector{T})  where T
+function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::Vector{T})  where T
     @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
     table = Matrix{Float64}(undef, length(pivots), length(db))
 
@@ -34,9 +34,9 @@ function fit(::Type{Laesa}, db::AbstractVector{T}, dist::Function, pivots::Vecto
     Laesa(db, pivots, table)
 end
 
-function fit(::Type{Laesa}, db::AbstractVector{T}, dist::Function, numPivots::Integer) where T
+function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::Integer) where T
     pivots = rand(db, numPivots)
-    fit(Laesa, db, dist, pivots)
+    fit(Laesa, dist, db, pivots)
 end
 
 function search(index::Laesa{T}, dist::Function, q::T, res::Result) where T

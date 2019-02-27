@@ -35,13 +35,13 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `tabu`: A dictionary like object to memorize all already-computed items
 - `oracle`: A _hint_ function that returns _near_ objects for `q`, the idea is to avoid most of the searching cost at the cost of domain dependencies (encoded in `oracle`)
 """
-function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
+function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
     # first beam
     beam = KnnResult(bsearch.beam_size)
     if oracle == nothing
-        estimate_knearest(index.db, index.dist, bsearch.candidates_size, bsearch.montecarlo_size, q, tabu, res, beam)
+        estimate_knearest(dist, index.db, bsearch.candidates_size, bsearch.montecarlo_size, q, tabu, res, beam)
     else
-        estimate_from_oracle(index, q, beam, tabu, res, oracle)
+        estimate_from_oracle(index, dist, q, beam, tabu, res, oracle)
     end
 
     new_beam = KnnResult(bsearch.beam_size)
@@ -55,7 +55,7 @@ function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res:
             for childID in index.links[node.objID]
                 if !tabu[childID]
                     tabu[childID] = true
-                    d = convert(Float32, index.dist(index.db[childID], q))
+                    d = convert(Float32, dist(index.db[childID], q))
                     if d <= cov
                         push!(new_beam, childID, d) && push!(res, childID, d)
                     end
@@ -69,10 +69,10 @@ function beam_search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res:
     beam
 end
 
-function search(bsearch::BeamSearch, index::LocalSearchIndex{T}, q::T, res::Result; oracle=nothing) where {T}
+function search(bsearch::BeamSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
     length(index.db) == 0 && return res
     tabu = falses(length(index.db))
-    beam_search(bsearch, index, q, res, tabu, oracle)
+    beam_search(bsearch, index, dist, q, res, tabu, oracle)
     return res
 end
 

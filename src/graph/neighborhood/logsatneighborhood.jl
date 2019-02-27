@@ -8,14 +8,14 @@ function LogSatNeighborhood()
     return LogSatNeighborhood(1.1)
 end
 
-function optimize_neighborhood!(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, perf, recall) where {T}
+function optimize_neighborhood!(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, dist::Function, perf, recall) where {T}
     # optimize_neighborhood!(algo.g, index, perf, recall)
 end
 
-function neighborhood(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, item::T) where {T}
+function neighborhood(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, dist::Function, item::T) where {T}
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
-    knn = search(index, item, KnnResult(k))
+    knn = search(index, dist, item, KnnResult(k))
     N = Vector{Int32}(undef, 0)
 
     @inbounds for p in knn
@@ -24,7 +24,7 @@ function neighborhood(algo::LogSatNeighborhood, index::LocalSearchIndex{T}, item
         near = NnResult()
         push!(near, p.objID, p.dist)
         for nearID in N
-            d = convert(Float32, index.dist(index.db[nearID], pobj)) 
+            d = convert(Float32, dist(index.db[nearID], pobj)) 
             push!(near, nearID, d)
         end
 

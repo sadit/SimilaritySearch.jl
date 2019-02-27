@@ -13,7 +13,7 @@ function test_binhamming(create_index, dist::Function, ksearch, nick, create)
         @test length(index.db) == n
         push!(index, dist, create())
         @test length(index.db) == 1 + n
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=false)
         @show p
         return p
@@ -36,7 +36,7 @@ function test_cos(create_index, dist::Function, ksearch, nick; repeat=1, aggrega
 
         # push!(index, dist, rand(Float64, dim) |> normalize!) ## we cannot mix @view's and normal vectors
         # @test length(index.db) == 1 + n
-        perf = Performance(index.db, dist, [@view queries[:, i] for i in 1:size(queries, 2)], expected_k=10)
+        perf = Performance(dist, index.db, [@view queries[:, i] for i in 1:size(queries, 2)], expected_k=10)
         p = probe(perf, index, dist, use_distances=false, repeat=repeat, aggregation=aggregation)
         @show p
         return p
@@ -56,7 +56,7 @@ function test_vectors(create_index, dist, ksearch, nick; repeat=1, aggregation=:
         @test length(index.db) == n
         push!(index, dist, rand(Float32, dim))
         @test length(index.db) == 1 + n
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=false, repeat=repeat, aggregation=aggregation)
         @show dist, p
         return p
@@ -86,7 +86,7 @@ function test_sequences(create_index, dist, ksearch, nick)
         # index = Laesa(db, dist, σ)
         index = create_index(db)
         @test length(index.db) == n
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=true)
         # @show dist, p
         return p
@@ -109,7 +109,7 @@ end
         p = test_vectors((db) -> fit(Sequential, db), dist, ksearch, "Sequential")
         @test p.recall >= recall_lower_bound * 0.99 # to support "numerical" variations
 
-        p = test_vectors((db) -> fit(Laesa, db, dist, 8), dist, ksearch, "Laesa")
+        p = test_vectors((db) -> fit(Laesa, dist, db, 8), dist, ksearch, "Laesa")
         @test p.recall >= recall_lower_bound * 0.99
     end
 end
@@ -130,7 +130,7 @@ end
     ]
         p = test_sequences((db) -> fit(Sequential, db), dist, ksearch, "Sequential")
         @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
-        p = test_sequences((db) -> fit(Laesa, db, dist, 1), dist, ksearch, "Laesa")
+        p = test_sequences((db) -> fit(Laesa, dist, db, 1), dist, ksearch, "Laesa")
         @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
     end
 end
@@ -149,9 +149,9 @@ end
     @test p3.recall > 0.99
     @test p4.recall > 0.99
 
-    p = test_binhamming((db) -> Sss(db, hamming_distance, 0.35), hamming_distance, ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
+    p = test_binhamming((db) -> Sss(hamming_distance, db, 0.35), hamming_distance, ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
     @test p.recall > 0.99
 
-    p = test_binhamming((db) -> LaesaTournament(db, hamming_distance, 16, 3), hamming_distance, ksearch, "Sequential", () -> rand(UInt64))
+    p = test_binhamming((db) -> LaesaTournament(hamming_distance, db, 16, 3), hamming_distance, ksearch, "Sequential", () -> rand(UInt64))
     @test p.recall > 0.99
 end

@@ -14,7 +14,7 @@ function test_vectors(create_index, dist::Function, ksearch, nick)
 
         index = create_index(db)
         optimize!(index, dist, recall=0.9, k=10, use_distances=false)
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=false)
         @show dist, p
         @test p.recall > 0.8
@@ -23,7 +23,7 @@ function test_vectors(create_index, dist::Function, ksearch, nick)
         for item in queries
             push!(index, dist, item)
         end
-        perf = Performance(index.db, dist, queries, expected_k=1)
+        perf = Performance(dist, index.db, queries, expected_k=1)
         p = probe(perf, index, dist, use_distances=false)
         @show dist, p
         @test p.recall > 0.999
@@ -47,13 +47,14 @@ function test_sequences(create_index, dist::Function, ksearch, nick)
 
             return s
         end
+        
         db = [create_item() for i in 1:n]
         queries = [create_item() for i in 1:m]
 
         @info "inserting items into the index"
         index = create_index(db)
         # optimize!(index, recall=0.9, k=10, use_distances=true)
-        perf = Performance(index.db, dist, queries, expected_k=10)
+        perf = Performance(dist, index.db, queries, expected_k=10)
         p = probe(perf, index, dist, use_distances=true)
         @show dist, p
         @test p.recall > 0.6
@@ -61,7 +62,7 @@ function test_sequences(create_index, dist::Function, ksearch, nick)
         for item in queries
             push!(index, dist, item)
         end
-        perf = Performance(index.db, dist, queries, expected_k=1)
+        perf = Performance(dist, index.db, queries, expected_k=1)
         p = probe(perf, index, dist, use_distances=true)
         @show dist, p
         @test p.recall > 0.999
@@ -82,7 +83,7 @@ end
         lp_distance(3),
         lp_distance(0.5)
     ]
-        p = test_vectors((db) -> fit(Knr, db, dist, numrefs=σ, k=κ), dist, ksearch, "KNR")
+        p = test_vectors((db) -> fit(Knr, dist, db, numrefs=σ, k=κ), dist, ksearch, "KNR")
     end
 end
 
@@ -102,6 +103,6 @@ end
         lcs_distance,
         hamming_distance,
     ]   
-        p = test_sequences((db) -> fit(Knr, db, dist, numrefs=σ, k=κ), dist, ksearch, "KNR")
+        p = test_sequences((db) -> fit(Knr, dist, db, numrefs=σ, k=κ), dist, ksearch, "KNR")
     end
 end
