@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -26,14 +26,14 @@ NeighborhoodSearch(g::NeighborhoodSearch) = NeighborhoodSearch(g.candidates_size
 ### Steady state local search
 ###
 
-function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, candidates::Result) where {T,MemoryType}
+function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result, tabu::MemoryType, candidates::Result) where {T,MemoryType}
     @inbounds while length(candidates) > 0
         nodeID = popfirst!(candidates).objID
         cov = last(res).dist
 
         for childID in index.links[nodeID]
             if !tabu[childID]
-                d = convert(Float32, index.dist(index.db[childID], q))
+                d = convert(Float32, dist(index.db[childID], q))
                 tabu[childID] = true
                 if d <= cov
                     push!(candidates, childID, d) && push!(res, childID, d)
@@ -43,14 +43,14 @@ function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchInde
     end
 end
 
-function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::Result; oracle=nothing) where {T}
+function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result; oracle=nothing) where {T}
     n = length(index.db)
     tabu = falses(n)
     candidates = KnnResult(gsearch.candidates_size)
     if oracle == nothing
-        estimate_knearest(index.db, index.dist, gsearch.candidates_size, gsearch.montecarlo_size, q, tabu, res, candidates)
+        estimate_knearest(dist, index.db, gsearch.candidates_size, gsearch.montecarlo_size, q, tabu, res, candidates)
     else
-        estimate_from_oracle(index, q, candidates, tabu, res, oracle)
+        estimate_from_oracle(index, dist, q, candidates, tabu, res, oracle)
     end
 
     xtabu = Set{Int}()
