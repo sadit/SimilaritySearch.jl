@@ -53,8 +53,8 @@ end
     expected_acc = 0
     local index
 
-    # for search_algo in [IHCSearch(), NeighborhoodSearch(), BeamSearch(), DeltaSearch(), ShrinkingNeighborhoodSearch()]
-    for search_algo in [IHCSearch(), BeamSearch()]
+    # for search_algo in [ DeltaSearch(), ShrinkingNeighborhoodSearch()]
+    for search_algo in [IHCSearch(), BeamSearch(), NeighborhoodSearch()]
         for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
             # for dist in Any[l2_distance, L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
             dist = l2_distance
