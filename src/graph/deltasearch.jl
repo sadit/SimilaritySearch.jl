@@ -10,13 +10,13 @@ DeltaSearch(other::DeltaSearch) = DeltaSearch(other.montecarlo_size, other.delta
 
 ### local search algorithm
 
-function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
+function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
     # first beam
     beam = KnnResult(Int(bsearch.delta * maxlength(res)))
     if oracle == nothing
-        estimate_knearest(index.db, index.dist, maxlength(beam), bsearch.montecarlo_size, q, tabu, beam)
+        estimate_knearest(dist, index.db, maxlength(beam), bsearch.montecarlo_size, q, tabu, beam)
     else
-        estimate_from_oracle(index, q, beam, tabu, res, oracle)
+        estimate_from_oracle(index, dist, q, beam, tabu, res, oracle)
     end
 
     cov = -1.0
@@ -31,7 +31,7 @@ function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, re
             @inbounds for childID in index.links[node.objID]
                 if !tabu[childID]
                     tabu[childID] = true
-                    d = convert(Float32, index.dist(index.db[childID], q))
+                    d = convert(Float32, dist(index.db[childID], q))
                     if d <= cov
                         push!(beam, childID, d)
                     end
@@ -47,10 +47,10 @@ function delta_search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, re
     return res
 end
 
-function search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, q::T, res::Result; oracle=nothing) where {T}
+function search(bsearch::DeltaSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result; oracle=nothing) where {T}
     length(index.db) == 0 && return res
     tabu = falses(length(index.db))
-    delta_search(bsearch, index, q, res, tabu, oracle)
+    delta_search(bsearch, index, dist, q, res, tabu, oracle)
     return res
 end
 

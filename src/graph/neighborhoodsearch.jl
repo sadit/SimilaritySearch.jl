@@ -55,7 +55,7 @@ function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, dist::F
 
     xtabu = Set{Int}()
     while length(candidates) > 0
-        neighborhood_search(gsearch, index, q, res, tabu, candidates)
+        neighborhood_search(gsearch, index, dist, q, res, tabu, candidates)
         for p in res
             if !(p.objID in xtabu)
                 push!(xtabu, p.objID)

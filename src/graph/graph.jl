@@ -57,9 +57,9 @@ include("neighborhood/vorneighborhood.jl")
 include("ihc.jl")
 # include("is2014.jl")
 include("neighborhoodsearch.jl")
-# include("shrinkingneighborhoodsearch.jl")
+include("shrinkingneighborhoodsearch.jl")
 include("beamsearch.jl")
-# include("deltasearch.jl")
+include("deltasearch.jl")
 
 
 ### Basic operations on the index

@@ -23,7 +23,7 @@ end
 ShrinkingNeighborhoodSearch() = ShrinkingNeighborhoodSearch(1, 1, 1.0f0)
 ShrinkingNeighborhoodSearch(other::ShrinkingNeighborhoodSearch) = ShrinkingNeighborhoodSearch(other.candidates_size, other.montecarlo_size, other.shrinking_cov)
 
-function shrinking_neighborhood_search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R, tabu::MemoryType, candidates::Result) where {T,R <: Result,MemoryType}
+function shrinking_neighborhood_search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::R, tabu::MemoryType, candidates::Result) where {T,R <: Result,MemoryType}
     @inbounds while length(candidates) > 0
         best = popfirst!(candidates)
         cov = last(res).dist
@@ -33,7 +33,7 @@ function shrinking_neighborhood_search(nsearch::ShrinkingNeighborhoodSearch, ind
 
         for childID in index.links[best.objID]
             if !tabu[childID]
-                d = convert(Float32, index.dist(index.db[childID], q))
+                d = convert(Float32, dist(index.db[childID], q))
                 tabu[childID] = true
                 if d <= cov
                     push!(candidates, childID, d) && push!(res, childID, d)
@@ -43,21 +43,21 @@ function shrinking_neighborhood_search(nsearch::ShrinkingNeighborhoodSearch, ind
     end
 end
 
-function search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, q::T, res::R; oracle=nothing) where {T,R <: Result}
+function search(nsearch::ShrinkingNeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::R; oracle=nothing) where {T,R <: Result}
     n = length(index.db)
     tabu = falses(n)
     candidates = KnnResult(nsearch.candidates_size)
 
     if oracle == nothing
-        estimate_knearest(index.db, index.dist, nsearch.candidates_size, nsearch.montecarlo_size, q, tabu, res, candidates)
+        estimate_knearest(dist, index.db, nsearch.candidates_size, nsearch.montecarlo_size, q, tabu, res, candidates)
     else
-        estimate_from_oracle(index, q, candidates, tabu, res, oracle)
+        estimate_from_oracle(index, dist, q, candidates, tabu, res, oracle)
     end
 
     xtabu = Set{Int}()
 
     while length(candidates) > 0
-        shrinking_neighborhood_search(nsearch, index, q, res, tabu, candidates)
+        shrinking_neighborhood_search(nsearch, index, dist, q, res, tabu, candidates)
         empty!(candidates)
         for p in res
             if !(p.objID in xtabu)
