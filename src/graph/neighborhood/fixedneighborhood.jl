@@ -8,10 +8,10 @@ function FixedNeighborhood()
     return FixedNeighborhood(8)
 end
 
-function optimize_neighborhood!(algo::FixedNeighborhood, index::LocalSearchIndex{T}, dist::Function, perf, recall) where T
+function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
 end
 
-function neighborhood(algo::FixedNeighborhood, index::LocalSearchIndex{T}, dist::Function, item::T) where T
+function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where T
     nbuffer::Vector{Int32} = Vector{Int}(undef, 0)
     knn = search(index, dist, item, KnnResult(algo.k))
     visible = Set{Int32}()

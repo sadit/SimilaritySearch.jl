@@ -26,7 +26,7 @@ NeighborhoodSearch(g::NeighborhoodSearch) = NeighborhoodSearch(g.candidates_size
 ### Steady state local search
 ###
 
-function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result, tabu::MemoryType, candidates::Result) where {T,MemoryType}
+function neighborhood_search(gsearch::NeighborhoodSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result, tabu::MemoryType, candidates::Result) where {T,MemoryType}
     @inbounds while length(candidates) > 0
         nodeID = popfirst!(candidates).objID
         cov = last(res).dist
@@ -43,7 +43,7 @@ function neighborhood_search(gsearch::NeighborhoodSearch, index::LocalSearchInde
     end
 end
 
-function search(gsearch::NeighborhoodSearch, index::LocalSearchIndex{T}, dist::Function, q::T, res::Result; oracle=nothing) where {T}
+function search(gsearch::NeighborhoodSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result; oracle=nothing) where {T}
     n = length(index.db)
     tabu = falses(n)
     candidates = KnnResult(gsearch.candidates_size)

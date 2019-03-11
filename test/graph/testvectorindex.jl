@@ -1,14 +1,14 @@
 using SimilaritySearch
-using SimilaritySearch.NearNeighborGraph
+using SimilaritySearch.Graph
 using Test
 
 #
-# This file contains a set of tests for LocalSearchIndex over databases of vectors (of Float32)
+# This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
 function test_index_search_at(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
-        index = fit(LocalSearchIndex, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
+        index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
 
         n = 100
         dim = 3
@@ -29,7 +29,7 @@ end
 
 function test_index(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
-        index = fit(LocalSearchIndex, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
+        index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
         n = 100
         dim = 3
         @info "inserting items to the index"

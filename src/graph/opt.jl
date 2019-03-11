@@ -1,7 +1,7 @@
 using Dates
 
 """
-    create_fitness_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
+    create_score_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
 
 # Description
 Returns a fast discrete-sigmoid-like function with the desired behaviour
@@ -11,8 +11,8 @@ Returns a fast discrete-sigmoid-like function with the desired behaviour
 - `decrease` the decrease factor of the output on each step
 - `numsteps` maximum number of steps to be applied
 """
-function create_fitness_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
-    function fitness(p::PerformanceResult)
+function create_score_function(expected_recall::Float64; step::Float64=0.99, decrease::Float64=0.5, numsteps::Int=20)
+    function score_fun(p::PerformanceResult)
         recall = expected_recall
         # speed = 1.0 / p.distances
         speed = 1.0 / p.seconds
@@ -26,70 +26,73 @@ function create_fitness_function(expected_recall::Float64; step::Float64=0.99, d
             speed *= decrease
         end
 
-        return p.recall
+        p.recall
     end
 
-    return fitness
+    score_fun
 end
 
 """
-    optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
+    optimize_algo!
 
 Optimizes a local search index for an specific algorithm to get the desired recall. Note that optimize for low-recall will yield to faster searches.
 The train queries are specified as part of the `perf` struct.
 """
-function optimize_algo!(algosearch::S, index::LocalSearchIndex{T}, dist::Function, recall::Float64, perf::Performance) where {T, S <: LocalSearchAlgorithm}
+function optimize_algo!(algosearch::LocalSearchAlgorithm,
+                        index::SearchGraph{T},
+                        dist::Function,
+                        recall::Float64,
+                        perf::Performance;
+                        bsize::Int=4,
+                        tol::Float64=0.01) where T
     n = length(index.db)
     optimize_neighborhood!(index.neighborhood_algo, index, dist, perf, recall)
-    tabu = Set{S}()
-    candidates_population = 2  ## a magic number
-    candidates = Vector{Tuple{Float64,S}}()
-    best_perf = probe(perf, index, dist)
-    fitness_function = create_fitness_function(recall)
+    p = probe(perf, index, dist)
+    score_function = create_score_function(recall)
+    best_list = [(score=score_function(p), state=algosearch, perf=p)]
+    exploration = Dict(algosearch => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
 
-    # push!(candidates, (fitness_performance(recall, best_perf), algosearch))
-    push!(candidates, (fitness_function(best_perf), algosearch))
-    push!(tabu, algosearch)
-    @info "XXX $(typeof(algosearch)). Starting parameter optimization; expected recall: $recall, n: $n"
-    best_fitness, best_state = candidates[end]
+    @debug "XXX $(typeof(algosearch)). Starting parameter optimization; expected recall: $recall, n: $n"
+    prev_score = -1.0
     iter = 0
-    while length(candidates) > 0
+    while abs(best_list[1].score - prev_score) > tol
         iter += 1
-        prev_fitness, prev_state = pop!(candidates)
-        @info "XXX $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n"
-        # for s in @task opt_expand_neighborhood(prev_state, n, iter)
-        opt_expand_neighborhood(prev_state, n, iter) do s
-            if !in(s, tabu)
-                push!(tabu, s)
-                index.search_algo = s
-
-                # p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
-                p = probe(perf, index, dist, repeat=1, field=:seconds)
-                fitness = fitness_function(p)
-                push!(candidates, (fitness, s))
-                if fitness > best_fitness
-                    best_fitness, best_state, best_perf = fitness, s, p
-                    @info "*** $(typeof(algosearch)). A new best conf was found> fitness: $fitness, conf: $(JSON.json(s)), perf: $(JSON.json(p)), candidates: $(length(candidates)), n: $(n)"
+        prev_score = best_list[1].score
+        @debug "XXX $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n"
+        
+        for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
+            S = get(exploration, prev.state, -1)
+            if S == 1
+                continue  # visited and explored
+            elseif S == 0
+                exploration[prev.state] = 1
+            end
+                # @debug "XXX--- $(typeof(algosearch)). Iteration: $iter, expected recall: $prev, n: $n"
+            opt_expand_neighborhood(prev.state, n, iter) do state
+                S = get(exploration, state, -1)
+                if S == -1
+                    exploration[state] = 0
+                    index.search_algo = state
+                    # p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
+                    p = probe(perf, index, dist, repeat=1, field=:seconds)
+                    score = score_function(p)
+                    push!(best_list, (score=score, state=state, perf=p))
+                    if score > best_list[end].score
+                        @debug "*** $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list: $(length(best_list)), n: $(n)"
+                    end
                 end
             end
         end
 
-        if length(candidates) > 0
-            sort!(candidates, by=(x) -> x[1])
-            sp = max(1, length(candidates)-candidates_population+1)
-            candidates = candidates[sp:end]
-            candidates = filter((x) -> x[1] >= best_fitness, candidates) |> collect
-            @info "=== $(typeof(algosearch)). Iteration finished; fitness: $(JSON.json(best_fitness)), conf: $(JSON.json(best_state)), perf: $(JSON.json(best_perf)) candidates: $(length(candidates)), n: $(n)"
+        sort!(best_list, by=(x) -> -x.score)
+        if length(best_list) > bsize
+            best_list = best_list[1:bsize]
         end
+        @debug "=== $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)"
     end
 
-
-    #for field in fieldnames(algosearch)
-    #    setfield!(algosearch, field, getfield(best_state, field))
-    #end
-    index.search_algo = best_state
-
-    @info "XXX $(typeof(algosearch)). Optimization done; fitness: $(JSON.json(best_fitness)), conf: $(JSON.json(best_state)), perf: $(JSON.json(best_perf)), n: $(n)"
+    index.search_algo = best_list[1].state
+    @debug "XXX $(typeof(algosearch)). Optimization done. $(JSON.json(best_list[1])), n: $(n)"
     return index
 end
 

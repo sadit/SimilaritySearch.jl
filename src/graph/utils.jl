@@ -21,7 +21,7 @@ function estimate_knearest(dist::Function, db::AbstractVector{T}, choosek::Int, 
     estimate_knearest(dist, db, choosek, from, q, tabu, res, near)
 end
 
-function estimate_from_oracle(index::LocalSearchIndex{T}, dist::Function, q::T, beam::Result, tabu::M, res::Result, oracle::Function) where {T, M}
+function estimate_from_oracle(index::SearchGraph{T}, dist::Function, q::T, beam::Result, tabu::M, res::Result, oracle::Function) where {T, M}
     for childID in oracle(q)
       if !tabu[childID]
         tabu[childID] = true

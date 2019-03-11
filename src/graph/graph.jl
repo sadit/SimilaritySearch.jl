@@ -12,19 +12,21 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+module Graph
+
 using SimilaritySearch
 using JSON
 import SimilaritySearch:
     push!, search, fit
 
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, LocalSearchIndex,
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph,
     optimize!, compute_aknn, find_neighborhood, push_neighborhood!, search_at
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
 
 
-mutable struct LocalSearchIndex{T} <: Index
+mutable struct SearchGraph{T} <: Index
     db::AbstractVector{T}
     recall::Float64
     k::Int
@@ -34,9 +36,9 @@ mutable struct LocalSearchIndex{T} <: Index
 end
 
 
-function fit(::Type{LocalSearchIndex}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1)) where T
+function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1)) where T
     links = Vector{Int32}[]
-    index = LocalSearchIndex(T[], recall, k, links, search_algo, neighborhood_algo)
+    index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo)
     for item in dataset
         push!(index, dist, item)
     end
@@ -65,7 +67,7 @@ include("deltasearch.jl")
 ### Basic operations on the index
 const OPTIMIZE_LOGBASE = 2
 
-function find_neighborhood(index::LocalSearchIndex{T}, dist::Function, item::T) where T
+function find_neighborhood(index::SearchGraph{T}, dist::Function, item::T) where T
     n::Int = length(index.db)
     n == 0 && return (NnResult(), Int32[])
     k::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
@@ -78,7 +80,7 @@ function find_neighborhood(index::LocalSearchIndex{T}, dist::Function, item::T) 
     return neighborhood(index.neighborhood_algo, index, dist, item)
 end
 
-function push_neighborhood!(index::LocalSearchIndex{T}, item::T, L::AbstractVector{Int32}, n::Int) where T
+function push_neighborhood!(index::SearchGraph{T}, item::T, L::AbstractVector{Int32}, n::Int) where T
     for objID in L
         push!(index.links[objID], 1+n)
     end
@@ -87,19 +89,19 @@ function push_neighborhood!(index::LocalSearchIndex{T}, item::T, L::AbstractVect
     push!(index.db, item)
 end
 
-function push!(index::LocalSearchIndex{T}, dist::Function, item::T) where T
+function push!(index::SearchGraph{T}, dist::Function, item::T) where T
     knn, neighbors = find_neighborhood(index, dist, item)
     push_neighborhood!(index, item, neighbors, length(index.db))
-    length(index.db) % 5000 == 0 && @info "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(now())"
+    length(index.db) % 5000 == 0 && @debug "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(now())"
     knn, neighbors
 end
 
-function search(index::LocalSearchIndex{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
+function search(index::SearchGraph{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
     search(index.search_algo, index, dist, q, res, oracle=oracle)
     return res
 end
 
-function optimize!(index::LocalSearchIndex{T}, dist::Function, recall::Float64; perf=nothing) where T
+function optimize!(index::SearchGraph{T}, dist::Function, recall::Float64; perf=nothing) where T
     if perf == nothing
         perf = Performance(index.db, dist)
     end
@@ -107,7 +109,7 @@ function optimize!(index::LocalSearchIndex{T}, dist::Function, recall::Float64; 
     optimize_algo!(index.search_algo, index, dist, recall, perf)
 end
 
-function search_at(index::LocalSearchIndex{T}, dist::Function, q::T, start::Integer, res::Result, tabu) where T
+function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result, tabu) where T
     length(index.db) == 0 && return res
 
     function oracle(_q)
@@ -118,12 +120,12 @@ function search_at(index::LocalSearchIndex{T}, dist::Function, q::T, start::Inte
     res
 end
 
-function search_at(index::LocalSearchIndex{T}, dist::Function, q::T, start::Integer, res::Result) where T
+function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result) where T
     tabu = falses(length(index.db))
     search_at(index, dist, q, start, res, tabu)
 end
 
-function compute_aknn(index::LocalSearchIndex{T}, dist::Function, k::Int) where T
+function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
     n = length(index.db)
     aknn = [KnnResult(k) for i=1:n]
     tabu = falses(length(index.db))
@@ -157,9 +159,11 @@ function compute_aknn(index::LocalSearchIndex{T}, dist::Function, k::Int) where 
         end
 
         if (i % 10000) == 1
-            @info "algorithm=$(index.search_algo), neighborhood_factor=$(index.neighborhood_algo), k=$(k); advance $i of n=$n"
+            @debug "algorithm=$(index.search_algo), neighborhood_factor=$(index.neighborhood_algo), k=$(k); advance $i of n=$n"
         end
     end
 
     return aknn
+end
+
 end
