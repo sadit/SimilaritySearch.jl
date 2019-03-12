@@ -53,13 +53,13 @@ function optimize_algo!(algosearch::LocalSearchAlgorithm,
     best_list = [(score=score_function(p), state=algosearch, perf=p)]
     exploration = Dict(algosearch => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
 
-    @debug "XXX $(typeof(algosearch)). Starting parameter optimization; expected recall: $recall, n: $n"
+    @info "XXX $(typeof(algosearch)). Starting parameter optimization; expected recall: $recall, n: $n"
     prev_score = -1.0
     iter = 0
     while abs(best_list[1].score - prev_score) > tol
         iter += 1
         prev_score = best_list[1].score
-        @debug "XXX $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n"
+        @info "XXX $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n"
         
         for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
             S = get(exploration, prev.state, -1)
@@ -89,11 +89,11 @@ function optimize_algo!(algosearch::LocalSearchAlgorithm,
         if length(best_list) > bsize
             best_list = best_list[1:bsize]
         end
-        @debug "=== $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)"
+        @info "=== $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)"
     end
 
     index.search_algo = best_list[1].state
-    @debug "XXX $(typeof(algosearch)). Optimization done. $(JSON.json(best_list[1])), n: $(n)"
+    @info "XXX $(typeof(algosearch)). Optimization done. $(JSON.json(best_list[1])), n: $(n)"
     return index
 end
 
