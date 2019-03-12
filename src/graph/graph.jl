@@ -14,17 +14,16 @@
 
 module Graph
 
-using SimilaritySearch
+using ..SimilaritySearch
 using JSON
-import SimilaritySearch:
-    push!, search, fit
+import ..SimilaritySearch:
+    push!, search, fit, KnnResult
 
 export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph,
     optimize!, compute_aknn, find_neighborhood, push_neighborhood!, search_at
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
-
 
 mutable struct SearchGraph{T} <: Index
     db::AbstractVector{T}
@@ -48,6 +47,8 @@ end
 
 include("utils.jl")
 include("opt.jl")
+
+## neighborhoods
 include("neighborhood/fixedneighborhood.jl")
 include("neighborhood/logneighborhood.jl")
 include("neighborhood/logsatneighborhood.jl")
@@ -56,13 +57,10 @@ include("neighborhood/essencialneighborhood.jl")
 include("neighborhood/satneighborhood.jl")
 include("neighborhood/galsatneighborhood.jl")
 include("neighborhood/vorneighborhood.jl")
-include("ihc.jl")
-# include("is2014.jl")
-include("neighborhoodsearch.jl")
-include("shrinkingneighborhoodsearch.jl")
-include("beamsearch.jl")
-include("deltasearch.jl")
 
+## search algorithms
+include("ihc.jl")
+include("beamsearch.jl")
 
 ### Basic operations on the index
 const OPTIMIZE_LOGBASE = 2
@@ -109,61 +107,55 @@ function optimize!(index::SearchGraph{T}, dist::Function, recall::Float64; perf=
     optimize_algo!(index.search_algo, index, dist, recall, perf)
 end
 
-function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result, tabu) where T
+function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result) where T
     length(index.db) == 0 && return res
 
     function oracle(_q)
         index.links[start]
     end
 
-    beam_search(index.search_algo, index, dist, q, res, tabu, oracle)
-    res
+    beam_search(index.search_algo, index, dist, q, res)
 end
 
-function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result) where T
-    tabu = falses(length(index.db))
-    search_at(index, dist, q, start, res, tabu)
-end
-
-function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
-    n = length(index.db)
-    aknn = [KnnResult(k) for i=1:n]
-    tabu = falses(length(index.db))
-
-    for i=1:n
-        if i > 1
-            fill!(tabu, false)
-        end
-
-        j = 1
-
-        q = index.db[i]
-        res = aknn[i]
-        for p in res
-            tabu[p.objID] = true
-        end
-
-        function oracle(q::T)
-            # this can be a very costly operation, or can be a very fast estimator, please do some research about it!!
-            if length(res) > 0
-                a = Iterators.flatten(index.links[p.objID] for p in res)
-                return Iterators.flatten((a, index.links[i]))
-            else
-                return index.links[i]
-            end
-        end
-
-        beam_search(index.search_algo, index, dist, q, res, tabu, oracle)
-        for p in res
-            i < p.objID && push!(aknn[p.objID], i, p.dist)
-        end
-
-        if (i % 10000) == 1
-            @debug "algorithm=$(index.search_algo), neighborhood_factor=$(index.neighborhood_algo), k=$(k); advance $i of n=$n"
-        end
-    end
-
-    return aknn
-end
+## function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
+##     n = length(index.db)
+##     aknn = [KnnResult(k) for i=1:n]
+##     tabu = falses(length(index.db))
+## 
+##     for i=1:n
+##         if i > 1
+##             fill!(tabu, false)
+##         end
+## 
+##         j = 1
+## 
+##         q = index.db[i]
+##         res = aknn[i]
+##         for p in res
+##             tabu[p.objID] = true
+##         end
+## 
+##         function oracle(q::T)
+##             # this can be a very costly operation, or can be a very fast estimator, please do some research about it!!
+##             if length(res) > 0
+##                 a = Iterators.flatten(index.links[p.objID] for p in res)
+##                 return Iterators.flatten((a, index.links[i]))
+##             else
+##                 return index.links[i]
+##             end
+##         end
+## 
+##         beam_search(index.search_algo, index, dist, q, res, tabu, oracle)
+##         for p in res
+##             i < p.objID && push!(aknn[p.objID], i, p.dist)
+##         end
+## 
+##         if (i % 10000) == 1
+##             @debug "algorithm=$(index.search_algo), neighborhood_factor=$(index.neighborhood_algo), k=$(k); advance $i of n=$n"
+##         end
+##     end
+## 
+##     return aknn
+## end
 
 end

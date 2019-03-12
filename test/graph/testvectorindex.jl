@@ -30,8 +30,9 @@ end
 function test_index(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
         index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
-        n = 100
+        n = 100000
         dim = 3
+
         @info "inserting items to the index"
         for i in 1:n
             vec = rand(Float32, dim)
@@ -53,8 +54,9 @@ end
     expected_acc = 0
     local index
 
-    for search_algo in [IHCSearch(), BeamSearch(), NeighborhoodSearch(), DeltaSearch(), ShrinkingNeighborhoodSearch()]
-        for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
+    for search_algo in [IHCSearch(), BeamSearch()]
+        for neighborhood_algo in [FixedNeighborhood(8), SatNeighborhood()]
+        #for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
             # for dist in Any[l2_distance, L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
             dist = l2_distance
             index, numres = test_index(dist, ksearch, search_algo, neighborhood_algo)
@@ -64,16 +66,15 @@ end
     end
 
     # this is not really an error, but we test it anyway, it is more about the quality of the results
-    @test acc / expected_acc > 0.9
+    # @test acc / expected_acc > 0.9
 
-    index, numres = test_index_search_at(l2_distance, ksearch, BeamSearch(), FixedNeighborhood())
-    n = length(index.db)
-    k = 3
-
-    @show "Showing AKNN ($k)"
-    aknn = compute_aknn(index, l2_distance, k)
-    @test n == length(aknn)
-    for p in aknn
-        @test length(p) > 0
-    end
+    #index, numres = test_index_search_at(l2_distance, ksearch, BeamSearch(), FixedNeighborhood())
+    ## @show "Showing AKNN ($k)"
+    ## n = length(index.db)
+    ## k = 3
+    ## aknn = compute_aknn(index, l2_distance, k)
+    ## @test n == length(aknn)
+    ## for p in aknn
+    ##     @test length(p) > 0
+    ## end
 end

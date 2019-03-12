@@ -35,8 +35,9 @@ end
 """
     optimize_algo!
 
-Optimizes a local search index for an specific algorithm to get the desired recall. Note that optimize for low-recall will yield to faster searches.
-The train queries are specified as part of the `perf` struct.
+Optimizes a local search index for an specific algorithm to get the desired performance.
+Note that optimizing for low-recall will yield to faster searches; the train queries
+are specified as part of the `perf` struct.
 """
 function optimize_algo!(algosearch::LocalSearchAlgorithm,
                         index::SearchGraph{T},
@@ -67,7 +68,7 @@ function optimize_algo!(algosearch::LocalSearchAlgorithm,
             elseif S == 0
                 exploration[prev.state] = 1
             end
-                # @debug "XXX--- $(typeof(algosearch)). Iteration: $iter, expected recall: $prev, n: $n"
+
             opt_expand_neighborhood(prev.state, n, iter) do state
                 S = get(exploration, state, -1)
                 if S == -1

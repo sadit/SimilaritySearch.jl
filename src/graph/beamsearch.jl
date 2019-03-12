@@ -12,18 +12,27 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
+using Random
 export BeamSearch
 
 struct BeamSearch <: LocalSearchAlgorithm
-    candidates_size::Int
-    montecarlo_size::Int
-    beam_size::Int
+    ssize::Int32  # sample size
+    bsize::Int32  # beam size
+
+    BeamSearch() = new(1, 1)
+    BeamSearch(a::Integer, b::Integer) = new(a, b)
+    BeamSearch(other::BeamSearch) =  new(other.ssize, other.bsize)
 end
 
-BeamSearch() = BeamSearch(1, 1, 1)
-BeamSearch(other::BeamSearch) = BeamSearch(other.candidates_size, other.montecarlo_size, other.beam_size)
+@enum VertexSearchState begin
+    UNKNOWN = 0
+    VISITED = 1
+    EXPLORED = 2
+end
 
+# const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
+
 """
     beam_search(bsearch::BeamSearch, index::SearchGraph{T}, q::T, res::Result, tabu::MemoryType, oracle::Union{Function,Nothing}) where {T, MemoryType}
 
@@ -32,80 +41,95 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `index`: the local search index
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
-- `tabu`: A dictionary like object to memorize all already-computed items
-- `oracle`: A _hint_ function that returns _near_ objects for `q`, the idea is to avoid most of the searching cost at the cost of domain dependencies (encoded in `oracle`)
 """
-function beam_search(bsearch::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result, tabu::MemoryType, oracle) where {T, MemoryType}
-    # first beam
-    beam = KnnResult(bsearch.beam_size)
-    if oracle == nothing
-        estimate_knearest(dist, index.db, bsearch.candidates_size, bsearch.montecarlo_size, q, tabu, res, beam)
-    else
-        estimate_from_oracle(index, dist, q, beam, tabu, res, oracle)
+function beam_search(bsearch::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result) where T
+    n = length(index.db)
+    m = ceil(Int, log(2, n+1))
+    # m = min(n, bsearch.ssize)
+    exploration = Dict{Int32,VertexSearchState}()
+    # exploration = zeros(Int8, n)
+    beam = KnnResult(bsearch.bsize)
+    # B = BeamType[]
+    for i in 1:m
+        objID = rand(1:n)
+        S = get(exploration, objID, UNKNOWN)
+        # S = exploration[objID]
+        if S == UNKNOWN
+            exploration[objID] = VISITED
+            d = convert(Float32, dist(q, index.db[objID]))
+            # push!(B, (objID=objID, dist=d))
+            push!(beam, objID, d) && push!(res, objID, d)
+        end
     end
 
-    new_beam = KnnResult(bsearch.beam_size)
-    # new_beam = KnnResult(bsearch.beam_size)
-    # cov::Float32 = -1.0
-    # while cov != last(res).dist
-    @inbounds while length(beam) > 0
-        empty!(new_beam)
-        cov = last(res).dist
-        for node in beam
-            for childID in index.links[node.objID]
-                if !tabu[childID]
-                    tabu[childID] = true
-                    d = convert(Float32, dist(index.db[childID], q))
+    # sort!(B, by=x -> x.dist)
+    # length(B) > bsearch.bsize && resize!(B, bsearch.bsize)
+    prev_score = typemax(Float64)
+    
+    while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
+        prev_score = last(beam).dist
+
+        for prev in beam
+            cov = last(beam).dist
+            S = get(exploration, prev.objID, UNKNOWN)
+            # S = exploration[prev.objID]
+            S == EXPLORED && continue
+            exploration[prev.objID] = EXPLORED
+            for childID in index.links[prev.objID]
+                S = get(exploration, childID, UNKNOWN)
+                # S = exploration[childID]
+                if S == UNKNOWN
+                    exploration[childID] = VISITED
+                    # d = convert(Float32, dist(q, index.db[childID]))
+                    d = dist(q, index.db[childID])
                     if d <= cov
-                        push!(new_beam, childID, d) && push!(res, childID, d)
+                        push!(beam, childID, d) && push!(res, childID, d)
                     end
                 end
             end
         end
 
-        beam, new_beam = new_beam, beam
+        #sort!(B, by=x -> x.dist)
+        #length(B) > bsearch.bsize && resize!(B, bsearch.bsize)
     end
 
-    beam
+    res
 end
 
 function search(bsearch::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
     length(index.db) == 0 && return res
-    tabu = falses(length(index.db))
-    beam_search(bsearch, index, dist, q, res, tabu, oracle)
-    return res
+    # if oracle == nothing
+    #    estimate_knearest(dist, index.db, bsearch.candidates_size, bsearch.ssize, q, tabu, res, beam)
+    # else
+    #    estimate_from_oracle(index, dist, q, beam, tabu, res, oracle)
+    # end
+
+    beam_search(bsearch, index, dist, q, res)
 end
 
 function opt_create_random_state(algo::BeamSearch, max_value)
     a = max(1, rand() * max_value |> round |> Int)
     b = max(1, rand() * max_value |> round |> Int)
-    c = max(1, rand() * max_value |> round |> Int)
-    return BeamSearch(a, b, c)
+    return BeamSearch(a, b)
 end
 
 function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Int, iter::Int)
     f(x, w) = max(1, x + w)
-    g(x) = max(1, x + ceil(Int, (rand()-0.5) * log2(n)))
+    # g(x) = max(1, x + ceil(Int, (rand()-0.5) * log2(n)))
+    logn = ceil(Int, log(2, n+1))
 
-    if iter == 1
-        for i in 1:8
-            opt_create_random_state(gsearch, ceil(Int, log2(n))) |> fun
+    if iter == 0
+        for i in 1:logn
+            opt_create_random_state(gsearch, logn) |> fun
         end
-
-        #BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size |> g, gsearch.beam_size |> g) |> fun
-        #BeamSearch(gsearch.candidates_size |> g, gsearch.montecarlo_size, gsearch.beam_size) |> fun
-        #BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size |> g, gsearch.beam_size) |> fun
-        #BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size, gsearch.beam_size |> g) |> fun
     end
 
-    w = 2
-    while w <= div(8,iter)
-        BeamSearch(f(gsearch.candidates_size,  w), gsearch.montecarlo_size, gsearch.beam_size) |> fun
-        BeamSearch(f(gsearch.candidates_size, -w), gsearch.montecarlo_size, gsearch.beam_size) |> fun
-        BeamSearch(gsearch.candidates_size, f(gsearch.montecarlo_size,  w), gsearch.beam_size) |> fun
-        BeamSearch(gsearch.candidates_size, f(gsearch.montecarlo_size, -w), gsearch.beam_size) |> fun
-        BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size, f(gsearch.beam_size,  w)) |> fun
-        BeamSearch(gsearch.candidates_size, gsearch.montecarlo_size, f(gsearch.beam_size, -w)) |> fun
+    w = 1
+    while w <= logn  ## log log n
+        w1 = ceil(Int, w*(rand()-0.5))
+        w2 = ceil(Int, w*(rand()-0.5))
+        BeamSearch(f(gsearch.ssize,  w1), gsearch.bsize) |> fun
+        BeamSearch(gsearch.ssize, f(gsearch.bsize, w2)) |> fun
         w += w
     end
 end

@@ -23,17 +23,17 @@ end
 mutable struct KnnResult{T} <: Result
     k::Int
     pool::Vector{Item{T}}
+
+    function KnnResult(T::Type, k)
+        v = Vector{Item{T}}()
+        sizehint!(v, k)
+        new{T}(k, v)
+    end
+
+    KnnResult(k::Integer) = KnnResult(Int64, k)
 end
 
-function KnnResult(T::Type, k::Int)
-    v = Vector{Item{T}}()
-    sizehint!(v, k)
-    KnnResult(k, v)
-end
-
-KnnResult(k::Integer) = KnnResult(Int64, k)
-NnResult() = KnnResult(Int64, 1)
-
+NnResult() = KnnResult(1)
 
 """
 fix_order! fixes the sorted state of the array. It implements a kind of insertion sort
