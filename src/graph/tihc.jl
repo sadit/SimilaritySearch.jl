@@ -42,10 +42,11 @@ function randomsearch(index::SearchGraph{T}, dist::Function, q::T, res::KnnResul
     res
 end
 
-function search(isearch::TIHCSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state) where T
+function search(isearch::TIHCSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR) where T
     n = length(index.db)
     restarts = min(isearch.restarts, n)
     best = KnnResult(1)
+    # if length(hints) == 0 hints = rand(1:n, bs.bsize) end
  
     @inbounds for i in 1:restarts
         empty!(best)

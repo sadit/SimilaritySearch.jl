@@ -58,12 +58,15 @@ function hill_climbing(index::SearchGraph{T}, dist::Function, q::T, res::KnnResu
     end
 end
 
-function search(isearch::IHCSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state; init=nothing) where T
+function search(isearch::IHCSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR) where T
     n = length(index.db)
     restarts = min(isearch.restarts, n)
-    range = 1:n
-    @inbounds for i in 1:restarts
-        start_point = rand(range)
+    if length(hints) == 0
+        hints = rand(1:n, isearch.restarts)
+    end
+
+    @inbounds for start_point in hints
+        # start_point = rand(range)
         S = get(navigation_state, start_point, UNKNOWN)
         if S == UNKNOWN
             navigation_state[start_point] = VISITED
