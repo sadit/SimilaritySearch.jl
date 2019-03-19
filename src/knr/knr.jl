@@ -60,7 +60,7 @@ search
 
 Solves the search specified by `q`and `res` using `index`
 """
-function search(index::Knr{T}, dist::Function, q::T, res::Result) where {T}
+function search(index::Knr{T}, dist::Function, q::T, res::KnnResult) where {T}
     dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = fit(Sequential, index.refs)

@@ -31,7 +31,7 @@ function fit(::Type{Sequential}, db::Vector{T}) where T
     Sequential(db)
 end
 
-function search(index::Sequential{T}, dist::Function, q::T, res::Result) where T
+function search(index::Sequential{T}, dist::Function, q::T, res::KnnResult) where T
     i::Int32 = 1
     d::Float64 = 0.0
     for obj in index.db

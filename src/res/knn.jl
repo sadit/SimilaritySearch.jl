@@ -1,4 +1,4 @@
-#  Copyright 2016 Eric S. Tellez <eric.tellez@infotec.mx>
+#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
 #
 #    Licensed under the Apache License, Version 2.0 (the "License");
 #    you may not use this file except in compliance with the License.
@@ -12,7 +12,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-import Base: push!, popfirst!, pop!, length, last, first, empty!
+import Base:
+    push!, popfirst!, pop!, length, last, first, empty!
+
 export Item, KnnResult, maxlength, covrad, NnResult
 
 struct Item{T}
@@ -20,7 +22,7 @@ struct Item{T}
     dist::Float64
 end
 
-mutable struct KnnResult{T} <: Result
+mutable struct KnnResult{T}
     k::Int
     pool::Vector{Item{T}}
 

@@ -20,18 +20,24 @@ import ..SimilaritySearch:
     push!, search, fit, KnnResult
 
 export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph,
-    optimize!, compute_aknn, find_neighborhood, push_neighborhood!, search_at
+    optimize!, compute_aknn, find_neighborhood, push_neighborhood!
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
 
 mutable struct SearchGraph{T} <: Index
-    db::AbstractVector{T}
+    db::Vector{T}
     recall::Float64
     k::Int
     links::Vector{Vector{Int32}}
     search_algo::LocalSearchAlgorithm
     neighborhood_algo::NeighborhoodAlgorithm
+end
+
+@enum VertexSearchState begin
+    UNKNOWN = 0
+    VISITED = 1
+    EXPLORED = 2
 end
 
 
@@ -45,7 +51,6 @@ function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; re
     index
 end
 
-include("utils.jl")
 include("opt.jl")
 
 ## neighborhoods
@@ -60,18 +65,19 @@ include("neighborhood/vorneighborhood.jl")
 
 ## search algorithms
 include("ihc.jl")
+include("tihc.jl")
 include("beamsearch.jl")
 
 ### Basic operations on the index
-const OPTIMIZE_LOGBASE = 2
+const OPTIMIZE_LOGBASE = 10
 
 function find_neighborhood(index::SearchGraph{T}, dist::Function, item::T) where T
-    n::Int = length(index.db)
+    n = length(index.db)
     n == 0 && return (NnResult(), Int32[])
-    k::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
-    k_1::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
+    k = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
+    k1::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
 
-    if n > 4 && k != k_1
+    if n > 1 && k != k1
         optimize!(index, dist, index.recall)
     end
 
@@ -94,28 +100,23 @@ function push!(index::SearchGraph{T}, dist::Function, item::T) where T
     knn, neighbors
 end
 
-function search(index::SearchGraph{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
-    search(index.search_algo, index, dist, q, res, oracle=oracle)
-    return res
+const EMPTY_INT_VECTOR = Int[]
+
+function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hints=EMPTY_INT_VECTOR) where T
+    length(index.db) == 0 && return res
+    navigation_state = Dict{Int32,VertexSearchState}()
+    sizehint!(navigation_state, maxlength(res))
+    # navigation_state = zeros(UInt8, length(index.db) + 1)
+    search(index.search_algo, index, dist, q, res, navigation_state, hints)
 end
 
 function optimize!(index::SearchGraph{T}, dist::Function, recall::Float64; perf=nothing) where T
     if perf == nothing
         perf = Performance(index.db, dist)
     end
-
-    optimize_algo!(index.search_algo, index, dist, recall, perf)
+    optimize!(index.search_algo, index, dist, recall, perf)
 end
 
-function search_at(index::SearchGraph{T}, dist::Function, q::T, start::Integer, res::Result) where T
-    length(index.db) == 0 && return res
-
-    function oracle(_q)
-        index.links[start]
-    end
-
-    beam_search(index.search_algo, index, dist, q, res)
-end
 
 ## function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
 ##     n = length(index.db)

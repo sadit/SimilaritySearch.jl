@@ -39,7 +39,7 @@ function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::In
     fit(Laesa, dist, db, pivots)
 end
 
-function search(index::Laesa{T}, dist::Function, q::T, res::Result) where T
+function search(index::Laesa{T}, dist::Function, q::T, res::KnnResult) where T
     dqp = [dist(q, piv) for piv in index.pivots]
     for i in 1:length(index.db)
         dpu = @view index.table[:, i]

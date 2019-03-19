@@ -16,59 +16,71 @@ export Performance, PerformanceResult, probe
 using Statistics: mean
 
 mutable struct PerformanceResult
+    precision::Float64
     recall::Float64
+    macrof1::Float64
     seconds::Float64
-    distances::Float64
+    exhaustive_search_seconds::Float64
+    evaluations::Float64
+    distances::Vector{Float64}
+    PerformanceResult() = new(0, 0, 0, 0, 0, 0)
 end
 
 mutable struct Performance{T}
     db::AbstractVector{T}
-    querySet::AbstractVector{T}
-    results::Vector{Result}
+    queries::AbstractVector{T}
+    results::Vector{Set{Int}}
+    distances::Vector{Vector{Float64}}
     expected_k::Int
-    shift_expected_k::Int
-    seqtime::Float64
-    count_calls::Bool
+    queries_from_db::Bool
+    exhaustive_search_seconds::Float64
 end
 
-function Performance(dist::Function, db::AbstractVector{T}, querySet::AbstractVector{T}; expected_k::Int=10, count_calls=true) where T
-    results = Vector{Result}(undef, length(querySet))
-    s = Sequential(db)
+function Performance(dist::Function, db::AbstractVector{T}, queries::AbstractVector{T}; queries_from_db=false, expected_k=10, create_index=Sequential) where T
+    results = Vector{Set{Int}}(undef, length(queries))
+    distances = Vector{Vector{Float64}}(undef, length(queries))
 
-    start_time = time()
-    for i in 1:length(querySet)
-        results[i] = search(s, dist, querySet[i], KnnResult(expected_k))
+    s = create_index(db)
+    start = time()
+    for i in 1:length(queries)
+        res = search(s, dist, queries[i], KnnResult(expected_k))
+        if queries_from_db
+            popfirst!(res)
+        end
+        results[i] = Set(item.objID for item in res)
+        distances[i] = [item.dist for item in res]
     end
 
-    return Performance(db, querySet, results, expected_k, 0, (time() - start_time) / length(querySet), count_calls)
+    elapsed = time() - start
+    Performance(db, queries, results, distances, expected_k, queries_from_db, elapsed / length(queries))
 end
 
-function Performance(db::AbstractVector{T}, dist::D; numqueries::Int=128, expected_k::Int=10, count_calls=true) where {T,D}
-    querySet = rand(db, numqueries)
-    Performance(dist, db, querySet, expected_k=expected_k, count_calls=count_calls)
+function Performance(db::AbstractVector{T}, dist::Function; num_queries::Int=128, expected_k::Int=10) where T
+    queries = rand(db, num_queries)
+    Performance(dist, db, queries, queries_from_db=true, expected_k=expected_k)
 end
 
-function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, aggregation=:mean, field=:seconds, use_distances::Bool=false)
+
+function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, aggregation=:mean, field=:seconds)
     if repeat == 1
-        return _probe(perf, index, dist, use_distances=use_distances)
+        return _probe(perf, index, dist)
     end
 
     if aggregation == :mean
-        p = _probe(perf, index, dist, use_distances=use_distances)
+        p = _probe(perf, index, dist)
         for i in 2:repeat
-            q = _probe(perf, index, dist, use_distances=use_distances)
+            q = _probe(perf, index, dist)
             p.recall += q.recall
             p.seconds += q.seconds
-            p.distances += q.distances
+            p.evaluations += q.evaluations
         end
         p.recall /= repeat
         p.seconds /= repeat
-        p.distances /= repeat
+        p.evaluations /= repeat
         return p
     end
 
-    
-    M = [_probe(perf, index, dist::Function, use_distances=use_distances) for i in 1:repeat]
+    M = [_probe(perf, index, dist) for i in 1:repeat]
     sort!(M, by=(x) -> getfield(x, field))
 
     if aggregation == :median
@@ -78,50 +90,47 @@ function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, a
     elseif aggregation == :max
         return M[end]
     else
-        error("Unknown aggregation strategy $aggregation")
+        error("Unknown aggregation strategy: $aggregation")
     end
 end
 
-function _probe(perf::Performance, index::Index, dist::Function; use_distances::Bool=false)
-    calls::Int32 = 0
+function _probe(perf::Performance, index::Index, dist::Function)
+    eval_counter = 0
     function dist_(a_, b_)
-        calls += 1
+        eval_counter += 1
         dist(a_, b_)
     end
 
-    p::PerformanceResult = PerformanceResult(0.0, 0.0, 0.0)
-    m::Int = length(perf.querySet)
-    tlist = Vector{Float64}(undef, m)
-    rlist = Vector{Float64}(undef, m)
-    dlist = Vector{Int}(undef, m)
+    p = PerformanceResult()
+    m = length(perf.queries)
+    p.evaluations = eval_counter
+    p.seconds = time()
 
-    counting_calls = :calls in fieldnames(typeof(dist))
-
-    for i = 1:m
-        q = perf.querySet[i]
-        start_calls = calls
-        start_time = time()
-        if perf.count_calls
-            res = search(index, dist_, q, KnnResult(perf.expected_k))
-        else
-            res = search(index, dist, q, KnnResult(perf.expected_k))
+    for i in 1:m
+        res = search(index, dist_, perf.queries[i], KnnResult(perf.expected_k))
+        base = perf.results[i]
+        curr = Set(item.objID for item in res)
+        p.distances = [item.dist for item in res]
+        if perf.queries_from_db
+            pop!(curr, first(res).objID)
         end
-        tlist[i] = time() - start_time
-        dlist[i] = calls - start_calls
- 
-        # p.seconds += time() - start_time
-        # p.distances += dist.calls - start_calls
-
-        base_res = perf.results[i]
-        if use_distances
-            rlist[i] = recallByDist(base_res, res, shift=perf.shift_expected_k)
-        else
-            rlist[i] = recall(base_res, res, shift=perf.shift_expected_k)
-        end
+        tp = intersect(base, curr)  # tn
+        fp = length(setdiff(curr, tp)) # |fp| == |ft| when |curr| == |base|
+        fn = length(setdiff(base, tp))
+        _tp = length(tp)
+        precision = _tp / (_tp + fp)
+        recall = _tp / (_tp + fn)
+        p.precision += precision
+        p.recall += recall
+        p.macrof1 += 2 * precision * recall / (precision + recall)
     end
 
-    p.recall = mean(rlist)
-    p.seconds = mean(tlist)
-    p.distances = mean(dlist)
-    return p
+    p.evaluations = (eval_counter - p.evaluations) / m
+    p.seconds = (time() - p.seconds) / m
+    p.precision /= m
+    p.recall /= m
+    p.macrof1 /= m
+    p.exhaustive_search_seconds = perf.exhaustive_search_seconds
+
+    p
 end

@@ -5,7 +5,7 @@ struct SatNeighborhood <: NeighborhoodAlgorithm
 end
 
 function SatNeighborhood()
-    return SatNeighborhood(64)
+    return SatNeighborhood(32)
 end
 
 function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
@@ -19,7 +19,7 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Functi
         near = NnResult()
         push!(near, zero(Int32), p.dist)
         for nearID in N
-            d = convert(Float32, dist(index.db[nearID], pobj)) 
+            d = dist(index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 

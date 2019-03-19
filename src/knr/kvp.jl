@@ -69,7 +69,7 @@ function near_and_far(dist::Function, obj::T, refs::Vector{T}, k::Int) where T
     row
 end
 
-function search(index::Kvp{T}, dist::Function, q::T, res::Result) where T
+function search(index::Kvp{T}, dist::Function, q::T, res::KnnResult) where T
     d::Float64 = 0.0
     qI = [dist(q, piv) for piv in index.refs]
 

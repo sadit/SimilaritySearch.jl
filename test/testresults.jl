@@ -1,7 +1,7 @@
 using SimilaritySearch
 using Test
 
-@testset "Result set implementations" begin
+@testset "Result set" begin
     k=4
     V = rand(Float32, k*k)
     Vsorted = sort(V)[1:k]

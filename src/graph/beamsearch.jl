@@ -24,112 +24,83 @@ struct BeamSearch <: LocalSearchAlgorithm
     BeamSearch(other::BeamSearch) =  new(other.ssize, other.bsize)
 end
 
-@enum VertexSearchState begin
-    UNKNOWN = 0
-    VISITED = 1
-    EXPLORED = 2
-end
-
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-
-"""
-    beam_search(bsearch::BeamSearch, index::SearchGraph{T}, q::T, res::Result, tabu::MemoryType, oracle::Union{Function,Nothing}) where {T, MemoryType}
-
-Tries to reach the set of nearest neighbors specified in `res` for `q`.
-- `bsearch`: the parameters of `BeamSearch`
-- `index`: the local search index
-- `q`: the query
-- `res`: The result object, it stores the results and also specifies the kind of query
-"""
-function beam_search(bsearch::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result) where T
+function beam_init(bs::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints) where T
+    beam = KnnResult(bs.bsize)
     n = length(index.db)
-    m = ceil(Int, log(2, n+1))
-    # m = min(n, bsearch.ssize)
-    exploration = Dict{Int32,VertexSearchState}()
-    # exploration = zeros(Int8, n)
-    beam = KnnResult(bsearch.bsize)
-    # B = BeamType[]
-    for i in 1:m
-        objID = rand(1:n)
-        S = get(exploration, objID, UNKNOWN)
-        # S = exploration[objID]
+    # range = 1:n
+    # @inbounds for i in 1:bs.bsize
+    @inbounds for objID in hints
+        S = get(navigation_state, objID, UNKNOWN)
+        # S = navigation_state[objID]
         if S == UNKNOWN
-            exploration[objID] = VISITED
-            d = convert(Float32, dist(q, index.db[objID]))
-            # push!(B, (objID=objID, dist=d))
+            navigation_state[objID] = VISITED
+            d = dist(q, index.db[objID])
             push!(beam, objID, d) && push!(res, objID, d)
         end
     end
 
-    # sort!(B, by=x -> x.dist)
-    # length(B) > bsearch.bsize && resize!(B, bsearch.bsize)
+    beam
+end
+
+"""
+Tries to reach the set of nearest neighbors specified in `res` for `q`.
+- `bs`: the parameters of `BeamSearch`
+- `index`: the local search index
+- `q`: the query
+- `res`: The result object, it stores the results and also specifies the kind of query
+"""
+function search(bs::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR) where T
+    n = length(index.db)
+    n == 0 && return res
+    if length(hints) == 0
+        hints = rand(1:n, bs.bsize)
+    end
+
+    beam = beam_init(bs, index, dist, q, res, navigation_state, hints)
     prev_score = typemax(Float64)
     
-    while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
+    @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
         prev_score = last(beam).dist
 
         for prev in beam
             cov = last(beam).dist
-            S = get(exploration, prev.objID, UNKNOWN)
-            # S = exploration[prev.objID]
+            S = get(navigation_state, prev.objID, UNKNOWN)
+            # S = navigation_state[prev.objID]
             S == EXPLORED && continue
-            exploration[prev.objID] = EXPLORED
+            navigation_state[prev.objID] = EXPLORED
             for childID in index.links[prev.objID]
-                S = get(exploration, childID, UNKNOWN)
-                # S = exploration[childID]
+                S = get(navigation_state, childID, UNKNOWN)
+                # S = navigation_state[childID]
                 if S == UNKNOWN
-                    exploration[childID] = VISITED
-                    # d = convert(Float32, dist(q, index.db[childID]))
+                    navigation_state[childID] = VISITED
                     d = dist(q, index.db[childID])
+
                     if d <= cov
                         push!(beam, childID, d) && push!(res, childID, d)
                     end
                 end
             end
         end
-
-        #sort!(B, by=x -> x.dist)
-        #length(B) > bsearch.bsize && resize!(B, bsearch.bsize)
     end
 
     res
 end
 
-function search(bsearch::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::Result; oracle=nothing) where T
-    length(index.db) == 0 && return res
-    # if oracle == nothing
-    #    estimate_knearest(dist, index.db, bsearch.candidates_size, bsearch.ssize, q, tabu, res, beam)
-    # else
-    #    estimate_from_oracle(index, dist, q, beam, tabu, res, oracle)
-    # end
-
-    beam_search(bsearch, index, dist, q, res)
-end
-
-function opt_create_random_state(algo::BeamSearch, max_value)
-    a = max(1, rand() * max_value |> round |> Int)
-    b = max(1, rand() * max_value |> round |> Int)
-    return BeamSearch(a, b)
-end
-
 function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Int, iter::Int)
+    f_(w) = ceil(Int, w * (rand() - 0.5))
+    #f(x, w) = max(1, x + f_(w))
     f(x, w) = max(1, x + w)
     # g(x) = max(1, x + ceil(Int, (rand()-0.5) * log2(n)))
     logn = ceil(Int, log(2, n+1))
 
-    if iter == 0
-        for i in 1:logn
-            opt_create_random_state(gsearch, logn) |> fun
-        end
-    end
-
     w = 1
     while w <= logn  ## log log n
-        w1 = ceil(Int, w*(rand()-0.5))
-        w2 = ceil(Int, w*(rand()-0.5))
-        BeamSearch(f(gsearch.ssize,  w1), gsearch.bsize) |> fun
-        BeamSearch(gsearch.ssize, f(gsearch.bsize, w2)) |> fun
+        BeamSearch(f(gsearch.ssize,  w), gsearch.bsize) |> fun
+        BeamSearch(f(gsearch.ssize,  -w), gsearch.bsize) |> fun
+        BeamSearch(gsearch.ssize, f(gsearch.bsize, w)) |> fun
+        BeamSearch(gsearch.ssize, f(gsearch.bsize, -w)) |> fun
         w += w
     end
 end

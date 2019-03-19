@@ -1,16 +1,17 @@
 using SimilaritySearch
 using SimilaritySearch.Graph
 using Test
+using Traceur
 
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
-function test_index_search_at(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
+function test_index_search_with_hint(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
         index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
 
-        n = 100
+        n = 100_000
         dim = 3
         @info "inserting items to the index"
         for i in 1:n
@@ -19,18 +20,47 @@ function test_index_search_at(dist::Function, ksearch::Int, search_algo, neighbo
         end
         
         @info "done; now testing"
-        @test length(index.db) == n
-        res = search_at(index, dist, index.db[1] + rand(Float32, dim) .* Float32(0.001), 1, KnnResult(ksearch))
-        res = search_at(index, dist, index.db[2] + rand(Float32, dim) .* Float32(0.001), 2, KnnResult(ksearch))
-        @show res
-        return index, length(res)
+
+        m = 100
+        
+        start = time()
+        for i in 1:m
+            q = index.db[i]
+            search(index, dist, q, KnnResult(ksearch), hints=index.links[i])
+        end
+
+        return
+        @info "Hints=true, noise=false: Query time $((time() - start) / m)"
+
+        start = time()
+        for i in 1:m
+            q = index.db[i] + rand(Float32, dim) .* Float32(0.0001)
+            search(index, dist, q, KnnResult(ksearch), hints=index.links[i])
+        end
+
+        @info "Hints=true, noise=true: Query time $((time() - start) / m)"
+
+        start = time()
+        for i in 1:m
+            q = index.db[i]
+            search(index, dist, q, KnnResult(ksearch))
+        end
+        @info "Hints=false, noise=false: Query time $((time() - start) / m)"
+
+        start = time()
+        for i in 1:m
+            q = index.db[i] + rand(Float32, dim) .* Float32(0.0001)
+            search(index, dist, q, KnnResult(ksearch))
+        end
+        @info "Hints=false, noise=true: Query time $((time() - start) / m)"
+
     end
 end
 
 function test_index(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
-        index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)
-        n = 100000
+        index = fit(SearchGraph, dist, Vector{Float32}[], recall=0.9, search_algo=search_algo, neighborhood_algo=neighborhood_algo)
+        n = 100_000
         dim = 3
 
         @info "inserting items to the index"
@@ -39,7 +69,7 @@ function test_index(dist::Function, ksearch::Int, search_algo, neighborhood_algo
             push!(index, dist, vec)
         end
         
-        @info "done; now testing"
+        @info "done; now testing; XXXXXXXXX"
         @test length(index.db) == n
         res = search(index, dist, rand(Float32, dim), KnnResult(ksearch))
         @show res
@@ -54,8 +84,8 @@ end
     expected_acc = 0
     local index
 
-    for search_algo in [IHCSearch(), BeamSearch()]
-        for neighborhood_algo in [FixedNeighborhood(8), SatNeighborhood()]
+    for search_algo in [BeamSearch()] # [TIHCSearch(), IHCSearch(), BeamSearch()]
+        for neighborhood_algo in [SatNeighborhood()]
         #for neighborhood_algo in [EssencialNeighborhood(), FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
             # for dist in Any[l2_distance, L2Distance(), L1Distance(), LInfDistance(), LpDistance(0.5)]
             dist = l2_distance
@@ -68,7 +98,7 @@ end
     # this is not really an error, but we test it anyway, it is more about the quality of the results
     # @test acc / expected_acc > 0.9
 
-    #index, numres = test_index_search_at(l2_distance, ksearch, BeamSearch(), FixedNeighborhood())
+    ##### test_index_search_with_hint(l2_distance, ksearch, BeamSearch(), FixedNeighborhood())
     ## @show "Showing AKNN ($k)"
     ## n = length(index.db)
     ## k = 3
