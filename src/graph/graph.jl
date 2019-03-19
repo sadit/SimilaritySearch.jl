@@ -102,9 +102,9 @@ end
 
 const EMPTY_INT_VECTOR = Int[]
 
-function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hints=EMPTY_INT_VECTOR) where T
+function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hints::Vector{Int}=EMPTY_INT_VECTOR) where T
     length(index.db) == 0 && return res
-    navigation_state = Dict{Int32,VertexSearchState}()
+    navigation_state = Dict{Int,VertexSearchState}()
     sizehint!(navigation_state, maxlength(res))
     # navigation_state = zeros(UInt8, length(index.db) + 1)
     search(index.search_algo, index, dist, q, res, navigation_state, hints)

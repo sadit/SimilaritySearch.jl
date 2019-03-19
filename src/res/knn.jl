@@ -32,7 +32,7 @@ mutable struct KnnResult{T}
         new{T}(k, v)
     end
 
-    KnnResult(k::Integer) = KnnResult(Int64, k)
+    KnnResult(k::Integer) = KnnResult(Int, k)
 end
 
 NnResult() = KnnResult(1)

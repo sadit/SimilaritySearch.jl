@@ -1,7 +1,6 @@
 using SimilaritySearch
 using SimilaritySearch.Graph
 using Test
-
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
@@ -18,23 +17,23 @@ function test_index_search_with_hint(dist::Function, ksearch::Int, search_algo, 
             push!(index, dist, vec)
         end
         
-        @info "done; now testing"
+        @info "done; now testing with hint"
 
-        m = 100
+        m = 1
         
         start = time()
         for i in 1:m
             q = index.db[i]
-            search(index, dist, q, KnnResult(ksearch), hints=index.links[i])
+            #search(index, dist, q, KnnResult(ksearch), hints=Int.(index.links[i]))
+            search(index, dist, q, KnnResult(ksearch), hints=Int.(index.links[i]))
         end
 
-        return
         @info "Hints=true, noise=false: Query time $((time() - start) / m)"
 
         start = time()
         for i in 1:m
             q = index.db[i] + rand(Float32, dim) .* Float32(0.0001)
-            search(index, dist, q, KnnResult(ksearch), hints=index.links[i])
+            search(index, dist, q, KnnResult(ksearch), hints=Int.(index.links[i]))
         end
 
         @info "Hints=true, noise=true: Query time $((time() - start) / m)"

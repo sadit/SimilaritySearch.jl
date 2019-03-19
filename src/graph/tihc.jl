@@ -51,7 +51,7 @@ function search(isearch::TIHCSearch, index::SearchGraph{T}, dist::Function, q::T
     @inbounds for i in 1:restarts
         empty!(best)
         randomsearch(index, dist, q, res, best, navigation_state, isearch.ssize)
-        length(best) == 0 && break
+        length(best) == 0 && break  # all items in the neighborhood were visited
         # @show i, restarts, isearch, best, length(best)
         start_point = first(best).objID
         navigation_state[start_point] = EXPLORED
@@ -60,7 +60,7 @@ function search(isearch::TIHCSearch, index::SearchGraph{T}, dist::Function, q::T
         hill_climbing(index, dist, q, res, navigation_state, start_point, isearch.use_local_improvement)
     end
 
-    return res
+    res
 end
 
 function opt_expand_neighborhood(fun, algo::TIHCSearch, n::Int, iter::Int)
