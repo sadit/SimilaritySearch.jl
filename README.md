@@ -35,11 +35,9 @@ KnnResult{Int64}(3, Item{Int64}[Item{Int64}(83265, 0.198482), Item{Int64}(44113,
 you may use other distances
 ```julia
 julia> search(seqindex, l1_distance, rand(8), KnnResult(3))
-
 KnnResult{Int64}(3, Item{Int64}[Item{Int64}(39616, 0.183381), Item{Int64}(53173, 0.398987), Item{Int64}(80627, 0.568562)])
 
 julia> search(seqindex, lp_distance(0.5), rand(8), KnnResult(3))
-
 KnnResult{Int64}(3, Item{Int64}[Item{Int64}(65822, 3.06029), Item{Int64}(36760, 3.06528), Item{Int64}(78054, 3.1682)])
 ```
 
