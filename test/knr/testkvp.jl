@@ -17,7 +17,7 @@ function test_vectors(create_index, dist::Function, ksearch, nick)
         push!(index, dist, rand(Float32, dim))
         @test length(index.db) == n + 1
         perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, use_distances=false)
+        p = probe(perf, index, dist)
         @show dist, p
         return p
     end
@@ -48,7 +48,7 @@ function test_sequences(create_index, dist::Function, ksearch, nick)
         # optimize!(index, recall=0.9, use_distances=true)
         @test length(index.db) == n
         perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, use_distances=true)
+        p = probe(perf, index, dist)
         # @show dist, p
         return p
     end

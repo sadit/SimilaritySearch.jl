@@ -109,6 +109,7 @@ function _probe(perf::Performance, index::Index, dist::Function)
     for i in 1:m
         res = search(index, dist_, perf.queries[i], KnnResult(perf.expected_k))
         base = perf.results[i]
+        # distbase = perf.distances[i]
         curr = Set(item.objID for item in res)
         p.distances = [item.dist for item in res]
         if perf.queries_from_db

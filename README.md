@@ -21,6 +21,7 @@ You may run the tests as follows (from)
 julia -e 'using Pkg; Pkg.test("SimilaritySearch")'
 ```
 
+# Indexing and searching
 A simple exhaustive search can be implemented as follows:
 
 ```julia
@@ -65,7 +66,7 @@ julia> lineplot([p.dist for p in search(seqindex, l2_distance, rand(8), KnnResul
        0                                      300
 ```
 
-we can use a different type of index, for example, a SearchGraph can be used instead of Sequential
+`SimilarySearch.jl` supports different kinds of indexes; for example, a SearchGraph can be used instead of Sequential
 
 ```julia
 julia> using SimilaritySearch, SimilaritySearch.Graph

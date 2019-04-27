@@ -14,7 +14,7 @@ function test_binhamming(create_index, dist::Function, ksearch, nick, create)
         push!(index, dist, create())
         @test length(index.db) == 1 + n
         perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, use_distances=false)
+        p = probe(perf, index, dist)
         @show p
         return p
     end
@@ -37,7 +37,7 @@ function test_cos(create_index, dist::Function, ksearch, nick; repeat=1, aggrega
         # push!(index, dist, rand(Float64, dim) |> normalize!) ## we cannot mix @view's and normal vectors
         # @test length(index.db) == 1 + n
         perf = Performance(dist, index.db, [@view queries[:, i] for i in 1:size(queries, 2)], expected_k=10)
-        p = probe(perf, index, dist, use_distances=false, repeat=repeat, aggregation=aggregation)
+        p = probe(perf, index, dist, repeat=repeat, aggregation=aggregation)
         @show p
         return p
     end
@@ -57,7 +57,7 @@ function test_vectors(create_index, dist, ksearch, nick; repeat=1, aggregation=:
         push!(index, dist, rand(Float32, dim))
         @test length(index.db) == 1 + n
         perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, use_distances=false, repeat=repeat, aggregation=aggregation)
+        p = probe(perf, index, dist, repeat=repeat, aggregation=aggregation)
         @show dist, p
         return p
     end
@@ -87,7 +87,7 @@ function test_sequences(create_index, dist, ksearch, nick)
         index = create_index(db)
         @test length(index.db) == n
         perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, use_distances=true)
+        p = probe(perf, index, dist)
         # @show dist, p
         return p
     end

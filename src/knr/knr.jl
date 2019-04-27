@@ -91,17 +91,17 @@ function push!(index::Knr{T}, dist::Function, obj::T) where T
     return length(index.db)
 end
 
-function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=1, numqueries::Int=128, use_distances::Bool=false) where T
+function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=1, num_queries::Int=128) where T
     @info "Knr> optimizing index for recall=$(recall)"
-    perf = Performance(index.db, dist; numqueries=numqueries, expected_k=k)
+    perf = Performance(index.db, dist; num_queries=num_queries, expected_k=k)
     index.minmatches = 1
     index.ksearch = 1
-    p = probe(perf, index, dist, use_distances=use_distances)
+    p = probe(perf, index, dist)
 
     while p.recall < recall && index.ksearch < length(index.refs)
         index.ksearch += 1
         @info "Knr> opt step ksearch=$(index.ksearch), performance $(p)"
-        p = probe(perf, index, dist, use_distances=use_distances)
+        p = probe(perf, index, dist)
 
     end
     @info "Knr> reached performance $(p)"
