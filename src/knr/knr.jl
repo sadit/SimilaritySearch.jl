@@ -49,7 +49,7 @@ function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}, refs::AbstractV
     Knr(db, refs, k, k, minmatches, invindex)
 end
 
-function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}; numrefs::Int=1024, k::Int=7, minmatches::Int=1, tournamentsize::Int=3) where T
+function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3) where T
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
     fit(Knr, dist, db, refs, k, minmatches)
@@ -91,7 +91,7 @@ function push!(index::Knr{T}, dist::Function, obj::T) where T
     return length(index.db)
 end
 
-function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=1, num_queries::Int=128) where T
+function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=10, num_queries::Int=128) where T
     @info "Knr> optimizing index for recall=$(recall)"
     perf = Performance(index.db, dist; num_queries=num_queries, expected_k=k)
     index.minmatches = 1

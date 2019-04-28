@@ -9,8 +9,8 @@ function test_vectors(create_index, dist::Function, ksearch, nick)
         m = 100  # number of queries
         dim = 3  # vector's dimension
 
-        db = [rand(Float32, dim) for i in 1:n]
-        queries = [rand(Float32, dim) for i in 1:m]
+        db = [rand(Float32, dim) |> normalize! for i in 1:n]
+        queries = [rand(Float32, dim) |> normalize! for i in 1:m]
 
         index = create_index(db)
         optimize!(index, dist, recall=0.9, k=10)
@@ -81,7 +81,8 @@ end
         l1_distance,
         linf_distance,
         lp_distance(3),
-        lp_distance(0.5)
+        lp_distance(0.5),
+        angle_distance
     ]
         p = test_vectors((db) -> fit(Knr, dist, db, numrefs=σ, k=κ), dist, ksearch, "KNR")
     end

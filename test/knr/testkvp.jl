@@ -63,7 +63,6 @@ end
         (1.0, l2_distance), # 1.0 -> metric, < 1.0 if dist is not a metric
         (1.0, l1_distance),
         (1.0, linf_distance),
-        # (1.0, AngleDistance()),
         (1.0, lp_distance(3.0)),
         (0.1, lp_distance(0.5))
     ]
