@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/sadit/SimilaritySearch.jl.svg?branch=master)](https://travis-ci.org/sadit/SimilaritySearch.jl)
+[![codecov](https://codecov.io/gh/sadit/SimilaritySearch.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/sadit/SimilaritySearch.jl)
 [![Coverage Status](https://coveralls.io/repos/github/sadit/SimilaritySearch.jl/badge.svg?branch=master)](https://coveralls.io/github/sadit/SimilaritySearch.jl?branch=master)
 
 # SimilaritySearch.jl
