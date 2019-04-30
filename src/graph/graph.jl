@@ -17,10 +17,10 @@ module Graph
 using ..SimilaritySearch
 using JSON
 import ..SimilaritySearch:
-    push!, search, fit, KnnResult
+    push!, search, fit, KnnResult, optimize!
 
 export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph,
-    optimize!, compute_aknn, find_neighborhood, push_neighborhood!
+    compute_aknn, find_neighborhood, push_neighborhood!
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
@@ -78,7 +78,7 @@ function find_neighborhood(index::SearchGraph{T}, dist::Function, item::T) where
     k1::Int = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
 
     if n > 1 && k != k1
-        optimize!(index, dist, index.recall)
+        optimize!(index, dist, recall=index.recall)
     end
 
     return neighborhood(index.neighborhood_algo, index, dist, item)
@@ -110,9 +110,9 @@ function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hin
     search(index.search_algo, index, dist, q, res, navigation_state, hints)
 end
 
-function optimize!(index::SearchGraph{T}, dist::Function, recall::Float64; perf=nothing) where T
+function optimize!(index::SearchGraph{T}, dist::Function; recall=0.9, k=10, num_queries=128, perf=nothing) where T
     if perf == nothing
-        perf = Performance(index.db, dist)
+        perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
     end
     optimize!(index.search_algo, index, dist, recall, perf)
 end

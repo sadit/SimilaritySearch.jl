@@ -16,7 +16,7 @@
 
 import Base: push!
 
-export Sequential, search, push!, fit
+export Sequential, search, push!, fit, optimize!
 
 """
     Sequential{T}
@@ -46,4 +46,13 @@ end
 function push!(index::Sequential{T}, dist::Function, item::T) where T
     push!(index.db, item)
     length(index.db)
+end
+
+"""
+    optimize!(index::Sequential{T}, dist::Function, recall::Float64)
+
+Optimizes the index for the required quality
+"""
+function optimize!(index::Sequential{T}, dist::Function, recall::Float64) where T
+    # do nothing for sequential
 end

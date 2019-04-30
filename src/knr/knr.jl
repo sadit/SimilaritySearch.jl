@@ -16,9 +16,9 @@ using SimilaritySearch
 using Dates
 
 import SimilaritySearch:
-    search, fit, push!
+    search, fit, push!, optimize!
 
-export Knr, optimize!
+export Knr
 
 mutable struct Knr{T} <: Index
     db::Vector{T}
@@ -91,9 +91,11 @@ function push!(index::Knr{T}, dist::Function, obj::T) where T
     return length(index.db)
 end
 
-function optimize!(index::Knr{T}, dist::Function; recall::Float64=0.9, k::Int=10, num_queries::Int=128) where T
+function optimize!(index::Knr{T}, dist::Function; recall=0.9, k=10, num_queries=128, perf=nothing) where T
     @info "Knr> optimizing index for recall=$(recall)"
-    perf = Performance(index.db, dist; num_queries=num_queries, expected_k=k)
+    if perf == nothing
+        perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
+    end
     index.minmatches = 1
     index.ksearch = 1
     p = probe(perf, index, dist)
