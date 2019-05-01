@@ -15,9 +15,9 @@ You may install the package as follows
 ```bash
 julia -e 'using Pkg; pkg"add https://github.com/sadit/SimilaritySearch.jl"'
 ```
-also, you can run the set of tests as follows
+also, you can run the set of tests as fol
 ```bash
-julia -e 'using Pkg; pkg"SimilaritySearch"'
+julia -e 'using Pkg; pkg"test SimilaritySearch"'
 ```
 
 # Indexing and searching
