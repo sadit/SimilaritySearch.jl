@@ -26,43 +26,45 @@ A simple exhaustive search can be implemented as follows:
 ```julia
 julia> using SimilaritySearch
 julia> db = [rand(8) for i in 1:100_000]
-julia> seqindex = fit(Sequential, db)
-```
-
-```julia
-julia> search(seqindex, l2_distance, rand(8), KnnResult(3))
+julia> seqindex = fit(Sequential, db)  # construction
+julia> search(seqindex, l2_distance, rand(8), KnnResult(3))  # searching 3-nn for the random vector rand(8)
 KnnResult{Int64}(3, Item{Int64}[Item{Int64}(83265, 0.198482), Item{Int64}(44113, 0.219748), Item{Int64}(38506, 0.254233)])
 ```
 
 `SimilarySearch.jl` supports different kinds of indexes and distance functions. For example, you can create a different index with Manhattan distance as follows
 ```julia
-graph = fit(SearchGraph, l1_distance, db)
+julia> using SimilaritySearch.Graph
+julia> graph = fit(SearchGraph, l1_distance, db)
+julia> search(seqindex, l2_distance, rand(8), KnnResult(3))
+KnnResult{Int64}(3, Item{Int64}[Item{Int64}(48881, 0.200722), Item{Int64}(56933, 0.224531), Item{Int64}(21200, 0.234252)])
 ```
 
-The list of implemented distances are the following ones:
+Please note that `fit`ing a `SearchGraph` may seems that it pauses for some moments, this is because this kind of methods are designed to compute the best parameters online. We aim that this strategy reduces the complexity of using a searching method, since it tries to achieve the better performance for the given initial configuration.
+
+The package implements several distances, as the following ones:
 - [Minkowski family](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/vectors.jl)
-  - l1_distance
-  - l2_distance
-  - squared_l2_distance  (not metric)
-  - linf_distance ($L_∞$)
-  - and a factory for generic p values, lp_distance
+  - `l1_distance` also known as Manhattan distance
+  - `l2_distance` a.k.a Euclidean distance 
+  - squared_l2_distance (not metric)
+  - `linf_distance` ($L_∞$) a.k.a. Chebyshev distance
+  - and a factory for generic `p` values to define the Minkowski family of distances.
 - [Angle distance](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/cos.jl)
-  - angle_distance
-  - cosine_distance (not metric, but faster than angle's distance)
+  - `angle_distance`
+  - `cosine_distance` (not metric, but faster than angle's distance)
   - please not that these functions suppose that your vectors are normalized (it also provides the convenient `normalize!` functions)
 - [Binary hamming distance](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/bits.jl)
 - [String distances](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/strings.jl)
-  - common_prefix_distance (not metric)
-  - generic_levenshtein (with variable costs)
-  - hamming_distance
-  - levenshtein_distance
-  - lcs_distance
-- [Set distances](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/sets.jl)
-  - jaccard_distance
-  - dice_distance (not metric)
-  - intersection_distance (not metric)
+  - `common_prefix_distance` (not metric)
+  - `generic_levenshtein` (with variable costs)
+  - `hamming_distance`
+  - `levenshtein_distance`
+  - `lcs_distance`
+- [Set distances](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/sets.jl); here sets are represented as ordered lists (arrays) of integers (in fact, ordered items)
+  - `jaccard_distance`
+  - `dice_distance` (not metric)
+  - `intersection_distance` (not metric)
 
-Please note that you can implement your own distance function and pass to any method.
+Please note that you can implement your own distance function and pass to any method, so you can support for any kind of object.
 
 The package is designed to work with approximate indexes, that is, those search methods that are allowed to have false positives and false negatives. However, it supports the following exact methods:
 - [Sequential](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/seq.jl) or exhaustive search
