@@ -9,7 +9,10 @@ Divides the vector by its norm (in-place operation)
 """
 function normalize!(a::AbstractVector{T}) where {T <: Real}
     xnorm = sqrt(dot(a, a))
-    (xnorm <= eps(T)) && error("A valid vector for cosine's normalize! cannot have a zero norm $xnorm -- vec: $a")
+    if xnorm <= 1e-12
+        @warn "normalizing a vector with a zero or very small norm $xnorm"
+    end
+    
     invnorm = 1.0 / xnorm
     @fastmath @inbounds @simd for i in eachindex(a)
         a[i] = a[i] * invnorm
