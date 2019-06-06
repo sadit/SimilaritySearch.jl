@@ -15,6 +15,7 @@
 # abstract Sequential
 
 import Base: push!
+import StatsBase: fit
 
 export Sequential, search, push!, fit, optimize!
 
