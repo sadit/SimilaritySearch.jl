@@ -29,7 +29,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
     while abs(best_list[1].score - prev_score) > tol
         iter += 1
         prev_score = best_list[1].score
-        @info "  == begin iteration $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n"
+        println(stderr, "  == begin iteration $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n")
         
         for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
             S = get(exploration, prev.state, -1)
@@ -49,7 +49,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
                     score = score_function(p)
                     push!(best_list, (score=score, state=state, perf=p))
                     if score > best_list[1].score
-                        @info "  ** $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)"
+                        println(stderr, "  ** $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)")
                     end
                 end
             end
@@ -59,7 +59,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
         if length(best_list) > bsize
             best_list = best_list[1:bsize]
         end
-        @info "  == end $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)"
+        println(stderr, "  == end $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)")
     end
 
     index.search_algo = best_list[1].state

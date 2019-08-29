@@ -32,7 +32,7 @@ function fit(::Type{Kvp}, dist::Function, db::Vector{T}, k::Int, refs::Vector{T}
 
     for i in 1:length(db)
         if (i % 10000) == 0
-            @info "advance $(i)/$(length(db))"
+            println(stderr, "advance $(i)/$(length(db))")
         end
 
         row = near_and_far(dist, db[i], refs, k)
@@ -94,12 +94,12 @@ function search(index::Kvp{T}, dist::Function, q::T, res::KnnResult) where T
         push!(res, i, d)
     end
 
-    return res
+    res
 end
 
 function push!(index::Kvp{T}, dist::Function, obj::T) where T
     push!(index.db, obj)
     row = near_and_far(dist, obj, index.refs, index.k)
     push!(index.sparsetable, row)
-    return length(index.db)
+    length(index.db)
 end

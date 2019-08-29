@@ -37,7 +37,7 @@ function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}, refs::AbstractV
     pc = round(Int, length(db) / 20)
     for i=1:length(db)
         if i % pc == 0
-            @info "Knr> advance $(round(i/length(db), digits=4)), now: $(now())"
+            println(stderr, "Knr> advance $(round(i/length(db), digits=4)), now: $(now())")
         end
 
         res = search(seqindex, dist, db[i], KnnResult(k))
@@ -102,7 +102,7 @@ function optimize!(index::Knr{T}, dist::Function; recall=0.9, k=10, num_queries=
 
     while p.recall < recall && index.ksearch < length(index.refs)
         index.ksearch += 1
-        @info "Knr> opt step ksearch=$(index.ksearch), performance $(p)"
+        println(stderr, "Knr> opt step ksearch=$(index.ksearch), performance $(p)")
         p = probe(perf, index, dist)
 
     end

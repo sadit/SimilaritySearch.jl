@@ -117,7 +117,6 @@ function optimize!(index::SearchGraph{T}, dist::Function; recall=0.9, k=10, num_
     optimize!(index.search_algo, index, dist, recall, perf)
 end
 
-
 ## function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
 ##     n = length(index.db)
 ##     aknn = [KnnResult(k) for i=1:n]
