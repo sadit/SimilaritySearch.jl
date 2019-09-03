@@ -12,15 +12,8 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-module Graph
-
-using ..SimilaritySearch
 using JSON
-import ..SimilaritySearch:
-    push!, search, fit, KnnResult, optimize!
-
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph,
-    compute_aknn, find_neighborhood, push_neighborhood!
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
@@ -102,7 +95,7 @@ end
 
 const EMPTY_INT_VECTOR = Int[]
 
-function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hints::Vector{Int}=EMPTY_INT_VECTOR) where T
+function search(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult; hints::AbstractVector{IntType}=EMPTY_INT_VECTOR) where T where IntType <: Integer
     length(index.db) == 0 && return res
     navigation_state = Dict{Int,VertexSearchState}()
     sizehint!(navigation_state, maxlength(res))
@@ -115,47 +108,4 @@ function optimize!(index::SearchGraph{T}, dist::Function; recall=0.9, k=10, num_
         perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
     end
     optimize!(index.search_algo, index, dist, recall, perf)
-end
-
-## function compute_aknn(index::SearchGraph{T}, dist::Function, k::Int) where T
-##     n = length(index.db)
-##     aknn = [KnnResult(k) for i=1:n]
-##     tabu = falses(length(index.db))
-## 
-##     for i=1:n
-##         if i > 1
-##             fill!(tabu, false)
-##         end
-## 
-##         j = 1
-## 
-##         q = index.db[i]
-##         res = aknn[i]
-##         for p in res
-##             tabu[p.objID] = true
-##         end
-## 
-##         function oracle(q::T)
-##             # this can be a very costly operation, or can be a very fast estimator, please do some research about it!!
-##             if length(res) > 0
-##                 a = Iterators.flatten(index.links[p.objID] for p in res)
-##                 return Iterators.flatten((a, index.links[i]))
-##             else
-##                 return index.links[i]
-##             end
-##         end
-## 
-##         beam_search(index.search_algo, index, dist, q, res, tabu, oracle)
-##         for p in res
-##             i < p.objID && push!(aknn[p.objID], i, p.dist)
-##         end
-## 
-##         if (i % 10000) == 1
-##             @debug "algorithm=$(index.search_algo), neighborhood_factor=$(index.neighborhood_algo), k=$(k); advance $i of n=$n"
-##         end
-##     end
-## 
-##     return aknn
-## end
-
 end

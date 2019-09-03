@@ -1,10 +1,9 @@
 using SimilaritySearch
-using SimilaritySearch.Graph
 using Test
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
-
+    
 function test_index_search_with_hint(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
         index = fit(SearchGraph, dist, Vector{Float32}[], search_algo=search_algo, neighborhood_algo=neighborhood_algo)

@@ -1,6 +1,5 @@
 module SimilaritySearch
 abstract type Index end
-
 export Index
 
 include("distances/bits.jl")
@@ -16,4 +15,6 @@ include("indexes/laesa.jl")
 include("indexes/pivotselectiontables.jl")
 include("knr/SimilarReferences.jl")
 include("graph/graph.jl")
+include("utils/aknn.jl")
+include("utils/fft.jl")
 end
