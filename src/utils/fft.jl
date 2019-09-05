@@ -9,7 +9,7 @@ being at-least ``\epsilon``-distant among each other.
 """
 function kcenters(dist::Function, X::AbstractVector{T}, k::Int) where T
     N = length(X)
-    centers = zeros(Int, N)
+    centers = zeros(Int, k)
     epsilon::Float64 = typemax(Float64)
 
     if N == 0

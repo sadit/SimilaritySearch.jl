@@ -6,21 +6,36 @@ using Test
 
 dist = l2_distance
 
-function create_dataset()
-    n = 10000
-    dim = 2
+function create_dataset(n, dim)
     [rand(Float32, dim) for i in 1:n]
 end
 
+
+@testset "kcenters" begin
+    n = 10000
+    db = create_dataset(n, 2)
+    k = 100
+
+    centers, epsilon = kcenters(dist, db, k)
+    @test length(centers) == k
+    @test sum([dist(db[centers[i]], db[centers[k]]) for i in 1:(k-1)] .>= epsilon) == k-1
+
+    index = fit(SearchGraph, dist, db)
+    for (i, p) in allknn(index, dist, db[centers], k=7) |> enumerate
+        @show i p
+    end
+end
+exit(0)
+
 @testset "All K-NN Sequential" begin
-    db = create_dataset()
+    n = 10000
+    db = create_dataset(n, 2)
     @time graph = fit(SearchGraph, dist, db)
     index = fit(Sequential, db)
     k = 3
-    @time A = allknn(index, dist, db, k=k)
-    @time B = allknn(graph, dist, db, k=k)
+    @time A = allknn(index, dist, k=k)
+    @time B = allknn(graph, dist, k=k)
 
-    n = length(A)
     f = 1 / n
     s = 0.0
     for i in 1:n
@@ -30,6 +45,6 @@ end
         s += f * length(intersect(a, b)) / k
     end
 
-    @show f s
+    @test s > 0.9
 end
 
