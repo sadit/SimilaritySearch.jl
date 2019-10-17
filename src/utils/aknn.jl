@@ -92,35 +92,41 @@ function allknn(index::SearchGraph{T}, dist::Function; k::Int=1) where T
     A
 end
 
-"""
-Finds k-nearest-neighbors for all items in the given dataset (represented as a SearchGraph object).
-
-This function is optimized for the SearchGraph similarity-index
-"""
-function allknn(index::SearchGraph{T}, dist::Function, X::SearchGraph{T}; k::Int=1, bsize::Int=4) where T
-    n = length(X.db)
-    A = Vector{KnnResult}(undef, n)
-    # TODO: Test caching the distance function
-    L = [(id=1, hints=rand(1:n, bsize))]
-    hints = Int32[]
-    for i in 1:n
-        q = X.db[i]
-
-        if A[i] == undef
-            A[i] = KnnResult(k)
-        else
-            continue
-        end
-
-        # hints = rand(1:n, bsize)
-        res = search(index, dist, q, A[i], hints=hints)
-        push!(L, (id=i, res))
-        clear!(hints)
-        append!(index.links[first(res).objID])
-        if (i % 10000) == 1
-            println(stderr, "computing all-knn for $(index.search_algo); k=$(k); advance $i of n=$n")
-        end
-    end
-
-    A
-end
+## """
+## Finds k-nearest-neighbors for all items in the given dataset (represented as a SearchGraph object).
+## 
+## This function is optimized for the SearchGraph similarity-index
+## """
+## function allknn(index::SearchGraph{T}, dist::Function, X::SearchGraph{T}; k::Int=1, bsize::Int=4) where T
+##     n = length(X.db)
+##     A = Vector{KnnResult}(undef, n)
+##     # TODO: Test caching the distance function
+## 
+##     L = [(id=n, hints=rand(1:n, bsize))]
+##     while length(L) > 0
+##         t = pop!(L)
+##         search(index, dist, X.db[i], )
+##     end
+##     hints = Int32[]
+##     for i in 1:n
+##         q = X.db[i]
+## 
+##         
+##         if A[i] == undef
+##             A[i] = KnnResult(k)
+##         else
+##             continue
+##         end
+## 
+##         # hints = rand(1:n, bsize)
+##         res = search(index, dist, q, A[i], hints=hints)
+##         push!(L, (id=i, res))
+##         clear!(hints)
+##         append!(index.links[first(res).objID])
+##         if (i % 10000) == 1
+##             println(stderr, "computing all-knn for $(index.search_algo); k=$(k); advance $i of n=$n")
+##         end
+##     end
+## 
+##     A
+## end
