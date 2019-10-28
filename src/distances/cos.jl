@@ -1,38 +1,7 @@
 export normalize!, cosine_similarity, cosine_distance, angle_distance
 
 using LinearAlgebra
-import LinearAlgebra: normalize!
-"""
-normalize!
 
-Divides the vector by its norm (in-place operation)
-"""
-function normalize!(a::AbstractVector{T}) where {T <: Real}
-    xnorm = sqrt(dot(a, a))
-    if xnorm <= 1e-12
-        @warn "normalizing a vector with a zero or very small norm $xnorm"
-    end
-    
-    invnorm = 1.0 / xnorm
-    @fastmath @inbounds @simd for i in eachindex(a)
-        a[i] = a[i] * invnorm
-    end
-
-    a
-end
-
-"""
-normalize!
-
-Divides all column vectors of the matrix by its norm (in-place operation)
-"""
-function normalize!(a::AbstractMatrix{T}) where {T <: Real}
-    for i in size(a, 2)
-        normalize!(@view a[:, i])
-    end
-
-    a
-end
 
 """
 angle_distance
