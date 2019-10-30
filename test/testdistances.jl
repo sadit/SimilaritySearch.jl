@@ -1,4 +1,5 @@
 using SimilaritySearch
+using LinearAlgebra
 using Test
 
 function test_binhamming(create_index, dist::Function, ksearch, nick, create)

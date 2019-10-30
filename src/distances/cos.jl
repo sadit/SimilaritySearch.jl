@@ -1,6 +1,27 @@
 export cosine_similarity, cosine_distance, angle_distance
 
 using LinearAlgebra
+import LinearAlgebra: normalize, normalize!
+
+function normalize(X::AbstractVector{S}) where S<:AbstractVector
+    normalize.(X)
+end
+
+function normalize!(X::AbstractVector{S}) where S<:AbstractVector
+    for x in X
+        normalize!(x)
+    end
+
+    X
+end
+
+function normalize!(X::AbstractMatrix)
+    for x in eachcol(X)
+        normalize!(x)
+    end
+    
+    X
+end
 
 """
 cosine_distance

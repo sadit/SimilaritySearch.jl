@@ -51,7 +51,7 @@ The package implements several distances, as the following ones:
 - [Angle distance](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/cos.jl)
   - `angle_distance`
   - `cosine_distance` (not metric, but faster than angle's distance)
-  - please not that these functions suppose that your vectors are normalized (it also provides the convenient `normalize!` functions)
+  - please not that these functions suppose that your vectors are normalized
 - [Binary hamming distance](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/bits.jl)
 - [String distances](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/distances/strings.jl)
   - `common_prefix_distance` (not metric)

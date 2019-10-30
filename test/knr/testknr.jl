@@ -1,4 +1,5 @@
 using SimilaritySearch
+using LinearAlgebra
 using Test
 
 
