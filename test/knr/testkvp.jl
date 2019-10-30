@@ -1,5 +1,4 @@
 using SimilaritySearch
-using SimilaritySearch.SimilarReferences
 using Test
 
 

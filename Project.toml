@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.3.9"
+version = "0.3.10"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -13,6 +13,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-julia = "0.7, 1"
 JSON = "0.19.0, 0.21.0"
 StatsBase = "0.30.0, 0.32.0"
+julia = "0.7, 1"
