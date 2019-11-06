@@ -16,5 +16,4 @@ include("indexes/pivotselectiontables.jl")
 include("knr/SimilarReferences.jl")
 include("graph/graph.jl")
 include("utils/aknn.jl")
-include("utils/fft.jl")
 end
