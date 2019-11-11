@@ -18,7 +18,7 @@ using Statistics: mean
 mutable struct PerformanceResult
     precision::Float64
     recall::Float64
-    macrof1::Float64
+    f1::Float64
     seconds::Float64
     exhaustive_search_seconds::Float64
     evaluations::Float64
@@ -41,8 +41,10 @@ mutable struct Performance{T}
 
         s = create_index(db)
         start = time()
+        res = KnnResult(expected_k)
         for i in 1:length(queries)
-            res = search(s, dist, queries[i], KnnResult(expected_k))
+            empty!(res)
+            search(s, dist, queries[i], res)
             if queries_from_db
                 popfirst!(res)
             end
@@ -106,9 +108,11 @@ function _probe(perf::Performance, index::Index, dist::Function)
     p.seconds = 0.0
     p.distances_sum = 0.0
 
+    res = KnnResult(perf.expected_k)
     for i in 1:m
+        empty!(res)
         start = time()
-        res = search(index, dist_, perf.queries[i], KnnResult(perf.expected_k))
+        res = search(index, dist_, perf.queries[i], res)
         p.seconds += time() - start
         if perf.queries_from_db
             popfirst!(res)
@@ -126,14 +130,14 @@ function _probe(perf::Performance, index::Index, dist::Function)
         recall = _tp / (_tp + fn)
         p.precision += precision
         p.recall += recall
-        p.macrof1 += 2 * precision * recall / (precision + recall)
+        p.f1 += 2 * precision * recall / (precision + recall)
     end
 
     p.evaluations = (eval_counter - p.evaluations) / m
     p.seconds = p.seconds / m
     p.precision /= m
     p.recall /= m
-    p.macrof1 /= m
+    p.f1 /= m
     p.exhaustive_search_seconds = perf.exhaustive_search_seconds
 
     p
