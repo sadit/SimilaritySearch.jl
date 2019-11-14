@@ -63,12 +63,12 @@ function search(isearch::TIHCSearch, index::SearchGraph{T}, dist::Function, q::T
     res
 end
 
-function opt_expand_neighborhood(fun, algo::TIHCSearch, n::Int, iter::Int)
+function opt_expand_neighborhood(fun, algo::TIHCSearch, n::Integer, iter::Integer, probes::Integer)
     f_(w) = ceil(Int, w * (rand() - 0.5))
     f(x, w) = max(1, x + f_(w))
     logn = ceil(Int, log(2, n+1))
     w = 1
-
+    # probes = probes == 0 ? logn : probes
     while w <= logn  ## log log n
         #TIHCSearch(min(200, n), 1, use_local_improvement=true) |> fun
         TIHCSearch(algo.ssize, f(algo.restarts, w)) |> fun

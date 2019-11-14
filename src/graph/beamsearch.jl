@@ -88,19 +88,24 @@ function search(bs::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res
     res
 end
 
-function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Int, iter::Int)
-    f_(w) = ceil(Int, w * (rand() - 0.5))
-    #f(x, w) = max(1, x + f_(w))
-    f(x, w) = max(1, x + w)
+function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Integer, probes::Integer)
+    #f_(w) = ceil(Int, w * (rand() - 0.5))
+    #f(x, w) = max(1, x + #f_(w))
+
     # g(x) = max(1, x + ceil(Int, (rand()-0.5) * log2(n)))
     logn = ceil(Int, log(2, n+1))
-
-    w = 1
-    while w <= logn  ## log log n
-        BeamSearch(f(gsearch.ssize,  w), gsearch.bsize) |> fun
-        BeamSearch(f(gsearch.ssize,  -w), gsearch.bsize) |> fun
-        BeamSearch(gsearch.ssize, f(gsearch.bsize, w)) |> fun
-        BeamSearch(gsearch.ssize, f(gsearch.bsize, -w)) |> fun
-        w += w
+    probes = probes == 0 ? logn : probes
+    f(x) = max(1, x + rand(-logn:logn))
+    for i in 1:probes
+        BeamSearch(f(gsearch.ssize), f(gsearch.bsize)) |> fun
     end
+    ### f(x, w) = max(1, x + w)
+    ### w = 1
+    ### while w <= logn  ## log log n
+    ###    BeamSearch(f(gsearch.ssize,  w), gsearch.bsize) |> fun
+    ###    BeamSearch(f(gsearch.ssize,  -w), gsearch.bsize) |> fun
+    ###    BeamSearch(gsearch.ssize, f(gsearch.bsize, w)) |> fun
+    ###    BeamSearch(gsearch.ssize, f(gsearch.bsize, -w)) |> fun
+    ###    w += w
+    ### end
 end

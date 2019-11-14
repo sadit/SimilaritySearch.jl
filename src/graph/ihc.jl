@@ -79,7 +79,7 @@ function search(isearch::IHCSearch, index::SearchGraph{T}, dist::Function, q::T,
     res
 end
 
-function opt_expand_neighborhood(fun, algo::IHCSearch, n::Int, iter::Int)
+function opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
     f_(w) = ceil(Int, w * (rand() - 0.5))
     f(x, w) = max(1, x + f_(w))
     logn = ceil(Int, log(2, n+1))
