@@ -1,5 +1,11 @@
 export jaccard_distance, dice_distance, union_intersection, intersection_distance
 
+"""
+    union_intersection(a::T, b::T)
+
+Computes both the size of the unions an the size the intersections of `a` and `b`;
+specified as ordered sequences.
+"""
 function union_intersection(a::T, b::T) where {T <: AbstractVector}
     len_a::Int = length(a)
     len_b::Int = length(b)
@@ -24,27 +30,35 @@ function union_intersection(a::T, b::T) where {T <: AbstractVector}
 end
 
 """
-sim_jaccard computes the Jaccard's coefficient between two sets
-represented as sorted arrays.
-Note: 1.0 - sim_jaccard computes the Jaccard's distance
+    jaccard_distance(a, b)::Float64
+
+Computes the Jaccard's distance of `a` and `b` both sets specified as
+sorted vectors.
 """
 
-function jaccard_distance(a::T, b::T)::Float64 where {T <: AbstractVector}
+function jaccard_distance(a, b)::Float64
     u, i = union_intersection(a, b)
     return 1.0 - i / u
 end
 
-function dice_distance(a::T, b::T)::Float64 where {T <: AbstractVector}
+"""
+    dice_distance(a, b)::Float64
+
+Computes the Dice's distance of `a` and `b` both sets specified as
+sorted vectors.
+"""
+function dice_distance(a, b)::Float64
     u, i = union_intersection(a, b)
     return 1.0 - 2 * i / (length(a) + length(b))
 end
 
-mutable struct IntersectionDistance
-    calls::Int
-    IntersectionDistance() = new(0)
-end
+"""
+    intersection_distance(a, b)::Float64
+(a, b)::Float64
 
-function intersection_distance(a::T, b::T)::Float64 where {T <: AbstractVector}
+Uses the intersection as a distance function (non-metric)
+"""
+function intersection_distance(a, b)::Float64
     u, i = union_intersection(a, b)
 
     return 1.0 - i / min(length(a), length(b))

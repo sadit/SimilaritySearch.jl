@@ -1,63 +1,81 @@
 export l1_distance, l2_distance, squared_l2_distance, linf_distance, lp_distance
 
-""" l1_distance computes the Manhattan's distance """
-function l1_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    d::T = zero(T)
+"""
+    l1_distance(a, b)::Float64
+
+Computes the Manhattan's distance between `a` and `b`
+"""
+function l1_distance(a, b)::Float64
+    d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i = 1:length(a)
 	    m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
     end
 
-    return d
+    d
 end
 
-""" l2_distance computes the Euclidean's distance """
-function l2_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    d::T = zero(T)
+"""
+    l2_distance(a, b)::Float64
+    
+Computes the Euclidean's distance betweem `a` and `b`
+"""
+function l2_distance(a, b)::Float64
+    d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i = 1:length(a)
         m = a[i] - b[i]
         d += m * m
     end
 
-    return sqrt(d)
+    sqrt(d)
 end
 
-""" squared_l2_distance computes the Euclidean's distance but squared """
-function squared_l2_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-    d::T = zero(T)
+"""
+    squared_l2_distance(a, b)::Float64
+
+Computes the squared Euclidean's distance between `a` and `b`
+"""
+function squared_l2_distance(a, b)::Float64
+    d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i = 1:length(a)
         m = a[i] - b[i]
         d += m * m
     end
 
-    return d
+    d
 end
 
 
-""" linf_distance computes the max distance """
-function linf_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
-   d::T = zero(T)
+"""
+    linf_distance(a, b)::Float64
+
+Computes the max or Chebyshev'se distance
+"""
+function linf_distance(a, b)::Float64
+   d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i = 1:length(a)
         m = abs(a[i] - b[i])
         d = max(d, m)
     end
 
-    return d
+    d
 end
 
 """
-lp_distance creates a function that computes computes generic Minkowski's distance
+    lp_distance(p_::Real)
+
+Creates a function that computes computes generic Minkowski's distance with the given `p_`
 """
-function lp_distance(p_::Real)
-    p::Float64 = convert(Float64, p_)
+function lp_distance(p::Real)
+    p = convert(Float64, p)
     invp = 1.0 / p
 
-    function _lp(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where T
-        d::T = zero(T)
+    function _lp(a, b)::Float64
+        d = zero(eltype(a))
 
         @fastmath @inbounds @simd for i = 1:length(a)
             m = abs(a[i] - b[i])
@@ -67,4 +85,3 @@ function lp_distance(p_::Real)
         d ^ invp
     end
 end
-

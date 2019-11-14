@@ -24,27 +24,25 @@ function normalize!(X::AbstractMatrix)
 end
 
 """
-cosine_distance
+    cosine_distance(a, b)::Float64
 
 Computes the cosine distance between two vectors, it expects normalized vectors (see [normalize!](@ref) method).
-Please use angle_distance if you are expecting a metric function (instead cosine_distance is a faster
+Please use angle_distance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-function cosine_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+function cosine_distance(a, b)::Float64
     1 - dot(a, b)
 end
 
-
 const π_2 = π / 2
 """
-angle_distance
+    angle_distance(a, b)::Float64
 
 Computes the angle  between two SparseVector objects (sparse vectors).
-
 It supposes that all vectors are normalized (see `normalize!` function)
 
 """
-function angle_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Real}
+function angle_distance(a, b)::Float64
     d = dot(a, b)
 
     if d <= -1.0
