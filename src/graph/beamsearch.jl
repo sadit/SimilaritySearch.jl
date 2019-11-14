@@ -26,7 +26,7 @@ end
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-function beam_init(bs::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints) where T
+function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints)
     beam = KnnResult(bs.bsize)
     n = length(index.db)
     # range = 1:n
@@ -51,7 +51,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR) where T
+function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR)
     n = length(index.db)
     n == 0 && return res
     if length(hints) == 0

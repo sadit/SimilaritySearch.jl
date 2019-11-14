@@ -22,10 +22,15 @@ struct IHCSearch <: LocalSearchAlgorithm
     IHCSearch(r; use_local_improvement=false) = new(r, use_local_improvement)
 end
 
-function hill_climbing(index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, nodeID::Int64, use_local_improvement::Bool) where T
+"""
+    hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, nodeID::Int64, use_local_improvement::Bool)
+
+Runs a single hill climbing search process starting in vertex `nodeID`
+"""
+function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, nodeID::Int64, use_local_improvement::Bool)
     omin::Int = -1
     dmin::Float32 = typemax(Float32)
-    # @info "STARTING HILL CLIMBING"
+
     while true
         dmin = typemax(Float32)
         omin = -1
@@ -49,7 +54,6 @@ function hill_climbing(index::SearchGraph{T}, dist::Function, q::T, res::KnnResu
             end
         end
 
-        # @info dmin
         if omin < 0
             break
         else
@@ -58,7 +62,13 @@ function hill_climbing(index::SearchGraph{T}, dist::Function, q::T, res::KnnResu
     end
 end
 
-function search(isearch::IHCSearch, index::SearchGraph{T}, dist::Function, q::T, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR) where T
+"""
+    search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR)
+
+Performs an iterated hill climbing search for `q`. The given `hints` are used as starting points of the search; a random
+selection is performed otherwise.
+"""
+function search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
     if length(hints) == 0
@@ -79,14 +89,17 @@ function search(isearch::IHCSearch, index::SearchGraph{T}, dist::Function, q::T,
     res
 end
 
-function opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
-    f_(w) = ceil(Int, w * (rand() - 0.5))
-    f(x, w) = max(1, x + f_(w))
-    logn = ceil(Int, log(2, n+1))
-    w = 1
+"""
+    opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
 
-    while w <= logn  ## log log n
-        IHCSearch(f(algo.restarts, w)) |> fun
-        w += w
+Generates configurations of the IHCSearch that feed the `optimize!` function (internal function)
+"""
+function opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
+    logn = ceil(Int, log(2, n+1))
+    probes = probes == 0 ? logn : probes
+    f(x) = max(1, x + rand(-logn:logn))
+
+    for i in 1:probes
+        IHCSearch(f(algo.restarts)) |> fun
     end
 end
