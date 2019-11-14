@@ -22,6 +22,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
                    perf::Performance;
                    bsize::Int=4,
                    tol::Float64=0.01,
+                   maxiters::Int=5,
                    probes::Int=0,
                    verbose=true) where T
     n = length(index.db)
@@ -33,13 +34,13 @@ function optimize!(algosearch::LocalSearchAlgorithm,
     best_list = [(score=score_function(p), state=algosearch, perf=p)]
     exploration = Dict(algosearch => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
 
-    verbose && println(stderr, "==== BEGIN parameter optimization $(typeof(algosearch)), expected recall: $recall, n: $n")
+    verbose && println(stderr, "==== BEGIN Opt. $(typeof(algosearch)), expected recall: $recall, n: $n")
     prev_score = -1.0
     iter = 0
-    while abs(best_list[1].score - prev_score) > tol
+    while abs(best_list[1].score - prev_score) > tol && iter < maxiters
         iter += 1
         prev_score = best_list[1].score
-        verbose && println(stderr, "  == begin iteration $(typeof(algosearch)). Iteration: $iter, expected recall: $recall, n: $n")
+        verbose && println(stderr, "  == Opt. $(typeof(algosearch)), starting iteration: $iter, expected recall: $recall, n: $n")
         
         for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
             S = get(exploration, prev.state, -1)
