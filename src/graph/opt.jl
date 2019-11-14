@@ -49,7 +49,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
             elseif S == 0
                 exploration[prev.state] = 1
             end
-
+            
             opt_expand_neighborhood(prev.state, n, iter, probes) do state
                 S = get(exploration, state, -1)
                 if S == -1
@@ -58,9 +58,11 @@ function optimize!(algosearch::LocalSearchAlgorithm,
                     # p = probe(perf, index, repeat=3, aggregation=:median, field=:seconds)
                     p = probe(perf, index, dist, repeat=1, field=:seconds)
                     score = score_function(p)
-                    push!(best_list, (score=score, state=state, perf=p))
-                    if score > best_list[1].score
-                        verbose && println(stderr, "    ** Opt. $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)")
+                    if length(best_list) < bsize || score > best_list[bsize].score
+                        push!(best_list, (score=score, state=state, perf=p))
+                        if score > best_list[1].score
+                            verbose && println(stderr, "    ** Opt. $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)")
+                        end
                     end
                 end
             end
