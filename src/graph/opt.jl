@@ -8,8 +8,7 @@ using Dates
                    perf::Performance;
                    bsize::Int=4,
                    tol::Float64=0.01,
-                   probes::Int=0,
-                   verbose=true) where T
+                   probes::Int=0) where T
 
 Optimizes a local search index for an specific algorithm to get the desired performance.
 Note that optimizing for low-recall will yield to faster searches; the train queries
@@ -23,8 +22,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
                    bsize::Int=4,
                    tol::Float64=0.01,
                    maxiters::Int=3,
-                   probes::Int=0,
-                   verbose=true) where T
+                   probes::Int=0) where T
     n = length(index.db)
     score_function(p) = p.recall < recall ? p.recall : 1.0 + n / p.evaluations
     #score_function(p) = p.recall < recall ? p.recall : 1.0 + 1.0 / (1.0 + sum(p.distances))
@@ -34,13 +32,13 @@ function optimize!(algosearch::LocalSearchAlgorithm,
     best_list = [(score=score_function(p), state=algosearch, perf=p)]
     exploration = Dict(algosearch => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
 
-    verbose && println(stderr, "==== BEGIN Opt. $(typeof(algosearch)), expected recall: $recall, n: $n")
+    index.verbose && println(stderr, "==== BEGIN Opt. $(typeof(algosearch)), expected recall: $recall, n: $n")
     prev_score = -1.0
     iter = 0
     while abs(best_list[1].score - prev_score) > tol && iter < maxiters
         iter += 1
         prev_score = best_list[1].score
-        verbose && println(stderr, "  == Begin Opt. $(typeof(algosearch)) iteration: $iter, expected recall: $recall, n: $n")
+        index.verbose && println(stderr, "  == Begin Opt. $(typeof(algosearch)) iteration: $iter, expected recall: $recall, n: $n")
         
         for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
             S = get(exploration, prev.state, -1)
@@ -61,7 +59,7 @@ function optimize!(algosearch::LocalSearchAlgorithm,
                     if length(best_list) < bsize || score > best_list[bsize].score
                         push!(best_list, (score=score, state=state, perf=p))
                         if score > best_list[1].score
-                            verbose && println(stderr, "    ** Opt. $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)")
+                            index.verbose && println(stderr, "    ** Opt. $(typeof(algosearch)). A new best conf was found> score: $score, conf: $(JSON.json(state)), perf: $(JSON.json(p)), best_list's length: $(length(best_list)), n: $(n)")
                         end
                     end
                 end
@@ -72,11 +70,11 @@ function optimize!(algosearch::LocalSearchAlgorithm,
         if length(best_list) > bsize
             best_list = best_list[1:bsize]
         end
-        verbose && println(stderr, "  == End Opt. $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)")
+        index.verbose && println(stderr, "  == End Opt. $(typeof(algosearch)). Iteration finished; $(JSON.json(best_list[1])), beam: $(length(best_list)), n: $(n)")
     end
 
     index.search_algo = best_list[1].state
-    verbose && println(stderr, "==== END Opt. $(typeof(algosearch)). Finished, best: $(JSON.json(best_list[1])), n: $(n)")
+    index.verbose && println(stderr, "==== END Opt. $(typeof(algosearch)). Finished, best: $(JSON.json(best_list[1])), n: $(n)")
     index
 end
 
