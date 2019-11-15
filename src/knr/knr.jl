@@ -123,6 +123,6 @@ function optimize!(index::Knr, dist::Function; recall=0.9, k=10, num_queries=128
         p = probe(perf, index, dist)
 
     end
-    index.verbose && priintln(stderr, "Knr> reached performance $(p)")
+    index.verbose && println(stderr, "Knr> reached performance $(p)")
     index
 end
