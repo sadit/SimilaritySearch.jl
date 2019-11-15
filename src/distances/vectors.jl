@@ -9,7 +9,7 @@ export l1_distance, l2_distance, squared_l2_distance, linf_distance, lp_distance
 Computes the Manhattan's distance between `a` and `b`
 """
 function l1_distance(a, b)::Float64
-    d = zero(eltype(a))
+    d::Float64 = 0.0 #zero(eltype(a))
 
     @inbounds @simd for i = 1:length(a)
 	    m = a[i] - b[i]
@@ -25,7 +25,8 @@ end
 Computes the Euclidean's distance betweem `a` and `b`
 """
 function l2_distance(a, b)::Float64
-    d = zero(eltype(a))
+    #d = zero(eltype(a))
+    d::Float64 = 0.0
 
     @inbounds @simd for i = 1:length(a)
         m = a[i] - b[i]
@@ -41,7 +42,8 @@ end
 Computes the squared Euclidean's distance between `a` and `b`
 """
 function squared_l2_distance(a, b)::Float64
-    d = zero(eltype(a))
+    # d = zero(eltype(a))
+    d::Float64 = 0.0
 
     @inbounds @simd for i = 1:length(a)
         m = a[i] - b[i]
@@ -58,7 +60,7 @@ end
 Computes the max or Chebyshev'se distance
 """
 function linf_distance(a, b)::Float64
-   d = zero(eltype(a))
+   d::Float64 = 0.0 # d = zero(eltype(a))
 
     @inbounds @simd for i = 1:length(a)
         m = abs(a[i] - b[i])
@@ -78,7 +80,7 @@ function lp_distance(p::Real)
     invp = 1.0 / p
 
     function _lp(a, b)::Float64
-        d = zero(eltype(a))
+        d::Float64 = 0.0 # d = zero(eltype(a))
 
         @inbounds @simd for i = 1:length(a)
             m = abs(a[i] - b[i])
