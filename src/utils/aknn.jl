@@ -1,23 +1,14 @@
-#  Copyright 2019 Eric S. Tellez <eric.tellez@infotec.mx>
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export allknn
 
 """
+    allknn(index::Index, dist::Function; k::Int=1)
+
 Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn 
 """
-function allknn(index::Index, dist::Function; k::Int=1) where T
+function allknn(index::Index, dist::Function; k::Int=1)
     n = length(index.db)
     A = [KnnResult(k+1) for i in 1:n]
 
@@ -29,7 +20,7 @@ function allknn(index::Index, dist::Function; k::Int=1) where T
             popfirst!(res)
         end
 
-        if (i % 10000) == 1
+        if (i % 1000) == 1
             println(stderr, "computing all-knn for index $(typeof(index)); k=$(k); advance $i of n=$n")
         end
     end
@@ -38,9 +29,11 @@ function allknn(index::Index, dist::Function; k::Int=1) where T
 end
 
 """
+    allknn(index::Index, dist::Function, X::AbstractVector; k::Int=1)
+
 Finds k-nearest-neighbors for all items in the given X
 """
-function allknn(index::Index, dist::Function, X::AbstractVector{T}; k::Int=1) where T
+function allknn(index::Index, dist::Function, X::AbstractVector; k::Int=1)
     n = length(X)
     A = [KnnResult(k) for i in 1:n]
 
@@ -49,7 +42,7 @@ function allknn(index::Index, dist::Function, X::AbstractVector{T}; k::Int=1) wh
         res = A[i]
         search(index, dist, x, res)
 
-        if (i % 10000) == 1
+        if (i % 1000) == 1
             println(stderr, "computing all-knn for index $(typeof(index)); k=$(k); advance $i of n=$n")
         end
     end
@@ -59,11 +52,12 @@ end
 
 
 """
-Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn.
+    allknn(index::SearchGraph{T}, dist::Function; k::Int=1)
 
+Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn.
 This function is optimized for the SearchGraph similarity-index
 """
-function allknn(index::SearchGraph{T}, dist::Function; k::Int=1) where T
+function allknn(index::SearchGraph, dist::Function; k::Int=1)
     n = length(index.db)
     A = [KnnResult(k+1) for i in 1:n]
     # TODO: Test caching the distance function
@@ -84,7 +78,7 @@ function allknn(index::SearchGraph{T}, dist::Function; k::Int=1) where T
             end
         end
 
-        if (i % 10000) == 1
+        if (i % 1000) == 1
             println(stderr, "computing all-knn for $(index.search_algo); k=$(k); advance $i of n=$n")
         end
     end

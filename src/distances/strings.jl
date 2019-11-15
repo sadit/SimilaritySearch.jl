@@ -1,3 +1,6 @@
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
+
 export common_prefix_distance, generic_levenshtein, hamming_distance, levenshtein_distance, lcs_distance
 
 """

@@ -1,16 +1,6 @@
-#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
+
 
 
 export Laesa
@@ -21,7 +11,14 @@ mutable struct Laesa{T} <: Index
     table::Matrix{Float64} # rows: number of pivots; cols: number of objects 
 end
 
-function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::Vector{T})  where T
+"""
+    fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::Vector{T})
+    fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::Integer)
+
+Creates a `Laesa` index with the given pivots. If the number of pivots is specified,
+then they will be randomly selected from the dataset.
+"""
+function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::AbstractVector{T})  where T
     @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
     table = Matrix{Float64}(undef, length(pivots), length(db))
 
@@ -39,7 +36,12 @@ function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::In
     fit(Laesa, dist, db, pivots)
 end
 
-function search(index::Laesa{T}, dist::Function, q::T, res::KnnResult) where T
+"""
+    search(index::Laesa, dist::Function, q, res::KnnResult)
+
+Solves a query with the Laesa index.
+"""
+function search(index::Laesa, dist::Function, q, res::KnnResult)
     dqp = [dist(q, piv) for piv in index.pivots]
     for i in 1:length(index.db)
         dpu = @view index.table[:, i]
@@ -61,7 +63,12 @@ function search(index::Laesa{T}, dist::Function, q::T, res::KnnResult) where T
     return res
 end
 
-function push!(index::Laesa{T}, dist::Function, obj::T) where T
+"""
+    push!(index::Laesa, dist::Function, obj)
+
+Inserts `obj` into the index
+"""
+function push!(index::Laesa, dist::Function, obj)
     push!(index.db, obj)
     vec = Vector{Float64}(undef, length(index.pivots))
     for pivID in 1:length(vec)

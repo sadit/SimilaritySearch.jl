@@ -4,6 +4,9 @@ mutable struct GallopingSatNeighborhood <: NeighborhoodAlgorithm
     g::GallopingNeighborhood
 end
 
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
+
 function GallopingSatNeighborhood()
     return GallopingSatNeighborhood(GallopingNeighborhood())
 end
@@ -19,7 +22,7 @@ function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dis
     @inbounds for p in knn
         dqp = p.dist
         pobj = index.db[p.objID]
-        near = NnResult()
+        near = KnnResult(1)
         push!(near, p.objID, p.dist)
         for nearID in N
             d = convert(Float32, dist(index.db[nearID], pobj)) 

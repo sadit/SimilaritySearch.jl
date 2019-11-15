@@ -1,3 +1,6 @@
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
+
 export SatNeighborhood
 
 struct SatNeighborhood <: NeighborhoodAlgorithm
@@ -16,7 +19,7 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Functi
     knn = search(index, dist, item, KnnResult(algo.k))
     @inbounds for p in knn
         pobj = index.db[p.objID]
-        near = NnResult()
+        near = KnnResult(1)
         push!(near, zero(Int32), p.dist)
         for nearID in N
             d = dist(index.db[nearID], pobj)

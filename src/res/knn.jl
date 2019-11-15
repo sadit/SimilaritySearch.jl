@@ -1,50 +1,38 @@
-#  Copyright 2016-2019 Eric S. Tellez <eric.tellez@infotec.mx>
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 import Base:
     push!, popfirst!, pop!, length, last, first, empty!
 
-export Item, KnnResult, maxlength, covrad, NnResult
+export Item, KnnResult, maxlength, covrad
 
-struct Item{T}
-    objID::T
+struct Item
+    objID::Int64
     dist::Float64
 end
 
-mutable struct KnnResult{T}
-    k::Int
-    pool::Vector{Item{T}}
+mutable struct KnnResult #{T}
+    k::Int32
+    pool::Vector{Item}
+    #    pool::Vector{Item{T}}
 
-    function KnnResult(T::Type, k)
-        v = Vector{Item{T}}()
+    function KnnResult(k::Integer)
+        v = Vector{Item}()
         sizehint!(v, k)
-        new{T}(k, v)
+        new(k, v)
     end
-
-    KnnResult(k::Integer) = KnnResult(Int, k)
+ 
 end
 
-NnResult() = KnnResult(1)
-
 """
-fix_order! fixes the sorted state of the array. It implements a kind of insertion sort
+    fix_order!(res::KnnResult)
+
+Fixes the sorted state of the array. It implements a kind of insertion sort
 It is efficient due to the expected distribution of the items being inserted
 (few smaller than the ones already inside)
 """
-@inline function fix_order!(res::KnnResult{T}) where T
-    arr::Vector{Item{T}} = res.pool
-
+@inline function fix_order!(res::KnnResult) 
+    arr = res.pool
     item = arr[end]
     i = length(arr)
     @inbounds while i > 1
@@ -60,12 +48,14 @@ It is efficient due to the expected distribution of the items being inserted
 end
 
 """
-push! appends an item to the end of the result set
-"""
-push!(p::KnnResult{Int64}, objID::I, dist::F) where {I <: Union{Int32,Int16}, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
-push!(p::KnnResult{T}, objID::T, dist::F) where {T, F <: Union{Float16, Float32}} = push!(p, objID, convert(Float64, dist))
+    push!(p::KnnResult, objID::Integer, dist::AbstractFloat)
 
-function push!(p::KnnResult{T}, objID::T, dist::Float64) where T
+Appends an item into the result set
+"""
+#push!(p::KnnResult{Int64}, objID::I, dist::F) where {I <: Union{Int32,Int16}, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
+#push!(p::KnnResult{T}, objID::T, dist::F) where {T, F <: Union{Float16, Float32}} = push!(p, objID, convert(Float64, dist))
+
+function push!(p::KnnResult, objID::Integer, dist::AbstractFloat)
     if length(p.pool) < p.k
         # fewer items than the maximum capacity
         push!(p.pool, Item(objID, dist))
@@ -73,8 +63,7 @@ function push!(p::KnnResult{T}, objID::T, dist::Float64) where T
         return true
     end
 
-    @inbounds last_item = p.pool[end]
-    if dist >= last_item.dist
+    if dist >= last(p).dist
         # p.k == length(p.pool) but item.dist doesn't improve the pool's radius
         return false
     end
@@ -82,65 +71,84 @@ function push!(p::KnnResult{T}, objID::T, dist::Float64) where T
     # p.k == length(p.pool) but item.dist improves the result set
     @inbounds p.pool[end] = Item(objID, dist)
     fix_order!(p)
-    return true
+    true
 end
 
 """
-return the first item of the result set, the closest item
+    first(p::KnnResult)
+
+Return the first item of the result set, the closest item
 """
-function first(p::KnnResult{T}) where T
-    @inbounds return p.pool[1]
+function first(p::KnnResult)
+    p.pool[1]
 end
 
 """
-returns the last item of the result set
+    last(p::KnnResult) 
+
+Returns the last item of the result set
 """
-function last(p::KnnResult{T}) where T
-    @inbounds return p.pool[end]
+function last(p::KnnResult) 
+    p.pool[end]
 end
 
 """
-apply popfirst!(p.pool), an O(length(p.pool)) operation
+    popfirst!(p::KnnResult)
+
+Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) operation
 """
-function popfirst!(p::KnnResult{T}) where T
+function popfirst!(p::KnnResult)
     popfirst!(p.pool)
 end
 
 """
-apply pop!(p), an O(1) operation
+    pop!(p)
+
+Removes and returns the last item in the pool, it is an O(1) operation
 """
-function pop!(p::KnnResult{T}) where T
-    return pop!(p.pool)
+function pop!(p::KnnResult)
+    pop!(p.pool)
 end
 
 """
+    length(p::KnnResult)
+
 length returns the number of items in the result set
 """
-Base.length(p::KnnResult{T}) where T = length(p.pool)
+Base.length(p::KnnResult) = length(p.pool)
 
 """
+    maxlength(p::KnnResult)
+
 The maximum allowed cardinality (the k of knn)
 """
-maxlength(p::KnnResult{T}) where T = p.k
+maxlength(p::KnnResult) = p.k
 
 """
-covrad returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
+    covrad(p::KnnResult)::Float64
+
+Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-function covrad(p::KnnResult{T})::Float64 where T
-    return length(p.pool) < p.k ? typemax(Float64) : last(p).dist
+function covrad(p::KnnResult)::Float64
+    return length(p.pool) < p.k ? typemax(Float32) : last(p).dist
 end
 
-function empty!(p::KnnResult{T}) where T
+"""
+    empty!(p::KnnResult)
+
+Clears the content of the result pool
+"""
+function empty!(p::KnnResult)
     resize!(p.pool, 0)
 end
 
 ##### iterator interface
 ### KnnResult
-function Base.iterate(p::KnnResult{T}) where T
+function Base.iterate(p::KnnResult)
     return length(p) == 0 ? nothing : (first(p), 2)
 end
 
-function Base.iterate(p::KnnResult{T}, state::Int) where T
+function Base.iterate(p::KnnResult, state::Int)
     if state > length(p)
         return nothing
     end

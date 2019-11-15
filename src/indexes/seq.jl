@@ -1,18 +1,5 @@
-#  Copyright 2016, 2017 Eric S. Tellez <eric.tellez@infotec.mx>
-#
-#    Licensed under the Apache License, Version 2.0 (the "License");
-#    you may not use this file except in compliance with the License.
-#    You may obtain a copy of the License at
-#
-#        http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS,
-#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#    See the License for the specific language governing permissions and
-#    limitations under the License.
-
-# abstract Sequential
+# This file is a part of SimilaritySearch.jl
+# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 import Base: push!
 import StatsBase: fit
@@ -28,11 +15,21 @@ struct Sequential{T} <: Index
     db::Vector{T}
 end
 
-function fit(::Type{Sequential}, db::Vector{T}) where T
+"""
+    fit(::Type{Sequential}, db::Vector)
+
+Creates a sequential-exhaustive index
+"""
+function fit(::Type{Sequential}, db::Vector)
     Sequential(db)
 end
 
-function search(index::Sequential{T}, dist::Function, q::T, res::KnnResult) where T
+"""
+    search(index::Sequential, dist::Function, q, res::KnnResult)
+
+Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against 
+"""
+function search(index::Sequential, dist::Function, q, res::KnnResult)
     i::Int32 = 1
     d::Float64 = 0.0
     for obj in index.db
@@ -44,7 +41,12 @@ function search(index::Sequential{T}, dist::Function, q::T, res::KnnResult) wher
     res
 end
 
-function push!(index::Sequential{T}, dist::Function, item::T) where T
+"""
+   push!(index::Sequential, dist::Function, item)
+
+Interts an item into the index
+"""
+function push!(index::Sequential, dist::Function, item)
     push!(index.db, item)
     length(index.db)
 end
