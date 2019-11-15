@@ -10,15 +10,15 @@ export hamming_distance, setbit, resetbit
 
 """
     hamming_distance(a, b)::Float64
-    hamming_distance(a::AbstractVector, b::AbstractVector)::Float64
+    hamming_distance(a::AbstractVector, b::AbstractVector)::Float64 where T<:Unsigned
 
 Computes the binary hamming distance for bit types and arrays of bit types
 """
-function hamming_distance(a, b)::Float64
+function hamming_distance(a::T, b::T)::Float64 where {T<:Unsigned}
     count_ones(a ⊻ b)
 end
 
-function hamming_distance(a::AbstractVector, b::AbstractVector)::Float64
+function hamming_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T<:Unsigned}
     d = 0
     @inbounds @simd for i in eachindex(a)
         d += count_ones(a[i] ⊻ b[i])

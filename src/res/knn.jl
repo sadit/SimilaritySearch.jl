@@ -7,7 +7,7 @@ import Base:
 export Item, KnnResult, maxlength, covrad
 
 struct Item
-    objID::Int64
+    objID::Int
     dist::Float64
 end
 

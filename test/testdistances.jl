@@ -113,8 +113,8 @@ end
         p = test_vectors((db) -> fit(Sequential, db), dist, ksearch, "Sequential")
         @test p.recall >= recall_lower_bound * 0.99 # to support "numerical" variations
 
-        p = test_vectors((db) -> fit(Laesa, dist, db, 8), dist, ksearch, "Laesa")
-        @test p.recall >= recall_lower_bound * 0.99
+        #p = test_vectors((db) -> fit(Laesa, dist, db, 8), dist, ksearch, "Laesa")
+        #@test p.recall >= recall_lower_bound * 0.99
     end
 end
 
