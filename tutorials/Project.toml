@@ -1,0 +1,10 @@
+[deps]
+ImageFiltering = "6a3955dd-da59-5b1f-98d4-e7296123deb5"
+ImageTransformations = "02fcd773-0e25-5acc-982a-7f6622650795"
+Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SimilaritySearch = "053f045d-5466-53fd-b400-a066f88fe02a"
+StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
+StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
