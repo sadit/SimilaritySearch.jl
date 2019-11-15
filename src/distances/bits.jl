@@ -8,37 +8,39 @@ export hamming_distance, setbit, resetbit
 # however this could be an issue, since we represent our database as n vectors
 
 
-function hamming_distance(a::T, b::T)::Float64 where {T <: Unsigned}
+"""
+    hamming_distance(a, b)::Float64
+    hamming_distance(a::AbstractVector, b::AbstractVector)::Float64
+
+Computes the binary hamming distance for bit types and arrays of bit types
+"""
+function hamming_distance(a, b)::Float64
     count_ones(a ⊻ b)
 end
 
-function hamming_distance(a::AbstractVector{T}, b::AbstractVector{T})::Float64 where {T <: Unsigned}
+function hamming_distance(a::AbstractVector, b::AbstractVector)::Float64
     d = 0
     @inbounds @simd for i in eachindex(a)
         d += count_ones(a[i] ⊻ b[i])
     end
 
-    return d
+    d
 end
 
-const ONE8 = UInt8(1)
-const ONE16 = UInt16(1)
-const ONE32 = UInt32(1)
-const ONE64 = UInt64(1)
-const ONE128 = UInt128(1)
+"""
+   setbit(a::Unsigned, i::Int)
 
-for (itype, one) in ((:UInt8, ONE8),
-                     (:UInt16, ONE16),
-                     (:UInt32, ONE32),
-                     (:UInt64, ONE64),
-                     (:UInt128, ONE128))
-    @eval begin
-        function setbit(a::$itype, i::Int)
-            return a | ($one << i)
-        end
+Enables the i-th bit in `a`
+"""
+function setbit(a::Unsigned, i::Int)
+    a | (one(a) << i)
+end
 
-        function resetbit(a::$itype, i::Int)
-            return a & ~($one << i)
-        end
-    end
+"""
+    resetbit(a::Unsigned, i::Int)
+
+Disables (0 value) the i-th bit of `a`
+"""
+function resetbit(a::Unsigned, i::Int)
+    a & ~(one(a) << i)
 end
