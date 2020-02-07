@@ -5,6 +5,14 @@ using SimilaritySearch
 using LinearAlgebra
 using Test
 
+
+@testset "pairwise" begin
+    A = [rand(3) for i in 1:7]
+    a = pairwise(l2_distance, A)
+    b = simetricpairwise(l2_distance, A)
+    @test l2_distance(a, b) < 1e-6
+end
+
 function test_binhamming(create_index, dist::Function, ksearch, nick, create)
     @testset "indexing vectors with $nick with hamming_distance" begin
         n = 300 # number of items in the dataset
