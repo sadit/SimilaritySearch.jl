@@ -7,6 +7,11 @@ export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborho
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
 
+### Basic operations on the index
+const OPTIMIZE_LOGBASE = 10
+const OPTIMIZE_LOGBASE_STARTING = 4
+
+
 mutable struct SearchGraph{T} <: Index
     db::Vector{T}
     recall::Float64
@@ -23,11 +28,11 @@ end
     EXPLORED = 2
 end
 
-function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), verbose=true) where T
+function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
     links = Vector{Int32}[]
     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
     for item in dataset
-        push!(index, dist, item)
+        push!(index, dist, item; automatic_optimization=automatic_optimization)
     end
 
     index
@@ -50,9 +55,6 @@ include("ihc.jl")
 include("tihc.jl")
 include("beamsearch.jl")
 
-### Basic operations on the index
-const OPTIMIZE_LOGBASE = 10
-const OPTIMIZE_LOGBASE_STARTING = 4
 
 """
     find_neighborhood(index::SearchGraph{T}, dist::Function, item)
@@ -86,12 +88,13 @@ end
 
 Inserts `item` into the index.
 """
-function push!(index::SearchGraph, dist::Function, item) where T
+function push!(index::SearchGraph, dist::Function, item; automatic_optimization=true)
     knn, neighbors = find_neighborhood(index, dist, item)
     n = length(index.db)
     push_neighborhood!(index, item, neighbors, n)
     n += 1
-    if n > OPTIMIZE_LOGBASE_STARTING
+
+    if automatic_optimization && n > OPTIMIZE_LOGBASE_STARTING
         k = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
         k1 = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
         k != k1 && optimize!(index, dist, recall=index.recall)

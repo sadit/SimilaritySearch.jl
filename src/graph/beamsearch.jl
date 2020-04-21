@@ -9,7 +9,7 @@ struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32  # beam size
 
     BeamSearch() = new(1, 1)
-    BeamSearch(a::Integer, b::Integer) = new(a, b)
+    BeamSearch(ssize::Integer, bsize::Integer) = new(ssize, bsize)
     BeamSearch(other::BeamSearch) =  new(other.ssize, other.bsize)
 end
 
