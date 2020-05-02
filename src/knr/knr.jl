@@ -37,22 +37,56 @@ Creates a `Knr` index using the given references or the number of references to 
 """
 function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
     verbose && println(stderr, "Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
-    invindex = [Vector{Int32}(undef, 0) for i in 1:length(refs)]
+    m = length(refs)
+    invindex = [Vector{Int32}(undef, 0) for i in 1:m]
     seqindex = fit(Sequential, refs)
-
-    pc = round(Int, length(db) / 20)
-    for i=1:length(db)
-        if verbose && i % pc == 0
-            println(stderr, "Knr> advance $(round(i/length(db), digits=4)), now: $(now())")
-        end
-
+    counter = 0
+    n = length(db)
+    for i in 1:n
         res = search(seqindex, dist, db[i], KnnResult(k))
         for p in res
-            push!(invindex[p.objID], i)
+            refID = p.objID
+            push!(invindex[refID], i)
+        end
+        counter += 1
+        if (counter % 100_000) == 1
+            println(stderr, "*** advance ", counter, " from ", n, "; ", string(Dates.now()))
         end
     end
 
     Knr(db, refs, k, k, minmatches, invindex, verbose)
+end
+
+function parallel_fit(::Type{Knr}, dist::Function, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+    verbose && println(stderr, "Knr> parallel_fit refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
+    m = length(refs)
+    invindex = [Vector{Int32}(undef, 0) for i in 1:m]
+    locks = [Threads.SpinLock() for i in 1:m]
+    seqindex = fit(Sequential, refs)
+    counter = Threads.Atomic{Int}(0)
+    n = length(db)
+    Threads.@threads for i in 1:n
+        res = search(seqindex, dist, db[i], KnnResult(k))
+        for p in res
+            refID = p.objID
+            lock(locks[refID])
+            push!(invindex[refID], i)
+            unlock(locks[refID])
+        end
+        Threads.atomic_add!(counter, 1)
+        c = counter[]
+        if (c % 100_000) == 1
+            println(stderr, "*** advance ", c, " from ", n, "; ", string(Dates.now()))
+        end
+    end
+
+    Knr(db, refs, k, k, minmatches, invindex, verbose)
+end
+
+function parallel_fit(::Type{Knr}, dist::Function, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+    # refs = rand(db, numrefs)
+    refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
+    parallel_fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
 end
 
 function fit(::Type{Knr}, dist::Function, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T

@@ -38,14 +38,13 @@ function optimize_neighborhood!(algo::GallopingNeighborhood, index::SearchGraph{
     # index.restarts, index.beam_size, index.montecarlo_size = restarts, beam_size, montecarlo_size
 end
 
-function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where {T}
+function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where {T}
     k = algo.neighborhood
-    nbuffer = Vector{Int32}(undef, 0)
-    knn = search(index, dist, item, KnnResult(k))
+    reset!(knn, k)
+    empty!(N)
+    search(index, dist, item, knn)
 
     for p in knn
-        push!(nbuffer, p.objID)
+        push!(N, p.objID)
     end
-
-    return knn, nbuffer
 end

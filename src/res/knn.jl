@@ -4,10 +4,10 @@
 import Base:
     push!, popfirst!, pop!, length, last, first, empty!
 
-export Item, KnnResult, maxlength, covrad
+export Item, KnnResult, maxlength, covrad, reset!
 
 struct Item
-    objID::Int
+    objID::Int64
     dist::Float64
 end
 
@@ -40,11 +40,13 @@ It is efficient due to the expected distribution of the items being inserted
             arr[i] = arr[i-1]
         else
             arr[i] = item
-            return
+            return nothing
         end
         i -= 1
     end
+
     arr[1] = item
+    nothing
 end
 
 """
@@ -139,7 +141,13 @@ end
 Clears the content of the result pool
 """
 function empty!(p::KnnResult)
-    resize!(p.pool, 0)
+    empty!(p.pool)
+end
+
+function reset!(p::KnnResult, k::Integer)
+    empty!(p)
+    p.k = k
+    p
 end
 
 ##### iterator interface

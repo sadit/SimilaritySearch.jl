@@ -14,9 +14,10 @@ end
 function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
 end
 
-function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where {T}
-    N = Int32[]
-    knn = search(index, dist, item, KnnResult(algo.k))
+function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where {T}
+    empty!(N)
+    reset!(knn, algo.k)
+    search(index, dist, item, knn)
     @inbounds for p in knn
         pobj = index.db[p.objID]
         near = KnnResult(1)
@@ -31,5 +32,4 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Functi
         end
     end
 
-    return knn, N
 end

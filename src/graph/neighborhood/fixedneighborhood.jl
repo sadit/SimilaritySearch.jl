@@ -14,14 +14,13 @@ end
 function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
 end
 
-function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where T
-    nbuffer::Vector{Int32} = Vector{Int}(undef, 0)
-    knn = search(index, dist, item, KnnResult(algo.k))
-    visible = Set{Int32}()
+function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn::KnnResult, N::Vector) where T
+    reset!(knn, algo.k)
+    empty!(N)
+    search(index, dist, item, knn)
     
     for p in knn
-        push!(nbuffer, p.objID)
+        push!(N, p.objID)
     end
 
-    return knn, nbuffer
 end

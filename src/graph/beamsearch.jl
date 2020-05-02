@@ -5,17 +5,19 @@ using Random
 export BeamSearch
 
 struct BeamSearch <: LocalSearchAlgorithm
-    ssize::Int32  # sample size
     bsize::Int32  # beam size
 
-    BeamSearch() = new(1, 1)
-    BeamSearch(ssize::Integer, bsize::Integer) = new(ssize, bsize)
-    BeamSearch(other::BeamSearch) =  new(other.ssize, other.bsize)
+    BeamSearch() = new(3)
+    BeamSearch(bsize::Integer) = new(bsize)
+    BeamSearch(other::BeamSearch) =  new(other.bsize)
 end
+
+# const INITIAL_BEAMS = [KnnResult(1) for i in 1:Threads.nthreads()]
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
 function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints)
+    # beam = reset!(INITIAL_BEAMS[Threads.threadid()], bs.bsize)
     beam = KnnResult(bs.bsize)
     n = length(index.db)
     # range = 1:n
@@ -30,6 +32,7 @@ function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::K
         end
     end
 
+    #@info (res, beam)
     beam
 end
 
@@ -49,12 +52,12 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnR
 
     beam = beam_init(bs, index, dist, q, res, navigation_state, hints)
     prev_score = typemax(Float64)
-    
+
     @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
         prev_score = last(beam).dist
 
         for prev in beam
-            cov = last(beam).dist
+            # cov = last(beam).dist
             S = get(navigation_state, prev.objID, UNKNOWN)
             # S = navigation_state[prev.objID]
             S == EXPLORED && continue
@@ -66,8 +69,11 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnR
                     navigation_state[childID] = VISITED
                     d = dist(q, index.db[childID])
 
-                    if d <= cov
-                        push!(beam, childID, d) && push!(res, childID, d)
+                    #if d <= cov
+                    #if d <= last(res).dist
+                    if push!(res, childID, d)
+                        #push!(res, childID, d) && push!(beam, childID, d)
+                        push!(beam, childID, d)
                     end
                 end
             end
@@ -86,7 +92,7 @@ function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Int
     probes = probes == 0 ? logn : probes
     f(x) = max(1, x + rand(-logn:logn))
     for i in 1:probes
-        BeamSearch(f(gsearch.ssize), f(gsearch.bsize)) |> fun
+        BeamSearch(f(gsearch.bsize)) |> fun
     end
     ### f(x, w) = max(1, x + w)
     ### w = 1

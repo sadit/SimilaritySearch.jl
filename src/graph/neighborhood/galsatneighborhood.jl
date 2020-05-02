@@ -15,9 +15,10 @@ function optimize_neighborhood!(algo::GallopingSatNeighborhood, index::SearchGra
     optimize_neighborhood!(algo.g, index, dist, perf, recall)
 end
 
-function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where {T}
-    knn = search(index, dist, item, KnnResult(algo.g.neighborhood))
-    N = Vector{Int32}(undef, 0)
+function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where {T}
+    reset!(knn, algo.g.neighborhood)
+    empty!(N)
+    knn = search(index, dist, item, knn)
 
     @inbounds for p in knn
         dqp = p.dist
@@ -35,5 +36,4 @@ function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dis
         end
     end
 
-    return knn, N
 end

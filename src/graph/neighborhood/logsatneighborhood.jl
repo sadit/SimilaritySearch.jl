@@ -5,29 +5,30 @@ export LogSatNeighborhood
 
 struct LogSatNeighborhood <: NeighborhoodAlgorithm
     base::Float64
-end
 
-function LogSatNeighborhood()
-    return LogSatNeighborhood(1.1)
+    LogSatNeighborhood(base=1.1) = new(base)
 end
 
 function optimize_neighborhood!(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
     # optimize_neighborhood!(algo.g, index, perf, recall)
 end
 
-function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where {T}
+function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn::KnnResult, N::Vector) where {T}
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
-    knn = search(index, dist, item, KnnResult(k))
-    N = Vector{Int32}(undef, 0)
+    reset!(knn, k)
+    empty!(N)
+    search(index, dist, item, knn)
 
-    @inbounds for p in knn
+    near = KnnResult(1)
+    # reverse!(knn.pool)
+    @inbounds for p in knn.pool
         dqp = p.dist
         pobj = index.db[p.objID]
-        near = KnnResult(1)
+        empty!(near)
         push!(near, p.objID, p.dist)
         for nearID in N
-            d = convert(Float32, dist(index.db[nearID], pobj)) 
+            d = convert(Float32, dist(index.db[nearID], pobj))
             push!(near, nearID, d)
         end
 
@@ -36,6 +37,4 @@ function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Fun
             push!(N, p.objID)
         end
     end
-
-    return knn, N
 end

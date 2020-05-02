@@ -14,16 +14,14 @@ end
 function optimize_neighborhood!(algo::LogNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
 end
 
-function neighborhood(algo::LogNeighborhood, index::SearchGraph{T}, dist::Function, item::T) where T
+function neighborhood(algo::LogNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where T
     n = length(index.db)
     k = max(1, log(algo.base, n) |> ceil |> Int)
-
+    reset!(knn, k)
+    empty!(N)
     knn = search(index, dist, item, KnnResult(k))
-    nbuffer::Vector{Int32} = Vector{Int32}(undef, length(knn))
 
-    for (i, p) in enumerate(knn)
-        nbuffer[i] = p.objID
+    for p in knn
+        push!(N, p.objID)
     end
-
-    return knn, nbuffer
 end
