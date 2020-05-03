@@ -28,9 +28,9 @@ Computes the Euclidean's distance betweem `a` and `b`
     #d = zero(eltype(a))
     d::Float64 = 0.0
 
-    @inbounds @simd for i = 1:length(a)
-        m = a[i] - b[i]
-        d += m * m
+    @simd for i = 1:length(a)
+        #m = a[i] - b[i]
+        @inbounds d += (a[i] - b[i])^2 #m * m
     end
 
     sqrt(d)
@@ -45,8 +45,8 @@ Computes the squared Euclidean's distance between `a` and `b`
     d = zero(eltype(a))
     # d::Float64 = 0.0
 
-    @inbounds @simd for i in eachindex(a)
-        d += (a[i] - b[i])^2
+    @simd for i in eachindex(a)
+        @inbounds d += (a[i] - b[i])^2
         # d += m * m
     end
 

@@ -2,7 +2,7 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using JSON
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, VisitedVertices
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, search_context, VisitedVertices
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
@@ -10,7 +10,6 @@ abstract type NeighborhoodAlgorithm end
 ### Basic operations on the index
 const OPTIMIZE_LOGBASE = 10
 const OPTIMIZE_LOGBASE_STARTING = 4
-
 
 mutable struct SearchGraph{T} <: Index
     db::Vector{T}
@@ -22,6 +21,10 @@ mutable struct SearchGraph{T} <: Index
     verbose::Bool
 end
 
+function search_context(index::SearchGraph)
+    search_context(index.search_algo, length(index.db))
+end
+
 @enum VisitedVertexState begin
     UNKNOWN = 0
     VISITED = 1
@@ -30,13 +33,15 @@ end
 
 const VisitedVertices = Dict{Int,VisitedVertexState}
 
-function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
+function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), searchctx=nothing, neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
     links = Vector{Int32}[]
     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
     knn = KnnResult(1)
+    searchctx = searchctx === nothing ? search_context(index) : searchctx
 
     for item in dataset
-        push!(index, dist, item, knn; automatic_optimization=automatic_optimization)
+        reset!(searchctx, search_algo.bsize, length(index.db); resample=true)
+        push!(index, dist, item, knn; automatic_optimization=automatic_optimization, searchctx=searchctx)
     end
 
     index
@@ -66,10 +71,10 @@ include("beamsearch.jl")
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, dist::Function, item, knn::KnnResult)
+function find_neighborhood(index::SearchGraph, dist::Function, item, knn::KnnResult, searchctx)
     n = length(index.db)
     neighbors = Int32[]
-    n > 0 && neighborhood(index.neighborhood_algo, index, dist, item, knn, neighbors)
+    n > 0 && neighborhood(index.neighborhood_algo, index, dist, item, knn, neighbors, searchctx)
     neighbors
 end
 
@@ -94,8 +99,9 @@ end
 
 Inserts `item` into the index.
 """
-function push!(index::SearchGraph, dist::Function, item, knn::KnnResult=KnnResult(1); automatic_optimization=true)
-    neighbors = find_neighborhood(index, dist, item, knn)
+function push!(index::SearchGraph, dist::Function, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
+    searchctx = searchctx === nothing ? search_context(index) : searchctx
+    neighbors = find_neighborhood(index, dist, item, knn, searchctx)
     push_neighborhood!(index, item, neighbors)
     n = length(index.db)
 
@@ -119,9 +125,10 @@ const EMPTY_INT_VECTOR = Int[]
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist::Function, q, res::KnnResult, vstate::VisitedVertices=VisitedVertices(); hints=EMPTY_INT_VECTOR)
-    length(index.db) == 0 && return res
-    search(index.search_algo, index, dist, q, res, vstate, hints)
+function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=nothing)
+    searchctx = searchctx === nothing ? search_context(index) : searchctx
+    length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
+    res
 end
 
 """

@@ -57,7 +57,7 @@ end
 Performs an iterated hill climbing search for `q`. The given `hints` are used as starting points of the search; a random
 selection is performed otherwise.
 """
-function search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR)
+function search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, searchctx)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
     if length(hints) == 0

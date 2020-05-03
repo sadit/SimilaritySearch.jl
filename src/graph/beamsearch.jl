@@ -12,29 +12,44 @@ struct BeamSearch <: LocalSearchAlgorithm
     BeamSearch(other::BeamSearch) =  new(other.bsize)
 end
 
-# const INITIAL_BEAMS = [KnnResult(1) for i in 1:Threads.nthreads()]
+struct BeamSearchContext
+    vstate::VisitedVertices
+    beam::KnnResult
+    hints::Vector{Int}
+    BeamSearchContext(vstate, beam, hints) = new(vstate, beam, hints)
+    BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) = new(VisitedVertices(), KnnResult(bsize), unique(rand(1:n, ssize)))
+end
+
+search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
+
+function reset!(searchctx::BeamSearchContext; n=0)
+    empty!(searchctx.vstate)
+    empty!(searchctx.beam)
+
+    if n > 0
+        for i in eachindex(searchctx.hints)
+            searchctx.hints[i] = rand(1:n)
+        end
+        unique!(searchctx.hints)
+    end
+
+    searchctx
+end
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints)
-    # beam = reset!(INITIAL_BEAMS[Threads.threadid()], bs.bsize)
-    beam = KnnResult(bs.bsize)
+function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, searchctx)
     n = length(index.db)
-    # range = 1:n
-    # @inbounds for i in 1:bs.bsize
-    @inbounds for objID in hints
-        S = get(navigation_state, objID, UNKNOWN)
-        # S = navigation_state[objID]
+    @inbounds for objID in searchctx.hints
+        S = get(searchctx.vstate, objID, UNKNOWN)
         if S == UNKNOWN
-            navigation_state[objID] = VISITED
+            searchctx.vstate[objID] = VISITED
             d = dist(q, index.db[objID])
-            push!(beam, objID, d) && push!(res, objID, d)
+            push!(searchctx.beam, objID, d) && push!(res, objID, d)
         end
     end
-
-    #@info (res, beam)
-    beam
 end
+
 
 """
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
@@ -43,38 +58,28 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, navigation_state, hints=EMPTY_INT_VECTOR)
+function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, searchctx::BeamSearchContext)
     n = length(index.db)
     n == 0 && return res
-    if length(hints) == 0
-        hints = rand(1:n, bs.bsize)
-    end
 
-    beam = beam_init(bs, index, dist, q, res, navigation_state, hints)
+    vstate = searchctx.vstate
+    beam_init(bs, index, dist, q, res, searchctx)
+    beam = searchctx.beam
     prev_score = typemax(Float64)
-
+    # rand() < 0.3 && @info length(beam) length(searchctx.hints) searchctx.hints 
+    
     @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
         prev_score = last(beam).dist
-
         for prev in beam
-            # cov = last(beam).dist
-            S = get(navigation_state, prev.objID, UNKNOWN)
-            # S = navigation_state[prev.objID]
+            S = get(vstate, prev.objID, UNKNOWN)
             S == EXPLORED && continue
-            navigation_state[prev.objID] = EXPLORED
+            vstate[prev.objID] = EXPLORED
             for childID in index.links[prev.objID]
-                S = get(navigation_state, childID, UNKNOWN)
-                # S = navigation_state[childID]
+                S = get(vstate, childID, UNKNOWN)
                 if S == UNKNOWN
-                    navigation_state[childID] = VISITED
+                    vstate[childID] = VISITED
                     d = dist(q, index.db[childID])
-
-                    #if d <= cov
-                    #if d <= last(res).dist
-                    if push!(res, childID, d)
-                        #push!(res, childID, d) && push!(beam, childID, d)
-                        push!(beam, childID, d)
-                    end
+                    push!(res, childID, d) && push!(beam, childID, d)
                 end
             end
         end
