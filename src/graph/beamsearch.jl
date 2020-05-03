@@ -16,8 +16,11 @@ struct BeamSearchContext
     vstate::VisitedVertices
     beam::KnnResult
     hints::Vector{Int}
-    BeamSearchContext(vstate, beam, hints) = new(vstate, beam, hints)
-    BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) = new(VisitedVertices(), KnnResult(bsize), unique(rand(1:n, ssize)))
+    ssize::Int
+    BeamSearchContext(;vstate=VisitedVertices(), beam=KnnResult(64), hints=Int32[]) =
+        new(vstate, beam, hints, length(hints))
+    BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) =
+        new(VisitedVertices(), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
 end
 
 search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
@@ -27,6 +30,8 @@ function reset!(searchctx::BeamSearchContext; n=0)
     empty!(searchctx.beam)
 
     if n > 0
+        searchctx.ssize != length(searchctx.hints) && resize!(searchctx.hints, searchctx.ssize)
+        
         for i in eachindex(searchctx.hints)
             searchctx.hints[i] = rand(1:n)
         end

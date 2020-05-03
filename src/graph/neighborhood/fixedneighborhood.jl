@@ -14,10 +14,10 @@ end
 function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
 end
 
-function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn::KnnResult, N::Vector) where T
+function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn::KnnResult, N::Vector, searchctx) where T
     reset!(knn, algo.k)
     empty!(N)
-    search(index, dist, item, knn)
+    search(index, dist, item, knn; searchctx=searchctx)
     
     for p in knn
         push!(N, p.objID)

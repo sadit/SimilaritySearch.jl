@@ -40,7 +40,7 @@ function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; re
     searchctx = searchctx === nothing ? search_context(index) : searchctx
 
     for item in dataset
-        reset!(searchctx, search_algo.bsize, length(index.db); resample=true)
+        reset!(searchctx, n=length(index.db))
         push!(index, dist, item, knn; automatic_optimization=automatic_optimization, searchctx=searchctx)
     end
 
@@ -61,7 +61,7 @@ include("neighborhood/vorneighborhood.jl")
 
 ## search algorithms
 include("ihc.jl")
-include("tihc.jl")
+# include("tihc.jl")
 include("beamsearch.jl")
 
 

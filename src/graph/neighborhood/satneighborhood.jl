@@ -14,10 +14,10 @@ end
 function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
 end
 
-function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where {T}
+function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N, searchctx) where {T}
     empty!(N)
     reset!(knn, algo.k)
-    search(index, dist, item, knn)
+    search(index, dist, item, knn; searchctx=searchctx)
     @inbounds for p in knn
         pobj = index.db[p.objID]
         near = KnnResult(1)

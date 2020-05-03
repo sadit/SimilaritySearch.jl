@@ -14,12 +14,12 @@ end
 function optimize_neighborhood!(algo::VorNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
 end
 
-function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N) where T
+function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N, searchctx) where T
     k = max(1, ceil(Int, log(algo.base, n)))
     reset!(knn, k)
     empty!(N)
     n = length(index.db)
-    search(index, dist, item, knn)
+    search(index, dist, item, knn; searchctx=searchctx)
 
     @inbounds for p in knn
         pobj = index.db[p.objID]
