@@ -55,6 +55,21 @@ function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::K
     end
 end
 
+function beam_search_inner(index, dist, q, res, beam, vstate)
+    for prev in beam
+        S = get(vstate, prev.objID, UNKNOWN)
+        S == EXPLORED && continue
+        vstate[prev.objID] = EXPLORED
+        for childID in index.links[prev.objID]
+            S = get(vstate, childID, UNKNOWN)
+            if S == UNKNOWN
+                vstate[childID] = VISITED
+                d = dist(q, index.db[childID])
+                push!(res, childID, d) && push!(beam, childID, d)
+            end
+        end
+    end
+end
 
 """
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
@@ -75,19 +90,7 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnR
     
     @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
         prev_score = last(beam).dist
-        for prev in beam
-            S = get(vstate, prev.objID, UNKNOWN)
-            S == EXPLORED && continue
-            vstate[prev.objID] = EXPLORED
-            for childID in index.links[prev.objID]
-                S = get(vstate, childID, UNKNOWN)
-                if S == UNKNOWN
-                    vstate[childID] = VISITED
-                    d = dist(q, index.db[childID])
-                    push!(res, childID, d) && push!(beam, childID, d)
-                end
-            end
-        end
+        beam_search_inner(index, dist, q, res, beam, vstate)
     end
 
     res

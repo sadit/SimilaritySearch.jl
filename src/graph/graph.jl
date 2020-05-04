@@ -125,8 +125,8 @@ const EMPTY_INT_VECTOR = Int[]
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=nothing)
-    searchctx = searchctx === nothing ? search_context(index) : searchctx
+function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=search_context(index))
+    #searchctx = searchctx === nothing ? search_context(index) : searchctx
     length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
     res
 end
