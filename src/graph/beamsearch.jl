@@ -17,16 +17,23 @@ struct BeamSearchContext
     beam::KnnResult
     hints::Vector{Int}
     ssize::Int
-    BeamSearchContext(;vstate=VisitedVertices(), beam=KnnResult(64), hints=Int32[]) =
+    BeamSearchContext(vstate; beam=KnnResult(64), hints=Int32[]) =
         new(vstate, beam, hints, length(hints))
     BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) =
-        new(VisitedVertices(), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
+        new(VisitedVertices(n), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
 end
 
 search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
 
 function reset!(searchctx::BeamSearchContext; n=0)
-    empty!(searchctx.vstate)
+    # @info (typeof(searchctx.vstate), length(searchctx.vstate), n)
+    if searchctx.vstate isa AbstractVector
+        n > length(searchctx.vstate) && resize!(searchctx.vstate, n)
+        fill!(searchctx.vstate, 0)
+    else
+        empty!(searchctx.vstate)
+    end
+
     empty!(searchctx.beam)
 
     if n > 0
@@ -44,29 +51,11 @@ end
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
 function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnResult, searchctx)
-    n = length(index.db)
     @inbounds for objID in searchctx.hints
-        S = get(searchctx.vstate, objID, UNKNOWN)
-        if S == UNKNOWN
-            searchctx.vstate[objID] = VISITED
+        if getstate(searchctx.vstate, objID) == UNKNOWN
+            setstate!(searchctx.vstate, objID, VISITED)
             d = dist(q, index.db[objID])
-            push!(searchctx.beam, objID, d) && push!(res, objID, d)
-        end
-    end
-end
-
-function beam_search_inner(index, dist, q, res, beam, vstate)
-    for prev in beam
-        S = get(vstate, prev.objID, UNKNOWN)
-        S == EXPLORED && continue
-        vstate[prev.objID] = EXPLORED
-        for childID in index.links[prev.objID]
-            S = get(vstate, childID, UNKNOWN)
-            if S == UNKNOWN
-                vstate[childID] = VISITED
-                d = dist(q, index.db[childID])
-                push!(res, childID, d) && push!(beam, childID, d)
-            end
+            push!(res, objID, d) && push!(searchctx.beam, objID, d)
         end
     end
 end
@@ -86,11 +75,23 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnR
     beam_init(bs, index, dist, q, res, searchctx)
     beam = searchctx.beam
     prev_score = typemax(Float64)
-    # rand() < 0.3 && @info length(beam) length(searchctx.hints) searchctx.hints 
     
+    @info "XXXXXXXXXXXXX", (prev_score, last(beam).dist, abs(prev_score - last(beam).dist))
     @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
+        @info (prev_score, last(beam).dist, abs(prev_score - last(beam).dist))
         prev_score = last(beam).dist
-        beam_search_inner(index, dist, q, res, beam, vstate)
+        #beam_search_inner(index, dist, q, res, beam, vstate)
+        for prev in beam
+            getstate(vstate, prev.objID) == EXPLORED && continue
+            setstate!(vstate, prev.objID, EXPLORED)
+            for childID in index.links[prev.objID]
+                if getstate(vstate, childID) == UNKNOWN
+                    setstate!(vstate, childID, VISITED)
+                    d = dist(q, index.db[childID])
+                    push!(res, childID, d) && push!(beam, childID, d)
+                end
+            end
+        end
     end
 
     res

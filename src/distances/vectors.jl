@@ -59,10 +59,10 @@ end
 
 Computes the max or Chebyshev'se distance
 """
-function linf_distance(a, b)::Float64
+@inline function linf_distance(a, b)::Float64
    d::Float64 = 0.0 # d = zero(eltype(a))
 
-    @inbounds @simd for i = 1:length(a)
+    @inbounds @simd for i in eachindex(a)
         m = abs(a[i] - b[i])
         d = max(d, m)
     end
@@ -82,7 +82,7 @@ function lp_distance(p::Real)
     function _lp(a, b)::Float64
         d::Float64 = 0.0 # d = zero(eltype(a))
 
-        @inbounds @simd for i = 1:length(a)
+        @inbounds @simd for i in eachindex(a)
             m = abs(a[i] - b[i])
             d += m ^ p
         end

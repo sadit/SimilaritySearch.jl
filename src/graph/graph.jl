@@ -25,13 +25,41 @@ function search_context(index::SearchGraph)
     search_context(index.search_algo, length(index.db))
 end
 
+#=
 @enum VisitedVertexState begin
     UNKNOWN = 0
     VISITED = 1
     EXPLORED = 2
+end =#
+
+const UNKNOWN = UInt8(0)
+const VISITED = UInt8(1)
+const EXPLORED = UInt8(2)
+
+const VisitedVertices = Dict{Int,UInt8}
+function VisitedVertices(n::Int)
+    vstate = VisitedVertices()
+    sizehint!(vstate, ceil(Int, sqrt(n)))
+    vstate
 end
 
-const VisitedVertices = Dict{Int,VisitedVertexState}
+getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
+function setstate!(vstate::VisitedVertices, i, state)
+    vstate[i] = state
+end
+
+#=
+const UNKNOWN = UInt8(0)
+const VISITED = UInt8(1)
+const EXPLORED = UInt8(2)
+
+const VisitedVertices = Vector{UInt8}
+VisitedVertices(n::Int) = zeros(UInt8, n)
+getstate(vstate::VisitedVertices, i) = vstate[i]
+function setstate!(vstate::VisitedVertices, i, state)
+    vstate[i] = state
+end
+=#
 
 function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), searchctx=nothing, neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
     links = Vector{Int32}[]
@@ -125,8 +153,8 @@ const EMPTY_INT_VECTOR = Int[]
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=search_context(index))
-    #searchctx = searchctx === nothing ? search_context(index) : searchctx
+function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=nothing)
+    searchctx = searchctx === nothing ? search_context(index) : searchctx
     length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
     res
 end
