@@ -55,7 +55,7 @@ function beam_init(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::K
         if getstate(searchctx.vstate, objID) == UNKNOWN
             setstate!(searchctx.vstate, objID, VISITED)
             d = dist(q, index.db[objID])
-            push!(res, objID, d) && push!(searchctx.beam, objID, d)
+            push!(res, objID, d) #&& push!(searchctx.beam, objID, d)
         end
     end
 end
@@ -76,19 +76,25 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Function, q, res::KnnR
     beam = searchctx.beam
     prev_score = typemax(Float64)
     
-    @info "XXXXXXXXXXXXX", (prev_score, last(beam).dist, abs(prev_score - last(beam).dist))
-    @inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
-        @info (prev_score, last(beam).dist, abs(prev_score - last(beam).dist))
-        prev_score = last(beam).dist
+    #@info "XXXXXXXXXXXXX", (prev_score, last(res).dist, abs(prev_score - last(res).dist))
+    #@inbounds while abs(prev_score - last(beam).dist) > 0.0  # prepared to allow early stopping
+    @inbounds while abs(prev_score - last(res).dist) > 0.0  # prepared to allow early stopping
+        #@info (prev_score, last(res).dist, abs(prev_score - last(res).dist))
+        prev_score = last(res).dist
         #beam_search_inner(index, dist, q, res, beam, vstate)
-        for prev in beam
+        nn = first(res)
+        push!(beam, nn.objID, nn.dist)
+        while length(beam) > 0
+            prev = popfirst!(beam)
             getstate(vstate, prev.objID) == EXPLORED && continue
             setstate!(vstate, prev.objID, EXPLORED)
+
             for childID in index.links[prev.objID]
                 if getstate(vstate, childID) == UNKNOWN
                     setstate!(vstate, childID, VISITED)
                     d = dist(q, index.db[childID])
-                    push!(res, childID, d) && push!(beam, childID, d)
+                    push!(res, childID, d)
+                    d <= last(res).dist && push!(beam, childID, d)
                 end
             end
         end

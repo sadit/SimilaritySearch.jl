@@ -76,6 +76,7 @@ function push!(p::KnnResult, objID::Integer, dist::AbstractFloat)
     true
 end
 
+
 """
     first(p::KnnResult)
 
