@@ -11,10 +11,10 @@ function SatNeighborhood()
     return SatNeighborhood(32)
 end
 
-function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
+function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
 end
 
-function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N, searchctx) where {T}
+function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where {T}
     empty!(N)
     reset!(knn, algo.k)
     search(index, dist, item, knn; searchctx=searchctx)

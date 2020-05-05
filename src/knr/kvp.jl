@@ -15,7 +15,7 @@ mutable struct Kvp{T} <: Index
     k::Int
 end
 
-function fit(::Type{Kvp}, dist::Function, db::Vector{T}, k::Int, refs::Vector{T}) where T
+function fit(::Type{Kvp}, dist, db::Vector{T}, k::Int, refs::Vector{T}) where T
     @info "Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)"
     sparsetable = Vector{Item}[]
 
@@ -31,13 +31,13 @@ function fit(::Type{Kvp}, dist::Function, db::Vector{T}, k::Int, refs::Vector{T}
     Kvp(db, refs, sparsetable, k)
 end
 
-function fit(::Type{Kvp}, dist::Function, db::Vector{T}, k::Int, numrefs::Int) where T
+function fit(::Type{Kvp}, dist, db::Vector{T}, k::Int, numrefs::Int) where T
     refList = rand(1:length(db), numrefs)
     refs = [db[x] for x in refList]
     fit(Kvp, dist, db, k, refs)
 end
 
-function near_and_far(dist::Function, obj::T, refs::Vector{T}, k::Int) where T
+function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
     near = KnnResult(k)
     far = KnnResult(k)
     for (refID, ref) in enumerate(refs)
@@ -58,7 +58,7 @@ function near_and_far(dist::Function, obj::T, refs::Vector{T}, k::Int) where T
     row
 end
 
-function search(index::Kvp{T}, dist::Function, q::T, res::KnnResult) where T
+function search(index::Kvp{T}, dist, q::T, res::KnnResult) where T
     d::Float64 = 0.0
     qI = [dist(q, piv) for piv in index.refs]
 
@@ -86,7 +86,7 @@ function search(index::Kvp{T}, dist::Function, q::T, res::KnnResult) where T
     res
 end
 
-function push!(index::Kvp{T}, dist::Function, obj::T) where T
+function push!(index::Kvp{T}, dist, obj::T) where T
     push!(index.db, obj)
     row = near_and_far(dist, obj, index.refs, index.k)
     push!(index.sparsetable, row)

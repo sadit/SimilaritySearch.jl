@@ -7,7 +7,7 @@ using Random
 Computes the distances of `q` to the set of references `refs` (each index point to an item in `db`)
 It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(dist::Function, db::AbstractVector{T}, refs::AbstractVector{Int}, q::T) where T
+function compute_distances(dist, db::AbstractVector{T}, refs::AbstractVector{Int}, q::T) where T
     [(dist(q, db[refs[refID]]), refID) for refID in 1:length(refs)]
 end
 
@@ -15,7 +15,7 @@ end
 Computes the distances of `q` to the set of references `refs`
 It returns an array of tuples `(distance, refID)`
 """
-function compute_distances(dist::Function, refs::AbstractVector{T}, q::T) where T
+function compute_distances(dist, refs::AbstractVector{T}, q::T) where T
     [(dist(q, ref), refID) for (refID, ref) in enumerate(refs)]
 end
 
@@ -25,7 +25,7 @@ individual is selected among `tournamentsize` individuals.
 
 It returns a set of pivots as a list of integers pointing to elements in `db`
 """
-function select_tournament(dist::Function, db::AbstractVector{T}, numrefs::Int, tournamentsize::Int) where T
+function select_tournament(dist, db::AbstractVector{T}, numrefs::Int, tournamentsize::Int) where T
     refs = Vector{Int}()
     perm = 1:length(db) |> collect
     shuffle!(perm)
@@ -60,7 +60,7 @@ If you need better a better random selection set :param:shuf as true
 
 It returns a set of pivots as a list of integers pointing to elements in :param:db
 """
-function select_sss(dist::Function, db::AbstractVector{T}, alpha::Float64; shuf::Bool=true) where T
+function select_sss(dist, db::AbstractVector{T}, alpha::Float64; shuf::Bool=true) where T
     @info "select_sss: db=$(typeof(db)), alpha=$(alpha), distance=$(dist), shuf=$(shuf)"
     dmax::Float64 = 0.0
     s = Int(round(sqrt(length(db))/2))

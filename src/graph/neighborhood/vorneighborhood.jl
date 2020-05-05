@@ -11,11 +11,11 @@ function VorNeighborhood()
     return VorNeighborhood(1.1)
 end
 
-function optimize_neighborhood!(algo::VorNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where T
+function optimize_neighborhood!(algo::VorNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
 end
 
-function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn, N, searchctx) where T
-    k = max(1, ceil(Int, log(algo.base, n)))
+function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where T
+    k = max(1, ceil(Int, log(algo.base, length(index.db))))
     reset!(knn, k)
     empty!(N)
     n = length(index.db)

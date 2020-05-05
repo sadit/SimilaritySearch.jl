@@ -39,11 +39,11 @@ function reset!(searchctx::IHCSearchContext; n=0)
 end
 
 """
-    hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
+    hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
+function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
     omin::Int = -1
     dmin::Float32 = typemax(Float32)
 
@@ -79,12 +79,12 @@ function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vs
 end
 
 """
-    search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, vstate, hints=EMPTY_INT_VECTOR)
+    search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult, vstate, hints=EMPTY_INT_VECTOR)
 
 Performs an iterated hill climbing search for `q`. The given `hints` are used as starting points of the search; a random
 selection is performed otherwise.
 """
-function search(isearch::IHCSearch, index::SearchGraph, dist::Function, q, res::KnnResult, searchctx)
+function search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult, searchctx)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
 

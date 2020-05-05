@@ -9,11 +9,11 @@ struct LogSatNeighborhood <: NeighborhoodAlgorithm
     LogSatNeighborhood(base=1.1) = new(base)
 end
 
-function optimize_neighborhood!(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Function, perf, recall) where {T}
+function optimize_neighborhood!(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
     # optimize_neighborhood!(algo.g, index, perf, recall)
 end
 
-function fix_neighborhood!(index::SearchGraph, dist::Function)
+function fix_neighborhood!(index::SearchGraph, dist)
     if !(index.neighborhood_algo isa LogSatNeighborhood)
         return
     end
@@ -23,7 +23,7 @@ function fix_neighborhood!(index::SearchGraph, dist::Function)
     end
 end
 
-function fix_neighborhood!(index::SearchGraph, dist::Function, objID::Integer, knn::KnnResult)
+function fix_neighborhood!(index::SearchGraph, dist, objID::Integer, knn::KnnResult)
     n = length(index.db)
     k = n
     reset!(knn, k)
@@ -55,7 +55,7 @@ function fix_neighborhood!(index::SearchGraph, dist::Function, objID::Integer, k
 
 end
 
-function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist::Function, item::T, knn::KnnResult, N::Vector, searchctx) where {T}
+function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, item::T, knn::KnnResult, N::Vector, searchctx) where {T}
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
     reset!(knn, k)

@@ -25,11 +25,11 @@ function fit(::Type{Sequential}, db::Vector)
 end
 
 """
-    search(index::Sequential, dist::Function, q, res::KnnResult)
+    search(index::Sequential, dist, q, res::KnnResult)
 
 Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against 
 """
-function search(index::Sequential, dist::Function, q, res::KnnResult)
+function search(index::Sequential, dist, q, res::KnnResult)
     i::Int32 = 1
     d::Float64 = 0.0
     for obj in index.db
@@ -42,20 +42,20 @@ function search(index::Sequential, dist::Function, q, res::KnnResult)
 end
 
 """
-   push!(index::Sequential, dist::Function, item)
+   push!(index::Sequential, dist, item)
 
 Interts an item into the index
 """
-function push!(index::Sequential, dist::Function, item)
+function push!(index::Sequential, dist, item)
     push!(index.db, item)
     length(index.db)
 end
 
 """
-    optimize!(index::Sequential{T}, dist::Function, recall::Float64)
+    optimize!(index::Sequential{T}, dist, recall::Float64)
 
 Optimizes the index for the required quality
 """
-function optimize!(index::Sequential{T}, dist::Function, recall::Float64) where T
+function optimize!(index::Sequential{T}, dist, recall::Float64) where T
     # do nothing for sequential
 end

@@ -10,13 +10,13 @@ mutable struct Laesa{T} <: Index
 end
 
 """
-    fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::Vector{T})
-    fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::Integer)
+    fit(::Type{Laesa}, dist, db::AbstractVector{T}, pivots::Vector{T})
+    fit(::Type{Laesa}, dist, db::AbstractVector{T}, numPivots::Integer)
 
 Creates a `Laesa` index with the given pivots. If the number of pivots is specified,
 then they will be randomly selected from the dataset.
 """
-function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::AbstractVector{T})  where T
+function fit(::Type{Laesa}, dist, db::AbstractVector{T}, pivots::AbstractVector{T})  where T
     @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
     table = Matrix{Float64}(undef, length(pivots), length(db))
 
@@ -29,17 +29,17 @@ function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, pivots::Abstr
     Laesa(db, pivots, table)
 end
 
-function fit(::Type{Laesa}, dist::Function, db::AbstractVector{T}, numPivots::Integer) where T
+function fit(::Type{Laesa}, dist, db::AbstractVector{T}, numPivots::Integer) where T
     pivots = rand(db, numPivots)
     fit(Laesa, dist, db, pivots)
 end
 
 """
-    search(index::Laesa, dist::Function, q, res::KnnResult)
+    search(index::Laesa, dist, q, res::KnnResult)
 
 Solves a query with the Laesa index.
 """
-function search(index::Laesa, dist::Function, q, res::KnnResult)
+function search(index::Laesa, dist, q, res::KnnResult)
     dqp = [dist(q, piv) for piv in index.pivots]
     for i in 1:length(index.db)
         dpu = @view index.table[:, i]
@@ -62,11 +62,11 @@ function search(index::Laesa, dist::Function, q, res::KnnResult)
 end
 
 """
-    push!(index::Laesa, dist::Function, obj)
+    push!(index::Laesa, dist, obj)
 
 Inserts `obj` into the index
 """
-function push!(index::Laesa, dist::Function, obj)
+function push!(index::Laesa, dist, obj)
     push!(index.db, obj)
     vec = Vector{Float64}(undef, length(index.pivots))
     for pivID in 1:length(vec)

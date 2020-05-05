@@ -61,7 +61,7 @@ function setstate!(vstate::VisitedVertices, i, state)
 end
 =#
 
-function fit(::Type{SearchGraph}, dist::Function, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), searchctx=nothing, neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
+function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), searchctx=nothing, neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
     links = Vector{Int32}[]
     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
     knn = KnnResult(1)
@@ -94,12 +94,12 @@ include("beamsearch.jl")
 
 
 """
-    find_neighborhood(index::SearchGraph{T}, dist::Function, item)
+    find_neighborhood(index::SearchGraph{T}, dist, item)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, dist::Function, item, knn::KnnResult, searchctx)
+function find_neighborhood(index::SearchGraph, dist, item, knn::KnnResult, searchctx)
     n = length(index.db)
     neighbors = Int32[]
     n > 0 && neighborhood(index.neighborhood_algo, index, dist, item, knn, neighbors, searchctx)
@@ -123,11 +123,11 @@ function push_neighborhood!(index::SearchGraph{T}, item::T, L::Vector{Int32}) wh
 end
 
 """
-    push!(index::SearchGraph, dist::Function, item)
+    push!(index::SearchGraph, dist, item)
 
 Inserts `item` into the index.
 """
-function push!(index::SearchGraph, dist::Function, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
+function push!(index::SearchGraph, dist, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
     searchctx = searchctx === nothing ? search_context(index) : searchctx
     neighbors = find_neighborhood(index, dist, item, knn, searchctx)
     push_neighborhood!(index, item, neighbors)
@@ -148,19 +148,19 @@ end
 const EMPTY_INT_VECTOR = Int[]
 
 """
-    search(index::SearchGraph, dist::Function, q, res::KnnResult; hints)  
+    search(index::SearchGraph, dist, q, res::KnnResult; hints)  
 
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist::Function, q, res::KnnResult; searchctx=nothing)
+function search(index::SearchGraph, dist, q, res::KnnResult; searchctx=nothing)
     searchctx = searchctx === nothing ? search_context(index) : searchctx
     length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
     res
 end
 
 """
-    optimize!(index::SearchGraph, dist::Function;
+    optimize!(index::SearchGraph, dist;
         recall=0.9,
         k=10,
         num_queries=128,
@@ -171,7 +171,7 @@ end
 
 Optimizes the index for the specified kind of queries.
 """
-function optimize!(index::SearchGraph{T}, dist::Function;
+function optimize!(index::SearchGraph{T}, dist;
     recall=0.9,
     k=10,
     num_queries=128,

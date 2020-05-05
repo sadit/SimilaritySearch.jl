@@ -6,7 +6,7 @@ using Dates
 """
     function optimize!(algosearch::LocalSearchAlgorithm,
                    index::SearchGraph{T},
-                   dist::Function,
+                   dist,
                    recall::Float64,
                    perf::Performance;
                    bsize::Int=4,
@@ -19,7 +19,7 @@ are specified as part of the `perf` struct.
 """
 function optimize!(algosearch::LocalSearchAlgorithm,
                    index::SearchGraph{T},
-                   dist::Function,
+                   dist,
                    recall::Float64,
                    perf::Performance;
                    bsize::Int=4,
