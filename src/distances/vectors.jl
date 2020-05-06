@@ -4,11 +4,11 @@
 export l1_distance, l2_distance, squared_l2_distance, linf_distance, lp_distance
 
 """
-    l1_distance(a, b)::Float64
+    l1_distance(a, b)
 
 Computes the Manhattan's distance between `a` and `b`
 """
-@inline function l1_distance(a, b)::Float64
+@inline function l1_distance(a, b)
     d = zero(eltype(a))
 
     @inbounds @simd for i = 1:length(a)
@@ -20,13 +20,13 @@ Computes the Manhattan's distance between `a` and `b`
 end
 
 """
-    l2_distance(a, b)::Float64
+    l2_distance(a, b)
     
 Computes the Euclidean's distance betweem `a` and `b`
 """
-@inline function l2_distance(a, b)::Float64
+@inline function l2_distance(a, b)
     d = zero(eltype(a))
-    # d::Float64 = 0.0
+    # d = 0.0
 
     @simd for i = 1:length(a)
         #m = a[i] - b[i]
@@ -37,13 +37,13 @@ Computes the Euclidean's distance betweem `a` and `b`
 end
 
 """
-    squared_l2_distance(a, b)::Float64
+    squared_l2_distance(a, b)
 
 Computes the squared Euclidean's distance between `a` and `b`
 """
-@inline function squared_l2_distance(a, b)::Float64
+@inline function squared_l2_distance(a, b)
     d = zero(eltype(a))
-    # d::Float64 = 0.0
+    # d = 0.0
 
     @simd for i in eachindex(a)
         @inbounds d += (a[i] - b[i])^2
@@ -55,11 +55,11 @@ end
 
 
 """
-    linf_distance(a, b)::Float64
+    linf_distance(a, b)
 
 Computes the max or Chebyshev'se distance
 """
-@inline function linf_distance(a, b)::Float64
+@inline function linf_distance(a, b)
     d = zero(eltype(a))
 
     @simd for i in eachindex(a)
@@ -79,8 +79,8 @@ function lp_distance(p::Real)
     p = convert(Float64, p)
     invp = 1.0 / p
 
-    function _lp(a, b)::Float64
-        d::Float64 = 0.0 # d = zero(eltype(a))
+    function _lp(a, b)
+        d = zero(eltype(a))
 
         @inbounds @simd for i in eachindex(a)
             m = abs(a[i] - b[i])

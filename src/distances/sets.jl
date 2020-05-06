@@ -33,35 +33,35 @@ function union_intersection(a::T, b::T) where {T <: AbstractVector}
 end
 
 """
-    jaccard_distance(a, b)::Float64
+    jaccard_distance(a, b)
 
 Computes the Jaccard's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
 
-function jaccard_distance(a, b)::Float64
+function jaccard_distance(a, b)
     u, i = union_intersection(a, b)
     return 1.0 - i / u
 end
 
 """
-    dice_distance(a, b)::Float64
+    dice_distance(a, b)
 
 Computes the Dice's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
-function dice_distance(a, b)::Float64
+function dice_distance(a, b)
     u, i = union_intersection(a, b)
     return 1.0 - 2 * i / (length(a) + length(b))
 end
 
 """
-    intersection_distance(a, b)::Float64
-(a, b)::Float64
+    intersection_distance(a, b)
+(a, b)
 
 Uses the intersection as a distance function (non-metric)
 """
-function intersection_distance(a, b)::Float64
+function intersection_distance(a, b)
     u, i = union_intersection(a, b)
 
     return 1.0 - i / min(length(a), length(b))

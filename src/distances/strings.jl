@@ -22,7 +22,7 @@ function common_prefix(a, b)::Int
 end
 
 
-function common_prefix_distance(a, b)::Float64
+function common_prefix_distance(a, b)
     p = min(length(a), length(b))
 	1.0 - common_prefix(a, b) / p
 end
@@ -70,20 +70,20 @@ end
 
 
 """
-    levenshtein_distance(a, b)::Float64
+    levenshtein_distance(a, b)
 
 computes edit distance over two strings
 """
-function levenshtein_distance(a, b)::Float64
+function levenshtein_distance(a, b)
     generic_levenshtein(a, b, 1, 1, 1)
 end
 
 """
-    lcs_distance(a, b)::Float64
+    lcs_distance(a, b)
  
 computes longest common subsequence distance
 """
-function lcs_distance(a, b)::Float64
+function lcs_distance(a, b)
     generic_levenshtein(a, b, 1, 1, 2)
 end
 
@@ -165,12 +165,12 @@ end
 # end
 
 """
-     hamming_distance(a, b)::Float64
+     hamming_distance(a, b)
      
 Computes the hamming distance between two sequences of the same length
 """
 
-function hamming_distance(a, b)::Float64
+function hamming_distance(a, b)
     d::Int = 0
 
     @inbounds for i = 1:length(a)

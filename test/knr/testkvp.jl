@@ -92,6 +92,6 @@ end
         (1.0, hamming_distance)
     ]
         p = test_sequences((db) -> fit(Kvp, dist, db, 3, 32), dist, ksearch, "Kvp")
-        @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
+        @test p.recall >= recall_lower_bound * 0.9 # not 1 to allow some "numerical" deviations
     end
 end

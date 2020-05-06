@@ -7,8 +7,8 @@ import Base:
 export Item, KnnResult, maxlength, covrad, reset!
 
 struct Item
-    objID::Int64
-    dist::Float64
+    objID::Int32
+    dist::Float32
 end
 
 mutable struct KnnResult #{T}
@@ -50,17 +50,18 @@ It is efficient due to the expected distribution of the items being inserted
 end
 
 """
-    push!(p::KnnResult, objID::Integer, dist::AbstractFloat)
+    push!(p::KnnResult, objID::Integer, dist::Number)
 
 Appends an item into the result set
 """
 #push!(p::KnnResult{Int64}, objID::I, dist::F) where {I <: Union{Int32,Int16}, F <: Real} = push!(p, convert(Int64, objID), convert(Float64, dist))
 #push!(p::KnnResult{T}, objID::T, dist::F) where {T, F <: Union{Float16, Float32}} = push!(p, objID, convert(Float64, dist))
 
-function push!(p::KnnResult, objID::Integer, dist::AbstractFloat)
+function push!(p::KnnResult, objID::Integer, dist::Number)
     if length(p.pool) < p.k
         # fewer items than the maximum capacity
-        push!(p.pool, Item(objID, dist))
+        push!(p.pool, Item(convert(Int32, objID), convert(Float32, dist)))
+        #push!(p.pool, Item(objID, dist))
         fix_order!(p)
         return true
     end

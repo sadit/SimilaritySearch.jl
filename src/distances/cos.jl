@@ -27,24 +27,24 @@ function normalize!(X::AbstractMatrix)
 end
 
 """
-    cosine_distance(a, b)::Float64
+    cosine_distance(a, b)
 
 Computes the cosine distance between two vectors, it expects normalized vectors (see [normalize!](@ref) method).
 Please use angle_distance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-function cosine_distance(a, b)::Float64
+function cosine_distance(a, b)
     1 - dot(a, b)
 end
 
 const π_2 = π / 2
 """
-    angle_distance(a, b)::Float64
+    angle_distance(a, b)
 
 Computes the angle  between twovectors. It supposes that all vectors are normalized (see `normalize!` function)
 
 """
-function angle_distance(a, b)::Float64
+function angle_distance(a, b)
     d = dot(a, b)
 
     if d <= -1.0
@@ -60,7 +60,7 @@ end
 
 
 """
-    full_cosine_distance(a, b)::Float64
+    full_cosine_distance(a, b)
 
 Computes the cosine similarity between two vectors.
 """
@@ -70,24 +70,24 @@ function full_cosine_similarity(a, b)
 end
 
 """
-    full_cosine_distance(a, b)::Float64
+    full_cosine_distance(a, b)
 
 Computes the cosine distance between two vectors.
 Please use `full_angle_distance` if you are expecting a metric function (`full_cosine_distance` is a faster
 alternative whenever the triangle inequality is not needed)
 """
-function full_cosine_distance(a, b)::Float64
+function full_cosine_distance(a, b)
     1 - full_cosine_similarity(a, b)
 end
 
 
 """
-    full_angle_distance(a, b)::Float64
+    full_angle_distance(a, b)
 
 Computes the angle between two vectors.
 
 """
-function full_angle_distance(a, b)::Float64
+function full_angle_distance(a, b)
     d = full_cosine_similarity(a, b)
 
     if d <= -1.0

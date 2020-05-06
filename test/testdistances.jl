@@ -141,9 +141,9 @@ end
         (1.0, hamming_distance)
     ]
         p = test_sequences((db) -> fit(Sequential, db), dist, ksearch, "Sequential")
-        @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
+        @test p.recall >= recall_lower_bound * 0.9  # "numerical" and discrete factors
         p = test_sequences((db) -> fit(Laesa, dist, db, 1), dist, ksearch, "Laesa")
-        @test p.recall >= recall_lower_bound * 0.99  # not 1 to allow some "numerical" deviations
+        @test p.recall >= recall_lower_bound * 0.9 
     end
 end
 
@@ -162,8 +162,8 @@ end
     @test p4.recall > 0.99
 
     p = test_binhamming((db) -> Sss(hamming_distance, db, 0.35), hamming_distance, ksearch, "Sequential", () -> UInt32[rand(UInt32) for i in 1:7])
-    @test p.recall > 0.99
+    @test p.recall > 0.9
 
     p = test_binhamming((db) -> LaesaTournament(hamming_distance, db, 16, 3), hamming_distance, ksearch, "Sequential", () -> rand(UInt64))
-    @test p.recall > 0.99
+    @test p.recall > 0.9
 end
