@@ -45,8 +45,7 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
     for i in 1:n
         res = search(seqindex, dist, db[i], KnnResult(k))
         for p in res
-            refID = p.objID
-            push!(invindex[refID], i)
+            push!(invindex[p.id], i)
         end
         counter += 1
         if (counter % 100_000) == 1
@@ -68,7 +67,7 @@ function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVe
     Threads.@threads for i in 1:n
         res = search(seqindex, dist, db[i], KnnResult(k))
         for p in res
-            refID = p.objID
+            refID = p.id
             lock(locks[refID])
             push!(invindex[refID], i)
             unlock(locks[refID])
@@ -107,13 +106,13 @@ function search(index::Knr, dist, q, res::KnnResult)
     kres = search(seqindex, dist, q, KnnResult(index.ksearch))
 
     for p in kres
-        @inbounds for objID in index.invindex[p.objID]
+        @inbounds for objID in index.invindex[p.id]
             c = dz[objID] + 1
             dz[objID] = c
 
             if c == index.minmatches
                 d = dist(q, index.db[objID])
-                push!(res, objID, d)
+                push!(res, Item(objID, d))
             end
         end
     end
@@ -131,7 +130,7 @@ function push!(index::Knr, dist, obj)
     seqindex = fit(Sequential, index.refs)
     res = search(seqindex, dist, obj, KnnResult(index.k))
     for p in res
-        push!(index.invindex[p.objID], length(index.db))
+        push!(index.invindex[p.id], length(index.db))
     end
     
     length(index.db)

@@ -29,7 +29,7 @@ function fix_neighborhood!(index::SearchGraph, dist, objID::Integer, knn::KnnRes
     reset!(knn, k)
     obj = index.db[objID]
     for link in index.links[objID]
-        push!(knn, link, dist(obj, index.db[link]))
+        push!(knn, Item(link, dist(obj, index.db[link])))
     end
     # reverse!(knn.pool)
 

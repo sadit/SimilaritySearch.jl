@@ -20,7 +20,7 @@ function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist, item
     search(index, dist, item, knn; searchctx=searchctx)
     
     for p in knn
-        push!(N, p.objID)
+        push!(N, p.id)
     end
 
 end

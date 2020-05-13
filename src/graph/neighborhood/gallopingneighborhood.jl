@@ -45,6 +45,6 @@ function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist, 
     search(index, dist, item, knn)
 
     for p in knn
-        push!(N, p.objID)
+        push!(N, p.id)
     end
 end

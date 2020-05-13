@@ -42,6 +42,7 @@ function reset!(searchctx::BeamSearchContext; n=0)
         for i in eachindex(searchctx.hints)
             searchctx.hints[i] = rand(1:n)
         end
+        
         unique!(searchctx.hints)
     end
 
@@ -50,12 +51,29 @@ end
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-function beam_init(bs::BeamSearch, index::SearchGraph, dist, q, res::KnnResult, searchctx)
-    @inbounds for objID in searchctx.hints
-        if getstate(searchctx.vstate, objID) == UNKNOWN
-            setstate!(searchctx.vstate, objID, VISITED)
-            d = dist(q, index.db[objID])
-            push!(res, objID, d)
+function beam_init(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult, hints, vstate) where Fun
+    for objID in hints
+        if getstate(vstate, objID) === UNKNOWN
+            setstate!(vstate, objID, VISITED)
+            @inbounds d = dist(q, index.db[objID])
+            push!(res, Item(objID, d))
+        end
+    end
+end
+
+function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
+    while length(beam) > 0
+        prev = popnearest!(beam)
+        getstate(vstate, prev.id) === EXPLORED && continue
+        setstate!(vstate, prev.id, EXPLORED)
+        for childID in index.links[prev.id]
+            if getstate(vstate, childID) === UNKNOWN
+                setstate!(vstate, childID, VISITED)
+                @inbounds d = dist(q, index.db[childID])
+                p = Item(childID, d)
+                push!(res, p) && push!(beam, p)
+                # d <= farthest(res).dist && push!(beam, childID, d)
+            end
         end
     end
 end
@@ -67,34 +85,18 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph, dist, q, res::KnnResult, searchctx::BeamSearchContext)
+function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult, searchctx::BeamSearchContext) where Fun
     n = length(index.db)
     n == 0 && return res
 
-    vstate = searchctx.vstate
-    beam_init(bs, index, dist, q, res, searchctx)
-    beam = searchctx.beam
+    beam_init(bs, index, dist, q, res, searchctx.hints, searchctx.vstate)
     prev_score = typemax(Float32)
     
-    @inbounds while abs(prev_score - last(res).dist) > 0.0  # prepared to allow early stopping
-        prev_score = last(res).dist
-        nn = first(res)
-        push!(beam, nn.objID, nn.dist)
-
-        while length(beam) > 0
-            prev = popfirst!(beam)
-            getstate(vstate, prev.objID) == EXPLORED && continue
-            setstate!(vstate, prev.objID, EXPLORED)
-
-            for childID in index.links[prev.objID]
-                if getstate(vstate, childID) == UNKNOWN
-                    setstate!(vstate, childID, VISITED)
-                    d = dist(q, index.db[childID])
-                    push!(res, childID, d) && push!(beam, childID, d)
-                    #d <= last(res) && push!(beam, childID, d)
-                end
-            end
-        end
+    while abs(prev_score - farthest(res).dist) > 0.0  # prepared to allow early stopping
+        prev_score = farthest(res).dist
+        nn = nearest(res)
+        push!(searchctx.beam, nn)
+        beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
     end
 
     res

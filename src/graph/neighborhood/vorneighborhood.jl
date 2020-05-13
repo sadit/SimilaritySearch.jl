@@ -22,7 +22,7 @@ function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist, item::
     search(index, dist, item, knn; searchctx=searchctx)
 
     @inbounds for p in knn
-        pobj = index.db[p.objID]
+        pobj = index.db[p.id]
         covered = false
         for nearID in N
             d = convert(Float32, dist(index.db[nearID], pobj))
@@ -32,6 +32,6 @@ function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist, item::
             end
         end
 
-        !covered && push!(N, p.objID)
+        !covered && push!(N, p.id)
     end
 end

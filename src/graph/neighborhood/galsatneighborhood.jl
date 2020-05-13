@@ -22,17 +22,17 @@ function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dis
 
     @inbounds for p in knn
         dqp = p.dist
-        pobj = index.db[p.objID]
+        pobj = index.db[p.id]
         near = KnnResult(1)
-        push!(near, p.objID, p.dist)
+        push!(near, Item(p.id, p.dist))
         for nearID in N
             d = convert(Float32, dist(index.db[nearID], pobj)) 
-            push!(near, nearID, d)
+            push!(near, Item(nearID, d))
         end
 
         f = first(near)
-        if f.objID == p.objID
-            push!(N, p.objID)
+        if f.id == p.id
+            push!(N, p.id)
         end
     end
 

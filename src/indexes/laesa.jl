@@ -41,7 +41,7 @@ Solves a query with the Laesa index.
 """
 function search(index::Laesa, dist, q, res::KnnResult)
     dqp = [dist(q, piv) for piv in index.pivots]
-    for i in 1:length(index.db)
+    for i in eachindex(index.db)
         dpu = @view index.table[:, i]
         
         evaluate = true
@@ -54,7 +54,7 @@ function search(index::Laesa, dist, q, res::KnnResult)
 
         if evaluate
             d = dist(q, index.db[i])
-            push!(res, i, d)
+            push!(res, Item(i, d))
         end
     end
 

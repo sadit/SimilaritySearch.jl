@@ -36,15 +36,15 @@ const UNKNOWN = UInt8(0)
 const VISITED = UInt8(1)
 const EXPLORED = UInt8(2)
 
-const VisitedVertices = Dict{Int,UInt8}
+const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
 function VisitedVertices(n::Int)
     vstate = VisitedVertices()
     sizehint!(vstate, ceil(Int, sqrt(n)))
     vstate
 end
 
-getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
-function setstate!(vstate::VisitedVertices, i, state)
+@inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
+@inline function setstate!(vstate::VisitedVertices, i, state)
     vstate[i] = state
 end
 

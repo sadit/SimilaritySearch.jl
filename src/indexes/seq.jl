@@ -29,15 +29,14 @@ end
 
 Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against 
 """
-function search(index::Sequential, dist, q, res::KnnResult)
-    i::Int32 = 1
-    d::Float64 = 0.0
-    for obj in index.db
-        d = dist(q, obj)
-        push!(res, i, convert(Float32, d))
-        i += 1
+function search(index::Sequential, dist::Fun, q, res::KnnResult) where Fun
+    db = index.db
+    
+    for i in eachindex(db)
+        @inbounds d = dist(q, db[i])
+        push!(res, i, d)
     end
-
+    q
     res
 end
 

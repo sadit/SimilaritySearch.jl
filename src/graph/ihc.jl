@@ -57,13 +57,13 @@ function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, node
             vstate[childID] = VISITED
             d = convert(Float32, dist(index.db[childID], q))
             if use_local_improvement  ## this yields to better quality but can't be tuned for early stopping
-                push!(res, childID, d)
+                push!(res, Item(childID, d))
                 if d < dmin
                     dmin = d
                     omin = childID
                 end
             else
-                if push!(res, childID, d) && d < dmin
+                if push!(res,Item(childID, d)) && d < dmin
                     dmin = d
                     omin = childID
                 end
@@ -94,7 +94,7 @@ function search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult,
         if S == UNKNOWN
             searchctx.vstate[start_point] = VISITED
             d = convert(Float32, dist(q, index.db[start_point]))
-            push!(res, start_point, d)
+            push!(res, Item(start_point, d))
             hill_climbing(index, dist, q, res, searchctx.vstate, start_point, isearch.use_local_improvement)
         end
     end

@@ -38,21 +38,22 @@ function fit(::Type{Kvp}, dist, db::Vector{T}, k::Int, numrefs::Int) where T
 end
 
 function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
-    near = KnnResult(k)
-    far = KnnResult(k)
+    near = SortedKnnResult(k)
+    far = SortedKnnResult(k)
     for (refID, ref) in enumerate(refs)
         d = dist(obj, ref)
-        push!(near, refID, d)
-        push!(far, refID, -d)
+        push!(near, Item(refID, d))
+        push!(far, Item(refID, -d))
     end
 
-    row = Vector{Item}(undef, k+k)
-    for (j, item) in enumerate(near)
-        row[j] = item
+    row = Item[]
+    sizehint!(row, 2*k)
+    for p in near
+        push!(row, p)
     end
-
-    for (j, item) in enumerate(far)
-        row[k+j] = Item(item.objID, -item.dist)
+    
+    for p in far
+        push!(row, Item(p.id, -p.dist))
     end
 
     row
@@ -68,7 +69,7 @@ function search(index::Kvp{T}, dist, q::T, res::KnnResult) where T
 
         discarded::Bool = false
         @inbounds for item in objSparseRow
-            pivID = item.objID
+            pivID = item.id
             dop = item.dist
             if abs(dop - qI[pivID]) > covrad(res)
                 discarded = true
@@ -80,7 +81,7 @@ function search(index::Kvp{T}, dist, q::T, res::KnnResult) where T
             continue
         end
         d = dist(q, obj)
-        push!(res, i, d)
+        push!(res, Item(i, d))
     end
 
     res

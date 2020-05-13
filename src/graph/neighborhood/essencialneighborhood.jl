@@ -20,12 +20,12 @@ function neighborhood(algo::EssencialNeighborhood, index::SearchGraph{T}, dist, 
     visible = Set{Int32}()
 
     @inbounds for p in knn
-        in(p.objID, visible) && continue
-        for neighbor in index.links[p.objID]
+        in(p.id, visible) && continue
+        for neighbor in index.links[p.id]
             push!(visible, neighbor)
         end
 
-        push!(nbuffer, p.objID)
+        push!(nbuffer, p.id)
     end
 
     return knn, nbuffer

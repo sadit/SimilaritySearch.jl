@@ -19,16 +19,16 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::
     reset!(knn, algo.k)
     search(index, dist, item, knn; searchctx=searchctx)
     @inbounds for p in knn
-        pobj = index.db[p.objID]
+        pobj = index.db[p.id]
         near = KnnResult(1)
-        push!(near, zero(Int32), p.dist)
+        push!(near, Item(zero(Int32), p.dist))
         for nearID in N
             d = dist(index.db[nearID], pobj)
-            push!(near, nearID, d)
+            push!(near, Item(nearID, d))
         end
 
-        if first(near).objID == 0
-            push!(N, p.objID)
+        if nearest(near).id == 0
+            push!(N, p.id)
         end
     end
 
