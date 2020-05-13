@@ -17,9 +17,9 @@ mutable struct SortedKnnResult <: KnnResult
     pool::Vector{Item}
 
     function SortedKnnResult(k::Integer)
-        v = Vector{Item}()
-        sizehint!(v, k)
-        new(k, v)
+        pool = Vector{Item}()
+        sizehint!(pool, k)
+        new(k, pool)
     end
 end
 
@@ -34,11 +34,11 @@ Fixes the sorted state of the array. It implements a kind of insertion sort
 It is efficient due to the expected distribution of the items being inserted
 (few smaller than the ones already inside)
 """
-@inline function fix_order!(arr)
-    n = length(arr)
+@inline function fix_order!(K)
+    n = length(K)
     @inbounds while n > 1
-        if arr[n].dist < arr[n-1].dist
-            arr[n], arr[n-1] = arr[n-1], arr[n]
+        if K[n].dist < K[n-1].dist
+            K[n], K[n-1] = K[n-1], K[n]
         else
             break
         end
@@ -65,7 +65,7 @@ end
         return true
     end
 
-    if dist >= farthest(res).dist
+    if dist >= farthestdist(res)
         # p.k == length(p.pool) but p.dist doesn't improve the pool's radius
         return false
     end
@@ -81,77 +81,76 @@ end
 
 Return the first item of the result set, the closest item
 """
-@inline nearest(p::SortedKnnResult) = first(p.pool)
+@inline nearest(res::SortedKnnResult) = first(res.pool)
 
 """
     farthest(p::SortedKnnResult) 
 
 Returns the last item of the result set
 """
-@inline farthest(p::SortedKnnResult) = last(p.pool)
+@inline farthest(res::SortedKnnResult) = last(res.pool)
 
 """
     popnearest!(p::SortedKnnResult)
 
 Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) operation
 """
-@inline popnearest!(p::SortedKnnResult) = popfirst!(p.pool)
+@inline popnearest!(res::SortedKnnResult) = popfirst!(res.pool)
 
 """
     popfarthest!(p)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline popfarthest!(p::SortedKnnResult) = pop!(p.pool)
+@inline popfarthest!(res::SortedKnnResult) = pop!(res.pool)
 
 """
     length(p::SortedKnnResult)
 
 length returns the number of items in the result set
 """
-@inline Base.length(p::SortedKnnResult) = length(p.pool)
+@inline Base.length(res::SortedKnnResult) = length(res.pool)
 
 """
-    maxlength(p::SortedKnnResult)
+    maxlength(res::SortedKnnResult)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(p::SortedKnnResult) = p.k
+@inline maxlength(res::SortedKnnResult) = res.k
 
 """
     covrad(p::SortedKnnResult)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(p::SortedKnnResult) = length(p.pool) < p.k ? typemax(Float32) : last(p.pool).dist
+@inline covrad(res::SortedKnnResult) = length(res.pool) < res.k ? typemax(Float32) : farthestdist(res)
 
-@inline nearestdist(p::SortedKnnResult) = first(p.pool).dist
-@inline farthestdist(p::SortedKnnResult) = last(p.pool).dist
+@inline nearestdist(res::SortedKnnResult) = first(res.pool).dist
+@inline farthestdist(res::SortedKnnResult) = last(res.pool).dist
 
 """
     empty!(p::SortedKnnResult)
 
 Clears the content of the result pool
 """
-@inline Base.empty!(p::SortedKnnResult) = empty!(p.pool)
+@inline function Base.empty!(p::SortedKnnResult) 
+    empty!(p.pool)
+end
 
 @inline function reset!(p::SortedKnnResult, k::Integer)
     empty!(p)
-    sizehint!(p.pool, p.k)
+    sizehint!(p.pool, k)
     p.k = k
     p
 end
 
 ##### iterator interface
 ### SortedKnnResult
-function Base.iterate(p::SortedKnnResult)
-    return length(p.pool) == 0 ? nothing : (p.pool[1], 2)
-end
-
-function Base.iterate(p::SortedKnnResult, state::Int)
-    if state > length(p)
-        return nothing
+function Base.iterate(res::SortedKnnResult, state::Int=1)
+    n = length(res)
+    if n == 0 || state > length(res)
+        nothing
+    else
+        @inbounds res.pool[state], state + 1
     end
-
-    @inbounds return p.pool[state], state + 1
 end
