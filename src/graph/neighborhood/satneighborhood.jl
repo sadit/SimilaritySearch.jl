@@ -21,10 +21,10 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::
     @inbounds for p in knn
         pobj = index.db[p.id]
         near = KnnResult(1)
-        push!(near, Item(zero(Int32), p.dist))
+        push!(near, zero(Int32), p.dist)
         for nearID in N
             d = dist(index.db[nearID], pobj)
-            push!(near, Item(nearID, d))
+            push!(near, nearID, d)
         end
 
         if nearest(near).id == 0

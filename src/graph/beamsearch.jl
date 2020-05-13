@@ -56,7 +56,7 @@ function beam_init(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnRes
         if getstate(vstate, objID) === UNKNOWN
             setstate!(vstate, objID, VISITED)
             @inbounds d = dist(q, index.db[objID])
-            push!(res, Item(objID, d))
+            push!(res, objID, d)
         end
     end
 end
@@ -70,9 +70,8 @@ function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
                 @inbounds d = dist(q, index.db[childID])
-                p = Item(childID, d)
-                push!(res, p) && push!(beam, p)
-                # d <= farthest(res).dist && push!(beam, childID, d)
+                push!(res, childID, d) && push!(beam, childID, d)
+                # d <= farthestdist(res) && push!(beam, childID, d)
             end
         end
     end
@@ -92,10 +91,10 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult
     beam_init(bs, index, dist, q, res, searchctx.hints, searchctx.vstate)
     prev_score = typemax(Float32)
     
-    while abs(prev_score - farthest(res).dist) > 0.0  # prepared to allow early stopping
-        prev_score = farthest(res).dist
+    while abs(prev_score - farthestdist(res)) > 0.0  # prepared to allow early stopping
+        prev_score = farthestdist(res)
         nn = nearest(res)
-        push!(searchctx.beam, nn)
+        push!(searchctx.beam, nn.id, nn.dist)
         beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
     end
 

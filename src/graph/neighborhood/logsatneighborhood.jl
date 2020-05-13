@@ -29,7 +29,7 @@ function fix_neighborhood!(index::SearchGraph, dist, objID::Integer, knn::KnnRes
     reset!(knn, k)
     obj = index.db[objID]
     for link in index.links[objID]
-        push!(knn, Item(link, dist(obj, index.db[link])))
+        push!(knn, link, dist(obj, index.db[link]))
     end
     # reverse!(knn.pool)
 
@@ -44,7 +44,7 @@ function fix_neighborhood!(index::SearchGraph, dist, objID::Integer, knn::KnnRes
         empty!(near)
         push!(near, p.objID, p.dist)
         for nearID in N
-            d = convert(Float32, dist(index.db[nearID], obj))
+            d = dist(index.db[nearID], obj)
             push!(near, nearID, d)
         end
 
@@ -69,7 +69,7 @@ function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, ite
         empty!(near)
         push!(near, p.objID, p.dist)
         for nearID in N
-            d = convert(Float32, dist(index.db[nearID], pobj))
+            d = dist(index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 

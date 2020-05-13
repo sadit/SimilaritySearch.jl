@@ -14,12 +14,12 @@ using Test
     nn = SortedKnnResult(1)
 
     for i=1:length(V)
-        push!(res, Item(i, V[i]))
-        push!(sres, Item(i, V[i]))
-        push!(nn, Item(i, V[i]))
+        push!(res, i, V[i])
+        push!(sres, i, V[i])
+        push!(nn, i, V[i])
     end
     
     @test [x.id for x in res] == [x.id for x in sres]
     @test [x.dist for x in res] == [x.dist for x in sres] == Vsorted
-    @test nearest(nn).dist == Vsorted[1]
+    @test nearestdist(nn) == Vsorted[1]
 end

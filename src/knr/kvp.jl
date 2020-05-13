@@ -42,8 +42,8 @@ function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
     far = SortedKnnResult(k)
     for (refID, ref) in enumerate(refs)
         d = dist(obj, ref)
-        push!(near, Item(refID, d))
-        push!(far, Item(refID, -d))
+        push!(near, refID, d)
+        push!(far, refID, -d)
     end
 
     row = Item[]
@@ -81,7 +81,7 @@ function search(index::Kvp{T}, dist, q::T, res::KnnResult) where T
             continue
         end
         d = dist(q, obj)
-        push!(res, Item(i, d))
+        push!(res, i, d)
     end
 
     res

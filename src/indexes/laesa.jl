@@ -54,7 +54,7 @@ function search(index::Laesa, dist, q, res::KnnResult)
 
         if evaluate
             d = dist(q, index.db[i])
-            push!(res, Item(i, d))
+            push!(res, i, d)
         end
     end
 

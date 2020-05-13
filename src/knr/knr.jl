@@ -112,7 +112,7 @@ function search(index::Knr, dist, q, res::KnnResult)
 
             if c == index.minmatches
                 d = dist(q, index.db[objID])
-                push!(res, Item(objID, d))
+                push!(res, objID, d)
             end
         end
     end
