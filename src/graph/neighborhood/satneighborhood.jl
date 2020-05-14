@@ -27,7 +27,7 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::
             push!(near, nearID, d)
         end
 
-        if nearest(near).id == 0
+        if nearestid(near) == 0
             push!(N, p.id)
         end
     end

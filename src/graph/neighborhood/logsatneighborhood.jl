@@ -67,15 +67,14 @@ function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, ite
     @inbounds for p in knn.pool
         pobj = index.db[p.objID]
         empty!(near)
-        push!(near, p.objID, p.dist)
+        push!(near, p.id, p.dist)
         for nearID in N
             d = dist(index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 
-        f = first(near)
-        if f.objID == p.objID
-            push!(N, p.objID)
+        if nearestid(near) == p.id
+            push!(N, p.id)
         end
     end
 end

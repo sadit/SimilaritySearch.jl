@@ -7,19 +7,17 @@ using Test
 @testset "Result set" begin
     k = 4
     V = rand(Float32, k*k)
-    Vsorted = sort(V)[1:k]
-
-    res = SortedKnnResult(k)
-    sres = SortedKnnResult(k)
-    nn = SortedKnnResult(1)
+    Vsorted = sort!([Item(i, v) for (i, v) in enumerate(V)])
+    res = KnnResult(k)
 
     for i=1:length(V)
         push!(res, i, V[i])
-        push!(sres, i, V[i])
-        push!(nn, i, V[i])
     end
+
+    @show Vsorted
+    @test nearestdist(res) == Vsorted[1].dist
+    arr = sortresults!(res)
+    @test [x.id for x in arr] == [x.id for x in Vsorted[1:k]]
+    @test [x.dist for x in arr] == [x.dist for x in Vsorted[1:k]]
     
-    @test [x.id for x in res] == [x.id for x in sres]
-    @test [x.dist for x in res] == [x.dist for x in sres] == Vsorted
-    @test nearestdist(nn) == Vsorted[1]
 end

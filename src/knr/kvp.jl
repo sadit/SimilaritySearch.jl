@@ -38,21 +38,22 @@ function fit(::Type{Kvp}, dist, db::Vector{T}, k::Int, numrefs::Int) where T
 end
 
 function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
-    near = SortedKnnResult(k)
-    far = SortedKnnResult(k)
-    for (refID, ref) in enumerate(refs)
-        d = dist(obj, ref)
+    near = KnnResultHeap(k)
+    far = KnnResultHeap(k)
+
+    for refID in eachindex(refs)
+        d = dist(obj, refs[refID])
         push!(near, refID, d)
         push!(far, refID, -d)
     end
 
     row = Item[]
     sizehint!(row, 2*k)
-    for p in near
+    for p in near.heap
         push!(row, p)
     end
     
-    for p in far
+    for p in far.heap
         push!(row, Item(p.id, -p.dist))
     end
 
@@ -63,7 +64,7 @@ function search(index::Kvp{T}, dist, q::T, res::KnnResult) where T
     d::Float64 = 0.0
     qI = [dist(q, piv) for piv in index.refs]
 
-    for i in 1:length(index.db)
+    for i in eachindex(index.db)
         obj::T = index.db[i]
         objSparseRow = index.sparsetable[i]
 

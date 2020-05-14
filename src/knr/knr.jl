@@ -43,8 +43,8 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
     counter = 0
     n = length(db)
     for i in 1:n
-        res = search(seqindex, dist, db[i], KnnResult(k))
-        for p in res
+        res = search(seqindex, dist, db[i], KnnResultHeap(k))
+        for p in res.heap
             push!(invindex[p.id], i)
         end
         counter += 1
@@ -65,8 +65,8 @@ function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVe
     counter = Threads.Atomic{Int}(0)
     n = length(db)
     Threads.@threads for i in 1:n
-        res = search(seqindex, dist, db[i], KnnResult(k))
-        for p in res
+        res = search(seqindex, dist, db[i], KnnResultHeap(k))
+        for p in res.heap
             refID = p.id
             lock(locks[refID])
             push!(invindex[refID], i)
@@ -103,9 +103,9 @@ function search(index::Knr, dist, q, res::KnnResult)
     dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = fit(Sequential, index.refs)
-    kres = search(seqindex, dist, q, KnnResult(index.ksearch))
+    kres = search(seqindex, dist, q, KnnResultHeap(index.ksearch))
 
-    for p in kres
+    for p in kres.heap
         @inbounds for objID in index.invindex[p.id]
             c = dz[objID] + 1
             dz[objID] = c
@@ -128,8 +128,8 @@ Inserts `obj` into the index
 function push!(index::Knr, dist, obj)
     push!(index.db, obj)
     seqindex = fit(Sequential, index.refs)
-    res = search(seqindex, dist, obj, KnnResult(index.k))
-    for p in res
+    res = search(seqindex, dist, obj, KnnResultHeap(index.k))
+    for p in res.heap
         push!(index.invindex[p.id], length(index.db))
     end
     
@@ -143,7 +143,7 @@ Optimizes the index to achieve the specified recall.
 """
 function optimize!(index::Knr, dist; recall=0.9, k=10, num_queries=128, perf=nothing)
     index.verbose && println(stderr, "Knr> optimizing index for recall=$(recall)")
-    if perf == nothing
+    if perf === nothing
         perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
     end
     index.minmatches = 1

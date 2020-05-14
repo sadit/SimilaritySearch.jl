@@ -14,13 +14,13 @@ end
 
 struct BeamSearchContext
     vstate::VisitedVertices
-    beam::KnnResult
+    beam::KnnResultArray
     hints::Vector{Int}
     ssize::Int
-    BeamSearchContext(vstate; beam=KnnResult(64), hints=Int32[]) =
+    BeamSearchContext(vstate; beam=KnnResultArray(64), hints=Int32[]) =
         new(vstate, beam, hints, length(hints))
     BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) =
-        new(VisitedVertices(n), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
+        new(VisitedVertices(n), KnnResultArray(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
 end
 
 search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
@@ -93,8 +93,7 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult
     
     while abs(prev_score - farthestdist(res)) > 0.0  # prepared to allow early stopping
         prev_score = farthestdist(res)
-        nn = nearest(res)
-        push!(searchctx.beam, nn.id, nn.dist)
+        push!(searchctx.beam, nearestid(res), nearestdist(res))
         beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
     end
 

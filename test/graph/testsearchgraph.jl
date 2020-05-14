@@ -6,7 +6,6 @@ using Test
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
-    
 
 function test_index(dist::Function, ksearch::Int, search_algo, neighborhood_algo)
     @testset "indexing with different algorithms" begin
