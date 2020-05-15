@@ -11,16 +11,16 @@ export Sequential, search, push!, fit, optimize!
 
 A simple exhaustive search index
 """
-struct Sequential{T} <: Index
+mutable struct Sequential{T} <: Index
     db::Vector{T}
 end
 
 """
-    fit(::Type{Sequential}, db::Vector)
+    fit(::Type{Sequential}, db)
 
 Creates a sequential-exhaustive index
 """
-function fit(::Type{Sequential}, db::Vector)
+function fit(::Type{Sequential}, db)
     Sequential(db)
 end
 
@@ -31,12 +31,11 @@ Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against
 """
 function search(index::Sequential, dist::Fun, q, res::KnnResult) where Fun
     db = index.db
-    
     for i in eachindex(db)
-        @inbounds d = dist(q, db[i])
-        push!(res, i, d)
+        #@inbounds d = dist(db[i], q)
+        push!(res, i, i)
     end
-    q
+
     res
 end
 
@@ -55,6 +54,6 @@ end
 
 Optimizes the index for the required quality
 """
-function optimize!(index::Sequential{T}, dist, recall::Float64) where T
+function optimize!(index::Sequential, dist, recall::Float64)
     # do nothing for sequential
 end

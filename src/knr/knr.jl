@@ -43,8 +43,8 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
     counter = 0
     n = length(db)
     for i in 1:n
-        res = search(seqindex, dist, db[i], KnnResultHeap(k))
-        for p in res.heap
+        res = search(seqindex, dist, db[i], KnnResult(k))
+        for p in res
             push!(invindex[p.id], i)
         end
         counter += 1
@@ -65,8 +65,8 @@ function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVe
     counter = Threads.Atomic{Int}(0)
     n = length(db)
     Threads.@threads for i in 1:n
-        res = search(seqindex, dist, db[i], KnnResultHeap(k))
-        for p in res.heap
+        res = search(seqindex, dist, db[i], KnnResult(k))
+        for p in res
             refID = p.id
             lock(locks[refID])
             push!(invindex[refID], i)
@@ -103,9 +103,9 @@ function search(index::Knr, dist, q, res::KnnResult)
     dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = fit(Sequential, index.refs)
-    kres = search(seqindex, dist, q, KnnResultHeap(index.ksearch))
+    kres = search(seqindex, dist, q, KnnResult(index.ksearch))
 
-    for p in kres.heap
+    for p in kres
         @inbounds for objID in index.invindex[p.id]
             c = dz[objID] + 1
             dz[objID] = c
@@ -128,8 +128,8 @@ Inserts `obj` into the index
 function push!(index::Knr, dist, obj)
     push!(index.db, obj)
     seqindex = fit(Sequential, index.refs)
-    res = search(seqindex, dist, obj, KnnResultHeap(index.k))
-    for p in res.heap
+    res = search(seqindex, dist, obj, KnnResult(index.k))
+    for p in res
         push!(index.invindex[p.id], length(index.db))
     end
     

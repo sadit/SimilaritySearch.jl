@@ -1,9 +1,9 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, KnnResult, KnnResultArray, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, sortresults!, reset!, popnearest!
+export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, sortresults!, reset!, popnearest!
 
-abstract type KnnResult end
+abstract type AbstractKnnResult end
 
 struct Item
     id::Int32
@@ -12,24 +12,15 @@ end
 
 Base.isless(a::Item, b::Item) = isless(a.dist, b.dist)
 
-# Base.convert(Item, p::Pair) = Item(p.first, p.second)
-
-mutable struct KnnResultArray <: KnnResult
+mutable struct KnnResult <: AbstractKnnResult
     k::Int32
-    # pool::Vector{Item}
-    id::Vector{Int32}
-    dist::Vector{Float32}
+    pool::Vector{Item}
 
-    function KnnResultArray(k::Integer)
-        id = Vector{Int32}()
-        dist = Vector{Float32}()
-        sizehint!(id, k); sizehint!(dist, k)
-        new(k, id, dist)
+    function KnnResult(k::Integer)
+        pool = Item[]
+        sizehint!(pool, k)
+        new(k, pool)
     end
-end
-
-function _KnnResult(k::Integer)
-    KnnResultArray(k)
 end
 
 """
@@ -39,12 +30,11 @@ Fixes the sorted state of the array. It implements a kind of insertion sort
 It is efficient due to the expected distribution of the items being inserted
 (few smaller than the ones already inside)
 """
-@inline function fix_order!(K, V)
+@inline function fix_order!(K)
     n = length(K)
     @inbounds while n > 1
         if K[n] < K[n-1]
             K[n], K[n-1] = K[n-1], K[n]
-            V[n], V[n-1] = V[n-1], V[n]
         else
             break
         end
@@ -63,109 +53,105 @@ Appends an item into the result set
 end
 
 @inline function Base.push!(res::KnnResult, id::Integer, dist::Number)
-    n = length(res.id)
+    n = length(res.pool)
     if n < res.k
         # fewer elements than the maximum capacity
-        push!(res.id, id)
-        push!(res.dist, dist)
-        fix_order!(res.dist, res.id)
+        push!(res.pool, Item(id, dist))
+        fix_order!(res.pool)
         return true
     end
 
-    if dist >= farthestdist(res)
+    if dist >= res.pool[end].dist
         # p.k == length(p.pool) but p.dist doesn't improve the pool's radius
         return false
     end
 
     # p.k == length(p.pool) but p.dist improves the result set
-    @inbounds res.id[end] = id
-    @inbounds res.dist[end] = dist
-    fix_order!(res.dist, res.id)
+    @inbounds res.pool[end] = Item(id, dist)
+    fix_order!(res.pool)
     true
 end
 
 """
-    nearest(p::KnnResultArray)
+    nearest(p::KnnResult)
 
 Return the first item of the result set, the closest item
 """
-#@inline nearest(res::KnnResultArray) = Item(first(res.id), first(res.dist))
+@inline nearest(res::KnnResult) = @inbounds res.pool[1]
 
 """
-    farthest(p::KnnResultArray) 
+    farthest(p::KnnResult) 
 
 Returns the last item of the result set
 """
-#@inline farthest(res::KnnResultArray) = Item(last(res.id), last(res.dist))
+@inline farthest(res::KnnResult) = @inbounds res.pool[end]
 
 """
-    popnearest!(p::KnnResultArray)
+    popnearest!(p::KnnResult)
 
 Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) operation
 """
-@inline popnearest!(res::KnnResultArray) = Item(popfirst!(res.id), popfirst!(res.dist))
+@inline popnearest!(res::KnnResult) = popfirst!(res.pool)
 
 """
     popfarthest!(p)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-#@inline popfarthest!(res::KnnResultArray) = Item(pop!(res.id), pop!(res.dist))
+@inline popfarthest!(res::KnnResult) = pop!(res.pool)
 
-sortresults!(res::KnnResultArray) = [Item(res.id[i], res.dist[i]) for i in eachindex(res.id)]
+sortresults!(res::KnnResult) = res.pool
 
 """
-    length(p::KnnResultArray)
+    length(p::KnnResult)
 
 length returns the number of items in the result set
 """
-@inline Base.length(res::KnnResultArray) = length(res.id)
+@inline Base.length(res::KnnResult) = length(res.pool)
 
 """
-    maxlength(res::KnnResultArray)
+    maxlength(res::KnnResult)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResultArray) = res.k
+@inline maxlength(res::KnnResult) = res.k
 
 """
-    covrad(p::KnnResultArray)
+    covrad(p::KnnResult)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(res::KnnResultArray) = length(res.dist) < res.k ? typemax(Float32) : last(res.dist)
+@inline covrad(res::KnnResult) = length(res.pool) < res.k ? typemax(Float32) : res.pool[end].dist
 
-@inline nearestid(res::KnnResultArray) = first(res.id)
-@inline farthestid(res::KnnResultArray) = last(res.id)
+@inline nearestid(res::KnnResult) = nearest(res).id
+@inline farthestid(res::KnnResult) = farthest(res).id
 
-@inline nearestdist(res::KnnResultArray) = first(res.dist)
-@inline farthestdist(res::KnnResultArray) = last(res.dist)
+@inline nearestdist(res::KnnResult) = nearest(res).dist
+@inline farthestdist(res::KnnResult) = farthest(res).dist
 
 """
-    empty!(p::KnnResultArray)
+    empty!(p::KnnResult)
 
 Clears the content of the result pool
 """
-@inline function Base.empty!(p::KnnResultArray) 
-    empty!(p.id)
-    empty!(p.dist)
+@inline function Base.empty!(p::KnnResult) 
+    empty!(p.pool)
 end
 
-@inline function reset!(p::KnnResultArray, k::Integer)
+@inline function reset!(p::KnnResult, k::Integer)
     empty!(p)
-    sizehint!(p.id, k)
-    sizehint!(p.dist, k)
+    sizehint!(p.pool, k)
     p.k = k
     p
 end
 
 ##### iterator interface
-### KnnResultArray
-function Base.iterate(res::KnnResultArray, state::Int=1)
+### KnnResult
+function Base.iterate(res::KnnResult, state::Int=1)
     n = length(res)
     if n == 0 || state > length(res)
         nothing
     else
-        @inbounds Item(res.id[state], res.dist[state]), state + 1
+        @inbounds res.pool[state], state + 1
     end
 end

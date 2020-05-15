@@ -10,7 +10,7 @@ using Test
     Vsorted = sort!([Item(i, v) for (i, v) in enumerate(V)])
     res = KnnResult(k)
 
-    for i=1:length(V)
+    for i in eachindex(V)
         push!(res, i, V[i])
     end
 

@@ -38,8 +38,8 @@ function fit(::Type{Kvp}, dist, db::Vector{T}, k::Int, numrefs::Int) where T
 end
 
 function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
-    near = KnnResultHeap(k)
-    far = KnnResultHeap(k)
+    near = KnnResult(k)
+    far = KnnResult(k)
 
     for refID in eachindex(refs)
         d = dist(obj, refs[refID])
@@ -49,11 +49,11 @@ function near_and_far(dist, obj::T, refs::Vector{T}, k::Int) where T
 
     row = Item[]
     sizehint!(row, 2*k)
-    for p in near.heap
+    for p in near
         push!(row, p)
     end
     
-    for p in far.heap
+    for p in far
         push!(row, Item(p.id, -p.dist))
     end
 
