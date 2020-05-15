@@ -6,15 +6,15 @@ using Test
 
 @testset "Result set" begin
     k = 4
-    V = rand(Float32, k*k)
-    Vsorted = sort!([Item(i, v) for (i, v) in enumerate(V)])
+    V = rand(Float32, 50)
+    Vsorted = sort!([Item(i, v) for (i, v) in enumerate(V)])[1:k]
     res = KnnResult(k)
 
     for i in eachindex(V)
         push!(res, i, V[i])
     end
 
-    @show Vsorted
+    @show res Vsorted
     @test nearestdist(res) == Vsorted[1].dist
     arr = sortresults!(res)
     @test [x.id for x in arr] == [x.id for x in Vsorted[1:k]]

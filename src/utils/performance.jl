@@ -34,12 +34,11 @@ mutable struct Performance{T}
         for i in eachindex(queries)
             empty!(res)
             search(s, dist, queries[i], res)
-            arr = sortresults!(res)
             if queries_from_db
-                popfirst!(arr)
+                popnearest!(res)
             end
-            results[i] = Set(item.id for item in arr)
-            distances_sum[i] = sum(item.dist for item in arr)
+            results[i] = Set(item.id for item in res)
+            distances_sum[i] = sum(item.dist for item in res)
         end
 
         elapsed = time() - start
@@ -104,13 +103,12 @@ function _probe(perf::Performance, index::Index, dist::Function)
         start = time()
         res = search(index, dist_, perf.queries[i], res)
         p.seconds += time() - start
-        arr = sortresults!(res)
         if perf.queries_from_db
-            popfirst!(arr)
+            popnearest!(res)
         end
         base = perf.results[i]
-        curr = Set(item.id for item in arr)
-        for item in arr
+        curr = Set(item.id for item in res)
+        for item in res
             p.distances_sum += item.dist
         end
         tp = intersect(base, curr)  # tn
