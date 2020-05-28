@@ -2,7 +2,7 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using JSON
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, search_context, VisitedVertices
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, search_context, VisitedVertices, parallel_fit
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
@@ -61,7 +61,13 @@ function setstate!(vstate::VisitedVertices, i, state)
 end
 =#
 
-function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T}; recall=0.9, k=10, search_algo=BeamSearch(), searchctx=nothing, neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=true, verbose=true) where T
+function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T};
+        recall=0.9, k=10,
+        search_algo::LocalSearchAlgorithm=BeamSearch(),
+        neighborhood_algo::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
+        searchctx=nothing, 
+        automatic_optimization=true,
+        verbose=true) where T
     links = Vector{Int32}[]
     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
     knn = KnnResult(1)
@@ -74,6 +80,42 @@ function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T}; recall=0.9, 
 
     index
 end
+
+
+function parallel_fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
+    links = Vector{Int32}[]
+    index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
+    firstblock = min(length(dataset), firstblock)
+
+    for i in 1:firstblock
+        push!(index, dist, dataset[i]; automatic_optimization=automatic_optimization)
+    end
+
+    sp = length(index.db)
+    n = length(dataset)
+    N = Vector(undef, block)
+    while sp < n
+        ep = min(n, sp + block)
+        m = ep - sp
+        CTX = [search_context(index) for i in 1:Threads.nthreads()]
+        KNN = [KnnResult(1) for i in 1:Threads.nthreads()]
+        Threads.@threads for i in 1:m
+            searchctx = CTX[Threads.threadid()]
+            knn = KNN[Threads.threadid()]
+            reset!(searchctx, n=length(index.db))
+            N[i] = find_neighborhood(index, dist, dataset[sp+i], knn, searchctx)
+        end
+        
+        @show (sp, ep, n, length(N), index.search_algo, index.neighborhood_algo, Dates.now())
+        for i in 1:m
+            sp += 1
+            push_neighborhood!(index, dataset[sp], N[i])
+        end
+    end
+
+    index
+end
+
 
 include("opt.jl")
 
@@ -115,7 +157,12 @@ function push_neighborhood!(index::SearchGraph{T}, item::T, L::Vector{Int32}) wh
     push!(index.db, item)
     n = length(index.db)
     for objID in L
-        push!(index.links[objID], n)
+        #try
+            push!(index.links[objID], n)
+        #=catch
+            @show "------------->" length(index.links) n objID length(L) L index.search_algo index.neighborhood_algo 
+            error("ERROR ACCESS!!!!")
+        end=#
     end
 
     push!(index.links, L)
@@ -138,8 +185,8 @@ function push!(index::SearchGraph, dist, item, knn::KnnResult=KnnResult(1); auto
         k != k1 && optimize!(index, dist, recall=index.recall)
     end
 
-    if index.verbose && length(index.db) % 5000 == 0
-        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(now())")
+    if index.verbose && length(index.db) % 10000 == 0
+        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(index.search_algo), $(index.neighborhood_algo), $(now())")
     end
     knn, neighbors
 end

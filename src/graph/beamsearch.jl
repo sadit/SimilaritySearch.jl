@@ -14,13 +14,13 @@ end
 
 struct BeamSearchContext
     vstate::VisitedVertices
-    beam::KnnResultArray
+    beam::KnnResult
     hints::Vector{Int}
     ssize::Int
-    BeamSearchContext(vstate; beam=KnnResultArray(64), hints=Int32[]) =
+    BeamSearchContext(vstate; beam=KnnResult(64), hints=Int32[]) =
         new(vstate, beam, hints, length(hints))
     BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) =
-        new(VisitedVertices(n), KnnResultArray(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
+        new(VisitedVertices(n), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
 end
 
 search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
@@ -66,12 +66,12 @@ function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
         prev = popnearest!(beam)
         getstate(vstate, prev.id) === EXPLORED && continue
         setstate!(vstate, prev.id, EXPLORED)
-        for childID in index.links[prev.id]
+        @inbounds for childID in index.links[prev.id]
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
                 @inbounds d = dist(q, index.db[childID])
                 push!(res, childID, d) && push!(beam, childID, d)
-                # d <= farthestdist(res) && push!(beam, childID, d)
+                #d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
             end
         end
     end
@@ -91,9 +91,10 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult
     beam_init(bs, index, dist, q, res, searchctx.hints, searchctx.vstate)
     prev_score = typemax(Float32)
     
-    while abs(prev_score - farthestdist(res)) > 0.0  # prepared to allow early stopping
-        prev_score = farthestdist(res)
-        push!(searchctx.beam, nearestid(res), nearestdist(res))
+    while abs(prev_score - farthest(res).dist) > 0.0  # prepared to allow early stopping
+        prev_score = farthest(res).dist
+        nn = nearest(res)
+        push!(searchctx.beam, nn.id, nn.dist)
         beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
     end
 

@@ -6,9 +6,8 @@ export IHCSearch
 # Iterated Hill Climbing Search
 struct IHCSearch <: LocalSearchAlgorithm
     restarts::Int
-    use_local_improvement::Bool
     IHCSearch() = new(1, false)
-    IHCSearch(r; use_local_improvement=false) = new(r, use_local_improvement)
+    IHCSearch(r) = new(r)
 end
 
 
@@ -43,7 +42,7 @@ end
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
+function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64; use_local_improvement::Bool=false)
     omin::Int = -1
     dmin::Float32 = typemax(Float32)
 
@@ -63,7 +62,7 @@ function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, node
                     omin = childID
                 end
             else
-                if push!(res,childID, d) && d < dmin
+                if push!(res, childID, d) && d < dmin
                     dmin = d
                     omin = childID
                 end
@@ -95,7 +94,7 @@ function search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult,
             searchctx.vstate[start_point] = VISITED
             d = convert(Float32, dist(q, index.db[start_point]))
             push!(res, start_point, d)
-            hill_climbing(index, dist, q, res, searchctx.vstate, start_point, isearch.use_local_improvement)
+            hill_climbing(index, dist, q, res, searchctx.vstate, start_point)
         end
     end
 

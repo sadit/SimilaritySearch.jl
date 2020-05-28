@@ -32,7 +32,7 @@ Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against
 function search(index::Sequential, dist::Fun, q, res::KnnResult) where Fun
     db = index.db
     for i in eachindex(db)
-        @inbounds d = dist(db[i], q)
+        d = @inbounds dist(db[i], q)
         push!(res, i, d)
     end
 

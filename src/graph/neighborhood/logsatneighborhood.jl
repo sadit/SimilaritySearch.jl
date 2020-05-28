@@ -17,39 +17,40 @@ function fix_neighborhood!(index::SearchGraph, dist)
     if !(index.neighborhood_algo isa LogSatNeighborhood)
         return
     end
+    
     knn = KnnResult(1)
     for i in eachindex(index.db)
         fix_neighborhood!(index, dist, i, knn)
     end
 end
 
-function fix_neighborhood!(index::SearchGraph, dist, objID::Integer, knn::KnnResult)
+function fix_neighborhood!(index::SearchGraph, dist, id::Integer, knn::KnnResult)
     n = length(index.db)
     k = n
     reset!(knn, k)
-    obj = index.db[objID]
-    for link in index.links[objID]
+    obj = index.db[id]
+    for link in index.links[id]
         push!(knn, link, dist(obj, index.db[link]))
     end
     # reverse!(knn.pool)
 
     near = KnnResult(1)
     
-    N = index.links[objID]
+    N = index.links[id]
     empty!(N)
 
-    @inbounds for (i, p) in enumerate(knn.pool)
+    @inbounds for (i, p) in enumerate(knn)
         #dqp = p.dist
-        obj = index.db[p.objID]
+        obj = index.db[p.id]
         empty!(near)
-        push!(near, p.objID, p.dist)
+        push!(near, p.id, p.dist)
         for nearID in N
             d = dist(index.db[nearID], obj)
             push!(near, nearID, d)
         end
 
-        if first(near).objID == p.objID
-            push!(N, p.objID)
+        if first(near).id == p.id
+            push!(N, p.id)
         end
     end
 
@@ -63,9 +64,8 @@ function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, ite
     search(index, dist, item, knn; searchctx=searchctx)
 
     near = KnnResult(1)
-    # reverse!(knn.pool)
-    @inbounds for p in knn.pool
-        pobj = index.db[p.objID]
+    @inbounds for p in knn
+        pobj = index.db[p.id]
         empty!(near)
         push!(near, p.id, p.dist)
         for nearID in N

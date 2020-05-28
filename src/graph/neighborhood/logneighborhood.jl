@@ -22,6 +22,6 @@ function neighborhood(algo::LogNeighborhood, index::SearchGraph{T}, dist, item::
     knn = search(index, dist, item, KnnResult(k), searchctx=searchctx)
 
     for p in knn
-        push!(N, p.objID)
+        push!(N, p.id)
     end
 end

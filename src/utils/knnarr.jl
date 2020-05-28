@@ -95,9 +95,7 @@ Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) o
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-#@inline popfarthest!(res::KnnResultArray) = Item(pop!(res.id), pop!(res.dist))
-
-sortresults!(res::KnnResultArray) = [Item(res.id[i], res.dist[i]) for i in eachindex(res.id)]
+@inline popfarthest!(res::KnnResultArray) = Item(pop!(res.id), pop!(res.dist))
 
 """
     length(p::KnnResultArray)

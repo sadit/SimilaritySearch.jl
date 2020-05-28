@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, sortresults!, reset!, popnearest!
+export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, reset!, popnearest!
 
 abstract type AbstractKnnResult end
 
@@ -13,7 +13,7 @@ end
 Base.isless(a::Item, b::Item) = isless(a.dist, b.dist)
 
 mutable struct KnnResult <: AbstractKnnResult
-    n::Int32
+    n::Int
     pool::Vector{Item}
 
     function KnnResult(k::Integer)
@@ -29,9 +29,9 @@ It is efficient due to the expected distribution of the items being inserted
 (few smaller than the ones already inside)
 """
 @inline function fix_order!(K, n::Integer)
-    @inbounds while n > 1
-        if K[n] < K[n-1]
-            K[n], K[n-1] = K[n-1], K[n]
+    while n > 1
+        @inbounds if K[n] < K[n-1]
+            @inbounds K[n], K[n-1] = K[n-1], K[n]
         else
             break
         end
@@ -49,11 +49,11 @@ Appends an item into the result set
     push!(res, p.first, p.second)
 end
 
-@inline function Base.push!(res::KnnResult, id::Integer, dist::Number)
-    if length(res) < maxlength(res)
+@inline function Base.push!(res::KnnResult, id::I, dist::F) where I where F
+    if res.n < length(res.pool)
         # fewer elements than the maximum capacity
         res.n += 1
-        res.pool[res.n] = Item(id, dist)
+        @inbounds res.pool[res.n] = Item(id, dist)
         fix_order!(res.pool, res.n)
         return true
     end
@@ -90,9 +90,9 @@ Returns the last item of the result set
 Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) operation
 """
 @inline function popnearest!(res::KnnResult)
-    e = res.pool[1]
+    @inbounds e = res.pool[1]
     for i in 2:length(res)
-        res.pool[i-1] = res.pool[i]
+        @inbounds res.pool[i-1] = res.pool[i]
     end
     res.n -= 1
     e
@@ -104,12 +104,10 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function popfarthest!(res::KnnResult)
-    e = res.pool[res.n]
+    @inbounds e = res.pool[res.n]
     res.n -= 1
     e
 end
-
-sortresults!(res::KnnResult) = @view res.pool[1:res.n]
 
 """
     length(p::KnnResult)
