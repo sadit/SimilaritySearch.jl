@@ -16,8 +16,7 @@ using Test
 
     @show res Vsorted
     @test nearestdist(res) == Vsorted[1].dist
-    arr = sortresults!(res)
-    @test [x.id for x in arr] == [x.id for x in Vsorted[1:k]]
-    @test [x.dist for x in arr] == [x.dist for x in Vsorted[1:k]]
+    @test [x.id for x in res] == [x.id for x in Vsorted[1:k]]
+    @test [x.dist for x in res] == [x.dist for x in Vsorted[1:k]]
     
 end

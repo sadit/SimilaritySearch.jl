@@ -6,7 +6,7 @@ export IHCSearch
 # Iterated Hill Climbing Search
 struct IHCSearch <: LocalSearchAlgorithm
     restarts::Int
-    IHCSearch() = new(1, false)
+    IHCSearch() = new(8)
     IHCSearch(r) = new(r)
 end
 
