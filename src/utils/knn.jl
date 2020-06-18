@@ -13,11 +13,12 @@ end
 Base.isless(a::Item, b::Item) = isless(a.dist, b.dist)
 
 mutable struct KnnResult <: AbstractKnnResult
-    n::Int
+    n::Int32
+    N::Int32
     pool::Vector{Item}
 
     function KnnResult(k::Integer)
-        new(0, Vector{Item}(undef, k))
+        new(0, k, Vector{Item}(undef, k))
     end
 end
 
@@ -26,7 +27,7 @@ end
 
 Fixes the sorted state of the array. It implements a kind of insertion sort
 It is efficient due to the expected distribution of the items being inserted
-(few smaller than the ones already inside)
+(it is expected just a few elements smaller than the current ones)
 """
 @inline function fix_order!(K, n::Integer)
     while n > 1
@@ -50,7 +51,7 @@ Appends an item into the result set
 end
 
 @inline function Base.push!(res::KnnResult, id::I, dist::F) where I where F
-    if res.n < length(res.pool)
+    if res.n < res.N # length(res.pool)
         # fewer elements than the maximum capacity
         res.n += 1
         @inbounds res.pool[res.n] = Item(id, dist)
@@ -147,6 +148,7 @@ end
 
 @inline function reset!(res::KnnResult, k::Integer)
     res.n = 0
+    res.N = k
     k != maxlength(res) && resize!(res.pool, k)
     res
 end
