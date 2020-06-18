@@ -42,7 +42,7 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
     seqindex = fit(Sequential, refs)
     counter = 0
     n = length(db)
-    for i in 1:n
+    for i in eachindex(db)
         res = search(seqindex, dist, db[i], KnnResult(k))
         for p in res
             push!(invindex[p.id], i)
@@ -56,6 +56,11 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
     Knr(db, refs, k, k, minmatches, invindex, verbose)
 end
 
+"""
+    parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+
+Create a Knr index in parallel using the available threads. 
+"""
 function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
     verbose && println(stderr, "Knr> parallel_fit refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
     m = length(refs)
