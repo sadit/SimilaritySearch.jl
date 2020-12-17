@@ -29,10 +29,10 @@ function predict(index::Index, y::AbstractVector, nclasses::Int, dist::Function,
         fill!(freqs, 0)
         search(index, dist, Q[i], res)
         if k == 1
-            ypred[i] = y[first(res).objID]
+            ypred[i] = y[first(res).id]
         else
             for p in res
-                freqs[y[p.objID]] += 1
+                freqs[y[p.id]] += 1
             end
 
             l = findmax(freqs)[end]

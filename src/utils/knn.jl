@@ -77,6 +77,7 @@ end
 Return the first item of the result set, the closest item
 """
 @inline nearest(res::KnnResult) = @inbounds res.pool[1]
+Base.first(res::KnnResult) = @inbounds res.pool[1]
 
 """
     farthest(p::KnnResult) 
@@ -84,6 +85,7 @@ Return the first item of the result set, the closest item
 Returns the last item of the result set
 """
 @inline farthest(res::KnnResult) = @inbounds res.pool[res.n]
+Base.last(res::KnnResult) = @inbounds res.pool[res.n]
 
 """
     popnearest!(p::KnnResult)

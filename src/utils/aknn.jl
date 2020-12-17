@@ -60,7 +60,7 @@ function allknn(index::Index, dist::Function; k::Int=1)
         x = index.db[i]
         res = A[i]
         search(index, dist, x, res)
-        if first(res).objID == i
+        if first(res).id == i
             popfirst!(res)
         end
 
@@ -108,17 +108,17 @@ function allknn(index::SearchGraph, dist::Function; k::Int=1)
     for i in 1:n
         q = index.db[i]
         res = A[i]
-        hints = [p.objID for p in res]
+        hints = [p.id for p in res]
         append!(hints, index.links[i])
         empty!(res)
         search(index, dist, q, res, hints=hints)
-        if first(res).objID == i
+        if first(res).id == i
             popfirst!(res)
         end
         
         for p in res
-            if p.objID > i
-                push!(A[p.objID], i, p.dist)
+            if p.id > i
+                push!(A[p.id], i, p.dist)
             end
         end
 
@@ -160,7 +160,7 @@ end
 ##         res = search(index, dist, q, A[i], hints=hints)
 ##         push!(L, (id=i, res))
 ##         clear!(hints)
-##         append!(index.links[first(res).objID])
+##         append!(index.links[first(res).id])
 ##         if (i % 10000) == 1
 ##             println(stderr, "computing all-knn for $(index.search_algo); k=$(k); advance $i of n=$n")
 ##         end

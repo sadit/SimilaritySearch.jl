@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
-
+#=
 export KnnResultArray
 
 mutable struct KnnResultArray <: AbstractKnnResult
@@ -152,3 +152,5 @@ function Base.iterate(res::KnnResultArray, state::Int=1)
         @inbounds Item(res.id[state], res.dist[state]), state + 1
     end
 end
+
+=#

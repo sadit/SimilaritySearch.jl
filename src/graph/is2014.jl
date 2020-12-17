@@ -53,7 +53,7 @@
 #             break
 #         end
 
-#         @inbounds for childID in index.links[best.objID]
+#         @inbounds for childID in index.links[best.id]
 #             # if !in(childID, tabu)
 #             if !tabu[childID]
 #                 d = convert(Float32, index.dist(index.db[childID], q))
