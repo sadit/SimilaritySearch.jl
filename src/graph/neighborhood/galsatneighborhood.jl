@@ -16,7 +16,7 @@ function optimize_neighborhood!(algo::GallopingSatNeighborhood, index::SearchGra
 end
 
 function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N) where {T}
-    reset!(knn, algo.g.neighborhood)
+    empty!(knn, algo.g.neighborhood)
     empty!(N)
     knn = search(index, dist, item, knn)
 

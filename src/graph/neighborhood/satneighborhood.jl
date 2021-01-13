@@ -16,7 +16,7 @@ end
 
 function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where {T}
     empty!(N)
-    reset!(knn, algo.k)
+    empty!(knn, algo.k)
     search(index, dist, item, knn; searchctx=searchctx)
     @inbounds for p in knn
         pobj = index.db[p.id]

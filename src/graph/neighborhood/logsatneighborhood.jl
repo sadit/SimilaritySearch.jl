@@ -27,7 +27,7 @@ end
 function fix_neighborhood!(index::SearchGraph, dist, id::Integer, knn::KnnResult)
     n = length(index.db)
     k = n
-    reset!(knn, k)
+    empty!(knn, k)
     obj = index.db[id]
     for link in index.links[id]
         push!(knn, link, dist(obj, index.db[link]))
@@ -59,7 +59,7 @@ end
 function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, item::T, knn::KnnResult, N::Vector, searchctx) where {T}
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
-    reset!(knn, k)
+    empty!(knn, k)
     empty!(N)
     search(index, dist, item, knn; searchctx=searchctx)
 

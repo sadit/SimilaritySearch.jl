@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, reset!, popnearest!
+export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, popnearest!
 
 abstract type AbstractKnnResult end
 
@@ -141,18 +141,24 @@ Returns the coverage radius of the result set; if length(p) < K then typemax(Flo
 
 """
     empty!(p::KnnResult)
+    empty!(res::KnnResult, k::Integer)
 
-Clears the content of the result pool
+Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
+as needed (only grows).
 """
 @inline function Base.empty!(res::KnnResult)
     res.n = 0
 end
 
-@inline function reset!(res::KnnResult, k::Integer)
+@inline function Base.empty!(res::KnnResult, k::Integer)
     res.n = 0
     res.N = k
-    k != maxlength(res) && resize!(res.pool, k)
+    k > maxlength(res) && resize!(res.pool, k)
     res
+end
+
+@inline function Base.getindex(res::KnnResult, k::Integer)
+    res.pool[i]
 end
 
 ##### iterator interface

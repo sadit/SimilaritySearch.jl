@@ -16,7 +16,7 @@ end
 
 function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where T
     k = max(1, ceil(Int, log(algo.base, length(index.db))))
-    reset!(knn, k)
+    empty!(knn, k)
     empty!(N)
     n = length(index.db)
     search(index, dist, item, knn; searchctx=searchctx)

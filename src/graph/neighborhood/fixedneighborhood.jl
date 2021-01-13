@@ -15,7 +15,7 @@ function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, 
 end
 
 function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist, item::T, knn::KnnResult, N::Vector, searchctx) where T
-    reset!(knn, algo.k)
+    empty!(knn, algo.k)
     empty!(N)
     search(index, dist, item, knn; searchctx=searchctx)
     

@@ -40,7 +40,7 @@ end
 
 function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N) where {T}
     k = algo.neighborhood
-    reset!(knn, k)
+    empty!(knn, k)
     empty!(N)
     search(index, dist, item, knn)
 
