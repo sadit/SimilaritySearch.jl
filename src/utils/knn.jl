@@ -161,6 +161,10 @@ end
     res.pool[i]
 end
 
+@inline function Base.lastindex(res::KnnResult)
+    res.n
+end
+
 ##### iterator interface
 ### KnnResult
 function Base.iterate(res::KnnResult, state::Int=1)
