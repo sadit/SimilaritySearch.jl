@@ -29,7 +29,6 @@ end
     @testset "indexing vectors with Kvp" begin
         for (recall_lower_bound, dist) in [
             (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
-            (1.0, L1Distance()),
         ]
             @show recall_lower_bound, dist
             p = test_vectors((db) -> fit(Kvp, dist, db, 3, 32), dist, ksearch)

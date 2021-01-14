@@ -6,24 +6,22 @@ using Distances
 using LinearAlgebra
 using Test
 
-function test_vectors(create_index, dist::PreMetric, ksearch, nick; repeat=1, aggregation=:mean)
-    @testset "indexing vectors with $nick and $dist" begin
-        n = 300 # number of items in the dataset
-        m = 30  # number of queries
-        dim = 3  # vector's dimension
+function test_vectors(create_index, dist::PreMetric, ksearch; repeat=1, aggregation=:mean)
+    n = 1000 # number of items in the dataset
+    m = 30  # number of queries
+    dim = 3  # vector's dimension
 
-        db = [rand(Float32, dim) for i in 1:n]
-        queries = [rand(Float32, dim) for i in 1:m]
+    db = [rand(Float32, dim) for i in 1:n]
+    queries = [rand(Float32, dim) for i in 1:m]
 
-        index = create_index(db)
-        @test length(index.db) == n
-        push!(index, dist, rand(Float32, dim))
-        @test length(index.db) == 1 + n
-        perf = Performance(dist, index.db, queries, expected_k=10)
-        p = probe(perf, index, dist, repeat=repeat, aggregation=aggregation)
-        @show dist, p
-        return p
-    end
+    index = create_index(db)
+    @test length(index.db) == n
+    push!(index, dist, rand(Float32, dim))
+    @test length(index.db) == 1 + n
+    perf = Performance(dist, index.db, queries, expected_k=ksearch)
+    p = probe(perf, index, dist, repeat=repeat, aggregation=aggregation)
+    @show dist, p
+    return p
 end
 
 @testset "indexing vectors" begin
@@ -41,8 +39,10 @@ end
         (1.0, CosineDistance())
     ]
         @show recall_lower_bound, dist, dist isa PreMetric
-        p = test_vectors((db) -> fit(Sequential, db), dist, ksearch, "Sequential")
-        @test p.recall >= recall_lower_bound * 0.99 # to support "numerical" variations
+        @testset "indexing vectors with Sequential and $dist" begin
+            p = test_vectors((db) -> fit(Sequential, db), dist, ksearch)
+            @test p.recall >= recall_lower_bound * 0.99 # to support "numerical" variations
+        end
     end
 end
 
@@ -98,15 +98,13 @@ end
 end
 
 
-function test_cos(create_index, dist::PreMetric, ksearch; repeat=1, aggregation=:mean)
+function test_normalized(create_index, dist::PreMetric, ksearch; repeat=1, aggregation=:mean)
     n = 300 # number of items in the dataset
     m = 30  # number of queries
     dim = 3  # vector's dimension
 
     db = rand(dim, n) |> normalize!
     queries = rand(dim, m) |> normalize!
-    #db = [DenseCosine(rand(Float32, dim)) for i in 1:n]
-    #queries = [DenseCosine(rand(Float32, dim)) for i in 1:m]
 
     index = create_index([@view db[:, i] for i in 1:size(db, 2)])
     # optimize!(index, recall=0.9, use_distances=true)
@@ -136,14 +134,14 @@ function test_binhamming(create_index, dist::PreMetric, ksearch, create)
     return p
 end
 
-@testset "Cosine and Angle distance" begin
+@testset "Normalized Cosine and Normalized Angle distances" begin
     # cosine and angle distance
     ksearch = 10
     @testset "indexing vectors with Sequential with cos or angle's distance" begin
-        p1 = test_cos((db) -> fit(Sequential, db), AngleDistance(), ksearch, repeat=3, aggregation=:median)
-        p2 = test_cos((db) -> fit(Sequential, db), AngleDistance(), ksearch, repeat=3, aggregation=:min)
-        p3 = test_cos((db) -> fit(Sequential, db), CosineDistance(), ksearch, repeat=3, aggregation=:max)
-        p4 = test_cos((db) -> fit(Sequential, db), CosineDistance(), ksearch, repeat=3, aggregation=:mean)
+        p1 = test_normalized((db) -> fit(Sequential, db), NormalizedAngleDistance(), ksearch, repeat=3, aggregation=:median)
+        p2 = test_normalized((db) -> fit(Sequential, db), NormalizedAngleDistance(), ksearch, repeat=3, aggregation=:min)
+        p3 = test_normalized((db) -> fit(Sequential, db), NormalizedCosineDistance(), ksearch, repeat=3, aggregation=:max)
+        p4 = test_normalized((db) -> fit(Sequential, db), NormalizedCosineDistance(), ksearch, repeat=3, aggregation=:mean)
         @show p1, p2, p3, p4
         @test p1.recall > 0.99
         @test p2.recall > 0.99

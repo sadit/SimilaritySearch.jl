@@ -42,7 +42,7 @@ Computes the angle  between twovectors. It supposes that all vectors are normali
 
 """
 function evaluate(::NormalizedAngleDistance, a, b)
-    fastacost(dot(a, b))
+    fastacos(dot(a, b))
 end
 
 
