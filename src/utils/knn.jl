@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, AbstractKnnResult, KnnResult, maxlength, covrad, nearestid, farthestid, nearestdist, farthestdist, popnearest!
+export Item, AbstractKnnResult, KnnResult, maxlength, covrad
 
 abstract type AbstractKnnResult end
 
@@ -60,7 +60,7 @@ end
     end
 
     # @show id => dist, res
-    if dist >= farthest(res).dist
+    if dist >= last(res).dist
         # p.k == length(p.pool) but p.dist doesn't improve the pool's radius
         return false
     end
@@ -72,27 +72,25 @@ end
 end
 
 """
-    nearest(p::KnnResult)
+    first(p::KnnResult)
 
 Return the first item of the result set, the closest item
 """
-@inline nearest(res::KnnResult) = @inbounds res.pool[1]
 Base.first(res::KnnResult) = @inbounds res.pool[1]
 
 """
-    farthest(p::KnnResult) 
+    last(p::KnnResult) 
 
 Returns the last item of the result set
 """
-@inline farthest(res::KnnResult) = @inbounds res.pool[res.n]
 Base.last(res::KnnResult) = @inbounds res.pool[res.n]
 
 """
-    popnearest!(p::KnnResult)
+    popfirst!(p::KnnResult)
 
 Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) operation
 """
-@inline function popnearest!(res::KnnResult)
+@inline function Base.popfirst!(res::KnnResult)
     @inbounds e = res.pool[1]
     for i in 2:length(res)
         @inbounds res.pool[i-1] = res.pool[i]
@@ -102,11 +100,11 @@ Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) o
 end
 
 """
-    popfarthest!(p)
+    pop!(p)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function popfarthest!(res::KnnResult)
+@inline function pop!(res::KnnResult)
     @inbounds e = res.pool[res.n]
     res.n -= 1
     e
@@ -132,12 +130,6 @@ The maximum allowed cardinality (the k of knn)
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
 @inline covrad(res::KnnResult) = length(res) < maxlength(res) ? typemax(Float32) : res.pool[end].dist
-
-@inline nearestid(res::KnnResult) = nearest(res).id
-@inline farthestid(res::KnnResult) = farthest(res).id
-
-@inline nearestdist(res::KnnResult) = nearest(res).dist
-@inline farthestdist(res::KnnResult) = farthest(res).dist
 
 """
     empty!(p::KnnResult)

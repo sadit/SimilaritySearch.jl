@@ -73,7 +73,7 @@ function neighborhood(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, ite
             push!(near, nearID, d)
         end
 
-        if nearestid(near) == p.id
+        if first(near).id == p.id
             push!(N, p.id)
         end
     end

@@ -35,7 +35,7 @@ mutable struct Performance{T}
             empty!(res)
             search(s, dist, queries[i], res)
             if queries_from_db
-                popnearest!(res)
+                popfirst!(res)
             end
             results[i] = Set(item.id for item in res)
             distances_sum[i] = sum(item.dist for item in res)
@@ -104,7 +104,7 @@ function _probe(perf::Performance, index::Index, dist::Function)
         res = search(index, dist_, perf.queries[i], res)
         p.seconds += time() - start
         if perf.queries_from_db
-            popnearest!(res)
+            popfirst!(res)
         end
         base = perf.results[i]
         curr = Set(item.id for item in res)

@@ -63,7 +63,7 @@ end
 
 function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
     while length(beam) > 0
-        prev = popnearest!(beam)
+        prev = popfirst!(beam)
         getstate(vstate, prev.id) === EXPLORED && continue
         setstate!(vstate, prev.id, EXPLORED)
         @inbounds for childID in index.links[prev.id]
@@ -91,9 +91,9 @@ function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult
     beam_init(bs, index, dist, q, res, searchctx.hints, searchctx.vstate)
     prev_score = typemax(Float32)
     
-    while abs(prev_score - farthest(res).dist) > 0.0  # prepared to allow early stopping
-        prev_score = farthest(res).dist
-        nn = nearest(res)
+    while abs(prev_score - last(res).dist) > 0.0  # prepared to allow early stopping
+        prev_score = last(res).dist
+        nn = first(res)
         push!(searchctx.beam, nn.id, nn.dist)
         beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
     end
