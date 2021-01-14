@@ -68,7 +68,7 @@ Please note that you can implement your own distance function and pass to any me
 
 The package is designed to work with approximate indexes, that is, those search methods that are allowed to have false positives and false negatives. However, it supports the following exact methods:
 - [Sequential](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/seq.jl) or exhaustive search
-- [LAESA](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/laesa.jl) or pivot table; it supports different [pivot selection strategies](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/pivotselectiontables.jl)
+- [PivotTable](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/pivottable.jl) it supports different [pivot selection strategies](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/indexes/pivotselectiontables.jl)
 - [Kvp](https://github.com/sadit/SimilaritySearch.jl/blob/master/src/knr/kvp.jl) or K vantage points
 
 `SimilaritySearch.jl` implements tghe following approximate methods:

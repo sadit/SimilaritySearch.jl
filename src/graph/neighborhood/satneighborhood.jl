@@ -23,7 +23,7 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::
         near = KnnResult(1)
         push!(near, zero(Int32), p.dist)
         for nearID in N
-            d = dist(index.db[nearID], pobj)
+            d = evaluate(dist, index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 

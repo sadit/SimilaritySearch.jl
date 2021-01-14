@@ -11,23 +11,23 @@ function GallopingSatNeighborhood()
     return GallopingSatNeighborhood(GallopingNeighborhood())
 end
 
-function optimize_neighborhood!(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
+function optimize_neighborhood!(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist::PreMetric, perf, recall) where {T}
     optimize_neighborhood!(algo.g, index, dist, perf, recall)
 end
 
-function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N) where {T}
+function neighborhood(algo::GallopingSatNeighborhood, index::SearchGraph{T}, dist::PreMetric, item::T, knn::KnnResult, N::Vector, searchctx) where {T}
     empty!(knn, algo.g.neighborhood)
     empty!(N)
-    knn = search(index, dist, item, knn)
+    knn = search(index, dist, item, knn; searchctx=searchctx)
 
+    near = KnnResult(1)
     @inbounds for p in knn
+        empty!(near)
         dqp = p.dist
         pobj = index.db[p.id]
-        near = KnnResult(1)
-        push!(near, Item(p.id, p.dist))
+        push!(near, p.id, p.dist)
         for nearID in N
-            d = convert(Float32, dist(index.db[nearID], pobj)) 
-            push!(near, Item(nearID, d))
+            push!(near, nearID, evaluate(dist, index.db[nearID], pobj))
         end
 
         f = first(near)

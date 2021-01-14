@@ -19,7 +19,7 @@ function GallopingNeighborhood(factor)
     return GallopingNeighborhood(factor, 1f0/factor, 0.95, 1.05, 1)
 end
 
-function optimize_neighborhood!(algo::GallopingNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
+function optimize_neighborhood!(algo::GallopingNeighborhood, index::SearchGraph{T}, dist::PreMetric, perf, recall) where {T}
     # restarts, beam_size, montecarlo_size = index.restarts, index.beam_size, index.montecarlo_size
     # index.restarts, index.beam_size, index.montecarlo_size = 1, 1, 1
     SearchType = typeof(index.search_algo)
@@ -38,11 +38,11 @@ function optimize_neighborhood!(algo::GallopingNeighborhood, index::SearchGraph{
     # index.restarts, index.beam_size, index.montecarlo_size = restarts, beam_size, montecarlo_size
 end
 
-function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N) where {T}
+function neighborhood(algo::GallopingNeighborhood, index::SearchGraph{T}, dist::PreMetric, item::T, knn::KnnResult, N::Vector, searchctx) where {T}
     k = algo.neighborhood
     empty!(knn, k)
     empty!(N)
-    search(index, dist, item, knn)
+    search(index, dist, item, knn; searchctx=searchctx)
 
     for p in knn
         push!(N, p.id)

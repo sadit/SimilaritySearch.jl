@@ -1,58 +1,14 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export allknn, pairwise, simetricpairwise
+export allknn
 
 """
-    pairwise(dist::Function, X::AbstractVector{PointType}, Y::AbstractVector{PointType})::Matrix{Float64} where PointType
-    pairwise(dist::Function, X::AbstractVector{PointType})::Matrix{Float64} where PointType
-
-Computes the distance matrix among all pairs in ``X \\times Y``
-"""
-function pairwise(dist::Function, X::AbstractVector{PointType}, Y::AbstractVector{PointType})::Matrix{Float64} where PointType
-    A = Matrix{Float64}(undef, length(X), length(Y))
-
-    @inbounds for i in eachindex(X), j in eachindex(Y)
-        A[i, j] = dist(X[i], Y[j])
-    end
-
-    A
-end
-
-pairwise(dist::Function, X::AbstractVector) = pairwise(dist, X, X)
-
-"""
-    simetricpairwise(dist::Function, X::AbstractVector{PointType}, Y::AbstractVector{PointType})::Matrix{Float64} where PointType
-    simetricpairwise(dist::Function, X::AbstractVector{PointType})::Matrix{Float64} where PointType
-
-Computes the superior triangular metrix of of the distance matrix among items in `X` and `Y`
-"""
-function simetricpairwise(dist::Function, X::AbstractVector{PointType}, Y::AbstractVector{PointType})::Matrix{Float64} where PointType
-    n = length(X)
-    m = length(Y)
-
-    A = Matrix{Float64}(undef, n, m)
-    @inbounds for i in 1:n
-        u = X[i]
-        A[i, i] = dist(u, Y[i])
-        for j in i+1:m
-            d = dist(u, Y[j])
-            A[i, j] = d
-            A[j, i] = d
-        end
-    end
-
-    A
-end
-
-simetricpairwise(dist::Function, X::AbstractVector) = simetricpairwise(dist, X, X)
-
-"""
-    allknn(index::Index, dist::Function; k::Int=1)
+    allknn(index::Index, dist::PreMetric; k::Int=1)
 
 Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn 
 """
-function allknn(index::Index, dist::Function; k::Int=1)
+function allknn(index::Index, dist::PreMetric; k::Int=1)
     n = length(index.db)
     A = [KnnResult(k+1) for i in 1:n]
 
@@ -73,11 +29,11 @@ function allknn(index::Index, dist::Function; k::Int=1)
 end
 
 """
-    allknn(index::Index, dist::Function, X::AbstractVector; k::Int=1)
+    allknn(index::Index, dist::PreMetric, X::AbstractVector; k::Int=1)
 
 Finds k-nearest-neighbors for all items in the given X
 """
-function allknn(index::Index, dist::Function, X::AbstractVector; k::Int=1)
+function allknn(index::Index, dist::PreMetric, X::AbstractVector; k::Int=1)
     n = length(X)
     A = [KnnResult(k) for i in 1:n]
 
@@ -96,12 +52,12 @@ end
 
 
 """
-    allknn(index::SearchGraph{T}, dist::Function; k::Int=1)
+    allknn(index::SearchGraph{T}, dist::PreMetric; k::Int=1)
 
 Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn.
 This function is optimized for the SearchGraph similarity-index
 """
-function allknn(index::SearchGraph, dist::Function; k::Int=1)
+function allknn(index::SearchGraph, dist::PreMetric; k::Int=1)
     n = length(index.db)
     A = [KnnResult(k+1) for i in 1:n]
     # TODO: Test caching the distance function

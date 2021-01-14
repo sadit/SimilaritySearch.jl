@@ -61,7 +61,7 @@ function setstate!(vstate::VisitedVertices, i, state)
 end
 =#
 
-function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T};
+function fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T};
         recall=0.9, k=10,
         search_algo::LocalSearchAlgorithm=BeamSearch(),
         neighborhood_algo::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
@@ -82,7 +82,7 @@ function fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T};
 end
 
 
-function parallel_fit(::Type{SearchGraph}, dist, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
+function parallel_fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
     links = Vector{Int32}[]
     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
     firstblock = min(length(dataset), firstblock)
@@ -140,7 +140,7 @@ include("beamsearch.jl")
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, dist, item, knn::KnnResult, searchctx)
+function find_neighborhood(index::SearchGraph, dist::PreMetric, item, knn::KnnResult, searchctx)
     n = length(index.db)
     neighbors = Int32[]
     n > 0 && neighborhood(index.neighborhood_algo, index, dist, item, knn, neighbors, searchctx)
@@ -173,7 +173,7 @@ end
 
 Inserts `item` into the index.
 """
-function push!(index::SearchGraph, dist, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
+function push!(index::SearchGraph, dist::PreMetric, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
     searchctx = searchctx === nothing ? search_context(index) : searchctx
     neighbors = find_neighborhood(index, dist, item, knn, searchctx)
     push_neighborhood!(index, item, neighbors)
@@ -194,19 +194,19 @@ end
 const EMPTY_INT_VECTOR = Int[]
 
 """
-    search(index::SearchGraph, dist, q, res::KnnResult; hints)  
+    search(index::SearchGraph, dist::PreMetric, q, res::KnnResult; hints)  
 
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist, q, res::KnnResult; searchctx=nothing)
+function search(index::SearchGraph, dist::PreMetric, q, res::KnnResult; searchctx=nothing)
     searchctx = searchctx === nothing ? search_context(index) : searchctx
     length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
     res
 end
 
 """
-    optimize!(index::SearchGraph, dist;
+    optimize!(index::SearchGraph, dist::PreMetric;
         recall=0.9,
         k=10,
         num_queries=128,
@@ -217,7 +217,7 @@ end
 
 Optimizes the index for the specified kind of queries.
 """
-function optimize!(index::SearchGraph{T}, dist;
+function optimize!(index::SearchGraph{T}, dist::PreMetric;
     recall=0.9,
     k=10,
     num_queries=128,

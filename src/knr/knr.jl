@@ -20,12 +20,12 @@ mutable struct Knr{T} <: Index
 end
 
 """
-    fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1, verbose=false) where T
-    fit(::Type{Knr}, dist, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+    fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1, verbose=false) where T
+    fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
 
 Creates a `Knr` index using the given references or the number of references to be used.
 
-- `dist`: the distance function to be used
+- `dist`: the distance function to be used (a PreMetric object as described in `Distances.jl`)
 - `db`: the dataset to bbe indexed
 - `refs`: the references to be used
 - `k`: the number of references for representing objects inside the index
@@ -35,7 +35,7 @@ Creates a `Knr` index using the given references or the number of references to 
 - `numrefs`: if `refs` is not given, then `numrefs` objects are selected from `db` as `refs`
 - `tournamentsize`: `numrefs` is specified, an incremental construction of `refs` is performed, each reference is selected as the more distant (to already selected references) among `tournamentsize` candidates
 """
-function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+function fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
     verbose && println(stderr, "Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
     m = length(refs)
     invindex = [Vector{Int32}(undef, 0) for i in 1:m]
@@ -57,11 +57,11 @@ function fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, 
 end
 
 """
-    parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+    parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
 
 Create a Knr index in parallel using the available threads. 
 """
-function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+function parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
     verbose && println(stderr, "Knr> parallel_fit refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
     m = length(refs)
     invindex = [Vector{Int32}(undef, 0) for i in 1:m]
@@ -87,13 +87,13 @@ function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}, refs::AbstractVe
     Knr(db, refs, k, k, minmatches, invindex, verbose)
 end
 
-function parallel_fit(::Type{Knr}, dist, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+function parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
     parallel_fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
 end
 
-function fit(::Type{Knr}, dist, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+function fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
     # refs = rand(db, numrefs)
     refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
     fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
@@ -104,7 +104,7 @@ end
 
 Solves the query specified by `q` and `res` using the `Knr` index
 """
-function search(index::Knr, dist, q, res::KnnResult)
+function search(index::Knr, dist::PreMetric, q, res::KnnResult)
     dz = zeros(Int16, length(index.db))
     # M = BitArray(length(index.db))
     seqindex = fit(Sequential, index.refs)
@@ -116,21 +116,21 @@ function search(index::Knr, dist, q, res::KnnResult)
             dz[objID] = c
 
             if c == index.minmatches
-                d = dist(q, index.db[objID])
+                d = evaluate(dist, q, index.db[objID])
                 push!(res, objID, d)
             end
         end
     end
 
-    return res
+    res
 end
 
 """
-    push!(index::Knr, dist, obj)
+    push!(index::Knr, dist::PreMetric, obj)
 
 Inserts `obj` into the index
 """
-function push!(index::Knr, dist, obj)
+function push!(index::Knr, dist::PreMetric, obj)
     push!(index.db, obj)
     seqindex = fit(Sequential, index.refs)
     res = search(seqindex, dist, obj, KnnResult(index.k))
@@ -142,11 +142,11 @@ function push!(index::Knr, dist, obj)
 end
 
 """
-    optimize!(index::Knr, dist; recall=0.9, k=10, num_queries=128, perf=nothing)
+    optimize!(index::Knr, dist::PreMetric; recall=0.9, k=10, num_queries=128, perf=nothing)
 
 Optimizes the index to achieve the specified recall.
 """
-function optimize!(index::Knr, dist; recall=0.9, k=10, num_queries=128, perf=nothing)
+function optimize!(index::Knr, dist::PreMetric; recall=0.9, k=10, num_queries=128, perf=nothing)
     index.verbose && println(stderr, "Knr> optimizing index for recall=$(recall)")
     if perf === nothing
         perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)

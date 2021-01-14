@@ -2,7 +2,7 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export Performance, PerformanceResult, probe
-using Statistics: mean
+using StatsBase: mean
 
 mutable struct PerformanceResult
     precision::Float64
@@ -24,7 +24,7 @@ mutable struct Performance{T}
     queries_from_db::Bool
     exhaustive_search_seconds::Float64
 
-    function Performance(dist::Function, db::AbstractVector{T}, queries::AbstractVector{T}; queries_from_db=false, expected_k=10, create_index=Sequential) where T
+    function Performance(dist::PreMetric, db::AbstractVector{T}, queries::AbstractVector{T}; queries_from_db=false, expected_k=10, create_index=Sequential) where T
         results = Vector{Set{Int}}(undef, length(queries))
         distances_sum = Vector{Float64}(undef, length(queries))
 
@@ -45,13 +45,13 @@ mutable struct Performance{T}
         new{T}(db, queries, results, distances_sum, expected_k, queries_from_db, elapsed / length(queries))
     end
 
-    function Performance(db::AbstractVector{T}, dist::Function; num_queries::Int=128, expected_k::Int=10) where T
+    function Performance(db::AbstractVector{T}, dist::PreMetric; num_queries::Int=128, expected_k::Int=10) where T
         queries = rand(db, num_queries)
         Performance(dist, db, queries, queries_from_db=true, expected_k=expected_k)
     end
 end
 
-function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, aggregation=:mean, field=:seconds)
+function probe(perf::Performance, index::Index, dist::PreMetric; repeat::Int=1, aggregation=:mean, field=:seconds)
     if repeat == 1
         return _probe(perf, index, dist)
     end
@@ -84,16 +84,27 @@ function probe(perf::Performance, index::Index, dist::Function; repeat::Int=1, a
     end
 end
 
-function _probe(perf::Performance, index::Index, dist::Function)
-    eval_counter = 0
-    function dist_(a_, b_)
-        eval_counter += 1
-        dist(a_, b_)
-    end
+mutable struct DistanceCounter{T<:PreMetric} <: PreMetric
+    eval_counter::Int
+    dist::T
+end
+
+function DistanceCounter(dist::T) where {T<:PreMetric}
+    DistanceCounter(0, dist)
+end
+
+function evaluate(d::DistanceCounter, a, b)
+    d.eval_counter += 1
+    evaluate(d.dist, a, b)
+end
+
+
+function _probe(perf::Performance, index::Index, dist::PreMetric)
+    dist_ = DistanceCounter(dist)
 
     p = PerformanceResult()
     m = length(perf.queries)
-    p.evaluations = eval_counter
+    p.evaluations = dist_.eval_counter
     p.seconds = 0.0
     p.distances_sum = 0.0
 
@@ -122,7 +133,7 @@ function _probe(perf::Performance, index::Index, dist::Function)
         p.f1 += 2 * precision * recall / (precision + recall)
     end
 
-    p.evaluations = (eval_counter - p.evaluations) / m
+    p.evaluations = (dist_.eval_counter - p.evaluations) / m
     p.seconds = p.seconds / m
     p.precision /= m
     p.recall /= m

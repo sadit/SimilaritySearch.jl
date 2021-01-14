@@ -51,17 +51,17 @@ end
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-function beam_init(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult, hints, vstate) where Fun
+function beam_init(bs::BeamSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, hints, vstate)
     for objID in hints
         if getstate(vstate, objID) === UNKNOWN
             setstate!(vstate, objID, VISITED)
-            @inbounds d = dist(q, index.db[objID])
+            @inbounds d = evaluate(dist, q, index.db[objID])
             push!(res, objID, d)
         end
     end
 end
 
-function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
+function beam_search_inner(index, dist::PreMetric, q, res, beam, vstate)
     while length(beam) > 0
         prev = popfirst!(beam)
         getstate(vstate, prev.id) === EXPLORED && continue
@@ -69,7 +69,7 @@ function beam_search_inner(index, dist::Fun, q, res, beam, vstate) where Fun
         @inbounds for childID in index.links[prev.id]
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
-                @inbounds d = dist(q, index.db[childID])
+                @inbounds d = evaluate(dist, q, index.db[childID])
                 push!(res, childID, d) && push!(beam, childID, d)
                 #d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
             end
@@ -84,7 +84,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph, dist::Fun, q, res::KnnResult, searchctx::BeamSearchContext) where Fun
+function search(bs::BeamSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, searchctx::BeamSearchContext)
     n = length(index.db)
     n == 0 && return res
 

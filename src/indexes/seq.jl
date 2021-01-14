@@ -29,12 +29,11 @@ end
 
 Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against 
 """
-function search(index::Sequential, dist::Fun, q, res::KnnResult) where Fun
+function search(index::Sequential, dist::PreMetric, q, res::KnnResult)
     db = index.db
 
-    for i in eachindex(db)
-        d = @inbounds dist(db[i], q)
-        push!(res, i, d)
+    @inbounds for i in eachindex(db)
+        push!(res, i, evaluate(dist, db[i], q))
     end
 
     res

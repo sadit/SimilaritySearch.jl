@@ -3,7 +3,8 @@
 
 module SimilaritySearch
 abstract type Index end
-export Index
+import Distances: evaluate, PreMetric
+export Index, PreMetric
 
 include("distances/bits.jl")
 include("distances/sets.jl")
@@ -14,11 +15,11 @@ include("utils/knn.jl")
 include("utils/performance.jl")
 include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
-include("indexes/laesa.jl")
+include("indexes/pivottable.jl")
 include("indexes/pivotselectiontables.jl")
 include("knr/knr.jl")
 include("knr/kvp.jl")
 include("graph/graph.jl")
-include("utils/aknn.jl")
-include("utils/classification.jl")
+#include("utils/aknn.jl")
+#include("utils/classification.jl")
 end

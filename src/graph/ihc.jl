@@ -38,11 +38,11 @@ function reset!(searchctx::IHCSearchContext; n=0)
 end
 
 """
-    hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
+    hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vstate, nodeID::Integer; use_local_improvement::Bool=false)
+function hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, nodeID::Integer; use_local_improvement::Bool=false)
     omin::Int = -1
     dmin::Float32 = typemax(Float32)
 
@@ -54,7 +54,7 @@ function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vs
             S = get(vstate, childID, UNKNOWN)
             S != UNKNOWN && continue
             vstate[childID] = VISITED
-            d = convert(Float32, dist(index.db[childID], q))
+            d = convert(Float32, evaluate(dist, index.db[childID], q))
             if use_local_improvement  ## this yields to better quality but can't be tuned for early stopping
                 push!(res, childID, d)
                 if d < dmin
@@ -78,12 +78,12 @@ function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vs
 end
 
 """
-    search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult, vstate, hints=EMPTY_INT_VECTOR)
+    search(isearch::IHCSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, hints=EMPTY_INT_VECTOR)
 
 Performs an iterated hill climbing search for `q`. The given `hints` are used as starting points of the search; a random
 selection is performed otherwise.
 """
-function search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult, searchctx)
+function search(isearch::IHCSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, searchctx)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
 
@@ -92,7 +92,7 @@ function search(isearch::IHCSearch, index::SearchGraph, dist, q, res::KnnResult,
         S = get(searchctx.vstate, start_point, UNKNOWN)
         if S == UNKNOWN
             searchctx.vstate[start_point] = VISITED
-            d = convert(Float32, dist(q, index.db[start_point]))
+            d = convert(Float32, evaluate(dist, q, index.db[start_point]))
             push!(res, start_point, d)
             hill_climbing(index, dist, q, res, searchctx.vstate, start_point)
         end

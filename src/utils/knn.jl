@@ -157,6 +157,10 @@ end
     res.n
 end
 
+@inline function Base.eachindex(res::KnnResult)
+    1:res.n
+end
+
 ##### iterator interface
 ### KnnResult
 function Base.iterate(res::KnnResult, state::Int=1)
