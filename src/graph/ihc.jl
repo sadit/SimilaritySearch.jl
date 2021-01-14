@@ -42,7 +42,7 @@ end
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(index::SearchGraph, dist, q, res::KnnResult, vstate, nodeID::Int64; use_local_improvement::Bool=false)
+function hill_climbing(index::SearchGraph, dist::Function, q, res::KnnResult, vstate, nodeID::Integer; use_local_improvement::Bool=false)
     omin::Int = -1
     dmin::Float32 = typemax(Float32)
 
