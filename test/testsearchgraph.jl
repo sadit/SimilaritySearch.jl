@@ -7,7 +7,16 @@ using Test
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
-function test_index(dist::PreMetric, search_algo, neighborhood_algo, ksearch::Int)
+function test_graph_vectors(graph, queries, ksearch, gold)
+    results = [search(graph, q, KnnResult(ksearch)) for q in queries]
+
+    S = scores.(gold, results)
+    s = scores(S)
+    @show s
+    @test s.macro_recall >= 0.9
+end
+
+function create_graph(dist::PreMetric, search_algo, neighborhood_algo)
     index = fit(SearchGraph, dist, Vector{Float32}[], recall=0.9, search_algo=search_algo, neighborhood_algo=neighborhood_algo)
     n = 10_000
     dim = 3

@@ -5,7 +5,7 @@ import StatsBase: fit, predict
 export KNN, fit, predict
 
 """
-    predict(index::Index, y::AbstractVector, nclasses::Int, dist::Function, Q::AbstractVector, k::Int)
+    predict(index::Index, y::AbstractVector, nclasses::Int, dist::PreMetric, Q::AbstractVector, k::Int)
 
 Classify each ``u \\in Q`` according to the most frequent class among its ``k`` nearest
 neighbors. Please note that it expects ``index.db \\subset U``, ``Q \\subset U``, and `` dist(u, v) \\forall u, v \\in U``.
@@ -18,7 +18,7 @@ neighbors. Please note that it expects ``index.db \\subset U``, ``Q \\subset U``
 - `k` the number of neighbors to be used in the classification
 
 """
-function predict(index::Index, y::AbstractVector, nclasses::Int, dist::Function, Q::AbstractVector, k::Int)
+function predict(index::Index, y::AbstractVector, nclasses::Int, dist::PreMetric, Q::AbstractVector, k::Int)
     m = length(Q)
     ypred = Vector{Int}(undef, m)
     freqs = Vector{Int}(undef, nclasses)

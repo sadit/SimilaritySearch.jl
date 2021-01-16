@@ -2,22 +2,25 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using SimilaritySearch
-
-import SimilaritySearch:
-    search, fit, push!
-
 export Kvp, k_near_and_far, fit, search, push!
 
-mutable struct Kvp{T} <: Index
-    db::Vector{T}
-    refs::Vector{T}
+mutable struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
+    dist::DistanceType
+    db::DataType
+    refs::DataType
     sparsetable::Vector{Vector{Item}}
-    k::Int
+    ksparse::Int
+    res::KnnResult
 end
 
-function k_near_and_far(dist::PreMetric, obj::T, refs::Vector{T}, k::Int) where T
-    near = KnnResult(k)
-    far = KnnResult(k)
+
+Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer, ksearch::Integer=10) = 
+    Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))
+
+
+function k_near_and_far(dist::PreMetric, near::KnnResult, far::KnnResult, obj::T, refs::Vector{T}, k::Integer) where T
+    empty!(near, k)
+    empty!(far, k)
 
     for refID in eachindex(refs)
         d = evaluate(dist, obj, refs[refID])
@@ -25,50 +28,54 @@ function k_near_and_far(dist::PreMetric, obj::T, refs::Vector{T}, k::Int) where 
         push!(far, refID, -d)
     end
 
-    row = Item[]
-    sizehint!(row, 2*k)
-    for p in near
-        push!(row, p)
+    row = Vector{Item}(undef, k + k)
+    for i in eachindex(near)
+        row[i] = near[i]
     end
     
-    for p in far
-        push!(row, Item(p.id, -p.dist))
+    for i in length(far):-1:1
+        p = far[i]
+        row[i + k] = Item(p.id, -p.dist)
     end
 
     row
 end
 
-function fit(::Type{Kvp}, dist::PreMetric, db::Vector{T}, k::Int, refs::Vector{T}) where T
-    @info "Kvp, refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)"
+function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
+    @info "Kvp, refs=$(typeof(db)), k=$(ksparse), numrefs=$(length(refs)), dist=$(dist)"
     sparsetable = Vector{Item}[]
 
+    near = KnnResult(ksparse)
+    far = KnnResult(ksparse)
     for i in 1:length(db)
         if (i % 10000) == 0
             println(stderr, "advance $(i)/$(length(db))")
         end
 
-        row = k_near_and_far(dist, db[i], refs, k)
+        row = k_near_and_far(dist, near, far, db[i], refs, ksparse)
         push!(sparsetable, row)
     end
 
-    Kvp(db, refs, sparsetable, k)
+    Kvp(dist, db, refs, sparsetable, ksparse)
 end
 
-function fit(::Type{Kvp}, dist::PreMetric, db::Vector{T}, k::Int, numrefs::Int) where T
-    refList = rand(1:length(db), numrefs)
-    refs = [db[x] for x in refList]
-    fit(Kvp, dist, db, k, refs)
+function Kvp(dist::PreMetric, db::AbstractVector;
+        numpivots::Integer=ceil(Int, sqrt(length(db))),
+        ksparse::Integer=ceil(Int, log2(length(db)))
+        )
+    L = unique(rand(1:length(db), numpivots))
+    Kvp(dist, db, db[L], ksparse)
 end
 
-function search(index::Kvp{T}, dist::PreMetric, q::T, res::KnnResult) where T
-    d::Float64 = 0.0
-    qI = [evaluate(dist, q, piv) for piv in index.refs]
+function search(kvp::Kvp, q::T, res::KnnResult) where T
+    # d::Float64 = 0.0
+    qI = [evaluate(kvp.dist, q, piv) for piv in kvp.refs]
 
-    for i in eachindex(index.db)
-        obj::T = index.db[i]
-        objSparseRow = index.sparsetable[i]
+    for i in eachindex(kvp.db)
+        obj::T = kvp.db[i]
+        objSparseRow = kvp.sparsetable[i]
 
-        discarded::Bool = false
+        discarded = false
         @inbounds for item in objSparseRow
             pivID = item.id
             dop = item.dist
@@ -78,19 +85,17 @@ function search(index::Kvp{T}, dist::PreMetric, q::T, res::KnnResult) where T
             end
         end
 
-        if discarded
-            continue
-        end
-        d = evaluate(dist, q, obj)
-        push!(res, i, d)
+        discarded && continue
+        push!(res, i, evaluate(kvp.dist, q, obj))
     end
 
     res
 end
 
-function push!(index::Kvp{T}, dist, obj::T) where T
-    push!(index.db, obj)
-    row = k_near_and_far(dist, obj, index.refs, index.k)
-    push!(index.sparsetable, row)
-    length(index.db)
-end
+## 
+## function push!(index::Kvp{T}, dist, obj::T) where T
+##     push!(index.db, obj)
+##     row = k_near_and_far(dist, obj, index.refs, index.k)
+##     push!(index.sparsetable, row)
+##     length(index.db)
+## end

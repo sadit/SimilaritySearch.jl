@@ -1,78 +1,75 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export PivotTable
-
-mutable struct PivotTable{T} <: Index
-    db::Vector{T}
-    pivots::Vector{T}
-    table::Matrix{Float64} # rows: number of pivots; cols: number of objects 
-end
+export PivotedSearch
 
 """
-    fit(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, pivots::Vector{T})
-    fit(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, numPivots::Integer)
+    PivotedSeach(index::PivotTable, db::AbstractVector, dist::PreMetric, knn::KnnResult)
+    PivotedSeach(index::PivotTable, db::AbstractVector, dist::PreMetric, k::Integer=10)
+
+Defines a search context for PivotTables
+"""
+struct PivotedSearch{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
+    dist::DistanceType
+    db::DataType
+    pivots::DataType
+    table::Vector{Vector{Float32}} # pivot table
+    dqp::Vector{Float32} # query mapped to the pivot space
+    res::KnnResult
+end
+
+PivotedSearch(dist::PreMetric, db, pivots, table, k::Integer=10) =
+    PivotedSearch(dist, db, pivots, table, zeros(Float32, length(pivots)), KnnResult(k))
+
+"""
+    PivotedSearch(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, pivots::Vector{T})
+    PivotedSearch(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, numpivots::Integer)
 
 Creates a `PivotTable` index with the given pivots. If the number of pivots is specified,
 then they will be randomly selected from the dataset.
 """
-function fit(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, pivots::AbstractVector{T})  where T
+function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, pivots::AbstractVector{T}) where T
     @info "Creating a pivot table with $(length(pivots)) pivots and distance=$(dist)"
-    table = Matrix{Float64}(undef, length(pivots), length(db))
-
-    for j in 1:length(db)
-        for i in 1:length(pivots)
-            table[i, j] = evaluate(dist, db[j], pivots[i])
-        end
+    table = Vector{Vector{Float32}}(undef, length(db))
+    for i in 1:length(db)
+        u = db[i]
+        table[i] = [evaluate(dist, u, pivots[j]) for j in 1:length(pivots)]
     end
 
-    PivotTable(db, pivots, table)
+    PivotedSearch(dist, db, pivots, table, 1)
 end
 
-function fit(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, numPivots::Integer) where T
-    pivots = rand(db, numPivots)
-    fit(PivotTable, dist, db, pivots)
+function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, numpivots::Integer) where T
+    pivots = rand(db, numpivots)
+    PivotedSearch(dist, db, pivots)
 end
 
 """
-    search(index::PivotTable, dist, q, res::KnnResult)
+    search(index::PivotedSeach, q, res::KnnResult)
 
-Solves a query with the PivotTable index.
+Solves a query with the pivot index.
 """
-function search(index::PivotTable, dist::PreMetric, q, res::KnnResult)
-    dqp = [evaluate(dist, q, piv) for piv in index.pivots]
+function search(index::PivotedSearch, q, res::KnnResult)
+    @inbounds for i in eachindex(index.pivots)
+        index.dqp[i] = evaluate(index.dist, q, index.pivots[i])
+    end
+    
     for i in eachindex(index.db)
-        dpu = @view index.table[:, i]
-        
+        dpu = index.table[i]
         need_eval = true
+
         for pivID in 1:length(index.pivots)
-            if abs(dqp[pivID] - dpu[pivID]) > covrad(res)
+            if abs(index.dqp[pivID] - dpu[pivID]) > covrad(res)
                 need_eval = false
                 break
             end
         end
 
         if need_eval
-            d = evaluate(dist, q, index.db[i])
+            d = evaluate(index.dist, q, index.db[i])
             push!(res, i, d)
         end
     end
 
-    return res
-end
-
-"""
-    push!(index::PivotTable, dist, obj)
-
-Inserts `obj` into the index
-"""
-function push!(index::PivotTable, dist, obj)
-    push!(index.db, obj)
-    vec = Vector{Float64}(undef, length(index.pivots))
-    for pivID in 1:length(vec)
-        vec[pivID] = evaluate(dist, index.pivots[pivID], obj)
-    end
-
-    index.table = hcat(index.table, vec)
-    length(index.db)
+    res
 end

@@ -4,56 +4,34 @@
 import Base: push!
 import StatsBase: fit
 
-export Sequential, search, push!, fit, optimize!
+export ExhaustiveSearch, search, push!, fit, optimize!
 
 """
-    Sequential{T}
+    ExhaustiveSearch(dist::PreMetric, db::AbstractVector, knn::KnnResult)
+    ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer)
 
-A simple exhaustive search index
+Defines a ExhaustiveSearch exhaustive search
 """
-mutable struct Sequential{T} <: Index
-    db::Vector{T}
+struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
+    dist::DistanceType
+    db::DataType
+    res::KnnResult
 end
 
-"""
-    fit(::Type{Sequential}, db)
-
-Creates a sequential-exhaustive index
-"""
-function fit(::Type{Sequential}, db)
-    Sequential(db)
-end
+ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(k))
 
 """
-    search(index::Sequential, dist, q, res::KnnResult)
+    search(seq::ExhaustiveSearch, q, res::KnnResult)
 
-Solves the query evaluating ``dist(q,u) \\forall u \\in index`` against 
+Solves the query evaluating all items in the given context
 """
-function search(index::Sequential, dist::PreMetric, q, res::KnnResult)
-    db = index.db
+function search(seq::ExhaustiveSearch, q, res::KnnResult)
+    db = seq.db
 
     @inbounds for i in eachindex(db)
-        push!(res, i, evaluate(dist, db[i], q))
+        push!(res, i, evaluate(seq.dist, db[i], q))
     end
 
     res
 end
 
-"""
-   push!(index::Sequential, dist, item)
-
-Interts an item into the index
-"""
-function push!(index::Sequential, dist, item)
-    push!(index.db, item)
-    length(index.db)
-end
-
-"""
-    optimize!(index::Sequential{T}, dist, recall::Float64)
-
-Optimizes the index for the required quality
-"""
-function optimize!(index::Sequential, dist, recall::Float64)
-    # do nothing for sequential
-end

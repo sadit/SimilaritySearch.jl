@@ -26,6 +26,8 @@ individual is selected among`tournamentsize` individuals.
 It returns a set of pivots as a list of integers pointing to elements in `db`
 """
 function select_tournament(dist::PreMetric, db::AbstractVector{T}, numrefs::Int, tournamentsize::Int) where T
+    @info "select_tournament: db=$(typeof(db)), numrefs=$(numrefs), distance=$(dist), tournamentsize=$(tournamentsize)"
+
     refs = Vector{Int}()
     perm = 1:length(db) |> collect
     shuffle!(perm)

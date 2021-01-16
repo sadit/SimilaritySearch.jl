@@ -3,8 +3,25 @@
 
 module SimilaritySearch
 abstract type Index end
+abstract type AbstractSearchContext end
+# abstract type AbstractMultithreadedSearchContext <: AbstractSearchContext end
+
+
+
 import Distances: evaluate, PreMetric
-export Index, PreMetric
+export AbstractSearchContext, PreMetric
+
+function search(searchctx::AbstractSearchContext, q, k::Integer=0)
+    empty!(searchctx.res, k)
+    search(searchctx, q, searchctx.res)
+end
+
+# function search(searchctx::AbstractMultithreadedSearchContext, q, k::Integer=0)
+#     i = Threads.threadid()
+#     empty!(searchctx.reslist[i], k)
+#     search(searchctx, q, searchctx.reslist[i])
+# end
+
 
 include("distances/bits.jl")
 include("distances/sets.jl")
@@ -12,14 +29,16 @@ include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
 include("utils/knn.jl")
-include("utils/performance.jl")
+
+include("utils/scores.jl")
 include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/pivottable.jl")
 include("indexes/pivotselectiontables.jl")
-include("knr/knr.jl")
 include("knr/kvp.jl")
-include("graph/graph.jl")
-#include("utils/aknn.jl")
-#include("utils/classification.jl")
+
+include("knr/knr.jl")
+# include("graph/graph.jl")
+# include("utils/aknn.jl")
+# include("utils/classification.jl")
 end

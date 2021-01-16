@@ -132,24 +132,23 @@ Returns the coverage radius of the result set; if length(p) < K then typemax(Flo
 @inline covrad(res::KnnResult) = length(res) < maxlength(res) ? typemax(Float32) : res.pool[end].dist
 
 """
-    empty!(p::KnnResult)
+    empty!(res::KnnResult)
     empty!(res::KnnResult, k::Integer)
 
 Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
 as needed (only grows).
 """
-@inline function Base.empty!(res::KnnResult)
+@inline function Base.empty!(res::KnnResult, k::Integer=0)
     res.n = 0
-end
-
-@inline function Base.empty!(res::KnnResult, k::Integer)
-    res.n = 0
-    res.N = k
-    k > maxlength(res) && resize!(res.pool, k)
+    if k > 0
+        res.N = k
+        k > maxlength(res) && resize!(res.pool, k)
+    end
+    
     res
 end
 
-@inline function Base.getindex(res::KnnResult, k::Integer)
+@inline function Base.getindex(res::KnnResult, i::Integer)
     res.pool[i]
 end
 

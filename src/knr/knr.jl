@@ -3,142 +3,165 @@
 
 using SimilaritySearch
 using Dates
-
-import SimilaritySearch:
-    search, fit, push!, optimize!
-
 export Knr
 
-mutable struct Knr{T} <: Index
-    db::Vector{T}
-    refs::Vector{T}
-    k::Int
-    ksearch::Int
-    minmatches::Int
+struct Knr{RefSearchType<:AbstractSearchContext, DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
+    dist::DistanceType
+    db::DataType
+    refsearch::RefSearchType
+    kbuild::Int32
+    ksearch::Int32
+    minmatches::Int32
     invindex::Vector{Vector{Int32}}
+    res::KnnResult
     verbose::Bool
 end
 
+
+function Knr(
+    dist::PreMetric,
+    db::AbstractVector,
+    refsearch::AbstractSearchContext,
+    kbuild::Integer,
+    ksearch::Integer,
+    minmatches::Integer,
+    invindex;
+    k::Integer=10,
+    verbose=true)
+    Knr(dist, db, refsearch,
+        convert(Int32, kbuild),
+        convert(Int32, ksearch),
+        convert(Int32, minmatches),
+        invindex, KnnResult(k), verbose)
+end
+
 """
-    fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1, verbose=false) where T
-    fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+    Knr(dist::PreMetric, db::AbstractVector{T}, refsearch::AbstractSearchContext;
+        kbuild::Integer=3,
+        ksearch::Integer=kbuild,
+        minmatches::Integer=1,
+        verbose=true,
+        k::Integer=10)
+    Knr(dist::PreMetric, db::AbstractVector{T};
+        numrefs::Int=1024,
+        kbuild::Integer=3,
+        ksearch::Integer=kbuild,
+        minmatches::Integer=1,
+        tournamentsize::Int=3,
+        verbose=false,
+        k=10) where T
 
 Creates a `Knr` index using the given references or the number of references to be used.
 
 - `dist`: the distance function to be used (a PreMetric object as described in `Distances.jl`)
 - `db`: the dataset to bbe indexed
-- `refs`: the references to be used
-- `k`: the number of references for representing objects inside the index
+- `refsearch`: the references index to be used
+- `kbuild`: the number of references for representing objects inside the index
 - `ksearch`: the same than `k` but used while searching
 - `minmatches`: at query time, it determines the minimum number of references matched to allow a distance evaluation
 - `verbose`: controls if the index must have a verbose output for its operations
 - `numrefs`: if `refs` is not given, then `numrefs` objects are selected from `db` as `refs`
 - `tournamentsize`: `numrefs` is specified, an incremental construction of `refs` is performed, each reference is selected as the more distant (to already selected references) among `tournamentsize` candidates
 """
-function fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
-    verbose && println(stderr, "Knr> refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
-    m = length(refs)
+function Knr(dist::PreMetric, db::AbstractVector{T}, refsearch::AbstractSearchContext;
+    kbuild::Integer=3, ksearch::Integer=kbuild, minmatches::Integer=1, verbose=true, k::Integer=10) where T
+    verbose && println(stderr, "Knr> refs=$(typeof(db)), k=$(kbuild), numrefs=$(length(refs)), dist=$(dist)")
+    m = length(refsearch.db)
     invindex = [Vector{Int32}(undef, 0) for i in 1:m]
-    seqindex = fit(Sequential, refs)
     counter = 0
     n = length(db)
-    for i in eachindex(db)
-        res = search(seqindex, dist, db[i], KnnResult(k))
-        for p in res
+
+    for i in 1:n
+        for p in search(refsearch, db[i], kbuild)
             push!(invindex[p.id], i)
         end
+
         counter += 1
-        if (counter % 100_000) == 1
+        if verbose && (counter % 100_000) == 1
             println(stderr, "*** advance ", counter, " from ", n, "; ", string(Dates.now()))
         end
     end
 
-    Knr(db, refs, k, k, minmatches, invindex, verbose)
+    verbose && println(stderr, "*** advance ", counter, " from ", n, "; ", string(Dates.now()))
+    Knr(dist, db, refsearch, kbuild, ksearch, minmatches, invindex; k=k, verbose=verbose)
 end
 
-"""
-    parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
-
-Create a Knr index in parallel using the available threads. 
-"""
-function parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
-    verbose && println(stderr, "Knr> parallel_fit refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
-    m = length(refs)
-    invindex = [Vector{Int32}(undef, 0) for i in 1:m]
-    locks = [Threads.SpinLock() for i in 1:m]
-    seqindex = fit(Sequential, refs)
-    counter = Threads.Atomic{Int}(0)
-    n = length(db)
-    Threads.@threads for i in 1:n
-        res = search(seqindex, dist, db[i], KnnResult(k))
-        for p in res
-            refID = p.id
-            lock(locks[refID])
-            push!(invindex[refID], i)
-            unlock(locks[refID])
-        end
-        Threads.atomic_add!(counter, 1)
-        c = counter[]
-        if (c % 100_000) == 1
-            println(stderr, "*** advance ", c, " from ", n, "; ", string(Dates.now()))
-        end
-    end
-
-    Knr(db, refs, k, k, minmatches, invindex, verbose)
-end
-
-function parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+function Knr(dist::PreMetric, db::AbstractVector{T};
+        numrefs::Int=1024,
+        kbuild::Integer=3,
+        ksearch::Integer=kbuild,
+        minmatches::Integer=1,
+        tournamentsize::Int=3,
+        verbose=false,
+        k=10) where T
     # refs = rand(db, numrefs)
-    refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
-    parallel_fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
+    refs = db[select_tournament(dist, db, numrefs, tournamentsize)]
+    refsearch = ExhaustiveSearch(dist, refs, kbuild)
+    Knr(dist, db, refsearch; kbuild=kbuild, ksearch=ksearch, minmatches=minmatches, verbose=verbose, k=k)
 end
 
-function fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
-    # refs = rand(db, numrefs)
-    refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
-    fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
-end
+## """
+##     parallel_Knr(dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+## 
+## Create a Knr index in parallel using the available threads. 
+## """
+## function parallel_Knr(dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{T}, k::Int, minmatches::Int=1; verbose=false) where T
+##     verbose && println(stderr, "Knr> parallel_fit refs=$(typeof(db)), k=$(k), numrefs=$(length(refs)), dist=$(dist)")
+##     m = length(refs)
+##     invindex = [Vector{Int32}(undef, 0) for i in 1:m]
+##     locks = [Threads.SpinLock() for i in 1:m]
+##     refsctx = MultithreadedSequentialSearchContext(refs, dist, k)
+##     counter = Threads.Atomic{Int}(0)
+##     n = length(db)
+## 
+##     Threads.@threads for i in 1:n
+##         res = search(refsctx, db[i])
+##         for p in res
+##             refID = p.id
+##             lock(locks[refID])
+##             push!(invindex[refID], i)
+##             unlock(locks[refID])
+##         end
+## 
+##         Threads.atomic_add!(counter, 1)
+##         c = counter[]
+##         if (c % 100_000) == 1
+##             println(stderr, "*** advance ", c, " from ", n, "; ", string(Dates.now()))
+##         end
+##     end
+## 
+##     Knr(refs, k, k, minmatches, invindex, verbose)
+## end
+## 
+## function parallel_fit(::Type{Knr}, dist::PreMetric, db::AbstractVector{T}; numrefs::Int=1024, k::Int=3, minmatches::Int=1, tournamentsize::Int=3, verbose=false) where T
+##     # refs = rand(db, numrefs)
+##     refs = [db[x] for x in select_tournament(dist, db, numrefs, tournamentsize)]
+##     parallel_fit(Knr, dist, db, refs, k, minmatches, verbose=verbose)
+## end
 
 """
-    search(index::Knr, dist, q, res::KnnResult)
+    search(knr::Knr, q, res::KnnResult)
 
 Solves the query specified by `q` and `res` using the `Knr` index
 """
-function search(index::Knr, dist::PreMetric, q, res::KnnResult)
-    dz = zeros(Int16, length(index.db))
-    # M = BitArray(length(index.db))
-    seqindex = fit(Sequential, index.refs)
-    kres = search(seqindex, dist, q, KnnResult(index.ksearch))
+function search(knr::Knr, q, res::KnnResult)
+    dz = zeros(Int16, length(knr.db))
+    kres = search(knr.refsearch, q, knr.ksearch)
 
-    for p in kres
-        @inbounds for objID in index.invindex[p.id]
+    @inbounds for i in eachindex(kres)
+        p = kres[i]
+        for objID in knr.invindex[p.id]
             c = dz[objID] + 1
             dz[objID] = c
 
-            if c == index.minmatches
-                d = evaluate(dist, q, index.db[objID])
+            if c == knr.minmatches
+                d = evaluate(knr.dist, q, knr.db[objID])
                 push!(res, objID, d)
             end
         end
     end
 
     res
-end
-
-"""
-    push!(index::Knr, dist::PreMetric, obj)
-
-Inserts `obj` into the index
-"""
-function push!(index::Knr, dist::PreMetric, obj)
-    push!(index.db, obj)
-    seqindex = fit(Sequential, index.refs)
-    res = search(seqindex, dist, obj, KnnResult(index.k))
-    for p in res
-        push!(index.invindex[p.id], length(index.db))
-    end
-    
-    length(index.db)
 end
 
 """
@@ -165,3 +188,20 @@ function optimize!(index::Knr, dist::PreMetric; recall=0.9, k=10, num_queries=12
     index.verbose && println(stderr, "Knr> reached performance $(p)")
     index
 end
+
+
+## """
+##     push!(index::Knr, dist::PreMetric, obj)
+## 
+## Inserts `obj` into the index
+## """
+## function push!(index::Knr, dist::PreMetric, obj)
+##     push!(index.db, obj)
+##     seqindex = fit(Sequential, index.refs)
+##     res = search(seqindex, dist, obj, KnnResult(index.k))
+##     for p in res
+##         push!(index.invindex[p.id], length(index.db))
+##     end
+##     
+##     length(index.db)
+## end
