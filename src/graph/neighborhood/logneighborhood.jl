@@ -11,9 +11,6 @@ function LogNeighborhood()
     return LogNeighborhood(2)
 end
 
-function optimize_neighborhood!(algo::LogNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
-end
-
 function find_neighborhood(algo::LogNeighborhood, index::SearchGraph, item)
     n = length(index.db)
     k = max(1, log(algo.base, n) |> ceil |> Int)

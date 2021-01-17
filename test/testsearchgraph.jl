@@ -19,14 +19,20 @@ using Test
     seq = ExhaustiveSearch(dist, db, ksearch)
     perf = Performance(seq, queries, ksearch)
 
-    for search_algo in [IHCSearch()]  #, BeamSearch()]
-        #for neighborhood_algo in [ SatNeighborhood(), VorNeighborhood()]
-        for neighborhood_algo in [FixedNeighborhood(16), LogNeighborhood(), LogSatNeighborhood()]
+    for search_algo in [IHCSearch(16)]  #, BeamSearch()]
+        #for neighborhood_algo in [, ()]
+        for neighborhood_algo in [
+                FixedNeighborhood(16),
+                LogNeighborhood(),
+                LogSatNeighborhood(),
+                SatNeighborhood(),
+                VorNeighborhood()
+            ]
             graph = SearchGraph(dist, db;
                 search_algo=search_algo,
                 neighborhood_algo=neighborhood_algo,
                 automatic_optimization=false)
-            @test probe(perf, graph).macrorecall >= 0.9
+            @test probe(perf, graph).macrorecall >= 0.8
         end
     end
 end

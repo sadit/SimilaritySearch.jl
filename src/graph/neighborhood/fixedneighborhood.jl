@@ -11,9 +11,6 @@ function FixedNeighborhood()
     return FixedNeighborhood(8)
 end
 
-function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
-end
-
 """
     find_neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
 

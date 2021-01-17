@@ -11,21 +11,16 @@ function VorNeighborhood()
     return VorNeighborhood(1.1)
 end
 
-function optimize_neighborhood!(algo::VorNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
-end
-
-function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist::PreMetric, item::T, knn, N, searchctx) where T
+function find_neighborhood(algo::VorNeighborhood, index::SearchGraph, item)
     k = max(1, ceil(Int, log(algo.base, length(index.db))))
-    empty!(knn, k)
-    empty!(N)
+    N = Int32[]
     n = length(index.db)
-    search(index, dist, item, knn; searchctx=searchctx)
-
-    @inbounds for p in knn
+   
+    @inbounds for p in search(index, item, k)
         pobj = index.db[p.id]
         covered = false
         for nearID in N
-            d = convert(Float32, evaluate(dist, index.db[nearID], pobj))
+            d = convert(Float32, evaluate(index.dist, index.db[nearID], pobj))
             if d <= p.dist
                 covered = true
                 break
@@ -34,4 +29,6 @@ function neighborhood(algo::VorNeighborhood, index::SearchGraph{T}, dist::PreMet
 
         !covered && push!(N, p.id)
     end
+
+    N
 end

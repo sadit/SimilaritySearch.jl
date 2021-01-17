@@ -5,25 +5,22 @@ export SatNeighborhood
 
 struct SatNeighborhood <: NeighborhoodAlgorithm
     k::Int
+    near::KnnResult
 end
 
 function SatNeighborhood()
-    return SatNeighborhood(32)
+    return SatNeighborhood(32, KnnResult(1))
 end
 
-function optimize_neighborhood!(algo::SatNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
-end
-
-function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where {T}
-    empty!(N)
-    empty!(knn, algo.k)
-    search(index, dist, item, knn; searchctx=searchctx)
-    @inbounds for p in knn
+function find_neighborhood(algo::SatNeighborhood, index::SearchGraph, item)
+    near = algo.near
+    N = Int32[]
+    @inbounds for p in search(index, item, algo.k)
         pobj = index.db[p.id]
-        near = KnnResult(1)
+        empty!(near)
         push!(near, zero(Int32), p.dist)
         for nearID in N
-            d = evaluate(dist, index.db[nearID], pobj)
+            d = evaluate(index.dist, index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 
@@ -32,4 +29,5 @@ function neighborhood(algo::SatNeighborhood, index::SearchGraph{T}, dist, item::
         end
     end
 
+    N
 end

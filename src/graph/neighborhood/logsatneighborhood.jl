@@ -9,9 +9,6 @@ struct LogSatNeighborhood <: NeighborhoodAlgorithm
     LogSatNeighborhood(base=1.1) = new(base, KnnResult(1))
 end
 
-function optimize_neighborhood!(algo::LogSatNeighborhood, index::SearchGraph{T}, dist, perf, recall) where {T}
-    # optimize_neighborhood!(algo.g, index, perf, recall)
-end
 
 function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
     n = length(index.db)
@@ -23,7 +20,7 @@ function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
         empty!(near)
         push!(near, p.id, p.dist)
         for nearID in N
-            d = evaluate(dist, index.db[nearID], pobj)
+            d = evaluate(index.dist, index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 
