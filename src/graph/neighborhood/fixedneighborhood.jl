@@ -15,10 +15,10 @@ function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, 
 end
 
 """
-    neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
+    find_neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
 
 Finds a list of neighbors using the `FixedNeighborhood` criterion of item in the index
 """
-function neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
+function find_neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
     [p.id for p in search(index, item, algo.k)]
 end

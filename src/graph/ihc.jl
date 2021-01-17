@@ -15,11 +15,12 @@ function IHCSearch(hints::Vector, restarts=length(hints); use_local_improvement=
     IHCSearch(hints, VisitedVertices(), restarts, use_local_improvement)
 end
 
-function IHCSearch(n::Integer=0, restarts=ceil(Int32, log2(n+1)); use_local_improvement=false)
-    hints = n == 0 ? Int32[] : unique(rand(1:n, restarts))
-    IHCSearch(hints, restarts, use_local_improvement=use_local_improvement)
+function IHCSearch(restarts::Integer=20; use_local_improvement=false)
+    IHCSearch(Int32[], VisitedVertices(), restarts, use_local_improvement)
 end
 
+IHCSearch(ihc::IHCSearch; hints=ihc.hints, vstate=VisitedVertices(), restarts=ihc.restarts, use_local_improvement=ihc.use_local_improvement) =
+    IHCSearch(hunts, vstate, restarts, use_local_improvement)
 
 """
     hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
@@ -39,7 +40,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
             S = get(vstate, childID, UNKNOWN)
             S != UNKNOWN && continue
             vstate[childID] = VISITED
-            d = convert(Float32, evaluate(dist, index.db[childID], q))
+            d = convert(Float32, evaluate(index.dist, index.db[childID], q))
             if use_local_improvement  ## this yields to better quality but has no early stopping
                 push!(res, childID, d)
                 if d < dmin
@@ -62,6 +63,16 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     end
 end
 
+function search_at(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
+    S = get(isearch.vstate, startpoint, UNKNOWN)
+    if S == UNKNOWN
+        isearch.vstate[startpoint] = VISITED
+        d = convert(Float32, evaluate(index.dist, q, index.db[startpoint]))
+        push!(res, startpoint, d)
+        hill_climbing(isearch, index, q, res, startpoint)
+    end
+end
+
 """
     search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
 
@@ -70,15 +81,17 @@ Performs an iterated hill climbing search for `q`.
 function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
+    empty!(isearch.vstate)
+    randomrange = 1:n
 
-    @inbounds for start_point in isearch.hints
-        # start_point = rand(range)
-        S = get(isearch.vstate, start_point, UNKNOWN)
-        if S == UNKNOWN
-            isearch.vstate[start_point] = VISITED
-            d = convert(Float32, evaluate(dist, q, index.db[start_point]))
-            push!(res, start_point, d)
-            hill_climbing(isearch, index, q, res, start_point)
+    if length(isearch.hints) == 0
+         @inbounds for i in 1:isearch.restarts
+            startpoint = rand(randomrange)
+            search_at(isearch, index, q, res, startpoint)
+        end
+    else
+        @inbounds for startpoint in isearch.hints
+            search_at(isearch, index, q, res, startpoint)
         end
     end
 

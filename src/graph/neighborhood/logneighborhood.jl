@@ -14,14 +14,10 @@ end
 function optimize_neighborhood!(algo::LogNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
 end
 
-function neighborhood(algo::LogNeighborhood, index::SearchGraph{T}, dist, item::T, knn, N, searchctx) where T
+function find_neighborhood(algo::LogNeighborhood, index::SearchGraph, item)
     n = length(index.db)
     k = max(1, log(algo.base, n) |> ceil |> Int)
-    empty!(knn, k)
-    empty!(N)
-    knn = search(index, dist, item, KnnResult(k), searchctx=searchctx)
+    knn = search(index, item, k)
 
-    for p in knn
-        push!(N, p.id)
-    end
+    [p.id for p in search(index, item, k)]
 end

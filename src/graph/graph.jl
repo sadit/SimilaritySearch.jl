@@ -47,7 +47,7 @@ function SearchGraph(dist::PreMetric, db::AbstractVector;
         k=10,
         verbose=true)
     links = Vector{Int32}[]
-    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, recall, KnnResult(k), k, verbose)
+    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, KnnResult(k), recall, k, verbose)
 
     for item in db
         push!(index, item; automatic_optimization=automatic_optimization)
@@ -97,9 +97,7 @@ include("opt.jl")
 include("neighborhood/fixedneighborhood.jl")
 include("neighborhood/logneighborhood.jl")
 include("neighborhood/logsatneighborhood.jl")
-include("neighborhood/gallopingneighborhood.jl")
 include("neighborhood/satneighborhood.jl")
-include("neighborhood/galsatneighborhood.jl")
 include("neighborhood/vorneighborhood.jl")
 
 ## search algorithms
@@ -113,10 +111,9 @@ include("beamsearch.jl")
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, item)
+function find_neighborhood(index::SearchGraph, item)::Vector{Int32}
     n = length(index.db)
-    n > 0 && neighborhood(index.neighborhood_algo, index, item)
-    neighbors
+    n == 0 ? Int32[] : find_neighborhood(index.neighborhood_algo, index, item)
 end
 
 """
@@ -125,9 +122,10 @@ end
 Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
 vertex created for ìtem` (internal function)
 """
-function push_neighborhood!(index::SearchGraph{T}, item::T, L::Vector{Int32}) where T
+function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32})
     push!(index.db, item)
     n = length(index.db)
+
     for objID in L
         push!(index.links[objID], n)
     end
@@ -152,7 +150,7 @@ function push!(index::SearchGraph, item; automatic_optimization=index.automatic_
     end
 
     if index.verbose && length(index.db) % 10000 == 0
-        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(index.search_algo), $(index.neighborhood_algo), $(now())")
+        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(typeof(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
     end
 
     neighbors
