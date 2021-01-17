@@ -4,11 +4,8 @@
 using SimilaritySearch
 using Test
 
-function test_pivs(pivs, queries, ksearch, gold)
-    results = [search(pivs, q, KnnResult(ksearch)) for q in queries]
-
-    S = scores.(gold, results)
-    @test scores(S).macro_recall >= 0.99
+function test_pivs(perf, pivs)
+    @test probe(perf, pivs).macrorecall >= 0.99
 end
 
 @testset "indexing vectors with PivotedSearch" begin
@@ -17,17 +14,17 @@ end
     ksearch = 10
     dist = L2Distance()
     seq = ExhaustiveSearch(dist, db, ksearch)
-    gold = [search(seq, q, KnnResult(ksearch)) for q in queries]
+    perf = Performance(seq, queries, ksearch)
 
     # random pivots
-    test_pivs(PivotedSearch(dist, db, 8), queries, ksearch, gold)
+    test_pivs(perf, PivotedSearch(dist, db, 8))
 
     # pivots selected with SSS criterion
-    test_pivs(sss(dist, db), queries, ksearch, gold)
+    test_pivs(perf, sss(dist, db))
 
     # pivots selected with distant tournament criterion
-    test_pivs(distant_tournament(dist, db, 8), queries, ksearch, gold)
+    test_pivs(perf, distant_tournament(dist, db, 8))
 
     # Kvp    
-    test_pivs(Kvp(dist, db), queries, ksearch, gold)
+    test_pivs(perf, Kvp(dist, db))
 end

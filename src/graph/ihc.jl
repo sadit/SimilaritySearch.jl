@@ -5,47 +5,32 @@ export IHCSearch
 
 # Iterated Hill Climbing Search
 struct IHCSearch <: LocalSearchAlgorithm
-    restarts::Int
-    IHCSearch() = new(8)
-    IHCSearch(r) = new(r)
-end
-
-
-struct IHCSearchContext
+    hints::Vector{Int32}
     vstate::VisitedVertices
-    hints::Vector{Int}
-    restarts::Int
-    IHCSearchContext(vstate, hints) = new(vstate, hints, length(hints))
-    IHCSearchContext(restarts::Integer, n::Integer) =
-        new(VisitedVertices(), n == 0 ? Int32[] : unique(rand(1:n, restarts)), restarts)
+    restarts::Int32
+    use_local_improvement::Bool
 end
 
-search_context(ihc::IHCSearch, n::Integer) = IHCSearchContext(ihc.restarts, n)
-
-function reset!(searchctx::IHCSearchContext; n=0)
-    empty!(searchctx.vstate)
-
-    if n > 0
-        searchctx.restarts != length(searchctx.hints) && resize!(searchctx.hints, searchctx.restarts)
-        
-        for i in eachindex(searchctx.hints)
-            searchctx.hints[i] = rand(1:n)
-        end
-        unique!(searchctx.hints)
-    end
-
-    searchctx
+function IHCSearch(hints::Vector, restarts=length(hints); use_local_improvement=false)
+    IHCSearch(hints, VisitedVertices(), restarts, use_local_improvement)
 end
+
+function IHCSearch(n::Integer=0, restarts=ceil(Int32, log2(n+1)); use_local_improvement=false)
+    hints = n == 0 ? Int32[] : unique(rand(1:n, restarts))
+    IHCSearch(hints, restarts, use_local_improvement=use_local_improvement)
+end
+
 
 """
-    hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, nodeID::Int64, use_local_improvement::Bool)
+    hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, nodeID::Integer; use_local_improvement::Bool=false)
-    omin::Int = -1
+function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
+    omin::Int32 = -1
     dmin::Float32 = typemax(Float32)
-
+    vstate = isearch.vstate
+    use_local_improvement = isearch.use_local_improvement
     while true
         dmin = typemax(Float32)
         omin = -1
@@ -55,7 +40,7 @@ function hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, v
             S != UNKNOWN && continue
             vstate[childID] = VISITED
             d = convert(Float32, evaluate(dist, index.db[childID], q))
-            if use_local_improvement  ## this yields to better quality but can't be tuned for early stopping
+            if use_local_improvement  ## this yields to better quality but has no early stopping
                 push!(res, childID, d)
                 if d < dmin
                     dmin = d
@@ -78,23 +63,22 @@ function hill_climbing(index::SearchGraph, dist::PreMetric, q, res::KnnResult, v
 end
 
 """
-    search(isearch::IHCSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, vstate, hints=EMPTY_INT_VECTOR)
+    search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
 
-Performs an iterated hill climbing search for `q`. The given `hints` are used as starting points of the search; a random
-selection is performed otherwise.
+Performs an iterated hill climbing search for `q`.
 """
-function search(isearch::IHCSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, searchctx)
+function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
 
-    @inbounds for start_point in searchctx.hints
+    @inbounds for start_point in isearch.hints
         # start_point = rand(range)
-        S = get(searchctx.vstate, start_point, UNKNOWN)
+        S = get(isearch.vstate, start_point, UNKNOWN)
         if S == UNKNOWN
-            searchctx.vstate[start_point] = VISITED
+            isearch.vstate[start_point] = VISITED
             d = convert(Float32, evaluate(dist, q, index.db[start_point]))
             push!(res, start_point, d)
-            hill_climbing(index, dist, q, res, searchctx.vstate, start_point)
+            hill_climbing(isearch, index, q, res, start_point)
         end
     end
 
@@ -112,6 +96,6 @@ function opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer
     f(x) = max(1, x + rand(-logn:logn))
 
     for i in 1:probes
-        IHCSearch(f(algo.restarts)) |> fun
+        IHCSearch(n, f(algo.restarts)) |> fun
     end
 end

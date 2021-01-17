@@ -6,7 +6,6 @@ export BeamSearch
 
 struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32  # beam size
-
     BeamSearch() = new(3)
     BeamSearch(bsize::Integer) = new(bsize)
     BeamSearch(other::BeamSearch) =  new(other.bsize)

@@ -30,7 +30,7 @@ include("distances/vectors.jl")
 include("distances/cos.jl")
 include("utils/knn.jl")
 
-include("utils/scores.jl")
+include("utils/perf.jl")
 include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/pivottable.jl")
@@ -38,7 +38,7 @@ include("indexes/pivotselectiontables.jl")
 include("knr/kvp.jl")
 
 include("knr/knr.jl")
-# include("graph/graph.jl")
+include("graph/graph.jl")
 # include("utils/aknn.jl")
 # include("utils/classification.jl")
 end

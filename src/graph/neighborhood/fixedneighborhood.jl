@@ -14,13 +14,11 @@ end
 function optimize_neighborhood!(algo::FixedNeighborhood, index::SearchGraph{T}, dist, perf, recall) where T
 end
 
-function neighborhood(algo::FixedNeighborhood, index::SearchGraph{T}, dist, item::T, knn::KnnResult, N::Vector, searchctx) where T
-    empty!(knn, algo.k)
-    empty!(N)
-    search(index, dist, item, knn; searchctx=searchctx)
-    
-    for p in knn
-        push!(N, p.id)
-    end
+"""
+    neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
 
+Finds a list of neighbors using the `FixedNeighborhood` criterion of item in the index
+"""
+function neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)
+    [p.id for p in search(index, item, algo.k)]
 end

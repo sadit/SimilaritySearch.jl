@@ -40,8 +40,9 @@ end
     acc = 0
     expected_acc = 0
 
-    for search_algo in [IHCSearch(), BeamSearch()]
-        for neighborhood_algo in [FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
+    for search_algo in [IHCSearch()] #[IHCSearch(), BeamSearch()]
+        #for neighborhood_algo in [FixedNeighborhood(8), GallopingNeighborhood(), GallopingSatNeighborhood(), LogNeighborhood(), LogSatNeighborhood(), SatNeighborhood(), VorNeighborhood()]
+        for neighborhood_algo in [FixedNeighborhood(8)]
             # for dist in Any[L2Distance(), L1Distance(), LInftyDistance(), LpDistance(0.5)]
             dist = SqL2Distance()
             @testset "indexing vectors with SearchGraph and $dist" begin

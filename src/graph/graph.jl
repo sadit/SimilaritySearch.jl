@@ -11,35 +11,14 @@ abstract type NeighborhoodAlgorithm end
 const OPTIMIZE_LOGBASE = 10
 const OPTIMIZE_LOGBASE_STARTING = 4
 
-mutable struct SearchGraph{T} <: Index
-    db::Vector{T}
-    recall::Float64
-    k::Int
-    links::Vector{Vector{Int32}}
-    search_algo::LocalSearchAlgorithm
-    neighborhood_algo::NeighborhoodAlgorithm
-    verbose::Bool
-end
-
-function search_context(index::SearchGraph)
-    search_context(index.search_algo, length(index.db))
-end
-
-#=
-@enum VisitedVertexState begin
-    UNKNOWN = 0
-    VISITED = 1
-    EXPLORED = 2
-end =#
-
 const UNKNOWN = UInt8(0)
 const VISITED = UInt8(1)
 const EXPLORED = UInt8(2)
 
 const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
-function VisitedVertices(n::Int)
+function VisitedVertices(n)
     vstate = VisitedVertices()
-    sizehint!(vstate, ceil(Int, sqrt(n)))
+    sizehint!(vstate, n)
     vstate
 end
 
@@ -48,73 +27,68 @@ end
     vstate[i] = state
 end
 
-#=
-const UNKNOWN = UInt8(0)
-const VISITED = UInt8(1)
-const EXPLORED = UInt8(2)
-
-const VisitedVertices = Vector{UInt8}
-VisitedVertices(n::Int) = zeros(UInt8, n)
-getstate(vstate::VisitedVertices, i) = vstate[i]
-function setstate!(vstate::VisitedVertices, i, state)
-    vstate[i] = state
+struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SearchType<:LocalSearchAlgorithm, NeighborhoodType<:NeighborhoodAlgorithm} <: AbstractSearchContext
+    dist::DistType
+    db::DataType
+    links::Vector{Vector{Int32}}
+    search_algo::SearchType
+    neighborhood_algo::NeighborhoodType
+    res::KnnResult
+    recall::Float64
+    k::Int
+    verbose::Bool
 end
-=#
 
-function fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T};
-        recall=0.9, k=10,
+function SearchGraph(dist::PreMetric, db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
-        neighborhood_algo::NeighborhoodAlgorithm=LogSatNeighborhood(1.1),
-        searchctx=nothing, 
-        automatic_optimization=true,
-        verbose=true) where T
+        neighborhood_algo::NeighborhoodAlgorithm=SatNeighborhood(1.1),
+        automatic_optimization=false,
+        recall=0.9,
+        k=10,
+        verbose=true)
     links = Vector{Int32}[]
-    index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
-    knn = KnnResult(1)
-    searchctx = searchctx === nothing ? search_context(index) : searchctx
+    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, recall, KnnResult(k), k, verbose)
 
-    for item in dataset
-        reset!(searchctx, n=length(index.db))
-        push!(index, dist, item, knn; automatic_optimization=automatic_optimization, searchctx=searchctx)
+    for item in db
+        push!(index, item; automatic_optimization=automatic_optimization)
     end
 
     index
 end
 
-
-function parallel_fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
-    links = Vector{Int32}[]
-    index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
-    firstblock = min(length(dataset), firstblock)
-
-    for i in 1:firstblock
-        push!(index, dist, dataset[i]; automatic_optimization=automatic_optimization)
-    end
-
-    sp = length(index.db)
-    n = length(dataset)
-    N = Vector(undef, block)
-    while sp < n
-        ep = min(n, sp + block)
-        m = ep - sp
-        CTX = [search_context(index) for i in 1:Threads.nthreads()]
-        KNN = [KnnResult(1) for i in 1:Threads.nthreads()]
-        Threads.@threads for i in 1:m
-            searchctx = CTX[Threads.threadid()]
-            knn = KNN[Threads.threadid()]
-            reset!(searchctx, n=length(index.db))
-            N[i] = find_neighborhood(index, dist, dataset[sp+i], knn, searchctx)
-        end
-        
-        @show (sp, ep, n, length(N), index.search_algo, index.neighborhood_algo, Dates.now())
-        for i in 1:m
-            sp += 1
-            push_neighborhood!(index, dataset[sp], N[i])
-        end
-    end
-
-    index
-end
+## function parallel_fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
+##     links = Vector{Int32}[]
+##     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
+##     firstblock = min(length(dataset), firstblock)
+## 
+##     for i in 1:firstblock
+##         push!(index, dist, dataset[i]; automatic_optimization=automatic_optimization)
+##     end
+## 
+##     sp = length(index.db)
+##     n = length(dataset)
+##     N = Vector(undef, block)
+##     while sp < n
+##         ep = min(n, sp + block)
+##         m = ep - sp
+##         CTX = [search_context(index) for i in 1:Threads.nthreads()]
+##         KNN = [KnnResult(1) for i in 1:Threads.nthreads()]
+##         Threads.@threads for i in 1:m
+##             searchctx = CTX[Threads.threadid()]
+##             knn = KNN[Threads.threadid()]
+##             reset!(searchctx, n=length(index.db))
+##             N[i] = find_neighborhood(index, dist, dataset[sp+i], knn, searchctx)
+##         end
+##         
+##         @show (sp, ep, n, length(N), index.search_algo, index.neighborhood_algo, Dates.now())
+##         for i in 1:m
+##             sp += 1
+##             push_neighborhood!(index, dataset[sp], N[i])
+##         end
+##     end
+## 
+##     index
+## end
 
 
 include("opt.jl")
@@ -130,20 +104,18 @@ include("neighborhood/vorneighborhood.jl")
 
 ## search algorithms
 include("ihc.jl")
-# include("tihc.jl")
 include("beamsearch.jl")
 
 
 """
-    find_neighborhood(index::SearchGraph{T}, dist, item)
+    find_neighborhood(index::SearchGraph{T}, item)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, dist::PreMetric, item, knn::KnnResult, searchctx)
+function find_neighborhood(index::SearchGraph, item)
     n = length(index.db)
-    neighbors = Int32[]
-    n > 0 && neighborhood(index.neighborhood_algo, index, dist, item, knn, neighbors, searchctx)
+    n > 0 && neighborhood(index.neighborhood_algo, index, item)
     neighbors
 end
 
@@ -157,51 +129,43 @@ function push_neighborhood!(index::SearchGraph{T}, item::T, L::Vector{Int32}) wh
     push!(index.db, item)
     n = length(index.db)
     for objID in L
-        #try
-            push!(index.links[objID], n)
-        #=catch
-            @show "------------->" length(index.links) n objID length(L) L index.search_algo index.neighborhood_algo 
-            error("ERROR ACCESS!!!!")
-        end=#
+        push!(index.links[objID], n)
     end
 
     push!(index.links, L)
 end
 
 """
-    push!(index::SearchGraph, dist, item)
+    push!(index::SearchGraph, item; automatic_optimization=index.automatic_optimization)
 
-Inserts `item` into the index.
+Appends `item` into the index.
 """
-function push!(index::SearchGraph, dist::PreMetric, item, knn::KnnResult=KnnResult(1); automatic_optimization=true, searchctx=nothing)
-    searchctx = searchctx === nothing ? search_context(index) : searchctx
-    neighbors = find_neighborhood(index, dist, item, knn, searchctx)
+function push!(index::SearchGraph, item; automatic_optimization=index.automatic_optimization)
+    neighbors = find_neighborhood(index, item)
     push_neighborhood!(index, item, neighbors)
     n = length(index.db)
 
     if automatic_optimization && n > OPTIMIZE_LOGBASE_STARTING
         k = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
         k1 = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
-        k != k1 && optimize!(index, dist, recall=index.recall)
+        k != k1 && optimize!(index, recall=index.recall)
     end
 
     if index.verbose && length(index.db) % 10000 == 0
         println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(index.search_algo), $(index.neighborhood_algo), $(now())")
     end
-    knn, neighbors
+
+    neighbors
 end
 
-const EMPTY_INT_VECTOR = Int[]
-
 """
-    search(index::SearchGraph, dist::PreMetric, q, res::KnnResult; hints)  
+    search(index::SearchGraph, q, res::KnnResult)  
 
 Solves the specified query `res` for the query object `q`.
 If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, dist::PreMetric, q, res::KnnResult; searchctx=nothing)
-    searchctx = searchctx === nothing ? search_context(index) : searchctx
-    length(index.db) > 0 && search(index.search_algo, index, dist, q, res, searchctx)
+function search(index::SearchGraph, q, res::KnnResult)
+    length(index.db) > 0 && search(index.search_algo, index, q, res)
     res
 end
 
@@ -217,7 +181,7 @@ end
 
 Optimizes the index for the specified kind of queries.
 """
-function optimize!(index::SearchGraph{T}, dist::PreMetric;
+function optimize!(index::SearchGraph{T};
     recall=0.9,
     k=10,
     num_queries=128,

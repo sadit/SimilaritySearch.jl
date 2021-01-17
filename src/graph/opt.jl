@@ -5,13 +5,12 @@ using Dates
 
 """
     function optimize!(algosearch::LocalSearchAlgorithm,
-                   index::SearchGraph{T},
-                   dist::PreMetric,
-                   recall::Float64,
-                   perf::Performance;
-                   bsize::Int=4,
-                   tol::Float64=0.01,
-                   probes::Int=0) where T
+                       index::SearchGraph{T},
+                       recall::Float64,
+                       perf::Performance;
+                       bsize::Int=4,
+                       tol::Float64=0.01,
+                       probes::Int=0) where T
 
 Optimizes a local search index for an specific algorithm to get the desired performance.
 Note that optimizing for low-recall will yield to faster searches; the train queries
@@ -19,7 +18,6 @@ are specified as part of the `perf` struct.
 """
 function optimize!(algosearch::LocalSearchAlgorithm,
                    index::SearchGraph{T},
-                   dist::PreMetric,
                    recall::Float64,
                    perf::Performance;
                    bsize::Int=4,
