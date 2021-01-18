@@ -34,10 +34,10 @@ struct StatsComparison
     macrorecall::Float64
     macroprecision::Float64
     macrof1::Float64
-    currsearchtime::Float64
+    searchtime::Float64
+    stats::StatsKnn
     goldsearchtime::Float64
-    curr::StatsKnn
-    gold::StatsKnn
+    goldstats::StatsKnn
 end
 
 struct Performance{DataType<:AbstractVector}
@@ -83,7 +83,7 @@ function probe(perf::Performance, index::AbstractSearchContext)
         f1 += p.f1
     end
 
-    StatsComparison(recall/n, precision/n, f1/n, searchtime, perf.goldsearchtime, StatsKnn(reslist), perf.goldstats)
+    StatsComparison(recall/n, precision/n, f1/n, searchtime, StatsKnn(reslist), perf.goldsearchtime, perf.goldstats)
 end
 
 function scores(gold::Set, res::Set)

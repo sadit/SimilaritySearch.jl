@@ -7,7 +7,7 @@ using LinearAlgebra
 using Test
 
 function test_seq(db, dist::PreMetric, ksearch, valid_lower=1e-3)
-    seq = ExhaustiveSearch(dist, db, ksearch)
+    seq = ExhaustiveSearch(dist, db)
     for i in rand(1:length(db), 100)
         res = search(seq, db[i])
         @test first(res).dist < valid_lower

@@ -13,7 +13,7 @@ end
     queries = [rand(Float32, 4) for i in 1:30]
     ksearch = 10
     dist = L2Distance()
-    seq = ExhaustiveSearch(dist, db, ksearch)
+    seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
 
     # random pivots

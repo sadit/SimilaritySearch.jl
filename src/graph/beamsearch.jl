@@ -3,64 +3,59 @@
 
 using Random
 export BeamSearch
-
-struct BeamSearch <: LocalSearchAlgorithm
-    bsize::Int32  # beam size
-    BeamSearch() = new(3)
-    BeamSearch(bsize::Integer) = new(bsize)
-    BeamSearch(other::BeamSearch) =  new(other.bsize)
-end
-
-struct BeamSearchContext
-    vstate::VisitedVertices
+mutable struct BeamSearch <: LocalSearchAlgorithm
+    bsize::Int32  # size of the search beam
+    ssize::Int32  # size of the first search beam (initial sampling)
     beam::KnnResult
-    hints::Vector{Int}
-    ssize::Int
-    BeamSearchContext(vstate; beam=KnnResult(64), hints=Int32[]) =
-        new(vstate, beam, hints, length(hints))
-    BeamSearchContext(bsize::Integer, n::Integer, ssize::Integer=bsize) =
-        new(VisitedVertices(n), KnnResult(bsize), n == 0 ? Int32[] : unique(rand(1:n, ssize)), ssize)
+    hints::Vector{Int32}
+    vstate::VisitedVertices
 end
 
-search_context(bs::BeamSearch, n::Integer, ssize::Integer=bs.bsize) = BeamSearchContext(bs.bsize, n, ssize)
-
-function reset!(searchctx::BeamSearchContext; n=0)
-    # @info (typeof(searchctx.vstate), length(searchctx.vstate), n)
-    if searchctx.vstate isa AbstractVector
-        n > length(searchctx.vstate) && resize!(searchctx.vstate, n)
-        fill!(searchctx.vstate, 0)
-    else
-        empty!(searchctx.vstate)
-    end
-
-    empty!(searchctx.beam)
-
-    if n > 0
-        searchctx.ssize != length(searchctx.hints) && resize!(searchctx.hints, searchctx.ssize)
-        
-        for i in eachindex(searchctx.hints)
-            searchctx.hints[i] = rand(1:n)
-        end
-        
-        unique!(searchctx.hints)
-    end
-
-    searchctx
+function BeamSearch(bsize::Integer=16, ssize=bsize; beam=KnnResult(bsize), hints=Int32[], vstate=VisitedVertices())
+    BeamSearch(bsize, ssize, beam, hints, vstate)
 end
+
+BeamSearch(bsearch::BeamSearch; bsize=bsearch.bsize, ssize=bsearch.ssize, hints=bsearch.hints, vstate=bsearch.vstate, beam=bsearch.beam) =
+    BeamSearch(bsize, ssize, beam, hints, vstate)
+
+function Base.copy!(dst::BeamSearch, src::BeamSearch)
+    dst.beam = src.beam
+    dst.bsize = src.bsize
+    dst.ssize = src.ssize
+    dst.hints = src.hints
+    dst.vstate = src.vstate
+end
+
+Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), ssize=$(s.ssize), hints=$(length(s.hints))"""
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
-function beam_init(bs::BeamSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, hints, vstate)
-    for objID in hints
-        if getstate(vstate, objID) === UNKNOWN
-            setstate!(vstate, objID, VISITED)
-            @inbounds d = evaluate(dist, q, index.db[objID])
-            push!(res, objID, d)
+
+function beamsearch_queue(index::SearchGraph, q, beam::KnnResult, objID, vstate)
+    if getstate(vstate, objID) === UNKNOWN
+        setstate!(vstate, objID, VISITED)
+        @inbounds d = evaluate(index.dist, q, index.db[objID])
+        push!(beam, objID, d)
+    end
+end
+
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+    empty!(vstate)
+
+    if length(hints) == 0
+        _range = 1:length(index.db)
+         @inbounds for i in 1:bs.ssize
+            objID = rand(_range)
+            beamsearch_queue(index, q, res, objID, vstate)
+        end
+    else
+        for objID in hints
+            beamsearch_queue(index, q, res, objID, vstate)
         end
     end
 end
 
-function beam_search_inner(index, dist::PreMetric, q, res, beam, vstate)
+function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate)
     while length(beam) > 0
         prev = popfirst!(beam)
         getstate(vstate, prev.id) === EXPLORED && continue
@@ -68,7 +63,7 @@ function beam_search_inner(index, dist::PreMetric, q, res, beam, vstate)
         @inbounds for childID in index.links[prev.id]
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
-                @inbounds d = evaluate(dist, q, index.db[childID])
+                d = evaluate(index.dist, q, index.db[childID])
                 push!(res, childID, d) && push!(beam, childID, d)
                 #d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
             end
@@ -83,41 +78,30 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph, dist::PreMetric, q, res::KnnResult, searchctx::BeamSearchContext)
+function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult)
     n = length(index.db)
     n == 0 && return res
 
-    beam_init(bs, index, dist, q, res, searchctx.hints, searchctx.vstate)
+    empty!(bs.beam, bs.bsize)
+    beamsearch_init(bs, index, q, res, bs.hints, bs.vstate)
     prev_score = typemax(Float32)
     
     while abs(prev_score - last(res).dist) > 0.0  # prepared to allow early stopping
         prev_score = last(res).dist
         nn = first(res)
-        push!(searchctx.beam, nn.id, nn.dist)
-        beam_search_inner(index, dist, q, res, searchctx.beam, searchctx.vstate)
+        push!(bs.beam, nn.id, nn.dist)
+        beamsearch_inner(index, q, res, bs.beam, bs.vstate)
     end
 
     res
 end
 
 function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Integer, probes::Integer)
-    #f_(w) = ceil(Int, w * (rand() - 0.5))
-    #f(x, w) = max(1, x + #f_(w))
-
-    # g(x) = max(1, x + ceil(Int, (rand()-0.5) * log2(n)))
     logn = ceil(Int, log(2, n+1))
     probes = probes == 0 ? logn : probes
     f(x) = max(1, x + rand(-logn:logn))
     for i in 1:probes
-        BeamSearch(f(gsearch.bsize)) |> fun
+        BeamSearch(gsearch, bsize=f(gsearch.bsize), ssize=f(gsearch.ssize)) |> fun
+        # BeamSearch(gsearch, bsize=f(gsearch.bsize)) |> fun
     end
-    ### f(x, w) = max(1, x + w)
-    ### w = 1
-    ### while w <= logn  ## log log n
-    ###    BeamSearch(f(gsearch.ssize,  w), gsearch.bsize) |> fun
-    ###    BeamSearch(f(gsearch.ssize,  -w), gsearch.bsize) |> fun
-    ###    BeamSearch(gsearch.ssize, f(gsearch.bsize, w)) |> fun
-    ###    BeamSearch(gsearch.ssize, f(gsearch.bsize, -w)) |> fun
-    ###    w += w
-    ### end
 end

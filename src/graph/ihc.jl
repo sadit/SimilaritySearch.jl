@@ -4,23 +4,32 @@
 export IHCSearch
 
 # Iterated Hill Climbing Search
-struct IHCSearch <: LocalSearchAlgorithm
+mutable struct IHCSearch <: LocalSearchAlgorithm
+    restarts::Int32
     hints::Vector{Int32}
     vstate::VisitedVertices
-    restarts::Int32
-    use_local_improvement::Bool
+    localimprovements::Bool
 end
 
-function IHCSearch(hints::Vector, restarts=length(hints); use_local_improvement=false)
-    IHCSearch(hints, VisitedVertices(), restarts, use_local_improvement)
+function IHCSearch(hints::Vector, restarts=length(hints); localimprovements=false)
+    IHCSearch(restarts, hints, VisitedVertices(), localimprovements)
 end
 
-function IHCSearch(restarts::Integer=20; use_local_improvement=false)
-    IHCSearch(Int32[], VisitedVertices(), restarts, use_local_improvement)
+function IHCSearch(restarts::Integer=20; localimprovements=false)
+    IHCSearch(restarts, Int32[], VisitedVertices(), localimprovements)
 end
 
-IHCSearch(ihc::IHCSearch; hints=ihc.hints, vstate=VisitedVertices(), restarts=ihc.restarts, use_local_improvement=ihc.use_local_improvement) =
-    IHCSearch(hunts, vstate, restarts, use_local_improvement)
+IHCSearch(ihc::IHCSearch; restarts=ihc.restarts, hints=ihc.hints, vstate=ihc.vstate, localimprovements=ihc.localimprovements) =
+    IHCSearch(restarts, hints, vstate, localimprovements)
+
+function Base.copy!(dst::IHCSearch, src::IHCSearch)
+    dst.restarts = src.restarts
+    dst.vstate = src.vstate
+    dst.hints = src.hints
+    dst.localimprovements = src.localimprovements
+end
+
+Base.string(s::IHCSearch) = """{IHCSearch: restarts=$(s.restarts), hints=$(length(s.hints)), localimprovements:$(s.localimprovements)}"""
 
 """
     hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
@@ -31,7 +40,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     omin::Int32 = -1
     dmin::Float32 = typemax(Float32)
     vstate = isearch.vstate
-    use_local_improvement = isearch.use_local_improvement
+    localimprovements = isearch.localimprovements
     while true
         dmin = typemax(Float32)
         omin = -1
@@ -41,7 +50,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
             S != UNKNOWN && continue
             vstate[childID] = VISITED
             d = convert(Float32, evaluate(index.dist, index.db[childID], q))
-            if use_local_improvement  ## this yields to better quality but has no early stopping
+            if localimprovements  ## this yields to better quality but has no early stopping
                 push!(res, childID, d)
                 if d < dmin
                     dmin = d
@@ -63,7 +72,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     end
 end
 
-function search_at(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
+function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
     S = get(isearch.vstate, startpoint, UNKNOWN)
     if S == UNKNOWN
         isearch.vstate[startpoint] = VISITED
@@ -82,16 +91,17 @@ function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
     empty!(isearch.vstate)
-    randomrange = 1:n
+    _range = 1:n
 
+    # @info "XXXXXXXXXXXX ===== $(isearch.restarts), $(length(isearch.vstate))"
     if length(isearch.hints) == 0
          @inbounds for i in 1:isearch.restarts
-            startpoint = rand(randomrange)
-            search_at(isearch, index, q, res, startpoint)
+            startpoint = rand(_range)
+            searchat(isearch, index, q, res, startpoint)
         end
     else
         @inbounds for startpoint in isearch.hints
-            search_at(isearch, index, q, res, startpoint)
+            searchat(isearch, index, q, res, startpoint)
         end
     end
 
@@ -99,16 +109,16 @@ function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
 end
 
 """
-    opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
+    opt_expand_neighborhood(fun, ihc::IHCSearch, n::Integer, iter::Integer, probes::Integer)
 
 Generates configurations of the IHCSearch that feed the `optimize!` function (internal function)
 """
-function opt_expand_neighborhood(fun, algo::IHCSearch, n::Integer, iter::Integer, probes::Integer)
+function opt_expand_neighborhood(fun, ihc::IHCSearch, n::Integer, iter::Integer, probes::Integer)
     logn = ceil(Int, log(2, n+1))
     probes = probes == 0 ? logn : probes
     f(x) = max(1, x + rand(-logn:logn))
 
     for i in 1:probes
-        IHCSearch(n, f(algo.restarts)) |> fun
+        IHCSearch(ihc, restarts=f(ihc.restarts)) |> fun
     end
 end

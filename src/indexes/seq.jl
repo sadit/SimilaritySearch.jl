@@ -18,7 +18,7 @@ struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: Ab
     res::KnnResult
 end
 
-ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(k))
+ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(ksearch))
 
 """
     search(seq::ExhaustiveSearch, q, res::KnnResult)

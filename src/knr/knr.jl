@@ -101,7 +101,7 @@ function Knr(dist::PreMetric, db::AbstractVector{T};
         k=10) where T
     # refs = rand(db, numrefs)
     refs = db[select_tournament(dist, db, numrefs, tournamentsize)]
-    refsearch = ExhaustiveSearch(dist, refs, kbuild)
+    refsearch = ExhaustiveSearch(dist, refs; ksearch=kbuild)
     Knr(dist, db, refsearch; kbuild=kbuild, ksearch=ksearch, minmatches=minmatches, verbose=verbose, k=k)
 end
 
@@ -173,7 +173,8 @@ function search(knr::Knr, q, res::KnnResult)
 end
 
 """
-    optimize!(perf::Performance, index::Knr; recall=0.9, ksearch=10)
+    optimize!(perf::Performance, index::Knr; recall=0.9, ksearch=10, verbose=index.opts.verbose)
+
 
 Optimizes the index to achieve the specified recall.
 """

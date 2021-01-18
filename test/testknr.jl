@@ -24,7 +24,7 @@ end
     queries = [rand(Float32, dim) |> normalize! for i in 1:m]
 
     dist = L2Distance()
-    seq = ExhaustiveSearch(dist, db, k)
+    seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, k)
 
     knr = Knr(dist, db; numrefs=64, kbuild=2)

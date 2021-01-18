@@ -27,6 +27,14 @@ end
     vstate[i] = state
 end
 
+mutable struct SearchGraphOptions
+    automatic_optimization::Bool
+    recall::Float64
+    ksearch::Int
+    tol::Float64
+    verbose::Bool
+end
+
 struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SearchType<:LocalSearchAlgorithm, NeighborhoodType<:NeighborhoodAlgorithm} <: AbstractSearchContext
     dist::DistType
     db::DataType
@@ -34,23 +42,23 @@ struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SearchType<:Lo
     search_algo::SearchType
     neighborhood_algo::NeighborhoodType
     res::KnnResult
-    recall::Float64
-    k::Int
-    verbose::Bool
+    opts::SearchGraphOptions
 end
 
 function SearchGraph(dist::PreMetric, db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
-        neighborhood_algo::NeighborhoodAlgorithm=SatNeighborhood(1.1),
+        neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(1.1),
         automatic_optimization=false,
         recall=0.9,
-        k=10,
+        ksearch=10,
+        tol=0.001,
         verbose=true)
     links = Vector{Int32}[]
-    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, KnnResult(k), recall, k, verbose)
+    opts = SearchGraphOptions(automatic_optimization, recall, ksearch, tol, verbose)
+    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, KnnResult(ksearch), opts)
 
     for item in db
-        push!(index, item; automatic_optimization=automatic_optimization)
+        push!(index, item)
     end
 
     index
@@ -134,23 +142,28 @@ function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32})
 end
 
 """
-    push!(index::SearchGraph, item; automatic_optimization=index.automatic_optimization)
+    push!(index::SearchGraph, item)
 
 Appends `item` into the index.
 """
-function push!(index::SearchGraph, item; automatic_optimization=index.automatic_optimization)
+function push!(index::SearchGraph, item)
     neighbors = find_neighborhood(index, item)
     push_neighborhood!(index, item, neighbors)
     n = length(index.db)
 
-    if automatic_optimization && n > OPTIMIZE_LOGBASE_STARTING
+    if index.opts.automatic_optimization && n > OPTIMIZE_LOGBASE_STARTING
         k = ceil(Int, log(OPTIMIZE_LOGBASE, 1+n))
         k1 = ceil(Int, log(OPTIMIZE_LOGBASE, 2+n))
-        k != k1 && optimize!(index, recall=index.recall)
+        if k != k1
+            seq = ExhaustiveSearch(index.dist, index.db; ksearch=index.opts.ksearch)
+            queries = index.db[ unique(rand(1:n, 32)) ]
+            perf = Performance(seq, queries, index.opts.ksearch; popnearest=true)
+            optimize!(perf, index, recall=index.opts.recall)
+        end
     end
 
-    if index.verbose && length(index.db) % 10000 == 0
-        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(typeof(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
+    if index.opts.verbose && length(index.db) % 10000 == 0
+        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
     end
 
     neighbors
@@ -168,27 +181,13 @@ function search(index::SearchGraph, q, res::KnnResult)
 end
 
 """
-    optimize!(index::SearchGraph, dist::PreMetric;
-        recall=0.9,
-        k=10,
-        num_queries=128,
-        perf=nothing,
-        tol::Float64=0.01,
-        maxiters::Int=3,
-        probes::Int=0)
+    optimize!(perf::Performance, index::SearchGraph;
+    recall=0.9, ksearch=10, verbose=index.opts.verbose, tol::Float64=0.01, maxiters::Integer=3, probes::Integer=0) 
+    optimize!(perf, index.search_algo, index; recall=recall, tol=tol, maxiters=3, probes=probes)
 
 Optimizes the index for the specified kind of queries.
 """
-function optimize!(index::SearchGraph{T};
-    recall=0.9,
-    k=10,
-    num_queries=128,
-    perf=nothing,
-    tol::Float64=0.01,
-    maxiters::Int=3,
-    probes::Int=0) where T
-    if perf === nothing
-        perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
-    end
-    optimize!(index.search_algo, index, dist, recall, perf, tol=tol, maxiters=3, probes=probes)
+function optimize!(perf::Performance, index::SearchGraph;
+    recall=index.opts.recall, ksearch=index.opts.ksearch, verbose=index.opts.verbose, tol::Float64=index.opts.tol, maxiters::Integer=3, probes::Integer=0) 
+    optimize!(perf, index.search_algo, index; recall=recall, tol=tol, maxiters=3, probes=probes)
 end
