@@ -39,16 +39,17 @@ using JSON
         @time p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(JSON.json(p))"
         @test p.macrorecall >= 0.6
-
+        @info "queries per second: $(1/p.searchtime)"
         @info "===="
         graph = SearchGraph(dist, db;
             search_algo=search_algo_fun(),
             neighborhood_algo=neighborhood_algo_fun(),
             automatic_optimization=true, 
-            recall=0.99,
+            recall=0.9,
             verbose=false)
         @time p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(JSON.json(p)); using automatic optimization"
-        @test p.macrorecall >= 0.8
+        @test p.macrorecall >= 0.7
+        @info "queries per second: $(1/p.searchtime)"
     end
 end
