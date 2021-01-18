@@ -3,36 +3,40 @@
 
 using SimilaritySearch
 using Dates
-export Knr
+export Knr, KnrOptions
+
+mutable struct KnrOptions
+    ksearch::Int32
+    minmatches::Int32
+    verbose::Bool
+end
 
 struct Knr{RefSearchType<:AbstractSearchContext, DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
     dist::DistanceType
     db::DataType
     refsearch::RefSearchType
     kbuild::Int32
-    ksearch::Int32
-    minmatches::Int32
     invindex::Vector{Vector{Int32}}
     res::KnnResult
-    verbose::Bool
+    opts::KnrOptions
 end
-
 
 function Knr(
     dist::PreMetric,
     db::AbstractVector,
     refsearch::AbstractSearchContext,
     kbuild::Integer,
-    ksearch::Integer,
-    minmatches::Integer,
     invindex;
-    k::Integer=10,
-    verbose=true)
-    Knr(dist, db, refsearch,
-        convert(Int32, kbuild),
-        convert(Int32, ksearch),
-        convert(Int32, minmatches),
-        invindex, KnnResult(k), verbose)
+    ksearch::Integer=kbuild,
+    minmatches::Integer=1,
+    verbose=true,
+    k::Integer=10
+)
+    kbuild = convert(Int32, kbuild)
+    minmatches = convert(Int32, minmatches)
+    minmatches = min(kbuild, minmatches)
+    opts = KnrOptions(convert(Int32, ksearch), minmatches, verbose)
+    Knr(dist, db, refsearch, kbuild, invindex, KnnResult(k), opts)
 end
 
 """
@@ -65,6 +69,7 @@ Creates a `Knr` index using the given references or the number of references to 
 """
 function Knr(dist::PreMetric, db::AbstractVector{T}, refsearch::AbstractSearchContext;
     kbuild::Integer=3, ksearch::Integer=kbuild, minmatches::Integer=1, verbose=true, k::Integer=10) where T
+
     verbose && println(stderr, "Knr> refs=$(typeof(db)), k=$(kbuild), numrefs=$(length(refs)), dist=$(dist)")
     m = length(refsearch.db)
     invindex = [Vector{Int32}(undef, 0) for i in 1:m]
@@ -83,7 +88,7 @@ function Knr(dist::PreMetric, db::AbstractVector{T}, refsearch::AbstractSearchCo
     end
 
     verbose && println(stderr, "*** advance ", counter, " from ", n, "; ", string(Dates.now()))
-    Knr(dist, db, refsearch, kbuild, ksearch, minmatches, invindex; k=k, verbose=verbose)
+    Knr(dist, db, refsearch, kbuild, invindex; ksearch=ksearch, minmatches=minmatches, verbose=verbose, k=k)
 end
 
 function Knr(dist::PreMetric, db::AbstractVector{T};
@@ -145,16 +150,19 @@ end
 Solves the query specified by `q` and `res` using the `Knr` index
 """
 function search(knr::Knr, q, res::KnnResult)
-    dz = zeros(Int16, length(knr.db))
-    kres = search(knr.refsearch, q, knr.ksearch)
+    # dz = zeros(Int16, length(knr.db))
+    dz = Dict{Int32,Int8}()
+    kres = search(knr.refsearch, q, knr.opts.ksearch)
+    minmatches = knr.opts.minmatches
 
     @inbounds for i in eachindex(kres)
         p = kres[i]
         for objID in knr.invindex[p.id]
-            c = dz[objID] + 1
+            #c = dz[objID] + 1
+            #dz[objID] = c
+            c = get(dz, objID, zero(Int8)) + one(Int8)
             dz[objID] = c
-
-            if c == knr.minmatches
+            if c == minmatches
                 d = evaluate(knr.dist, q, knr.db[objID])
                 push!(res, objID, d)
             end
@@ -165,30 +173,25 @@ function search(knr::Knr, q, res::KnnResult)
 end
 
 """
-    optimize!(index::Knr, dist::PreMetric; recall=0.9, k=10, num_queries=128, perf=nothing)
+    optimize!(perf::Performance, index::Knr; recall=0.9, ksearch=10)
 
 Optimizes the index to achieve the specified recall.
 """
-function optimize!(index::Knr, dist::PreMetric; recall=0.9, k=10, num_queries=128, perf=nothing)
-    index.verbose && println(stderr, "Knr> optimizing index for recall=$(recall)")
-    if perf === nothing
-        perf = Performance(index.db, dist; expected_k=k, num_queries=num_queries)
-    end
-    index.minmatches = 1
-    index.ksearch = 1
-    p = probe(perf, index, dist)
+function optimize!(perf::Performance, index::Knr; recall=0.9, ksearch=10, verbose=index.opts.verbose)
+    verbose && println(stderr, "Knr> optimizing index for recall=$(recall)")
+    index.opts.minmatches = 1
+    index.opts.ksearch = 1
+    p = probe(perf, index)
 
-    while p.recall < recall && index.ksearch < length(index.refs)
-        index.ksearch += 1
-        index.verbose && println(stderr, "Knr> opt step ksearch=$(index.ksearch), performance $(p)")
-        p = probe(perf, index, dist)
-
+    while p.macrorecall < recall
+        index.opts.ksearch += 1
+        verbose && println(stderr, "Knr> opt step ksearch=$(index.ksearch), performance $(p)")
+        p = probe(perf, index)
     end
     
-    index.verbose && println(stderr, "Knr> reached performance $(p)")
+    verbose && println(stderr, "Knr> reached performance $(p)")
     index
 end
-
 
 ## """
 ##     push!(index::Knr, dist::PreMetric, obj)

@@ -26,5 +26,5 @@ end
 #include("testresults.jl")
 #include("testseq.jl")
 #include("testpivots.jl")
-#include("testknr.jl")
-include("testsearchgraph.jl")
+include("testknr.jl")
+#include("testsearchgraph.jl")

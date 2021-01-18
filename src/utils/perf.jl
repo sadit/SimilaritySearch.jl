@@ -43,27 +43,34 @@ end
 struct Performance{DataType<:AbstractVector}
     queries::DataType
     ksearch::Int
+    popnearest::Bool
     goldreslist::Vector{KnnResult}
     goldsearchtime::Float64
     goldstats::StatsKnn
 end
 
-function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integer)
+function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integer, popnearest::Bool)
     m = length(queries)
+    if popnearest
+        ksearch += 1
+    end
     reslist = [KnnResult(ksearch) for i in 1:m]
     start = time()
-    gold = [search(index, queries[i], reslist[i]) for i in 1:m]
+    for i in 1:m
+        search(index, queries[i], reslist[i])
+        popnearest && popfirst!(reslist[i])
+    end
     elapsed = time() - start
     reslist, elapsed / m
 end
 
-function Performance(goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer)
-    gold, searchtime = perf_search_batch(goldsearch, queries, ksearch)
-    Performance(queries, ksearch, gold, searchtime, StatsKnn(gold))
+function Performance(goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
+    gold, searchtime = perf_search_batch(goldsearch, queries, ksearch, popnearest)
+    Performance(queries, ksearch, popnearest, gold, searchtime, StatsKnn(gold))
 end
 
 function probe(perf::Performance, index::AbstractSearchContext)
-    reslist, searchtime = perf_search_batch(index, perf.queries, perf.ksearch)
+    reslist, searchtime = perf_search_batch(index, perf.queries, perf.ksearch, perf.popnearest)
     n = length(reslist)
     recall = 0.0
     nearest = 0.0

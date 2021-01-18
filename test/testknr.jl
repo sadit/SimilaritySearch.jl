@@ -3,10 +3,13 @@
 
 using SimilaritySearch
 using LinearAlgebra
+using JSON
 using Test
 
-function test_knr_vectors(perf, knr)
-    @test probe(perf, knr).macrorecall >= 0.8
+function test_knr_vectors(perf, knr, lower)
+    @time p = probe(perf, knr)
+    @test p.macrorecall >= lower
+    p
 end
 
 @testset "indexing vectors with Knr" begin
@@ -16,16 +19,19 @@ end
     k = 10
     n = 10000 # number of items in the dataset
     m = 100  # number of queries
-    dim = 3  # vector's dimension
+    dim = 8  # vector's dimension
     db = [rand(Float32, dim) |> normalize! for i in 1:n]
     queries = [rand(Float32, dim) |> normalize! for i in 1:m]
 
     dist = L2Distance()
     seq = ExhaustiveSearch(dist, db, k)
     perf = Performance(seq, queries, k)
-    for numrefs in [64], kbuild in [3]
-        knr = Knr(dist, db; numrefs=numrefs, kbuild=kbuild)
-        test_knr_vectors(perf, knr)
-    end
+
+    knr = Knr(dist, db; numrefs=64, kbuild=2)
+    p = test_knr_vectors(perf, knr, 0.7)
+    @info "-- kbuild=3 $(JSON.json(p))"
+    optimize!(perf, knr; recall=0.95, ksearch=k)
+    p = test_knr_vectors(perf, knr, 0.95)
+    @info "-- Optimized kbuild=3 $(JSON.json(knr.opts)) -- $(JSON.json(p))"
 end
 
