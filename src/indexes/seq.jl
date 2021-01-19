@@ -19,6 +19,7 @@ struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: Ab
 end
 
 ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(ksearch))
+Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db, res=seq.res) = ExhaustiveSearch(dist, db, res)
 
 """
     search(seq::ExhaustiveSearch, q, res::KnnResult)

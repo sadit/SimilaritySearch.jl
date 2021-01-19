@@ -18,6 +18,9 @@ struct PivotedSearch{DataType<:AbstractVector, DistanceType<:PreMetric} <: Abstr
     res::KnnResult
 end
 
+Base.copy(index::PivotedSearch; dist=index.dist, db=index.db, pivots=index.pivots, table=index.table, dqp=index.dqp, res=index.res) =
+    PivotedSearch(dist, db, pivots, table, dqp, res)
+
 PivotedSearch(dist::PreMetric, db, pivots, table, k::Integer=10) =
     PivotedSearch(dist, db, pivots, table, zeros(Float32, length(pivots)), KnnResult(k))
 

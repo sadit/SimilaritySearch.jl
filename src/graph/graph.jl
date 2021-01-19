@@ -45,9 +45,12 @@ struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SearchType<:Lo
     opts::SearchGraphOptions
 end
 
+Base.copy(g::SearchGraph; dist=g.dist, db=g.db, links=g.links, search_algo=g.search_algo, neighborhood_algo=g.neighborhood_algo, res=g.res, opts=g.opts) =
+    SearchGraph(dist, db, links, search_algo, neighborhood_algo, res, opts)
+
 function SearchGraph(dist::PreMetric, db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
-        neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(1.1),
+        neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),
         automatic_optimization=false,
         recall=0.9,
         ksearch=10,

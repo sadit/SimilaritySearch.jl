@@ -19,7 +19,7 @@ function IHCSearch(restarts::Integer=20; localimprovements=false)
     IHCSearch(restarts, Int32[], VisitedVertices(), localimprovements)
 end
 
-IHCSearch(ihc::IHCSearch; restarts=ihc.restarts, hints=ihc.hints, vstate=ihc.vstate, localimprovements=ihc.localimprovements) =
+Base.copy(ihc::IHCSearch; restarts=ihc.restarts, hints=ihc.hints, vstate=ihc.vstate, localimprovements=ihc.localimprovements) =
     IHCSearch(restarts, hints, vstate, localimprovements)
 
 function Base.copy!(dst::IHCSearch, src::IHCSearch)
@@ -119,6 +119,6 @@ function opt_expand_neighborhood(fun, ihc::IHCSearch, n::Integer, iter::Integer,
     f(x) = max(1, x + rand(-logn:logn))
 
     for i in 1:probes
-        IHCSearch(ihc, restarts=f(ihc.restarts)) |> fun
+        copy(ihc, restarts=f(ihc.restarts)) |> fun
     end
 end

@@ -3,6 +3,16 @@
 
 export Performance, StatsKnn, StatsComparison, scores, probe
 
+mutable struct DistCounter{DistType<:PreMetric} <: PreMetric
+    dist::DistType
+    count::Int
+end
+
+function evaluate(D::DistCounter, a, b)
+    D.count += 1
+    evaluate(D.dist, a, b)
+end
+
 struct StatsKnn
     distancessum::Float64
     nearestdist::Float64
@@ -25,7 +35,6 @@ struct StatsKnn
         end
 
         n = length(reslist)
-
         new(distancessum/n, nearestdist/n, farthestdist/n, len/n)
     end
 end
@@ -35,6 +44,7 @@ struct StatsComparison
     macroprecision::Float64
     macrof1::Float64
     searchtime::Float64
+    evaluations::Float64
     stats::StatsKnn
     goldsearchtime::Float64
     goldstats::StatsKnn
@@ -46,6 +56,7 @@ struct Performance{DataType<:AbstractVector}
     popnearest::Bool
     goldreslist::Vector{KnnResult}
     goldsearchtime::Float64
+    goldevaluations::Float64
     goldstats::StatsKnn
 end
 
@@ -55,22 +66,29 @@ function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integ
         ksearch += 1
     end
     reslist = [KnnResult(ksearch) for i in 1:m]
+    search(index, queries[1]) # warming step
+    evaluations = index.dist.count
     start = time()
+
     for i in 1:m
         search(index, queries[i], reslist[i])
         popnearest && popfirst!(reslist[i])
     end
+
     elapsed = time() - start
-    reslist, elapsed / m
+    reslist, elapsed / m, (index.dist.count - evaluations) / m
 end
 
-function Performance(goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
-    gold, searchtime = perf_search_batch(goldsearch, queries, ksearch, popnearest)
-    Performance(queries, ksearch, popnearest, gold, searchtime, StatsKnn(gold))
+function Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
+    dist = DistCounter(_goldsearch.dist, 0)
+    goldsearch = copy(_goldsearch, dist=dist)
+    gold, searchtime, evaluations = perf_search_batch(goldsearch, queries, ksearch, popnearest)
+    Performance(queries, ksearch, popnearest, gold, searchtime, evaluations, StatsKnn(gold))
 end
 
-function probe(perf::Performance, index::AbstractSearchContext)
-    reslist, searchtime = perf_search_batch(index, perf.queries, perf.ksearch, perf.popnearest)
+function probe(perf::Performance, _index::AbstractSearchContext)
+    index = copy(_index, dist=DistCounter(_index.dist, 0))
+    reslist, searchtime, evaluations = perf_search_batch(index, perf.queries, perf.ksearch, perf.popnearest)
     n = length(reslist)
     recall = 0.0
     nearest = 0.0
@@ -83,7 +101,7 @@ function probe(perf::Performance, index::AbstractSearchContext)
         f1 += p.f1
     end
 
-    StatsComparison(recall/n, precision/n, f1/n, searchtime, StatsKnn(reslist), perf.goldsearchtime, perf.goldstats)
+    StatsComparison(recall/n, precision/n, f1/n, searchtime, evaluations, StatsKnn(reslist), perf.goldsearchtime, perf.goldstats)
 end
 
 function scores(gold::Set, res::Set)

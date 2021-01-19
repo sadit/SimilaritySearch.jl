@@ -15,7 +15,7 @@ function BeamSearch(bsize::Integer=16, ssize=bsize; beam=KnnResult(bsize), hints
     BeamSearch(bsize, ssize, beam, hints, vstate)
 end
 
-BeamSearch(bsearch::BeamSearch; bsize=bsearch.bsize, ssize=bsearch.ssize, hints=bsearch.hints, vstate=bsearch.vstate, beam=bsearch.beam) =
+Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, ssize=bsearch.ssize, hints=bsearch.hints, vstate=bsearch.vstate, beam=bsearch.beam) =
     BeamSearch(bsize, ssize, beam, hints, vstate)
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
@@ -99,9 +99,8 @@ end
 function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Integer, probes::Integer)
     logn = ceil(Int, log(2, n+1))
     probes = probes == 0 ? logn : probes
-    f(x) = max(1, x + rand(-logn:logn))
+    f(x) = max(2, x + rand(-logn:logn))
     for i in 1:probes
-        BeamSearch(gsearch, bsize=f(gsearch.bsize), ssize=f(gsearch.ssize)) |> fun
-        # BeamSearch(gsearch, bsize=f(gsearch.bsize)) |> fun
+        copy(gsearch, bsize=f(gsearch.bsize), ssize=f(gsearch.ssize)) |> fun
     end
 end

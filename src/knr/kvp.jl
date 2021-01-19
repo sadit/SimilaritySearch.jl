@@ -4,7 +4,7 @@
 using SimilaritySearch
 export Kvp, k_near_and_far, fit, search, push!
 
-mutable struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
+struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
     dist::DistanceType
     db::DataType
     refs::DataType
@@ -13,6 +13,8 @@ mutable struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: Abstrac
     res::KnnResult
 end
 
+Base.copy(kvp::Kvp; dist=kvp.dist, db=kvp.db, refs=kvp.refs, sparsetable=kvp.sparsetable, ksparse=kvp.ksparse, res=kvp.res) =
+    Kvp(dist, db, refs, sparsetable, ksparse, res)
 
 Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer, ksearch::Integer=10) = 
     Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))

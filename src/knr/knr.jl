@@ -21,6 +21,9 @@ struct Knr{RefSearchType<:AbstractSearchContext, DataType<:AbstractVector, Dista
     opts::KnrOptions
 end
 
+Base.copy(knr::Knr; dist=knr.dist, db=knr.db, refsearch=knr.refsearch, kbuild=knr.kbuild, invindex=knr.invindex, res=knr.res, opts=knr.opts) =
+    Knr(dist, db, refsearch, kbuild, invindex, res, opts)
+
 function Knr(
     dist::PreMetric,
     db::AbstractVector,

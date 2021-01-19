@@ -27,10 +27,10 @@ function optimize!(
         probes::Integer=0
     )
     n = length(index.db)
-    score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + 1.0 / p.searchtime
-    # score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.distances
-    #score_function(p) = p.recall < recall ? p.recall : 1.0 + 1.0 / (1.0 + sum(p.distances))
-    #score_function(p) = 1.0 / (1.0 + sum(p.distances))
+    score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
+    # score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
+    #score_function(p) = p.recall < recall ? p.recall : 1.0 + 1.0 / (1.0 + sum(p.evaluations))
+    #score_function(p) = 1.0 / (1.0 + sum(p.evaluations))
     p = probe(perf, index)
     best_list = [(score=score_function(p), state=search_algo, perf=p)]
     exploration = Dict(search_algo => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
