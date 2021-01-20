@@ -9,7 +9,7 @@ abstract type AbstractSearchContext end
 
 
 import Distances: evaluate, PreMetric
-export AbstractSearchContext, PreMetric
+export AbstractSearchContext, PreMetric, evaluate
 
 function search(searchctx::AbstractSearchContext, q, k::Integer=0)
     empty!(searchctx.res, k)
