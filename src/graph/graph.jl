@@ -48,6 +48,9 @@ end
 Base.copy(g::SearchGraph; dist=g.dist, db=g.db, links=g.links, search_algo=g.search_algo, neighborhood_algo=g.neighborhood_algo, res=g.res, opts=g.opts) =
     SearchGraph(dist, db, links, search_algo, neighborhood_algo, res, opts)
 
+Base.string(p::SearchGraphOptions) = "{SearchGraphOptions: ksearch=$(p.recall), automatic_optimization=$(p.automatic_optimization), recall=$(p.recall)}"
+Base.string(p::SearchGraph) = "{SearchGraph: dist=$(p.dist), n=$(length(p.db)), search_algo=$(string(p.search_algo)), neighborhood_algo=$(typeof(p.neighborhood_algo)), knn=$(p.res)}"
+
 function SearchGraph(dist::PreMetric, db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
         neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),

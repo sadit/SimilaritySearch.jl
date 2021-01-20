@@ -15,6 +15,7 @@ end
 
 Base.copy(kvp::Kvp; dist=kvp.dist, db=kvp.db, refs=kvp.refs, sparsetable=kvp.sparsetable, ksparse=kvp.ksparse, res=kvp.res) =
     Kvp(dist, db, refs, sparsetable, ksparse, res)
+Base.string(p::Kvp) = "{Kvp: dist=$(p.dist), n=$(length(p.db)), refs=$(length(p.refs)), ksparse=$(p.ksparse), knn=$(p.res)}"
 
 Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer, ksearch::Integer=10) = 
     Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))

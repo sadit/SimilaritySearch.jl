@@ -20,6 +20,7 @@ end
 
 ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(ksearch))
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db, res=seq.res) = ExhaustiveSearch(dist, db, res)
+Base.string(seq::ExhaustiveSearch) = "{ExhaustiveSearch: dist=$(seq.dist), n=$(length(seq.db)), knn=$(seq.res)}"
 
 """
     search(seq::ExhaustiveSearch, q, res::KnnResult)

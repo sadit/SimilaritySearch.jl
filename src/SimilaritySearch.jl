@@ -37,7 +37,7 @@ include("indexes/pivottable.jl")
 include("indexes/pivotselectiontables.jl")
 include("knr/kvp.jl")
 
-include("knr/knr.jl")
+#include("knr/knr.jl")
 include("graph/graph.jl")
 # include("utils/aknn.jl")
 # include("utils/classification.jl")
