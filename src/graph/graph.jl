@@ -27,6 +27,11 @@ end
     vstate[i] = state
 end
 
+"""
+    SearchGraphOptions
+
+Defines a number of options for the SearchGraph
+"""
 mutable struct SearchGraphOptions
     automatic_optimization::Bool
     recall::Float64
@@ -49,8 +54,22 @@ Base.copy(g::SearchGraph; dist=g.dist, db=g.db, links=g.links, search_algo=g.sea
     SearchGraph(dist, db, links, search_algo, neighborhood_algo, res, opts)
 
 Base.string(p::SearchGraphOptions) = "{SearchGraphOptions: ksearch=$(p.recall), automatic_optimization=$(p.automatic_optimization), recall=$(p.recall)}"
-Base.string(p::SearchGraph) = "{SearchGraph: dist=$(p.dist), n=$(length(p.db)), search_algo=$(string(p.search_algo)), neighborhood_algo=$(typeof(p.neighborhood_algo)), knn=$(p.res)}"
+Base.string(p::SearchGraph) = "{SearchGraph: dist=$(p.dist), n=$(length(p.db)), search_algo=$(string(p.search_algo)), neighborhood_algo=$(typeof(p.neighborhood_algo)), knn=$(maxlength(p.res))}"
 
+"""
+    SearchGraph(dist::PreMetric, db::AbstractVector;
+        search_algo::LocalSearchAlgorithm=BeamSearch(),
+        neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),
+        automatic_optimization=false,
+        recall=0.9,
+        ksearch=10,
+        tol=0.001,
+        verbose=true)
+
+Creates a SearchGraph object, i.e., an index to perform approximate search on `db`
+using the given search and neighbohood strategies. If `automatic_optimization` is true,
+then the structure tries to reach the given `recall` under the given `ksearch`.
+"""
 function SearchGraph(dist::PreMetric, db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
         neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),
@@ -176,12 +195,11 @@ function push!(index::SearchGraph, item)
 end
 
 """
-    search(index::SearchGraph, q, res::KnnResult)  
+    search(index::SearchGraph, q, res::KnnResult=index.res)  
 
 Solves the specified query `res` for the query object `q`.
-If hints is given then these vertices will be used as starting poiints for the search process.
 """
-function search(index::SearchGraph, q, res::KnnResult)
+function search(index::SearchGraph, q, res::KnnResult=index.res)
     length(index.db) > 0 && search(index.search_algo, index, q, res)
     res
 end

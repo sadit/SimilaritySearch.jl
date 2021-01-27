@@ -4,6 +4,8 @@
 export compute_distances, select_sss, select_tournament
 using Random
 """
+    compute_distances(dist::PreMetric, db::AbstractVector{T}, refs::AbstractVector{Int}, q::T) where T
+
 Computes the distances of `q` to the set of references `refs` (each index point to an item in `db`)
 It returns an array of tuples `(distance, refID)`
 """
@@ -12,6 +14,8 @@ function compute_distances(dist::PreMetric, db::AbstractVector{T}, refs::Abstrac
 end
 
 """
+    compute_distances(dist::PreMetric, refs::AbstractVector{T}, q::T) where T
+
 Computes the distances of `q` to the set of references `refs`
 It returns an array of tuples `(distance, refID)`
 """
@@ -20,6 +24,8 @@ function compute_distances(dist::PreMetric, refs::AbstractVector{T}, q::T) where
 end
 
 """
+    select_tournament(dist::PreMetric, db::AbstractVector{T}, numrefs::Int, tournamentsize::Int) where T
+
 select_tournament selects `numrefs` references from `db` using a tournament criterion; each
 individual is selected among`tournamentsize` individuals.
 
@@ -90,5 +96,5 @@ function select_sss(dist::PreMetric, db::AbstractVector{T}, alpha::Float64; shuf
         push!(pivots, i)
     end
 
-    return pivots
+    pivots
 end

@@ -6,11 +6,15 @@ abstract type Index end
 abstract type AbstractSearchContext end
 # abstract type AbstractMultithreadedSearchContext <: AbstractSearchContext end
 
-
-
 import Distances: evaluate, PreMetric
 export AbstractSearchContext, PreMetric, evaluate
 
+"""
+    search(searchctx::AbstractSearchContext, q, k::Integer)
+
+This is the most generic search function. It calls almost all implementations whenever an integer k is given.
+    
+"""
 function search(searchctx::AbstractSearchContext, q, k::Integer=0)
     empty!(searchctx.res, k)
     search(searchctx, q, searchctx.res)
@@ -35,7 +39,7 @@ include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/pivottable.jl")
 include("indexes/pivotselectiontables.jl")
-include("knr/kvp.jl")
+include("indexes/kvp.jl")
 
 #include("knr/knr.jl")
 include("graph/graph.jl")

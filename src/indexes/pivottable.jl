@@ -7,7 +7,7 @@ export PivotedSearch
     PivotedSeach(index::PivotTable, db::AbstractVector, dist::PreMetric, knn::KnnResult)
     PivotedSeach(index::PivotTable, db::AbstractVector, dist::PreMetric, k::Integer=10)
 
-Defines a search context for PivotTables
+Defines a search index for Pivot tables
 """
 struct PivotedSearch{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
     dist::DistanceType
@@ -20,7 +20,7 @@ end
 
 Base.copy(index::PivotedSearch; dist=index.dist, db=index.db, pivots=index.pivots, table=index.table, dqp=index.dqp, res=index.res) =
     PivotedSearch(dist, db, pivots, table, dqp, res)
-Base.string(p::PivotedSearch) = "{PivotedSearch: dist=$(p.dist), n=$(length(p.db)), pivs=$(length(p.pivots)), knn=$(p.res)}"
+Base.string(p::PivotedSearch) = "{PivotedSearch: dist=$(p.dist), n=$(length(p.db)), pivs=$(length(p.pivots)), knn=$(maxlength(p.res))}"
 
 PivotedSearch(dist::PreMetric, db, pivots, table, k::Integer=10) =
     PivotedSearch(dist, db, pivots, table, zeros(Float32, length(pivots)), KnnResult(k))
@@ -49,11 +49,11 @@ function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, numpivots::Intege
 end
 
 """
-    search(index::PivotedSeach, q, res::KnnResult)
+    search(index::PivotedSeach, q, res::KnnResult=index.res)
 
 Solves a query with the pivot index.
 """
-function search(index::PivotedSearch, q, res::KnnResult)
+function search(index::PivotedSearch, q, res::KnnResult=index.res)
     @inbounds for i in eachindex(index.pivots)
         index.dqp[i] = evaluate(index.dist, q, index.pivots[i])
     end

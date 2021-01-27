@@ -10,7 +10,7 @@ export ExhaustiveSearch, search, push!, fit, optimize!
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, knn::KnnResult)
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer)
 
-Defines a ExhaustiveSearch exhaustive search
+Defines an exhaustive search
 """
 struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
     dist::DistanceType
@@ -20,14 +20,18 @@ end
 
 ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) = ExhaustiveSearch(dist, db, KnnResult(ksearch))
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db, res=seq.res) = ExhaustiveSearch(dist, db, res)
-Base.string(seq::ExhaustiveSearch) = "{ExhaustiveSearch: dist=$(seq.dist), n=$(length(seq.db)), knn=$(seq.res)}"
+Base.string(seq::ExhaustiveSearch) = "{ExhaustiveSearch: dist=$(seq.dist), n=$(length(seq.db)), knn=$(maxlength(seq.res))}"
 
 """
-    search(seq::ExhaustiveSearch, q, res::KnnResult)
+    search(seq::ExhaustiveSearch, q, res::KnnResult=seq.res)
 
-Solves the query evaluating all items in the given context
+Solves the query evaluating all items in the given query.
+
+By default, it uses an internal result buffer;
+multithreading applications must duplicate specify another `res` object.
 """
-function search(seq::ExhaustiveSearch, q, res::KnnResult)
+function search(seq::ExhaustiveSearch, q, res::KnnResult=seq.res)
+    empty!(res)
     db = seq.db
 
     @inbounds for i in eachindex(db)
