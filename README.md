@@ -5,15 +5,18 @@
 # SimilaritySearch.jl
 
 
-SimilaritySearch.jl is a library for approximate nearest neighbors.
+SimilaritySearch.jl is a library for nearest neighbor search. In particular, it contains the implementation for `SearchGraph`
 
+```
+Tellez, E. S., Ruiz, G., Chavez, E., & Graff, M. A scalable solution to the nearest neighbor search problem through local-search methods on neighbor graphs. Pattern Analysis and Applications, 1-15.
+```
 
 # Installing SimilaritySearch
 
 
 You may install the package as follows
 ```bash
-julia -e 'using Pkg; pkg"add https://github.com/sadit/SimilaritySearch.jl"'
+julia -e 'using Pkg; pkg"add SimilaritySearch.jl"'
 ```
 also, you can run the set of tests as fol
 ```bash
