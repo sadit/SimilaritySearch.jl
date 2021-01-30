@@ -5,14 +5,20 @@ using SimilaritySearch
 using Distances
 using LinearAlgebra
 using Test
+using JSON3
 
 function test_seq(db, dist::PreMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
+    seq_ = JSON3.read(JSON3.write(seq), typeof(seq))
+
     for i in rand(1:length(db), 100)
-        res = search(seq, db[i])
+        res = search(seq, db[i], ksearch)
         @test first(res).dist < valid_lower
-    end
+        res = search(seq_, db[i], ksearch)
+        @test first(res).dist < valid_lower
+    end    
 end
+
 
 @testset "indexing vectors with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
@@ -32,7 +38,6 @@ end
         test_seq(db, dist, ksearch)
     end
 end
-
 
 @testset "indexing sequences with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required

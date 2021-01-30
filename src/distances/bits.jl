@@ -7,8 +7,8 @@ export BinaryHammingDistance
 # BitArray contains too much extra functionality at the cost of O(1) extra words,
 # however this could be an issue, since we represent our database as n vectors
 
-struct BinaryHammingDistance <: PreMetric
-end
+struct BinaryHammingDistance <: PreMetric end
+StructTypes.StructType(::Type{BinaryHammingDistance}) = StructTypes.Struct()
 
 """
     evaluate(::BinaryHammingDistance, a, b)::Float64

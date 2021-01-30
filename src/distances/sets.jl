@@ -4,6 +4,14 @@
 export JaccardDistance, DiceDistance, IntersectionDissimilarity
 import Distances: evaluate
 
+struct JaccardDistance <: PreMetric end
+struct DiceDistance <: PreMetric end
+struct IntersectionDissimilarity <: PreMetric end
+
+StructTypes.StructType(::Type{JaccardDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{DiceDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{IntersectionDissimilarity}) = StructTypes.Struct()
+
 """
     union_intersection(a::T, b::T)
 
@@ -33,7 +41,6 @@ function union_intersection(a::T, b::T) where {T <: AbstractVector}
     return len_a + len_b - intersection_size, intersection_size
 end
 
-struct JaccardDistance <: PreMetric end
 
 """
     evaluate(::JaccardDistance, a, b)
@@ -47,8 +54,6 @@ function evaluate(::JaccardDistance, a, b)
     1.0 - i / u
 end
 
-struct DiceDistance <: PreMetric end
-
 """
     evaluate(::DiceDistance, a, b)
 
@@ -60,7 +65,7 @@ function evaluate(::DiceDistance, a, b)
     1.0 - 2 * i / (length(a) + length(b))
 end
 
-struct IntersectionDissimilarity <: PreMetric end
+
 """
     evaluate(::IntersectionDissimilarity, a, b)
 (a, b)

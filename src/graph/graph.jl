@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-using JSON
 export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, search_context, VisitedVertices, parallel_fit
 
 abstract type LocalSearchAlgorithm end
@@ -16,11 +15,14 @@ const VISITED = UInt8(1)
 const EXPLORED = UInt8(2)
 
 const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
+
 function VisitedVertices(n)
     vstate = VisitedVertices()
     sizehint!(vstate, n)
     vstate
 end
+
+StructTypes.keyvaluepairs(x::VisitedVertices) = [] # ignore VisitedVertices among serialization/deserialization
 
 @inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
 @inline function setstate!(vstate::VisitedVertices, i, state)
@@ -40,17 +42,28 @@ mutable struct SearchGraphOptions
     verbose::Bool
 end
 
-struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SearchType<:LocalSearchAlgorithm, NeighborhoodType<:NeighborhoodAlgorithm} <: AbstractSearchContext
+struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm, NType<:NeighborhoodAlgorithm}<:AbstractSearchContext
     dist::DistType
     db::DataType
     links::Vector{Vector{Int32}}
-    search_algo::SearchType
-    neighborhood_algo::NeighborhoodType
+    search_algo::SType
+    neighborhood_algo::NType
     res::KnnResult
     opts::SearchGraphOptions
 end
 
-Base.copy(g::SearchGraph; dist=g.dist, db=g.db, links=g.links, search_algo=g.search_algo, neighborhood_algo=g.neighborhood_algo, res=g.res, opts=g.opts) =
+StructTypes.StructType(::Type{SearchGraphOptions}) = StructTypes.Struct()
+StructTypes.StructType(::Type{<:SearchGraph}) = StructTypes.Struct()
+
+Base.copy(g::SearchGraph;
+        dist=g.dist,
+        db=g.db,
+        links=g.links,
+        search_algo=copy(g.search_algo),
+        neighborhood_algo=copy(g.neighborhood_algo),
+        res=KnnResult(maxlength(g.res)),
+        opts=g.opts
+    ) =
     SearchGraph(dist, db, links, search_algo, neighborhood_algo, res, opts)
 
 Base.string(p::SearchGraphOptions) = "{SearchGraphOptions: ksearch=$(p.recall), automatic_optimization=$(p.automatic_optimization), recall=$(p.recall)}"
@@ -77,51 +90,54 @@ function SearchGraph(dist::PreMetric, db::AbstractVector;
         recall=0.9,
         ksearch=10,
         tol=0.001,
+        parallel=false,
+        firstblock=100_000,
+        block=10_000, 
         verbose=true)
-    links = Vector{Int32}[]
-    opts = SearchGraphOptions(automatic_optimization, recall, ksearch, tol, verbose)
-    index = SearchGraph(dist, eltype(db)[], links, search_algo, neighborhood_algo, KnnResult(ksearch), opts)
 
-    for item in db
-        push!(index, item)
+    opts = SearchGraphOptions(automatic_optimization, recall, ksearch, tol, verbose)
+    index = SearchGraph(dist, eltype(db)[], Vector{Int32}[], search_algo, neighborhood_algo, KnnResult(ksearch), opts)
+    verbose && println(stderr, string(index), parallel ? ", parallel=$parallel; firstblock=$firstblock, block=$block" : "")
+
+    if parallel
+        firstblock = min(length(db), firstblock)
+        for i in 1:firstblock
+            push!(index, db[i])
+        end
+
+        sp = length(index.db)
+        n = length(db)
+
+        INDEXES = [copy(index) for i in 1:Threads.nthreads()]
+        
+        while sp < n
+            ep = min(n, sp + block)
+            verbose && println(stderr, string(index), (sp=sp, ep=ep, n=n), Dates.now())
+            X = @view db[sp:ep]
+            parallel_push!(INDEXES, X)
+            sp = ep + 1
+        end
+    else
+        for item in db
+            push!(index, item)
+        end
     end
 
     index
 end
 
-## function parallel_fit(::Type{SearchGraph}, dist::PreMetric, dataset::AbstractVector{T}; firstblock=100_000, block=10_000, recall=0.9, k=10, search_algo=BeamSearch(), neighborhood_algo=LogSatNeighborhood(1.1), automatic_optimization=false, verbose=true) where T
-##     links = Vector{Int32}[]
-##     index = SearchGraph(T[], recall, k, links, search_algo, neighborhood_algo, verbose)
-##     firstblock = min(length(dataset), firstblock)
-## 
-##     for i in 1:firstblock
-##         push!(index, dist, dataset[i]; automatic_optimization=automatic_optimization)
-##     end
-## 
-##     sp = length(index.db)
-##     n = length(dataset)
-##     N = Vector(undef, block)
-##     while sp < n
-##         ep = min(n, sp + block)
-##         m = ep - sp
-##         CTX = [search_context(index) for i in 1:Threads.nthreads()]
-##         KNN = [KnnResult(1) for i in 1:Threads.nthreads()]
-##         Threads.@threads for i in 1:m
-##             searchctx = CTX[Threads.threadid()]
-##             knn = KNN[Threads.threadid()]
-##             reset!(searchctx, n=length(index.db))
-##             N[i] = find_neighborhood(index, dist, dataset[sp+i], knn, searchctx)
-##         end
-##         
-##         @show (sp, ep, n, length(N), index.search_algo, index.neighborhood_algo, Dates.now())
-##         for i in 1:m
-##             sp += 1
-##             push_neighborhood!(index, dataset[sp], N[i])
-##         end
-##     end
-## 
-##     index
-## end
+function parallel_push!(INDEXES::Vector{S}, X::AbstractVector) where {S<:SearchGraph}
+    m = length(X)
+    N = Vector{Vector{Int32}}(undef, m)
+    Threads.@threads for i in 1:m
+        tid = Threads.threadid()
+        N[i] = find_neighborhood(INDEXES[tid], X[i])
+    end
+
+    for i in 1:m
+        push_neighborhood!(INDEXES[1], X[i], N[i])
+    end
+end
 
 
 include("opt.jl")
@@ -195,11 +211,11 @@ function push!(index::SearchGraph, item)
 end
 
 """
-    search(index::SearchGraph, q, res::KnnResult=index.res)  
+    search(index::SearchGraph, q, res::KnnResult)  
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult=index.res)
+function search(index::SearchGraph, q, res::KnnResult)
     length(index.db) > 0 && search(index.search_algo, index, q, res)
     res
 end

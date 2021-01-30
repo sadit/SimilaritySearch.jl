@@ -5,11 +5,11 @@ export VorNeighborhood
 
 struct VorNeighborhood <: NeighborhoodAlgorithm
     base::Float64
+    VorNeighborhood(b=1.1) = new(b)
 end
 
-function VorNeighborhood()
-    return VorNeighborhood(1.1)
-end
+StructTypes.StructType(::Type{VorNeighborhood}) = StructTypes.Struct()
+Base.copy(b::VorNeighborhood) = VorNeighborhood(b.base)
 
 function find_neighborhood(algo::VorNeighborhood, index::SearchGraph, item)
     k = max(1, ceil(Int, log(algo.base, length(index.db))))

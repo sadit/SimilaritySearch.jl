@@ -5,11 +5,11 @@ export FixedNeighborhood
 
 struct FixedNeighborhood <: NeighborhoodAlgorithm
     k::Int
+    FixedNeighborhood(k=8) = new(k)
 end
 
-function FixedNeighborhood()
-    return FixedNeighborhood(8)
-end
+StructTypes.StructType(::Type{FixedNeighborhood}) = StructTypes.Struct()
+Base.copy(algo::FixedNeighborhood) = FixedNeighborhood(algo.k)
 
 """
     find_neighborhood(algo::FixedNeighborhood, index::SearchGraph, item)

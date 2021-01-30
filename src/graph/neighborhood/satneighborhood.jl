@@ -6,11 +6,11 @@ export SatNeighborhood
 struct SatNeighborhood <: NeighborhoodAlgorithm
     k::Int
     near::KnnResult
+    SatNeighborhood(k=32, res=KnnResult(1)) = new(k, res)
 end
 
-function SatNeighborhood()
-    return SatNeighborhood(32, KnnResult(1))
-end
+StructTypes.StructType(::Type{SatNeighborhood}) = StructTypes.Struct()
+Base.copy(s::SatNeighborhood) = SatNeighborhood(s.k, KnnResult(1))
 
 function find_neighborhood(algo::SatNeighborhood, index::SearchGraph, item)
     near = algo.near

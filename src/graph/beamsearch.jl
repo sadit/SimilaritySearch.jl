@@ -4,25 +4,32 @@
 using Random
 export BeamSearch
 mutable struct BeamSearch <: LocalSearchAlgorithm
+    hints::Vector{Int32}
     bsize::Int32  # size of the search beam
     ssize::Int32  # size of the first search beam (initial sampling)
     beam::KnnResult
-    hints::Vector{Int32}
     vstate::VisitedVertices
 end
 
-function BeamSearch(bsize::Integer=16, ssize=bsize; beam=KnnResult(bsize), hints=Int32[], vstate=VisitedVertices())
-    BeamSearch(bsize, ssize, beam, hints, vstate)
+StructTypes.StructType(::Type{BeamSearch}) = StructTypes.Struct()
+
+function BeamSearch(bsize::Integer=16, ssize=bsize; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
+    BeamSearch(hints, bsize, ssize, beam, vstate)
 end
 
-Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, ssize=bsearch.ssize, hints=bsearch.hints, vstate=bsearch.vstate, beam=bsearch.beam) =
-    BeamSearch(bsize, ssize, beam, hints, vstate)
+Base.copy(bsearch::BeamSearch;
+        hints=bsearch.hints,
+        bsize=bsearch.bsize,
+        ssize=bsearch.ssize,
+        beam=KnnResult(bsize),
+        vstate=VisitedVertices()
+    ) = BeamSearch(hints, bsize, ssize, beam, vstate)
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
-    dst.beam = src.beam
+    dst.hints = src.hints
     dst.bsize = src.bsize
     dst.ssize = src.ssize
-    dst.hints = src.hints
+    dst.beam = src.beam
     dst.vstate = src.vstate
 end
 

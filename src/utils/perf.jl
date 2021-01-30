@@ -50,6 +50,9 @@ struct StatsComparison
     goldstats::StatsKnn
 end
 
+StructTypes.StructType(::Type{StatsKnn}) = StructTypes.Struct()
+StructTypes.StructType(::Type{StatsComparison}) = StructTypes.Struct()
+
 struct Performance{DataType<:AbstractVector}
     queries::DataType
     ksearch::Int
@@ -66,7 +69,7 @@ function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integ
         ksearch += 1
     end
     reslist = [KnnResult(ksearch) for i in 1:m]
-    search(index, queries[1]) # warming step
+    search(index, queries[1], ksearch) # warming step
     evaluations = index.dist.count
     start = time()
 

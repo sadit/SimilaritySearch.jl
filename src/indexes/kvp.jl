@@ -13,9 +13,22 @@ struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchC
     res::KnnResult
 end
 
-Base.copy(kvp::Kvp; dist=kvp.dist, db=kvp.db, refs=kvp.refs, sparsetable=kvp.sparsetable, ksparse=kvp.ksparse, res=kvp.res) =
+Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10) = 
+    Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))
+
+StructTypes.StructType(::Type{<:Kvp}) = StructTypes.Struct()
+
+Base.copy(kvp::Kvp;
+        dist::PreMetric=kvp.dist,
+        db::AbstractVector=kvp.db,
+        refs::AbstractVector=kvp.refs,
+        sparsetable::AbstractVector=kvp.sparsetable,
+        ksparse::Integer=kvp.ksparse,
+        res::KnnResult=KnnResult(maxlength(kvp.res))
+    ) =
     Kvp(dist, db, refs, sparsetable, ksparse, res)
-Base.string(p::Kvp) = "{Kvp: dist=$(p.dist), n=$(length(p.db)), refs=$(length(p.refs)), ksparse=$(p.ksparse), knn=$(maxlength(p.res))}"
+
+Base.string(p::Kvp) = "{Kvp: dist=$(p.dist), n=$(length(p.db)), refs=$(length(p.refs)), ksparse=$(p.ksparse)}"
 
 
 """
@@ -47,7 +60,7 @@ function k_near_and_far(dist::PreMetric, near::KnnResult, far::KnnResult, obj::T
 end
 
 """
-    Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer, ksearch::Integer=10)
+    Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10)
     Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
     Kvp(dist::PreMetric, db::AbstractVector;
         numpivots::Integer=ceil(Int, sqrt(length(db))),
@@ -56,11 +69,8 @@ end
 Creates a K vantage points index: a sparse pivot table storing only `ksparse` near and far pivots using references as pivots.
 
 """
-Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer, ksearch::Integer=10) = 
-    Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))
 
-
-function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
+function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer; ksearch::Integer=10)
     @info "Kvp, refs=$(typeof(db)), k=$(ksparse), numrefs=$(length(refs)), dist=$(dist)"
     sparsetable = Vector{Item}[]
 
@@ -75,7 +85,7 @@ function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse:
         push!(sparsetable, row)
     end
 
-    Kvp(dist, db, refs, sparsetable, ksparse)
+    Kvp(dist, db, refs, sparsetable, ksparse; ksearch=ksearch)
 end
 
 function Kvp(dist::PreMetric, db::AbstractVector;
@@ -87,11 +97,11 @@ function Kvp(dist::PreMetric, db::AbstractVector;
 end
 
 """
-    search(kvp::Kvp, q::T, res::KnnResult=kvp.res) where T
+    search(kvp::Kvp, q::T, res::KnnResult) where T
 
 Searches for `q` in the `kvp` index
 """
-function search(kvp::Kvp, q::T, res::KnnResult=kvp.res) where T
+function search(kvp::Kvp, q::T, res::KnnResult) where T
     # d::Float64 = 0.0
     qI = [evaluate(kvp.dist, q, piv) for piv in kvp.refs]
 

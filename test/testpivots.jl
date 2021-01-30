@@ -6,6 +6,8 @@ using Test
 
 function test_pivs(perf, pivs)
     @test probe(perf, pivs).macrorecall >= 0.99
+    pivs_ = JSON3.read(JSON3.write(pivs), typeof(pivs))
+    @test probe(perf, pivs_).macrorecall >= 0.99
 end
 
 @testset "indexing vectors with PivotedSearch" begin

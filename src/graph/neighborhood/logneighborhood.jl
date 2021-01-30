@@ -5,11 +5,11 @@ export LogNeighborhood
 
 struct LogNeighborhood <: NeighborhoodAlgorithm
     base::Float64
+    LogNeighborhood(b=2) = new(b)
 end
 
-function LogNeighborhood()
-    return LogNeighborhood(2)
-end
+StructTypes.StructType(::Type{LogNeighborhood}) = StructTypes.Struct()
+Base.copy(algo::LogNeighborhood) = LogNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogNeighborhood, index::SearchGraph, item)
     n = length(index.db)

@@ -13,8 +13,16 @@ struct LInftyDistance <: PreMetric end
 struct LpDistance <: PreMetric
     p::Float32
     pinv::Float32
-    LpDistance(p::Real) = new(p, 1/p)
 end
+
+LpDistance(p::Real) = LpDistance(p, 1/p)
+
+StructTypes.StructType(::Type{L1Distance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{L2Distance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{SqL2Distance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{LInftyDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{LpDistance}) = StructTypes.Struct()
+
 
 """
     evaluate(L1Distance, a, b)

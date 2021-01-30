@@ -6,15 +6,19 @@ export LogSatNeighborhood
 struct LogSatNeighborhood <: NeighborhoodAlgorithm
     base::Float64
     near::KnnResult
-    LogSatNeighborhood(base=1.1) = new(base, KnnResult(1))
 end
 
+LogSatNeighborhood(base=1.1) = LogSatNeighborhood(base, KnnResult(1))
+
+StructTypes.StructType(::Type{LogSatNeighborhood}) = StructTypes.Struct()
+Base.copy(algo::LogSatNeighborhood) = LogSatNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
     n = length(index.db)
     k = max(1, ceil(Int, log(algo.base, n)))
     N = Int32[]
     near = algo.near
+
     @inbounds for p in search(index, item, k)
         pobj = index.db[p.id]
         empty!(near)

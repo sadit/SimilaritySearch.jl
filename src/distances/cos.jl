@@ -10,6 +10,11 @@ struct AngleDistance <: PreMetric end
 struct NormalizedCosineDistance <: PreMetric end
 struct NormalizedAngleDistance <: PreMetric end
 
+StructTypes.StructType(::Type{CosineDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{AngleDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{NormalizedCosineDistance}) = StructTypes.Struct()
+StructTypes.StructType(::Type{NormalizedAngleDistance}) = StructTypes.Struct()
+
 const π_2 = π / 2
 
 function fastacos(d)
@@ -45,7 +50,6 @@ function evaluate(::NormalizedAngleDistance, a, b)
     fastacos(dot(a, b))
 end
 
-
 """
     evaluate(::CosineDistance, a, b)
 
@@ -56,7 +60,6 @@ alternative whenever the triangle inequality is not needed)
 function evaluate(::CosineDistance, a, b)
     one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
 end
-
 
 """
     evaluate(::AngleDistance, a, b)

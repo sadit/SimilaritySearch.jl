@@ -1,26 +1,34 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, AbstractKnnResult, KnnResult, maxlength, covrad
-
-abstract type AbstractKnnResult end
+export Item, KnnResult, maxlength, covrad
 
 struct Item
     id::Int32
     dist::Float32
 end
 
+
 Base.isless(a::Item, b::Item) = isless(a.dist, b.dist)
 
-mutable struct KnnResult <: AbstractKnnResult
-    n::Int32
-    N::Int32
+mutable struct KnnResult
+    currsize::Int32
+    capacity::Int32
     pool::Vector{Item}
-
-    function KnnResult(k::Integer)
-        new(0, k, Vector{Item}(undef, k))
-    end
 end
+
+StructTypes.StructType(::Type{Item}) = StructTypes.Struct()
+StructTypes.StructType(::Type{KnnResult}) = StructTypes.ArrayType()
+
+KnnResult(k::Integer) = KnnResult(0, k, Vector{Item}(undef, k))
+KnnResult(arr::AbstractVector) =
+    if length(arr) > 0
+        KnnResult(length(arr), length(arr), [Item(p["id"], p["dist"]) for p in arr])
+    else
+        KnnResult(10)
+    end
+
+Base.copy(res::KnnResult) = KnnResult(res.currsize, res.capacity, copy(res.pool))
 
 """
     fix_order!(res::KnnResult, n)
@@ -50,12 +58,12 @@ Appends an item into the result set
     push!(res, p.first, p.second)
 end
 
-@inline function Base.push!(res::KnnResult, id::I, dist::F) where I where F
-    if res.n < res.N # length(res.pool)
+@inline function Base.push!(res::KnnResult, id::I, dist::F) where {I<:Integer} where {F<:Real}
+    if res.currsize < res.capacity # length(res.pool)
         # fewer elements than the maximum capacity
-        res.n += 1
-        @inbounds res.pool[res.n] = Item(id, dist)
-        fix_order!(res.pool, res.n)
+        res.currsize += 1
+        @inbounds res.pool[res.currsize] = Item(id, dist)
+        fix_order!(res.pool, res.currsize)
         return true
     end
 
@@ -66,8 +74,8 @@ end
     end
 
     # p.k == length(p.pool) but p.dist improves the result set
-    @inbounds res.pool[res.n] = Item(id, dist)
-    fix_order!(res.pool, res.n)
+    @inbounds res.pool[res.currsize] = Item(id, dist)
+    fix_order!(res.pool, res.currsize)
     true
 end
 
@@ -83,7 +91,7 @@ Base.first(res::KnnResult) = @inbounds res.pool[1]
 
 Returns the last item of the result set
 """
-Base.last(res::KnnResult) = @inbounds res.pool[res.n]
+Base.last(res::KnnResult) = @inbounds res.pool[res.currsize]
 
 """
     popfirst!(p::KnnResult)
@@ -95,7 +103,7 @@ Removes and returns the nearest neeighboor from the pool, an O(length(p.pool)) o
     for i in 2:length(res)
         @inbounds res.pool[i-1] = res.pool[i]
     end
-    res.n -= 1
+    res.currsize -= 1
     e
 end
 
@@ -105,8 +113,8 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function pop!(res::KnnResult)
-    @inbounds e = res.pool[res.n]
-    res.n -= 1
+    @inbounds e = res.pool[res.currsize]
+    res.currsize -= 1
     e
 end
 
@@ -115,7 +123,7 @@ end
 
 length returns the number of items in the result set
 """
-@inline Base.length(res::KnnResult) = res.n
+@inline Base.length(res::KnnResult) = res.currsize
 
 """
     maxlength(res::KnnResult)
@@ -139,9 +147,9 @@ Clears the content of the result pool. If k is given then the size of the pool i
 as needed (only grows).
 """
 @inline function Base.empty!(res::KnnResult, k::Integer=0)
-    res.n = 0
+    res.currsize = 0
     if k > 0
-        res.N = k
+        res.capacity = k
         k > maxlength(res) && resize!(res.pool, k)
     end
     
@@ -153,11 +161,11 @@ end
 end
 
 @inline function Base.lastindex(res::KnnResult)
-    res.n
+    res.currsize
 end
 
 @inline function Base.eachindex(res::KnnResult)
-    1:res.n
+    1:res.currsize
 end
 
 ##### iterator interface

@@ -5,22 +5,23 @@ export IHCSearch
 
 # Iterated Hill Climbing Search
 mutable struct IHCSearch <: LocalSearchAlgorithm
-    restarts::Int32
     hints::Vector{Int32}
-    vstate::VisitedVertices
+    restarts::Int32
     localimprovements::Bool
+    vstate::VisitedVertices
 end
 
-function IHCSearch(hints::Vector, restarts=length(hints); localimprovements=false)
-    IHCSearch(restarts, hints, VisitedVertices(), localimprovements)
-end
+StructTypes.StructType(::Type{IHCSearch}) = StructTypes.Struct()
 
-function IHCSearch(restarts::Integer=20; localimprovements=false)
-    IHCSearch(restarts, Int32[], VisitedVertices(), localimprovements)
-end
+IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false) =
+    IHCSearch(hints, restarts, localimprovements, VisitedVertices())
 
-Base.copy(ihc::IHCSearch; restarts=ihc.restarts, hints=ihc.hints, vstate=ihc.vstate, localimprovements=ihc.localimprovements) =
-    IHCSearch(restarts, hints, vstate, localimprovements)
+IHCSearch(restarts::Integer=20; hints=Int32[], localimprovements=false) =
+    IHCSearch(hints, restarts, localimprovements, VisitedVertices())
+
+
+Base.copy(ihc::IHCSearch; hints=ihc.hints, restarts=ihc.restarts, localimprovements=ihc.localimprovements, vstate=VisitedVertices()) =
+    IHCSearch(hints, restarts, localimprovements, vstate)
 
 function Base.copy!(dst::IHCSearch, src::IHCSearch)
     dst.restarts = src.restarts

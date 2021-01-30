@@ -18,12 +18,21 @@ struct PivotedSearch{DataType<:AbstractVector, DistanceType<:PreMetric} <: Abstr
     res::KnnResult
 end
 
-Base.copy(index::PivotedSearch; dist=index.dist, db=index.db, pivots=index.pivots, table=index.table, dqp=index.dqp, res=index.res) =
-    PivotedSearch(dist, db, pivots, table, dqp, res)
-Base.string(p::PivotedSearch) = "{PivotedSearch: dist=$(p.dist), n=$(length(p.db)), pivs=$(length(p.pivots)), knn=$(maxlength(p.res))}"
+StructTypes.StructType(::Type{<:PivotedSearch}) = StructTypes.Struct()
 
-PivotedSearch(dist::PreMetric, db, pivots, table, k::Integer=10) =
-    PivotedSearch(dist, db, pivots, table, zeros(Float32, length(pivots)), KnnResult(k))
+Base.copy(index::PivotedSearch;
+        dist=index.dist,
+        db=index.db,
+        pivots=index.pivots,
+        table=index.table,
+        dqp=zeros(Float32, length(pivots)),
+        res=KnnResult(maxlength(index.res))
+    ) = PivotedSearch(dist, db, pivots, table, dqp, res)
+
+Base.string(p::PivotedSearch) = "{PivotedSearch: dist=$(p.dist), n=$(length(p.db)), pivs=$(length(p.pivots))}"
+
+PivotedSearch(dist::PreMetric, db, pivots, table; ksearch::Integer=10) =
+    PivotedSearch(dist, db, pivots, table, zeros(Float32, length(pivots)), KnnResult(ksearch))
 
 """
     PivotedSearch(::Type{PivotTable}, dist::PreMetric, db::AbstractVector{T}, pivots::Vector{T})
@@ -40,7 +49,7 @@ function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, pivots::AbstractV
         table[i] = [evaluate(dist, u, pivots[j]) for j in 1:length(pivots)]
     end
 
-    PivotedSearch(dist, db, pivots, table, 1)
+    PivotedSearch(dist, db, pivots, table)
 end
 
 function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, numpivots::Integer) where T
@@ -49,11 +58,11 @@ function PivotedSearch(dist::PreMetric, db::AbstractVector{T}, numpivots::Intege
 end
 
 """
-    search(index::PivotedSeach, q, res::KnnResult=index.res)
+    search(index::PivotedSeach, q, res::KnnResult)
 
 Solves a query with the pivot index.
 """
-function search(index::PivotedSearch, q, res::KnnResult=index.res)
+function search(index::PivotedSearch, q, res::KnnResult)
     @inbounds for i in eachindex(index.pivots)
         index.dqp[i] = evaluate(index.dist, q, index.pivots[i])
     end
