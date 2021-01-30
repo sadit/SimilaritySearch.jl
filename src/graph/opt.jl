@@ -39,7 +39,7 @@ function optimize!(
     prev_score = -1.0
     iter = 0
 
-    state_string(s) = "(state=$(string(s.state)), score=$(s.score), perf=$(JSON3.write(s.perf)))"
+    state_string(s) = "(state=$(string(s.state)), score=$(s.score), perf=$(s.perf)  )"
     while abs(best_list[1].score - prev_score) > tol && iter < maxiters
         iter += 1
         prev_score = best_list[1].score
