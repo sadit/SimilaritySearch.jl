@@ -25,7 +25,7 @@ KnnResult(arr::AbstractVector) =
     if length(arr) > 0
         KnnResult(length(arr), length(arr), [Item(p["id"], p["dist"]) for p in arr])
     else
-        KnnResult(10)
+        KnnResult(1)
     end
 
 Base.copy(res::KnnResult) = KnnResult(res.currsize, res.capacity, copy(res.pool))
@@ -130,7 +130,7 @@ length returns the number of items in the result set
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult) = length(res.pool)
+@inline maxlength(res::KnnResult) = res.capacity
 
 """
     covrad(p::KnnResult)
@@ -150,7 +150,7 @@ as needed (only grows).
     res.currsize = 0
     if k > 0
         res.capacity = k
-        k > maxlength(res) && resize!(res.pool, k)
+        k > length(res.pool) && resize!(res.pool, k)
     end
     
     res
