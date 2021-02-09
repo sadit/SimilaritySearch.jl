@@ -62,7 +62,7 @@ end
     if res.currsize < res.capacity # length(res.pool)
         # fewer elements than the maximum capacity
         res.currsize += 1
-        @inbounds res.pool[res.currsize] = Item(id, dist)
+        res.pool[res.currsize] = Item(id, dist)
         fix_order!(res.pool, res.currsize)
         return true
     end
@@ -74,7 +74,7 @@ end
     end
 
     # p.k == length(p.pool) but p.dist improves the result set
-    @inbounds res.pool[res.currsize] = Item(id, dist)
+    res.pool[res.currsize] = Item(id, dist)
     fix_order!(res.pool, res.currsize)
     true
 end

@@ -105,7 +105,7 @@ function SearchGraph(dist::PreMetric, db::AbstractVector;
             push!(index, db[i])
         end
 
-        sp = length(index.db)
+        sp = length(index.db) + 1
         n = length(db)
 
         INDEXES = [copy(index) for i in 1:Threads.nthreads()]
