@@ -34,6 +34,7 @@ also, you can run the set of tests as fol
 
 # Using the library
 Please see [examples](https://github.com/sadit/SimilaritySearch.jl/tree/main/examples) directory of this repository. Here you will find a list of Pluto's notebooks that exemplifies its usage.
+
 ## API
 
 
