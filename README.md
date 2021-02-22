@@ -25,12 +25,12 @@ _Tellez, E. S., Ruiz, G., Chavez, E., & Graff, M.A scalable solution to the near
 
 
 You may install the package as follows
-```bash
-julia -e 'using Pkg; pkg"add SimilaritySearch.jl"'
+```julia
+] add SimilaritySearch.jl
 ```
 also, you can run the set of tests as fol
-```bash
-julia -e 'using Pkg; pkg"test SimilaritySearch"'
+```julia
+] test SimilaritySearch
 ```
 
 # Using the library

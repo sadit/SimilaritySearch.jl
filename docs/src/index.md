@@ -1,5 +1,5 @@
 ```@meta
-CurrentModule = SearchModels
+CurrentModule = SimilaritySearch
 ```
 
 
@@ -24,12 +24,12 @@ _Tellez, E. S., Ruiz, G., Chavez, E., & Graff, M.A scalable solution to the near
 
 
 You may install the package as follows
-```bash
-julia -e 'using Pkg; pkg"add SimilaritySearch.jl"'
+```julia
+] add SimilaritySearch
 ```
 also, you can run the set of tests as fol
-```bash
-julia -e 'using Pkg; pkg"test SimilaritySearch"'
+```julia
+] test SimilaritySearch
 ```
 
 # Using the library
@@ -41,5 +41,5 @@ Please see [examples](https://github.com/sadit/SimilaritySearch.jl/tree/main/exa
 ```
 
 ```@autodocs
-Modules = [SearchModels]
+Modules = [SimilaritySearch]
 ```
