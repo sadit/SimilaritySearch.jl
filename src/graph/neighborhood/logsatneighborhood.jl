@@ -3,6 +3,13 @@
 
 export LogSatNeighborhood
 
+"""
+    LogSatNeighborhood(b=1.1)
+
+New items are connected with a half partitioning scheme based on the Spatial access tree (**cite**),
+``\\log_b n`` near items are considered for this procedure. The Log-Sat method will produce small neighborhood with
+a nice covering of the search space.
+"""
 struct LogSatNeighborhood <: NeighborhoodAlgorithm
     base::Float64
     near::KnnResult

@@ -3,6 +3,12 @@
 
 export SatNeighborhood
 
+"""
+    SatNeighborhood(k=32)
+
+New items are connected with a small set of items computed with a SAT like scheme (**cite**).
+It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage.
+"""
 struct SatNeighborhood <: NeighborhoodAlgorithm
     k::Int
     near::KnnResult

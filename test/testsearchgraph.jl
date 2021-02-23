@@ -24,8 +24,7 @@ using Test
                 () -> FixedNeighborhood(8), ## objects need to be created at each usage here since 
                 () -> LogNeighborhood(), ## since they contain state data
                 () -> LogSatNeighborhood(),
-                () -> SatNeighborhood(),
-                () -> VorNeighborhood()
+                () -> SatNeighborhood()
         ], search_algo_fun in [
             () -> IHCSearch(4)  
             () -> BeamSearch()  

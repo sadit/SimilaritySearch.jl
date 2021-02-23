@@ -78,11 +78,15 @@ Base.string(p::SearchGraph) = "{SearchGraph: dist=$(p.dist), n=$(length(p.db)), 
         recall=0.9,
         ksearch=10,
         tol=0.001,
+        parallel=false,
+        firstblock=100_000,
+        block=10_000, 
         verbose=true)
 
 Creates a SearchGraph object, i.e., an index to perform approximate search on `db`
 using the given search and neighbohood strategies. If `automatic_optimization` is true,
-then the structure tries to reach the given `recall` under the given `ksearch`.
+then the structure tries to reach the given `recall` under the given `ksearch`. The construction will use
+all available threads if `parallel=true`.
 """
 function SearchGraph(dist::PreMetric,
         db::AbstractVector;
@@ -149,7 +153,6 @@ include("neighborhood/fixedneighborhood.jl")
 include("neighborhood/logneighborhood.jl")
 include("neighborhood/logsatneighborhood.jl")
 include("neighborhood/satneighborhood.jl")
-include("neighborhood/vorneighborhood.jl")
 
 ## search algorithms
 include("ihc.jl")

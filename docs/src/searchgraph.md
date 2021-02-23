@@ -26,8 +26,7 @@ for q in Q
 end
 ```
 
-There are a several options for the construction of the index.
-
+There are a several options for the construction of the index, from specifying the precise searching algorithm (`search_algo`) and the neighborhood strategy to be used on construction (`neighborhood_algo`). You can also specify here if the construction will be made in parallel and how this paralllelism will be performed (`firstblock`, `block`).
 
 ```@docs
 
@@ -36,7 +35,7 @@ SearchGraphOptions
 
 ```
 
-Please note 
+Regarding the search search algorithm, there are two alternatives, based on local search heuristics.
 
 ```@docs
 
@@ -45,7 +44,17 @@ IHCSearch
 
 ```
 
+Regarding neighborhood algorithms, the package defines the following ones:
+
 Neighborhood algorithms
+```@docs
+
+FixedNeighborhood
+LogNeighborhood
+LogSatNeighborhood
+SatNeighborhood
+
+```
 
 ----
 The index can be created incrementally,

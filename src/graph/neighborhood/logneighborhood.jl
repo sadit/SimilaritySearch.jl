@@ -3,6 +3,11 @@
 
 export LogNeighborhood
 
+"""
+    LogNeighborhood(b=2)
+
+New items are connected with the ``\\log_b n`` items in the current graph (where ``n`` is the current number of vertices in the graph)
+"""
 struct LogNeighborhood <: NeighborhoodAlgorithm
     base::Float64
     LogNeighborhood(b=2) = new(b)

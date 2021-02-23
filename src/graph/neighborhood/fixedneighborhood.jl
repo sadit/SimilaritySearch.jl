@@ -3,6 +3,11 @@
 
 export FixedNeighborhood
 
+"""
+    FixedNeighborhood(k=8)
+
+New items are connected with a fixed number of neighbors
+"""
 struct FixedNeighborhood <: NeighborhoodAlgorithm
     k::Int
     FixedNeighborhood(k=8) = new(k)
