@@ -32,5 +32,5 @@ deploydocs(;
     repo="github.com/sadit/SimilaritySearch.jl",
     devbranch="main",
     branch = "gh-pages",
-    versions = ["stable" => "v^", "v#.#"]
+    versions = ["stable" => "v^", "v#.#.#"]
 )
