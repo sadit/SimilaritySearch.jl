@@ -5,9 +5,50 @@ export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleD
 using LinearAlgebra
 import Distances: evaluate
 
+"""
+   CosineDistance()
+   
+The cosine is defined as:
+```math
+\\cos(u, v) = \\frac{\\sum_i u_i v_i}{\\sqrt{\\sum_i u_i^2} \\sqrt{\\sum_i v_i^2}}
+```
+
+The cosine distance is defined as ``1 - \\cos(u,v)``
+"""
 struct CosineDistance <: PreMetric end
+
+"""
+   AngleDistance()
+   
+The angle distance is defined as:
+```math
+∠(u, v)= \\arccos(\\cos(u, v))
+```
+
+"""
 struct AngleDistance <: PreMetric end
+"""
+    NormalizedCosineDistance()
+
+Similar to [`CosineDistance`](@ref) but suppose that input vectors are already normalized
+
+```math
+1 - \\sum_i {u_i v_i}
+```
+
+"""
 struct NormalizedCosineDistance <: PreMetric end
+
+"""
+    NormalizedAngleDistance()
+
+Similar to [`AngleDistance`](@ref) but suppose that input vectors are already normalized
+
+```math
+\\arccos \\sum_i {u_i v_i}
+```
+
+"""
 struct NormalizedAngleDistance <: PreMetric end
 
 StructTypes.StructType(::Type{CosineDistance}) = StructTypes.Struct()

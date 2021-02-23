@@ -3,12 +3,30 @@
 
 export CommonPrefixDissimilarity, GenericLevenshteinDistance, StringHammingDistance, LevenshteinDistance, LcsDistance
 
+"""
+    CommonPrefixDissimilarity()
+
+Uses the common prefix as a measure of dissimilarity between two strings
+"""
 struct CommonPrefixDissimilarity <: PreMetric end
+
+"""
+    StringHammingDistance()
+
+The hamming distance counts the differences between two equally sized strings
+"""
 struct StringHammingDistance <: PreMetric end
+
+"""
+    GenericLevenshteinDistance(icost, dcost, rcost)
+
+The levenshtein distance measures the minimum number of edit operations to convert one string into another.
+The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
+"""
 struct GenericLevenshteinDistance <: PreMetric
     icost::Int # insertion cost
     dcost::Int # deletion cost
-    rcost::Int # removal cost
+    rcost::Int # replace cost
 end
 
 StructTypes.StructType(::Type{CommonPrefixDissimilarity}) = StructTypes.Struct()
@@ -108,7 +126,6 @@ end
      
 Computes the hamming distance between two sequences of the same length
 """
-
 function evaluate(::StringHammingDistance, a, b)
     d::Int32 = 0
 

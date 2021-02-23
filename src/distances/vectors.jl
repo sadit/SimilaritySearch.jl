@@ -5,11 +5,66 @@ export L1Distance, L2Distance, SqL2Distance, LInftyDistance, LpDistance
 
 import Distances: evaluate
 
+"""
+    L1Distance()
+
+The manhattan distance or ``L_1`` is defined as
+
+```math
+L_1(u, v) = \\sum_i{|u_i - v_i|}
+```
+"""
 struct L1Distance <: PreMetric end
+
+"""
+    L2Distance()
+
+The euclidean distance or ``L_2`` is defined as
+
+```math
+L_2(u, v) = \\sqrt{\\sum_i{(u_i - v_i)^2}}
+```
+"""
 struct L2Distance <: PreMetric end
+
+"""
+    SqL2Distance()
+
+The squared euclidean distance is defined as
+
+```math
+L_2(u, v) = \\sum_i{(u_i - v_i)^2}
+```
+
+It avoids the computation of the square root and should be used
+whenever you are able do it.
+"""
 struct SqL2Distance <: PreMetric end
+
+"""
+    LInftyDistance()
+
+The Chebyshev or ``L_{\\infty}`` distance is defined as
+
+```math
+L_{\\infty}(u, v) = \\max_i{\\left| u_i - v_i \\right|}
+```
+
+"""
 struct LInftyDistance <: PreMetric end
 
+"""
+    LpDistance(p)
+    LpDistance(p, pinv)
+
+The general Minkowski distance ``L_p`` distance is defined as
+
+```math
+L_p(u, v) = \\left|\\sum_i{(u_i - v_i)^p}\\right|^{1/p}
+```
+
+Where ``p_{inv} = 1/p``. Note that you can specify unrelated `p` and `pinv` if you need an specific behaviour.
+"""
 struct LpDistance <: PreMetric
     p::Float32
     pinv::Float32

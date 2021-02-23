@@ -3,10 +3,11 @@
 
 export BinaryHammingDistance
 
-# we export a few bit-handling primitives
-# BitArray contains too much extra functionality at the cost of O(1) extra words,
-# however this could be an issue, since we represent our database as n vectors
-
+"""
+   BinaryHammingDistance()
+   
+Binary hamming uses bit wise operations to count the differences between bit strings
+"""
 struct BinaryHammingDistance <: PreMetric end
 StructTypes.StructType(::Type{BinaryHammingDistance}) = StructTypes.Struct()
 

@@ -13,6 +13,18 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Searching" => "searching.md",
+        "SearchGraph" => "searchgraph.md",
+        "API" => [
+            "Knn results" => "knnresult.md",
+            "Distances" => [
+                "Minkowski" => "distminkowski.md",
+                "Cosine" => "distcos.md",
+                "String alignments" => "diststrings.md",
+                "Hamming" => "disthamming.md",
+                "Sets" => "distsets.md",
+            ]
+        ]
     ],
 )
 

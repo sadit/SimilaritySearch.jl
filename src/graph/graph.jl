@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, find_neighborhood, push_neighborhood!, search_context, VisitedVertices, parallel_fit
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, SearchGraphOptions, find_neighborhood, push_neighborhood!, search_context, VisitedVertices, parallel_fit
 
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
@@ -30,7 +30,7 @@ StructTypes.keyvaluepairs(x::VisitedVertices) = [] # ignore VisitedVertices amon
 end
 
 """
-    SearchGraphOptions
+    SearchGraphOptions(automatic_optimization::Bool, recall::Float64, ksearch::Int, tol::Float64, verbose::Bool)
 
 Defines a number of options for the SearchGraph
 """
@@ -70,7 +70,8 @@ Base.string(p::SearchGraphOptions) = "{SearchGraphOptions: ksearch=$(p.recall), 
 Base.string(p::SearchGraph) = "{SearchGraph: dist=$(p.dist), n=$(length(p.db)), search_algo=$(string(p.search_algo)), neighborhood_algo=$(typeof(p.neighborhood_algo)), knn=$(maxlength(p.res))}"
 
 """
-    SearchGraph(dist::PreMetric, db::AbstractVector;
+    SearchGraph(dist::PreMetric,
+        db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
         neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),
         automatic_optimization=false,
@@ -83,7 +84,8 @@ Creates a SearchGraph object, i.e., an index to perform approximate search on `d
 using the given search and neighbohood strategies. If `automatic_optimization` is true,
 then the structure tries to reach the given `recall` under the given `ksearch`.
 """
-function SearchGraph(dist::PreMetric, db::AbstractVector;
+function SearchGraph(dist::PreMetric,
+        db::AbstractVector;
         search_algo::LocalSearchAlgorithm=BeamSearch(),
         neighborhood_algo::NeighborhoodAlgorithm=LogNeighborhood(),
         automatic_optimization=false,
@@ -221,13 +223,26 @@ function search(index::SearchGraph, q, res::KnnResult)
 end
 
 """
-    optimize!(perf::Performance, index::SearchGraph;
-    recall=0.9, ksearch=10, verbose=index.opts.verbose, tol::Float64=0.01, maxiters::Integer=3, probes::Integer=0) 
-    optimize!(perf, index.search_algo, index; recall=recall, tol=tol, maxiters=3, probes=probes)
+    optimize!(perf::Performance,
+              index::SearchGraph;
+              recall=index.opts.recall,
+              ksearch=index.opts.ksearch,
+              verbose=index.opts.verbose,
+              tol::Float64=index.opts.tol,
+              maxiters::Integer=3,
+              probes::Integer=0)
 
 Optimizes the index for the specified kind of queries.
 """
-function optimize!(perf::Performance, index::SearchGraph;
-    recall=index.opts.recall, ksearch=index.opts.ksearch, verbose=index.opts.verbose, tol::Float64=index.opts.tol, maxiters::Integer=3, probes::Integer=0) 
+
+function optimize!(perf::Performance,
+              index::SearchGraph;
+              recall=index.opts.recall,
+              ksearch=index.opts.ksearch,
+              verbose=index.opts.verbose,
+              tol::Float64=index.opts.tol,
+              maxiters::Integer=3,
+              probes::Integer=0)
+
     optimize!(perf, index.search_algo, index; recall=recall, tol=tol, maxiters=3, probes=probes)
 end

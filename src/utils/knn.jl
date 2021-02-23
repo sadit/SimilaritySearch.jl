@@ -1,16 +1,31 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export Item, KnnResult, maxlength, covrad
+export Item, KnnResult, maxlength, covrad, maxlength
 
+"""
+    Item(id, dist)
+
+An item identifier and its related distance to another item
+"""
 struct Item
     id::Int32
     dist::Float32
 end
 
-
 Base.isless(a::Item, b::Item) = isless(a.dist, b.dist)
 
+
+"""
+    KnnResult(ksearch::Integer)
+    KnnResult(arrOfItems::AbstractVector)
+    KnnResult(currsize, capacity, pool)  # low level constructor
+
+
+Creates a priority queue with fixed capacity (`ksearch`) representing a knn result set.
+It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
+size is reached. After this only the smallest items based on distance are preserved.
+"""
 mutable struct KnnResult
     currsize::Int32
     capacity::Int32
@@ -49,7 +64,8 @@ It is efficient due to the expected distribution of the items being inserted
 end
 
 """
-    push!(p::KnnResult, item::Item) where T
+    push!(res::KnnResult, item::Pair)
+    push!(res::KnnResult, id::Integer, dist::AbstractFloat)
 
 Appends an item into the result set
 """

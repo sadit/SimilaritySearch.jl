@@ -4,8 +4,37 @@
 export JaccardDistance, DiceDistance, IntersectionDissimilarity
 import Distances: evaluate
 
+"""
+    JaccardDistance()
+
+The Jaccard distance is defined as
+
+```math
+J(u, v) = \\frac{|u \\cap v|}{|u \\cup v|}
+```
+"""
 struct JaccardDistance <: PreMetric end
+
+"""
+    DiceDistance()
+
+The Dice distance is defined as
+
+```math
+D(u, v) = \\frac{2 |u \\cap v|}{|u| + |v|}
+```
+"""
 struct DiceDistance <: PreMetric end
+
+"""
+    IntersectionDissimilarity()
+
+The intersection dissimilarity uses the size of the intersection as a mesuare of similarity as follows:
+
+```math
+I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
+```
+"""
 struct IntersectionDissimilarity <: PreMetric end
 
 StructTypes.StructType(::Type{JaccardDistance}) = StructTypes.Struct()
@@ -38,7 +67,7 @@ function union_intersection(a::T, b::T) where {T <: AbstractVector}
         end
     end
 
-    return len_a + len_b - intersection_size, intersection_size
+    len_a + len_b - intersection_size, intersection_size
 end
 
 
@@ -75,5 +104,5 @@ Uses the intersection as a distance function (non-metric)
 function evaluate(::IntersectionDissimilarity, a, b)
     u, i = union_intersection(a, b)
 
-    return 1.0 - i / min(length(a), length(b))
+    return 1.0 - i / max(length(a), length(b))
 end
