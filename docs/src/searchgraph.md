@@ -35,6 +35,7 @@ SearchGraphOptions
 
 ```
 
+## Local search algorithms
 Regarding the search search algorithm, there are two alternatives, based on local search heuristics.
 
 ```@docs
@@ -44,6 +45,7 @@ IHCSearch
 
 ```
 
+## Neighborhood algorithms
 Regarding neighborhood algorithms, the package defines the following ones:
 
 Neighborhood algorithms
@@ -56,8 +58,8 @@ SatNeighborhood
 
 ```
 
-----
-The index can be created incrementally,
+## Incremental construction of the index
+The index supports insertions; for instance, it can be fully constructed using insertions as follows:
 
 ```@example
 using SimilaritySearch
@@ -71,9 +73,15 @@ end
 search(index, rand(Float32, 4), 3)
 ```
 
-The index construction can be customized with `find_neighborhood` and `push_neighborhood`
+Each insertion is performed by the `push!` function.
 ```@docs
 push!(::SearchGraph, elem)
+```
+
+### Customizing the insertion method
+In particular, the procedure of pushing items into the index is made calling `find_neighborhood` and `push_neighborhood`; these methods can be overriden or used in other wyas to customize the insertion of data and the construction of the index.
+
+```@docs
 find_neighborhood
 push_neighborhood!
 
@@ -83,4 +91,3 @@ push_neighborhood!
 optimize!
 ```
 
-also see search and push!
