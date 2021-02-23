@@ -9,8 +9,9 @@ export ExhaustiveSearch, search, push!, fit, optimize!
 """
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, knn::KnnResult)
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer)
+    ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10)    
 
-Defines an exhaustive search
+Solves queries evaluating `dist` for the query and all elements in the dataset.
 """
 struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
     dist::DistanceType

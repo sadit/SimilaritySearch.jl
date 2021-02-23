@@ -28,14 +28,26 @@ end
 
 There are a several options for the construction of the index.
 
-### Related API
-
 
 ```@docs
+
 SearchGraph
 SearchGraphOptions
+
 ```
 
+Please note 
+
+```@docs
+
+BeamSearch
+IHCSearch
+
+```
+
+Neighborhood algorithms
+
+----
 The index can be created incrementally,
 
 ```@example

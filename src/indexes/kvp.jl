@@ -62,7 +62,8 @@ end
 """
     Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10)
     Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
-    Kvp(dist::PreMetric, db::AbstractVector;
+    Kvp(dist::PreMetric,
+        db::AbstractVector;
         numpivots::Integer=ceil(Int, sqrt(length(db))),
         ksparse::Integer=ceil(Int, log2(length(db)))
         )
@@ -88,7 +89,8 @@ function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse:
     Kvp(dist, db, refs, sparsetable, ksparse; ksearch=ksearch)
 end
 
-function Kvp(dist::PreMetric, db::AbstractVector;
+function Kvp(dist::PreMetric,
+        db::AbstractVector;
         numpivots::Integer=ceil(Int, sqrt(length(db))),
         ksparse::Integer=ceil(Int, log2(length(db)))
         )

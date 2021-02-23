@@ -4,6 +4,21 @@
 export IHCSearch
 
 # Iterated Hill Climbing Search
+
+"""
+    IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false)
+    IHCSearch(restarts::Integer=20; hints=Int32[], localimprovements=false)
+    IHCSearch(hints, restarts, localimprovements, vstate)
+
+IHCSearch is an iterated hill climbing algorithma, a local search algorithm. It greedily navigates the search graph
+and restart the search `restarts` times.
+Multithreading applications must have copies of this object due to shared cache objects.
+
+- `restarts`: The number of restarts.
+- `hints`: An initial hint for the exploration (if it is not empty, then superseeds the initial points of the random starting points).
+- `localimprovements`: An experimental technique that if it is true it will achieve very high quality results, at cost of increasing searching time.
+- `vstate`: A cache object for reducing memory allocations
+"""
 mutable struct IHCSearch <: LocalSearchAlgorithm
     hints::Vector{Int32}
     restarts::Int32

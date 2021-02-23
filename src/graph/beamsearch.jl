@@ -3,6 +3,18 @@
 
 using Random
 export BeamSearch
+
+"""
+    BeamSearch(bsize::Integer=16, ssize=bsize; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
+
+BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of `bsize` elements and neighborhoods at the time.
+Multithreading applications must have copies of this object due to shared cache objects.
+
+- `ssize`: The size of the first sampling.
+- `hints`: An initial hint for the exploration (if it is not empty, then superseeds `ssize` and the initial sampling).
+- `beam`: A cache object for reducing memory allocations
+- `vstate`: A cache object for reducing memory allocations
+"""
 mutable struct BeamSearch <: LocalSearchAlgorithm
     hints::Vector{Int32}
     bsize::Int32  # size of the search beam
