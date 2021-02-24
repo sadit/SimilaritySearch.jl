@@ -69,11 +69,6 @@ end
 
 Appends an item into the result set
 """
-
-@inline function Base.push!(res::KnnResult, p::Pair)
-    push!(res, p.first, p.second)
-end
-
 @inline function Base.push!(res::KnnResult, id::I, dist::F) where {I<:Integer} where {F<:Real}
     if res.currsize < res.capacity # length(res.pool)
         # fewer elements than the maximum capacity
@@ -94,6 +89,8 @@ end
     fix_order!(res.pool, res.currsize)
     true
 end
+
+@inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
 
 """
     first(p::KnnResult)
@@ -128,7 +125,7 @@ end
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function pop!(res::KnnResult)
+@inline function Base.pop!(res::KnnResult)
     @inbounds e = res.pool[res.currsize]
     res.currsize -= 1
     e
@@ -153,7 +150,7 @@ The maximum allowed cardinality (the k of knn)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(res::KnnResult) = length(res) < maxlength(res) ? typemax(Float32) : res.pool[end].dist
+@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : res.pool[end].dist
 
 """
     empty!(res::KnnResult)
@@ -172,20 +169,34 @@ as needed (only grows).
     res
 end
 
-@inline function Base.getindex(res::KnnResult, i::Integer)
-    res.pool[i]
-end
+"""
+    getindex(res::KnnResult, i)
 
-@inline function Base.lastindex(res::KnnResult)
-    res.currsize
-end
+Access the i-th item in `res`
+"""
+@inline Base.getindex(res::KnnResult, i) = res.pool[i]
 
-@inline function Base.eachindex(res::KnnResult)
-    1:res.currsize
-end
+"""
+    lastindex(res::KnnResult)
+
+Last index of `res`
+"""
+@inline Base.lastindex(res::KnnResult) = res.currsize
+
+"""
+    eachindex(res::KnnResult)
+
+Iterator of valid item indexes in `res`
+"""
+@inline Base.eachindex(res::KnnResult) = 1:res.currsize
 
 ##### iterator interface
 ### KnnResult
+"""
+    Base.iterate(res::KnnResult, state::Int=1)
+
+Support for iteration
+"""
 function Base.iterate(res::KnnResult, state::Int=1)
     n = length(res)
     if n == 0 || state > length(res)
@@ -194,3 +205,5 @@ function Base.iterate(res::KnnResult, state::Int=1)
         @inbounds res.pool[state], state + 1
     end
 end
+
+Base.eltype(res::KnnResult) = Item

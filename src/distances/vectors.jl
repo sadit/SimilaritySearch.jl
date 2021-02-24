@@ -2,7 +2,6 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export L1Distance, L2Distance, SqL2Distance, LInftyDistance, LpDistance
-
 import Distances: evaluate
 
 """
@@ -133,7 +132,7 @@ end
 
 Computes the maximum distance or Chebyshev's distance
 """
-@inline function evaluate(::LInftyDistance, a, b)
+function evaluate(::LInftyDistance, a, b)
     d = zero(eltype(a))
 
     @inbounds @simd for i in eachindex(a)

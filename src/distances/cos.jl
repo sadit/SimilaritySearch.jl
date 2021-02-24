@@ -77,9 +77,7 @@ Computes the cosine distance between two vectors, it expects normalized vectors 
 Please use NormalizedAngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-function evaluate(::NormalizedCosineDistance, a, b)
-    one(eltype(a)) - dot(a, b)
-end
+evaluate(::NormalizedCosineDistance, a, b) = one(eltype(a)) - dot(a, b)
 
 """
     evaluate(::AngleDistance, a, b)
@@ -87,9 +85,7 @@ end
 Computes the angle  between twovectors. It supposes that all vectors are normalized (see `normalize!` function)
 
 """
-function evaluate(::NormalizedAngleDistance, a, b)
-    fastacos(dot(a, b))
-end
+evaluate(::NormalizedAngleDistance, a, b) = fastacos(dot(a, b))
 
 """
     evaluate(::CosineDistance, a, b)
@@ -98,9 +94,7 @@ Computes the cosine distance between two vectors.
 Please use AngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-function evaluate(::CosineDistance, a, b)
-    one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
-end
+evaluate(::CosineDistance, a, b) = one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
 
 """
     evaluate(::AngleDistance, a, b)

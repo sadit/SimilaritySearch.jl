@@ -13,6 +13,13 @@ function evaluate(D::DistCounter, a, b)
     evaluate(D.dist, a, b)
 end
 
+
+"""
+    StatsKnn(res::KnnResult)
+    StatsKnn(res::AbstractVector)
+
+Computes some basic statistics for the KnnResult or an array of KnnResults
+"""
 struct StatsKnn
     distancessum::Float64
     nearestdist::Float64
@@ -39,6 +46,11 @@ struct StatsKnn
     end
 end
 
+"""
+    StatsComparison
+
+Stores the result of the comparison between two indexes, see [`Performance`](@ref).
+"""
 struct StatsComparison
     macrorecall::Float64
     macroprecision::Float64
@@ -53,6 +65,16 @@ end
 StructTypes.StructType(::Type{StatsKnn}) = StructTypes.Struct()
 StructTypes.StructType(::Type{StatsComparison}) = StructTypes.Struct()
 
+"""
+    Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
+
+Creates performance comparer for the given set of queries using a gold standard index.
+
+- `_goldsearch`: a gold standard index
+- `queries`: a set of queries
+- `ksearch`: the number of neighbors to retrieve
+- `popnearest`: set as `true` whenever queries are part of the dataset.
+"""
 struct Performance{DataType<:AbstractVector}
     queries::DataType
     ksearch::Int
@@ -62,6 +84,14 @@ struct Performance{DataType<:AbstractVector}
     goldevaluations::Float64
     goldstats::StatsKnn
 end
+
+function Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
+    dist = DistCounter(_goldsearch.dist, 0)
+    goldsearch = copy(_goldsearch, dist=dist)
+    gold, searchtime, evaluations = perf_search_batch(goldsearch, queries, ksearch, popnearest)
+    Performance(queries, ksearch, popnearest, gold, searchtime, evaluations, StatsKnn(gold))
+end
+
 
 function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integer, popnearest::Bool)
     m = length(queries)
@@ -82,13 +112,11 @@ function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integ
     reslist, elapsed / m, (index.dist.count - evaluations) / m
 end
 
-function Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
-    dist = DistCounter(_goldsearch.dist, 0)
-    goldsearch = copy(_goldsearch, dist=dist)
-    gold, searchtime, evaluations = perf_search_batch(goldsearch, queries, ksearch, popnearest)
-    Performance(queries, ksearch, popnearest, gold, searchtime, evaluations, StatsKnn(gold))
-end
+"""
+    probe(perf::Performance, _index::AbstractSearchContext)
 
+Compares the performance of `_index` with the gold standard index of `perf`.
+"""
 function probe(perf::Performance, _index::AbstractSearchContext)
     index = copy(_index, dist=DistCounter(_index.dist, 0))
     reslist, searchtime, evaluations = perf_search_batch(index, perf.queries, perf.ksearch, perf.popnearest)
@@ -107,6 +135,11 @@ function probe(perf::Performance, _index::AbstractSearchContext)
     StatsComparison(recall/n, precision/n, f1/n, searchtime, evaluations, StatsKnn(reslist), perf.goldsearchtime, perf.goldstats)
 end
 
+"""
+    scores(gold, res)
+
+Compute recall and precision scores from the result sets.
+"""
 function scores(gold::Set, res::Set)
     tp = intersect(gold, res)  # tn
     fp = length(setdiff(res, tp)) # |fp| == |ft| when |res| == |gold|

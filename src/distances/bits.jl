@@ -12,15 +12,11 @@ struct BinaryHammingDistance <: PreMetric end
 StructTypes.StructType(::Type{BinaryHammingDistance}) = StructTypes.Struct()
 
 """
-    evaluate(::BinaryHammingDistance, a, b)::Float64
-    evaluate(::BinaryHammingDistance, a::AbstractVector, b::AbstractVector)::Float64 where T<:Unsigned
+    evaluate(::BinaryHammingDistance, a, b)
+    evaluate(::BinaryHammingDistance, a::AbstractVector, b::AbstractVector) where {T<:Unsigned}
 
 Computes the binary hamming distance for bit types and arrays of bit types
 """
-function evaluate(::BinaryHammingDistance, a::T, b::T)::Float64 where {T<:Unsigned}
-    count_ones(a ⊻ b)
-end
-
 function evaluate(::BinaryHammingDistance, a, b)
     d = 0
     @inbounds @simd for i in eachindex(a)
@@ -29,4 +25,9 @@ function evaluate(::BinaryHammingDistance, a, b)
 
     d
 end
+
+function evaluate(::BinaryHammingDistance, a::T, b::T)::Float64 where {T<:Unsigned}
+    count_ones(a ⊻ b)
+end
+
 

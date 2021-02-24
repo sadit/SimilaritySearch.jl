@@ -16,12 +16,6 @@ const EXPLORED = UInt8(2)
 
 const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
 
-function VisitedVertices(n)
-    vstate = VisitedVertices()
-    sizehint!(vstate, n)
-    vstate
-end
-
 StructTypes.keyvaluepairs(x::VisitedVertices) = [] # ignore VisitedVertices among serialization/deserialization
 
 @inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)

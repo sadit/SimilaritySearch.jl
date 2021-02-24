@@ -86,7 +86,7 @@ find_neighborhood
 push_neighborhood!
 
 ```
-
+### Optimizing the index's performance
 ```@docs
 optimize!
 ```

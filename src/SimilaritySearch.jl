@@ -5,10 +5,9 @@ module SimilaritySearch
 using StructTypes
 abstract type Index end
 abstract type AbstractSearchContext end
-# abstract type AbstractMultithreadedSearchContext <: AbstractSearchContext end
 
 import Distances: evaluate, PreMetric
-export AbstractSearchContext, PreMetric, evaluate
+export AbstractSearchContext, PreMetric, evaluate, search
 
 """
     search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))

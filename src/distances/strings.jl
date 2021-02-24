@@ -8,14 +8,16 @@ export CommonPrefixDissimilarity, GenericLevenshteinDistance, StringHammingDista
 
 Uses the common prefix as a measure of dissimilarity between two strings
 """
-struct CommonPrefixDissimilarity <: PreMetric end
+struct CommonPrefixDissimilarity <: PreMetric
+end
 
 """
     StringHammingDistance()
 
 The hamming distance counts the differences between two equally sized strings
 """
-struct StringHammingDistance <: PreMetric end
+struct StringHammingDistance <: PreMetric
+end
 
 """
     GenericLevenshteinDistance(icost, dcost, rcost)
@@ -24,9 +26,9 @@ The levenshtein distance measures the minimum number of edit operations to conve
 The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
 """
 struct GenericLevenshteinDistance <: PreMetric
-    icost::Int # insertion cost
-    dcost::Int # deletion cost
-    rcost::Int # replace cost
+    icost::Int32 # insertion cost
+    dcost::Int32 # deletion cost
+    rcost::Int32 # replace cost
 end
 
 StructTypes.StructType(::Type{CommonPrefixDissimilarity}) = StructTypes.Struct()
@@ -54,10 +56,10 @@ LcsDistance() = GenericLevenshteinDistance(1, 1, 2)
 Computes the length of the common prefix among two strings represented as arrays
 """
 function common_prefix(a, b)
-    len_a::Int = length(a)
-    len_b::Int = length(b)
-    i::Int = 1
-    min_len::Int = min(len_a, len_b)
+    len_a = length(a)
+    len_b = length(b)
+    i = 1
+    min_len = min(len_a, len_b)
     @inbounds while i <= min_len && a[i] == b[i]
     	i += 1
     end
@@ -66,47 +68,40 @@ function common_prefix(a, b)
 end
 
 
-raw"""
+"""
     evaluate(::CommonPrefixDissimilarity, a, b)
 
 Computes a dissimilarity based on the common prefix between two strings
-
-$$ 1 - common\_prefix(a-b) / \min\{|a|, |b|\} $$
 """
-function evaluate(::CommonPrefixDissimilarity, a, b)
-    p = min(length(a), length(b))
-	1.0 - common_prefix(a, b) / p
-end
+evaluate(::CommonPrefixDissimilarity, a, b) = 1.0 - common_prefix(a, b) / min(length(a), length(b))
+
 
 """
-    evaluate(::GenericLevenshteinDistance, a, b)::Int
+    evaluate(::GenericLevenshteinDistance, a, b)
 
 Computes the edit distance between two strings, this is a low level function
 """
-function evaluate(lev::GenericLevenshteinDistance, a, b)::Int
+function evaluate(lev::GenericLevenshteinDistance, a, b)
     if length(a) < length(b)
         a, b = b, a
     end
 
-    alen::Int = length(a)
-    blen::Int = length(b)
+    alen = length(a)
+    blen = length(b)
 
     alen == 0 && return blen
     blen == 0 && return alen
 
-    C::Vector{Int} = Array(0:blen)
+    C = collect(Int32, 0:blen)
 
-    prevA::Int = 0
+    prevA = 0
     @inbounds for i in 1:alen
         prevA = i
-        prevC::Int = C[1]
-        j::Int = 1
+        prevC = C[1]
+        j = 1
 
         while j <= blen
-            cost = lev.rcost
-            if a[i] == b[j]
-               cost = 0
-            end
+            cost = a[i] == b[j] ? 0 : lev.rcost
             C[j] = prevA
             j += 1
             prevA = min(C[j]+lev.dcost, prevA+lev.icost, prevC+cost)
@@ -127,7 +122,7 @@ end
 Computes the hamming distance between two sequences of the same length
 """
 function evaluate(::StringHammingDistance, a, b)
-    d::Int32 = 0
+    d = 0
 
     @inbounds for i = 1:length(a)
         d += Int(a[i] != b[i])
@@ -137,7 +132,7 @@ function evaluate(::StringHammingDistance, a, b)
 end
 
 
-# function kerrormatch(a::T1, b::T2, errors::Int)::Bool where {T1 <: Any,T2 <: Any}
+# function kerrormatch(a::T1, b::T2, errors::Integer)::Bool where {T1 <: Any,T2 <: Any}
 #     # if length(a) < length(b)
 #     #     a, b = b, a
 #     # end
