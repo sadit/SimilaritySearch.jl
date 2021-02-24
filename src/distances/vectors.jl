@@ -80,7 +80,7 @@ StructTypes.StructType(::Type{LpDistance}) = StructTypes.Struct()
 
 
 """
-    evaluate(L1Distance, a, b)
+    evaluate(::L1Distance, a, b)
 
 Computes the Manhattan's distance between `a` and `b`
 """
@@ -96,7 +96,7 @@ function evaluate(::L1Distance, a, b)
 end
 
 """
-    evaluate(L2Distance, a, b)
+    evaluate(::L2Distance, a, b)
     
 Computes the Euclidean's distance betweem `a` and `b`
 """
@@ -131,7 +131,7 @@ end
 """
     evaluate(::LInftyDistance, a, b)
 
-Computes the max or Chebyshev'se distance
+Computes the maximum distance or Chebyshev's distance
 """
 @inline function evaluate(::LInftyDistance, a, b)
     d = zero(eltype(a))

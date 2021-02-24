@@ -17,13 +17,11 @@ makedocs(;
         "SearchGraph" => "searchgraph.md",
         "API" => [
             "Knn results" => "knnresult.md",
-            "Distances" => [
-                "Minkowski" => "distminkowski.md",
-                "Cosine" => "distcos.md",
-                "String alignments" => "diststrings.md",
-                "Hamming" => "disthamming.md",
-                "Sets" => "distsets.md",
-            ]
+            "Minkowski distances" => "distminkowski.md",
+            "Cosine and angle distances" => "distcos.md",
+            "String alignments" => "diststrings.md",
+            "Hamming distances" => "disthamming.md",
+            "Sets distances" => "distsets.md",
         ]
     ],
 )

@@ -77,7 +77,6 @@ end
 Computes the Jaccard's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
-
 function evaluate(::JaccardDistance, a, b)
     u, i = union_intersection(a, b)
     1.0 - i / u
@@ -97,7 +96,6 @@ end
 
 """
     evaluate(::IntersectionDissimilarity, a, b)
-(a, b)
 
 Uses the intersection as a distance function (non-metric)
 """

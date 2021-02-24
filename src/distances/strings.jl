@@ -79,7 +79,7 @@ function evaluate(::CommonPrefixDissimilarity, a, b)
 end
 
 """
-    evaluate(GenericLevenshteinDistance, a, b)::Int
+    evaluate(::GenericLevenshteinDistance, a, b)::Int
 
 Computes the edit distance between two strings, this is a low level function
 """
