@@ -21,7 +21,6 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(search
     search(searchctx, q, searchctx.res)
 end
 
-
 include("distances/bits.jl")
 include("distances/sets.jl")
 include("distances/strings.jl")
