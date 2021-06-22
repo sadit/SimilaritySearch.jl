@@ -26,8 +26,6 @@ mutable struct IHCSearch <: LocalSearchAlgorithm
     vstate::VisitedVertices
 end
 
-StructTypes.StructType(::Type{IHCSearch}) = StructTypes.Struct()
-
 IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false) =
     IHCSearch(hints, restarts, localimprovements, VisitedVertices())
 

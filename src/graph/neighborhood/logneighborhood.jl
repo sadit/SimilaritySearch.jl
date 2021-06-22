@@ -13,13 +13,10 @@ struct LogNeighborhood <: NeighborhoodAlgorithm
     LogNeighborhood(b=2) = new(b)
 end
 
-StructTypes.StructType(::Type{LogNeighborhood}) = StructTypes.Struct()
 Base.copy(algo::LogNeighborhood) = LogNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogNeighborhood, index::SearchGraph, item)
     n = length(index.db)
     k = max(1, log(algo.base, n) |> ceil |> Int)
-    knn = search(index, item, k)
-
-    [p.id for p in search(index, item, k)]
+    copy(search(index, item, k).id)
 end

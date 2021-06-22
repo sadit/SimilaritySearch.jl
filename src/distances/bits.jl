@@ -9,7 +9,6 @@ export BinaryHammingDistance
 Binary hamming uses bit wise operations to count the differences between bit strings
 """
 struct BinaryHammingDistance <: PreMetric end
-StructTypes.StructType(::Type{BinaryHammingDistance}) = StructTypes.Struct()
 
 """
     evaluate(::BinaryHammingDistance, a, b)

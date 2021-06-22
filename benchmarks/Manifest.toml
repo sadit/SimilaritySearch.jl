@@ -116,12 +116,6 @@ git-tree-sha1 = "81690084b6198a2e1da36fcfda16eeca9f9f24e4"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.1"
 
-[[JSON3]]
-deps = ["Dates", "Mmap", "Parsers", "StructTypes", "UUIDs"]
-git-tree-sha1 = "a61b471557f4cf73bc1047aef9c6aa941d115320"
-uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
-version = "1.8.2"
-
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
 uuid = "b27032c2-a3e7-50c8-80cd-2d36dbcbfd21"
@@ -256,7 +250,7 @@ deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[SimilaritySearch]]
-deps = ["Dates", "Distances", "JSON3", "LinearAlgebra", "Random", "StatsBase", "StructTypes", "Test"]
+deps = ["Dates", "Distances", "LinearAlgebra", "Random", "StatsBase", "Test"]
 path = ".."
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 version = "0.4.7"
@@ -306,12 +300,6 @@ deps = ["ArrayInterface", "Requires", "ThreadingUtilities", "VectorizationBase"]
 git-tree-sha1 = "efcdfcbb8cf91e859f61011de1621be34b550e69"
 uuid = "7792a7ef-975c-4747-a70f-980b88e8d1da"
 version = "0.1.13"
-
-[[StructTypes]]
-deps = ["Dates", "UUIDs"]
-git-tree-sha1 = "e36adc471280e8b346ea24c5c87ba0571204be7a"
-uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
-version = "1.7.2"
 
 [[TOML]]
 deps = ["Dates"]

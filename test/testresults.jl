@@ -3,13 +3,12 @@
 
 using SimilaritySearch
 using Test
-using JSON3
 
 
 @testset "Result set" begin
     k = 4
     V = rand(Float32, 50)
-    Vsorted = sort!([Item(i, v) for (i, v) in enumerate(V)])[1:k]
+    Vsorted = sort!([i => v for (i, v) in enumerate(V)], by=x->x[2])[1:k]
     res = KnnResult(k)
 
     for i in eachindex(V)
@@ -20,6 +19,4 @@ using JSON3
     @test first(res).dist == Vsorted[1].dist
     @test [x.id for x in res] == [x.id for x in Vsorted[1:k]]
     @test [x.dist for x in res] == [x.dist for x in Vsorted[1:k]]
-    
-    @test collect(JSON3.read(JSON3.write(res), KnnResult)) == collect(res) == res.pool
 end

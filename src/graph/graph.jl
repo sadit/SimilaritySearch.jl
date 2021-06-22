@@ -16,8 +16,6 @@ const EXPLORED = UInt8(2)
 
 const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
 
-StructTypes.keyvaluepairs(x::VisitedVertices) = [] # ignore VisitedVertices among serialization/deserialization
-
 @inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
 @inline function setstate!(vstate::VisitedVertices, i, state)
     vstate[i] = state
@@ -45,9 +43,6 @@ struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSe
     res::KnnResult
     opts::SearchGraphOptions
 end
-
-StructTypes.StructType(::Type{SearchGraphOptions}) = StructTypes.Struct()
-StructTypes.StructType(::Type{<:SearchGraph}) = StructTypes.Struct()
 
 Base.copy(g::SearchGraph;
         dist=g.dist,

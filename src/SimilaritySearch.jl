@@ -2,7 +2,6 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 module SimilaritySearch
-using StructTypes
 abstract type Index end
 abstract type AbstractSearchContext end
 
@@ -26,7 +25,8 @@ include("distances/sets.jl")
 include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
-include("utils/knn.jl")
+#include("utils/knn.jl")
+include("utils/arrknn.jl")
 
 include("utils/perf.jl")
 include("indexes/pivotselection.jl")

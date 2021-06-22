@@ -32,9 +32,6 @@ mutable struct KnnResult
     pool::Vector{Item}
 end
 
-StructTypes.StructType(::Type{Item}) = StructTypes.Struct()
-StructTypes.StructType(::Type{KnnResult}) = StructTypes.ArrayType()
-
 KnnResult(k::Integer) = KnnResult(0, k, Vector{Item}(undef, k))
 KnnResult(arr::AbstractVector) =
     if length(arr) > 0

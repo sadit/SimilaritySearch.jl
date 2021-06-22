@@ -37,10 +37,6 @@ I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
 """
 struct IntersectionDissimilarity <: PreMetric end
 
-StructTypes.StructType(::Type{JaccardDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{DiceDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{IntersectionDissimilarity}) = StructTypes.Struct()
-
 """
     union_intersection(a::T, b::T)
 

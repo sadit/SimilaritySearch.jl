@@ -31,10 +31,6 @@ struct GenericLevenshteinDistance <: PreMetric
     rcost::Int32 # replace cost
 end
 
-StructTypes.StructType(::Type{CommonPrefixDissimilarity}) = StructTypes.Struct()
-StructTypes.StructType(::Type{StringHammingDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{GenericLevenshteinDistance}) = StructTypes.Struct()
-
 
 """
     LevenshteinDistance(a, b)

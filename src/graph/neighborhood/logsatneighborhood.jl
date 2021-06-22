@@ -17,7 +17,6 @@ end
 
 LogSatNeighborhood(base=1.1) = LogSatNeighborhood(base, KnnResult(1))
 
-StructTypes.StructType(::Type{LogSatNeighborhood}) = StructTypes.Struct()
 Base.copy(algo::LogSatNeighborhood) = LogSatNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
@@ -26,17 +25,17 @@ function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
     N = Int32[]
     near = algo.near
 
-    @inbounds for p in search(index, item, k)
-        pobj = index.db[p.id]
+    @inbounds for (id, dist) in search(index, item, k)
+        pobj = index.db[id]
         empty!(near)
-        push!(near, p.id, p.dist)
+        push!(near, 0, dist)
         for nearID in N
             d = evaluate(index.dist, index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 
-        if first(near).id == p.id
-            push!(N, p.id)
+        if first(near.id) == 0
+            push!(N, id)
         end
     end
 

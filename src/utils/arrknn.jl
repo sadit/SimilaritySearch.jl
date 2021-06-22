@@ -14,34 +14,42 @@ mutable struct KnnResult{RefType<:Integer,DistType<:Real}
     id::Vector{RefType}
     dist::Vector{DistType}
     k::Int
+
+    function KnnResult(id, dist, k::Integer)
+        @assert k > 0
+        new{eltype(id), eltype(dist)}(id, dist, Int(k))
+    end
 end
 
-KnnResult(k::Integer) = KnnResult(Int32[], Float32[], k)
+function KnnResult(k::Integer)
+    @assert k > 0
+    KnnResult(Int32[], Float32[], k)
+end
 Base.copy(res::KnnResult) = KnnResult(copy(res.id), copy(res.dist), res.k)
 
 """
-    sort!(res::KnnResult)
+    fixorder!(id, dist)
 
-Sorts the result in place. It implements a kind of insertion sort that it is efficient due to the expected
+Sorts the result in place; the possible element out of order is on the last entry always.
+It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function Base.sort!(res::KnnResult)
-    pos = N = length(res.id)
-    @inbounds while pos > 1 && res.dist[N] < res.dist[pos-1]
+function fixorder!(id, dist)
+    pos = N = length(id)
+    @inbounds while pos > 1 && dist[N] < dist[pos-1]
         pos -= 1
     end
 
     @inbounds if pos < N
-        id, dist = res.id[N], res.dist[N]
+        id_, dist_ = last(id), last(dist)
         while N > pos
-            res.id[N], res.dist[N] = res.id[N-1], res.dist[N-1]
+            id[N], dist[N] = id[N-1], dist[N-1]
             N -= 1
         end
-        res.dist[N] = dist
-        res.id[N] = id
-    end
 
-    res
+        dist[N] = dist_
+        id[N] = id_
+    end
 end
 
 """
@@ -54,13 +62,13 @@ Appends an item into the result set
     if length(res) < maxlength(res)
         push!(res.id, id)
         push!(res.dist, dist)
-        sort!(res)
+        fixorder!(res.id, res.dist)
         return true
     end
 
     dist >= last(res.dist) && return false
-    res.id[end], res.dist[end] = id, dist
-    sort!(res)
+    @inbounds res.id[end], res.dist[end] = id, dist
+    fixorder!(res.id, res.dist)
     true
 end
 
@@ -121,7 +129,7 @@ as needed (only grows).
         sizehint!(res.dist, k)
     end
 
-    res.k = k
+    res.k = max(k, res.k)
 end
 
 """

@@ -26,7 +26,7 @@ struct StatsKnn
     farthestdist::Float64
     length::Float64
 
-    StatsKnn(res::KnnResult) = new(sum(p.dist for p in res), first(res).dist, last(res).dist, length(res))
+    StatsKnn(res::KnnResult) = new(sum(res.dist), first(res.dist), last(res.dist), length(res))
     function StatsKnn(reslist::AbstractVector{T}) where {T<:KnnResult}
         distancessum = 0.0
         nearestdist = 0.0
@@ -62,9 +62,6 @@ struct StatsComparison
     goldstats::StatsKnn
 end
 
-StructTypes.StructType(::Type{StatsKnn}) = StructTypes.Struct()
-StructTypes.StructType(::Type{StatsComparison}) = StructTypes.Struct()
-
 """
     Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
 
@@ -75,11 +72,11 @@ Creates performance comparer for the given set of queries using a gold standard 
 - `ksearch`: the number of neighbors to retrieve
 - `popnearest`: set as `true` whenever queries are part of the dataset.
 """
-struct Performance{DataType<:AbstractVector}
+struct Performance{DataType<:AbstractVector, KnnResultType<:KnnResult}
     queries::DataType
     ksearch::Int
     popnearest::Bool
-    goldreslist::Vector{KnnResult}
+    goldreslist::Vector{KnnResultType}
     goldsearchtime::Float64
     goldevaluations::Float64
     goldstats::StatsKnn
@@ -151,4 +148,4 @@ function scores(gold::Set, res::Set)
     (recall=recall, precision=precision, f1=2 * precision * recall / (precision + recall))
 end
 
-scores(gold::KnnResult, res::KnnResult) = scores(Set(item.id for item in gold), Set(item.id for item in res))
+scores(gold::KnnResult, res::KnnResult) = scores(Set(gold.id), Set(res.id))

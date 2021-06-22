@@ -23,8 +23,6 @@ mutable struct BeamSearch <: LocalSearchAlgorithm
     vstate::VisitedVertices
 end
 
-StructTypes.StructType(::Type{BeamSearch}) = StructTypes.Struct()
-
 function BeamSearch(bsize::Integer=16, ssize=bsize; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
     BeamSearch(hints, bsize, ssize, beam, vstate)
 end
@@ -33,7 +31,7 @@ Base.copy(bsearch::BeamSearch;
         hints=bsearch.hints,
         bsize=bsearch.bsize,
         ssize=bsearch.ssize,
-        beam=KnnResult(bsize),
+        beam=KnnResult(Int(bsize)),
         vstate=VisitedVertices()
     ) = BeamSearch(hints, bsize, ssize, beam, vstate)
 
@@ -76,10 +74,10 @@ end
 
 function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate)
     while length(beam) > 0
-        prev = popfirst!(beam)
-        getstate(vstate, prev.id) === EXPLORED && continue
-        setstate!(vstate, prev.id, EXPLORED)
-        @inbounds for childID in index.links[prev.id]
+        prev_id, prev_dist = popfirst!(beam)
+        getstate(vstate, prev_id) === EXPLORED && continue
+        setstate!(vstate, prev_id, EXPLORED)
+        @inbounds for childID in index.links[prev_id]
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
                 d = evaluate(index.dist, q, index.db[childID])
@@ -105,10 +103,9 @@ function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult)
     beamsearch_init(bs, index, q, res, bs.hints, bs.vstate)
     prev_score = typemax(Float32)
     
-    while abs(prev_score - last(res).dist) > 0.0  # prepared to allow early stopping
-        prev_score = last(res).dist
-        nn = first(res)
-        push!(bs.beam, nn.id, nn.dist)
+    while abs(prev_score - last(res.dist)) > 0.0  # prepared to allow early stopping
+        prev_score = last(res.dist)
+        push!(bs.beam, first(res))
         beamsearch_inner(index, q, res, bs.beam, bs.vstate)
     end
 

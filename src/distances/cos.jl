@@ -51,11 +51,6 @@ Similar to [`AngleDistance`](@ref) but suppose that input vectors are already no
 """
 struct NormalizedAngleDistance <: PreMetric end
 
-StructTypes.StructType(::Type{CosineDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{AngleDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{NormalizedCosineDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{NormalizedAngleDistance}) = StructTypes.Struct()
-
 const π_2 = π / 2
 
 function fastacos(d)

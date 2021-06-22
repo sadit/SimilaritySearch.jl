@@ -15,23 +15,22 @@ struct SatNeighborhood <: NeighborhoodAlgorithm
     SatNeighborhood(k=32, res=KnnResult(1)) = new(k, res)
 end
 
-StructTypes.StructType(::Type{SatNeighborhood}) = StructTypes.Struct()
 Base.copy(s::SatNeighborhood) = SatNeighborhood(s.k, KnnResult(1))
 
 function find_neighborhood(algo::SatNeighborhood, index::SearchGraph, item)
     near = algo.near
     N = Int32[]
-    @inbounds for p in search(index, item, algo.k)
-        pobj = index.db[p.id]
+    @inbounds for (id, dist) in search(index, item, algo.k)
+        pobj = index.db[id]
         empty!(near)
-        push!(near, zero(Int32), p.dist)
+        push!(near, 0, dist)
         for nearID in N
             d = evaluate(index.dist, index.db[nearID], pobj)
             push!(near, nearID, d)
         end
 
-        if first(near).id == 0
-            push!(N, p.id)
+        if first(near.id) == 0
+            push!(N, id)
         end
     end
 

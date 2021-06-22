@@ -19,8 +19,6 @@ struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: Ab
     res::KnnResult
 end
 
-StructTypes.StructType(::Type{<:ExhaustiveSearch}) = StructTypes.Struct()
-
 ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) =
     ExhaustiveSearch(dist, db, KnnResult(ksearch))
 

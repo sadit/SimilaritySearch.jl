@@ -71,12 +71,6 @@ end
 
 LpDistance(p::Real) = LpDistance(p, 1/p)
 
-StructTypes.StructType(::Type{L1Distance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{L2Distance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{SqL2Distance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{LInftyDistance}) = StructTypes.Struct()
-StructTypes.StructType(::Type{LpDistance}) = StructTypes.Struct()
-
 
 """
     evaluate(::L1Distance, a, b)

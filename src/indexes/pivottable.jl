@@ -18,8 +18,6 @@ struct PivotedSearch{DataType<:AbstractVector, DistanceType<:PreMetric} <: Abstr
     res::KnnResult
 end
 
-StructTypes.StructType(::Type{<:PivotedSearch}) = StructTypes.Struct()
-
 Base.copy(index::PivotedSearch;
         dist=index.dist,
         db=index.db,

@@ -8,15 +8,13 @@ struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchC
     dist::DistanceType
     db::DataType
     refs::DataType
-    sparsetable::Vector{Vector{Item}}
+    sparsetable::Vector{Vector{Pair{Int32,Float32}}}
     ksparse::Int
     res::KnnResult
 end
 
 Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10) = 
     Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))
-
-StructTypes.StructType(::Type{<:Kvp}) = StructTypes.Struct()
 
 Base.copy(kvp::Kvp;
         dist::PreMetric=kvp.dist,
@@ -46,14 +44,14 @@ function k_near_and_far(dist::PreMetric, near::KnnResult, far::KnnResult, obj::T
         push!(far, refID, -d)
     end
 
-    row = Vector{Item}(undef, k + k)
+    row = [near[i] for i in eachindex(near)]
     for i in eachindex(near)
         row[i] = near[i]
     end
     
     for i in length(far):-1:1
         p = far[i]
-        row[i + k] = Item(p.id, -p.dist)
+        push!(row, i + k => p.id => -p.dist)
     end
 
     row
@@ -73,19 +71,10 @@ Creates a K vantage points index: a sparse pivot table storing only `ksparse` ne
 
 function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer; ksearch::Integer=10)
     @info "Kvp, refs=$(typeof(db)), k=$(ksparse), numrefs=$(length(refs)), dist=$(dist)"
-    sparsetable = Vector{Item}[]
-
     near = KnnResult(ksparse)
     far = KnnResult(ksparse)
-    for i in 1:length(db)
-        if (i % 10000) == 0
-            println(stderr, "advance $(i)/$(length(db))")
-        end
 
-        row = k_near_and_far(dist, near, far, db[i], refs, ksparse)
-        push!(sparsetable, row)
-    end
-
+    sparsetable = [k_near_and_far(dist, near, far, db[i], refs, ksparse) for i in 1:length(db)]
     Kvp(dist, db, refs, sparsetable, ksparse; ksearch=ksearch)
 end
 

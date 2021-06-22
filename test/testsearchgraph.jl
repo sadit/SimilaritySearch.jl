@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-using SimilaritySearch, JSON3
+using SimilaritySearch
 using Test
 
 #
@@ -51,9 +51,5 @@ using Test
         @test p.macrorecall >= 0.7
         @info "queries per second: $(1/p.searchtime)"
 
-        @info "checking for serialization of SearchGraph (StructTypes & JSON3)"
-        s = JSON3.write(graph)
-        graph_ = JSON3.read(s, typeof(graph))
-        @test probe(perf, graph_).macrorecall >= 0.7
     end
 end
