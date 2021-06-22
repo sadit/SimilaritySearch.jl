@@ -30,9 +30,8 @@ println("final: ", collect(res))
 ```
 
 ## Data structures
-The `KnnResult` is a collection of `Item` elements, sorted by value.
+The `KnnResult` contains two aligned arrays 'id' and 'dist' and an indicator of its maximum capacity 'k'.
 ```@docs
-Item
 KnnResult
 ```
 
