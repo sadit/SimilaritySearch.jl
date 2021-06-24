@@ -36,12 +36,12 @@ distribution of the items being inserted (it is expected just a few elements sma
 """
 function fixorder!(id, dist)
     pos = N = length(id)
-    @inbounds while pos > 1 && dist[N] < dist[pos-1]
+    id_, dist_ = last(id), last(dist)    
+    @inbounds while pos > 1 && dist_ < dist[pos-1]
         pos -= 1
     end
 
     @inbounds if pos < N
-        id_, dist_ = last(id), last(dist)
         while N > pos
             id[N], dist[N] = id[N-1], dist[N-1]
             N -= 1
@@ -121,15 +121,11 @@ Returns the coverage radius of the result set; if length(p) < K then typemax(Flo
 Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
 as needed (only grows).
 """
-@inline function Base.empty!(res::KnnResult, k::Integer=0)
+@inline function Base.empty!(res::KnnResult, k::Integer=res.k)
+    @assert k > 0
     empty!(res.id)
     empty!(res.dist)
-    if k > res.k 
-        sizehint!(res.id, k)
-        sizehint!(res.dist, k)
-    end
-
-    res.k = max(k, res.k)
+    res.k = k
 end
 
 """
