@@ -11,6 +11,7 @@ end
 
 Base.isless(a::Item, b::Item) = a.dist < b.dist
 
+
 """
     KnnResult(ksearch::Integer)
 
@@ -19,17 +20,21 @@ It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls un
 size is reached. After this only the smallest items based on distance are preserved.
 """
 mutable struct KnnResult
-    pool::BinaryMinMaxHeap{Item}
+    pool::SplayTree{Item}
     k::Int
 
     function KnnResult(k::Integer)
         @assert k > 0
-        h = BinaryMinMaxHeap{Item}()
-        sizehint!(h, k)
+        h = SplayTree{Item}()
         new(h, k)
     end
 end
 
+function Base.maximum(res::KnnResult)
+    node = maximum_node(res.pool.root)
+    DataStructures.splay!(res.pool, node)
+    node.data.dist
+end
 
 Base.copy(res::KnnResult) = KnnResult(copy(res.pool), res.k)
 
@@ -45,7 +50,7 @@ Appends an item into the result set
         return true
     end
 
-    dist >= maximum(res.pool).dist && return false
+    dist >= maximum(res) && return false
     push!(res.pool, Item(id, dist))
     true
 end
@@ -57,18 +62,14 @@ end
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)
-    popmin!(res.pool)
-end
+@inline Base.popfirst!(res::KnnResult) = popmin!(res.pool)
 
 """
     pop!(p)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function Base.pop!(res::KnnResult)
-    popmax!(res.pool)
-end
+@inline Base.pop!(res::KnnResult) = popmax!(res.pool)
 
 """
     length(p::KnnResult)
@@ -89,7 +90,7 @@ The maximum allowed cardinality (the k of knn)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res.pool).dist
+@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
 
 """
     empty!(res::KnnResult)

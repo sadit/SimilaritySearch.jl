@@ -21,9 +21,7 @@ mutable struct KnnResult{RefType<:Integer,DistType<:Real}
     end
 end
 
-function KnnResult(k::Integer)
-    KnnResult(Int32[], Float32[], k)
-end
+KnnResult(k::Integer) = KnnResult(Int32[], Float32[], k)
 
 Base.copy(res::KnnResult) = KnnResult(copy(res.id), copy(res.dist), res.k)
 
@@ -127,6 +125,9 @@ as needed (only grows).
     empty!(res.dist)
     res.k = k
 end
+
+Base.maximum(res::KnnResult) = last(res.dist)
+Base.minimum(res::KnnResult) = first(res.dist)
 
 """
     getindex(res::KnnResult, i)
