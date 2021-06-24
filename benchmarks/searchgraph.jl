@@ -32,7 +32,6 @@ function main()
 
         for salgo in [BeamSearch(4, 4)]
             for nalgo in [LogNeighborhood()]
-                #for dim in [10, 30, 100, 200, 300]
                 main_search_graph(perf, dist, S, k;
                     search_algo=salgo,
                     neighborhood_algo=nalgo,

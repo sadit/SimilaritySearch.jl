@@ -1,7 +1,15 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
+using DataStructures
 export KnnResult, maxlength, covrad, maxlength
+
+struct Item
+    id::Int32
+    dist::Float32
+end
+
+Base.isless(a::Item, b::Item) = a.dist < b.dist
 
 """
     KnnResult(ksearch::Integer)
@@ -10,47 +18,20 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResult{RefType<:Integer,DistType<:Real}
-    id::Vector{RefType}
-    dist::Vector{DistType}
+mutable struct KnnResult
+    pool::BinaryMinMaxHeap{Item}
     k::Int
 
-    function KnnResult(id, dist, k::Integer)
+    function KnnResult(k::Integer)
         @assert k > 0
-        new{eltype(id), eltype(dist)}(id, dist, Int(k))
+        h = BinaryMinMaxHeap{Item}()
+        sizehint!(h, k)
+        new(h, k)
     end
 end
 
-function KnnResult(k::Integer)
-    KnnResult(Int32[], Float32[], k)
-end
 
-Base.copy(res::KnnResult) = KnnResult(copy(res.id), copy(res.dist), res.k)
-
-"""
-    fixorder!(id, dist)
-
-Sorts the result in place; the possible element out of order is on the last entry always.
-It implements a kind of insertion sort that it is efficient due to the expected
-distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
-"""
-function fixorder!(id, dist)
-    pos = N = length(id)
-    id_, dist_ = last(id), last(dist)    
-    @inbounds while pos > 1 && dist_ < dist[pos-1]
-        pos -= 1
-    end
-
-    @inbounds if pos < N
-        while N > pos
-            id[N], dist[N] = id[N-1], dist[N-1]
-            N -= 1
-        end
-
-        dist[N] = dist_
-        id[N] = id_
-    end
-end
+Base.copy(res::KnnResult) = KnnResult(res.pool, res.k)
 
 """
     push!(res::KnnResult, item::Pair)
@@ -60,20 +41,16 @@ Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
     if length(res) < maxlength(res)
-        push!(res.id, id)
-        push!(res.dist, dist)
-        fixorder!(res.id, res.dist)
+        push!(res.pool, Item(id, dist))
         return true
     end
 
-    dist >= last(res.dist) && return false
-    @inbounds res.id[end], res.dist[end] = id, dist
-    fixorder!(res.id, res.dist)
+    dist >= maximum(res.pool).dist && return false
+    push!(res.pool, Item(id, dist))
     true
 end
 
 @inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
-
 
 """
     popfirst!(p::KnnResult)
@@ -81,7 +58,7 @@ end
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
 @inline function Base.popfirst!(res::KnnResult)
-    popfirst!(res.id), popfirst!(res.dist)
+    popmin!(res.pool)
 end
 
 """
@@ -90,7 +67,7 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function Base.pop!(res::KnnResult)
-    pop!(res.id), pop!(res.dist)
+    popmax!(res.pool)
 end
 
 """
@@ -98,7 +75,7 @@ end
 
 length returns the number of items in the result set
 """
-@inline Base.length(res::KnnResult) = length(res.id)
+@inline Base.length(res::KnnResult) = length(res.pool)
 
 """
     maxlength(res::KnnResult)
@@ -112,7 +89,7 @@ The maximum allowed cardinality (the k of knn)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : res.dist[end]
+@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res.pool).dist
 
 """
     empty!(res::KnnResult)
@@ -123,8 +100,7 @@ as needed (only grows).
 """
 @inline function Base.empty!(res::KnnResult, k::Integer=res.k)
     @assert k > 0
-    empty!(res.id)
-    empty!(res.dist)
+    empty!(res.pool)
     res.k = k
 end
 
@@ -165,4 +141,4 @@ function Base.iterate(res::KnnResult, state::Int=1)
     end
 end
 
-Base.eltype(res::KnnResult{I,F}) where {I,F} = Pair{I,F}
+Base.eltype(res::KnnResult) = Item
