@@ -13,12 +13,12 @@ size is reached. After this only the smallest items based on distance are preser
 mutable struct KnnResult{RefType<:Integer,DistType<:Real}
     id::Vector{RefType}
     dist::Vector{DistType}
-    k::Int  # number of neighbors
-    shift::Int # shift position of the first element (to support popfirst! efficiently)
+    k::Int32  # number of neighbors
+    shift::Int32 # shift position of the first element (to support popfirst! efficiently)
     
     function KnnResult(id, dist, k::Integer)
         @assert k > 0
-        new{eltype(id), eltype(dist)}(id, dist, Int(k), 0)
+        new{eltype(id), eltype(dist)}(id, dist, Int32(k), 0)
     end
 end
 
@@ -59,7 +59,21 @@ end
 Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
-    if length(res) < maxlength(res)
+    n = length(res)
+    k = res.k
+    if n < maxlength(res)
+        if length(res.id) >= 2k-1
+            @inbounds for i in 1:n
+                res.id[i] = res.id[i+res.shift]
+            end
+            @inbounds for i in 1:n
+                res.dist[i] = res.dist[i+res.shift]
+            end
+
+            resize!(res.id, n)
+            resize!(res.dist, n)
+            res.shift = 0
+        end
         push!(res.id, id)
         push!(res.dist, dist)
         fixorder!(res.shift, res.id, res.dist)
@@ -80,10 +94,9 @@ end
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)    
-    item = res.id[1 + res.shift] => res.dist[1 + res.shift]
+@inline function Base.popfirst!(res::KnnResult)
     res.shift += 1
-    item
+    res.id[res.shift] => res.dist[res.shift]
     #popfirst!(res.id), popfirst!(res.dist)
 end
 
@@ -97,7 +110,7 @@ Removes and returns the last item in the pool, it is an O(1) operation
 end
 
 @inline Base.maximum(res::KnnResult) = last(res.dist)
-@inline Base.minimum(res::KnnResult) = res.dist[1+res.shift]
+@inline Base.minimum(res::KnnResult) = @inbounds res.dist[firstindex(res)]
 @inline Base.firstindex(res::KnnResult) = 1+res.shift
 @inline Base.lastindex(res::KnnResult) = lastindex(res.id)
 
@@ -144,7 +157,7 @@ Access the i-th item in `res`
 """
 @inline function Base.getindex(res::KnnResult, i)
     i += res.shift
-    res.id[i] => res.dist[i]
+    @inbounds res.id[i] => res.dist[i]
 end
 
 
