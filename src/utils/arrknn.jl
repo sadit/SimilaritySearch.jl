@@ -13,11 +13,12 @@ size is reached. After this only the smallest items based on distance are preser
 mutable struct KnnResult{RefType<:Integer,DistType<:Real}
     id::Vector{RefType}
     dist::Vector{DistType}
-    k::Int
-
+    k::Int  # number of neighbors
+    shift::Int # shift position of the first element (to support popfirst! efficiently)
+    
     function KnnResult(id, dist, k::Integer)
         @assert k > 0
-        new{eltype(id), eltype(dist)}(id, dist, Int(k))
+        new{eltype(id), eltype(dist)}(id, dist, Int(k), 0)
     end
 end
 
@@ -26,16 +27,17 @@ KnnResult(k::Integer) = KnnResult(Int32[], Float32[], k)
 Base.copy(res::KnnResult) = KnnResult(copy(res.id), copy(res.dist), res.k)
 
 """
-    fixorder!(id, dist)
+    fixorder!(sp, id, dist)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function fixorder!(id, dist)
+function fixorder!(shift, id, dist)
+    sp = shift + 1
     pos = N = length(id)
     id_, dist_ = last(id), last(dist)    
-    @inbounds while pos > 1 && dist_ < dist[pos-1]
+    @inbounds while pos > sp && dist_ < dist[pos-1]
         pos -= 1
     end
 
@@ -60,13 +62,13 @@ Appends an item into the result set
     if length(res) < maxlength(res)
         push!(res.id, id)
         push!(res.dist, dist)
-        fixorder!(res.id, res.dist)
+        fixorder!(res.shift, res.id, res.dist)
         return true
     end
 
     dist >= last(res.dist) && return false
     @inbounds res.id[end], res.dist[end] = id, dist
-    fixorder!(res.id, res.dist)
+    fixorder!(res.shift, res.id, res.dist)
     true
 end
 
@@ -78,8 +80,11 @@ end
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)
-    popfirst!(res.id), popfirst!(res.dist)
+@inline function Base.popfirst!(res::KnnResult)    
+    item = res.id[1 + res.shift] => res.dist[1 + res.shift]
+    res.shift += 1
+    item
+    #popfirst!(res.id), popfirst!(res.dist)
 end
 
 """
@@ -91,12 +96,17 @@ Removes and returns the last item in the pool, it is an O(1) operation
     pop!(res.id), pop!(res.dist)
 end
 
+@inline Base.maximum(res::KnnResult) = last(res.dist)
+@inline Base.minimum(res::KnnResult) = res.dist[1+res.shift]
+@inline Base.firstindex(res::KnnResult) = 1+res.shift
+@inline Base.lastindex(res::KnnResult) = lastindex(res.id)
+
 """
     length(p::KnnResult)
 
 length returns the number of items in the result set
 """
-@inline Base.length(res::KnnResult) = length(res.id)
+@inline Base.length(res::KnnResult) = length(res.id) - res.shift
 
 """
     maxlength(res::KnnResult)
@@ -124,31 +134,26 @@ as needed (only grows).
     empty!(res.id)
     empty!(res.dist)
     res.k = k
+    res.shift = 0
 end
-
-Base.maximum(res::KnnResult) = last(res.dist)
-Base.minimum(res::KnnResult) = first(res.dist)
 
 """
     getindex(res::KnnResult, i)
 
 Access the i-th item in `res`
 """
-@inline Base.getindex(res::KnnResult, i) = res.id[i] => res.dist[i]
+@inline function Base.getindex(res::KnnResult, i)
+    i += res.shift
+    res.id[i] => res.dist[i]
+end
 
-"""
-    lastindex(res::KnnResult)
-
-Last index of `res`
-"""
-@inline Base.lastindex(res::KnnResult) = lastindex(res.id)
 
 """
     eachindex(res::KnnResult)
 
 Iterator of valid item indexes in `res`
 """
-@inline Base.eachindex(res::KnnResult) = eachindex(res.id)
+@inline Base.eachindex(res::KnnResult) = firstindex(res):lastindex(res)
 
 ##### iterator interface
 ### KnnResult
@@ -159,7 +164,7 @@ Support for iteration
 """
 function Base.iterate(res::KnnResult, state::Int=1)
     n = length(res)
-    if n == 0 || state > length(res)
+    if n == 0 || state > n
         nothing
     else
         @inbounds res[state], state + 1

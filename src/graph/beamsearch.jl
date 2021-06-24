@@ -48,11 +48,11 @@ Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), ssize=$(s.ssize),
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
 
-function beamsearch_queue(index::SearchGraph, q, beam::KnnResult, objID, vstate)
+function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     if getstate(vstate, objID) === UNKNOWN
         setstate!(vstate, objID, VISITED)
         @inbounds d = evaluate(index.dist, q, index.db[objID])
-        push!(beam, objID, d)
+        push!(res, objID, d)
     end
 end
 
