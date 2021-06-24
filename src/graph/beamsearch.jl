@@ -2,7 +2,6 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 using Random
-using DataStructures
 export BeamSearch
 
 """
@@ -20,7 +19,7 @@ mutable struct BeamSearch <: LocalSearchAlgorithm
     hints::Vector{Int32}
     bsize::Int32  # size of the search beam
     ssize::Int32  # size of the first search beam (initial sampling)
-    beam::SplayTree
+    beam::KnnResult
     vstate::VisitedVertices
 end
 
