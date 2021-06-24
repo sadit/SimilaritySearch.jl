@@ -60,22 +60,25 @@ Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
     n = length(res)
-    k = res.k
     if n < maxlength(res)
+        k = res.k
         if length(res.id) >= 2k-1
+            j = res.shift
             @inbounds for i in 1:n
-                res.id[i] = res.id[i+res.shift]
-            end
-            @inbounds for i in 1:n
-                res.dist[i] = res.dist[i+res.shift]
+                j += 1
+                res.id[i] = res.id[j]
+                res.dist[i] = res.dist[j]
             end
 
-            resize!(res.id, n)
-            resize!(res.dist, n)
+            resize!(res.id, n+1)
+            resize!(res.dist, n+1)
             res.shift = 0
+
+            @inbounds res.id[end], res.dist[end] = id, dist
+        else
+            push!(res.id, id)
+            push!(res.dist, dist)
         end
-        push!(res.id, id)
-        push!(res.dist, dist)
         fixorder!(res.shift, res.id, res.dist)
         return true
     end
