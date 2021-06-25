@@ -19,7 +19,8 @@ X = [randn(3) for i in 1:10_000]
 Q = [randn(3) for i in 1:5]
 
 
-index = SearchGraph(L2Distance(), X, verbose=true)
+index = SearchGraph(; dist=L2Distance(), verbose=true)
+append!(index, X)
 
 for q in Q
     println(search(index, q, KnnResult(3)))
