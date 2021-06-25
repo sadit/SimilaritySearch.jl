@@ -15,18 +15,22 @@ const UNKNOWN = UInt8(0)
 const VISITED = UInt8(1)
 const EXPLORED = UInt8(2)
 
-const VisitedVertices = Dict{Int32, UInt8} #IdDict{Int32,UInt8}
+const VisitedVertices = Dict{Int32, UInt8}
 
 @inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
 @inline function setstate!(vstate::VisitedVertices, i, state)
     vstate[i] = state
 end
 
-@with_kw struct OptimizingCallback <: Callback
+@with_kw struct OptimizeParametersCallback <: Callback
     recall::Float32 = 0.9
     tol::Float32 = 0.01
     ksearch::Int32 = 10
     numqueries::Int32 = 32
+end
+
+@with_kw struct RandomHintsCallback <: Callback
+    logbase::Float32 = 2.0
 end
 
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm, NType<:NeighborhoodAlgorithm}<:AbstractSearchContext
@@ -37,9 +41,9 @@ end
     neighborhood_algo::NType = LogNeighborhood()
     res::KnnResult = KnnResult(10)
     
-    callback_list::Vector{Callback} = [OptimizingCallback()]
-    callback_logbase::Int32 = 4
-    callback_starting::Int32 = 4
+    callback_list::Dict{Symbol, Callback} = Dict(:optimize_parameters => OptimizeParametersCallback(), :optimize_hints => RandomHintsCallback())
+    callback_logbase::Int32 = 2
+    callback_starting::Int32 = 8
     verbose::Bool = true
 end
 
@@ -66,6 +70,8 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 In case of a parallel appending, then `parallel_firstblock` indicates the minimum
 number of items before going parallel, and `parallel_block` sets the chunck size
 to append in parallel.
+
+Note: Parallel construction doesn't trigger callbacks listed in `callback_list', they must be executed manually.
 """
 function Base.append!(index::SearchGraph, db;
         parallel=false, parallel_firstblock=30_000, parallel_block=10_000)
@@ -172,7 +178,8 @@ function push!(index::SearchGraph, item)
         k = ceil(Int, log(index.callback_logbase, 1+n))
         k1 = ceil(Int, log(index.callback_logbase, 2+n))
         if k != k1
-            for callback_object in index.callback_list
+            for (name, callback_object) in index.callback_list
+                index.verbose && println(stderr, "calling callback ", name, "; n=$n")
                 callback(callback_object, index)
             end
         end
@@ -218,13 +225,29 @@ end
 
 
 """
-    callback(opt::OptimizingCallback, index)
+    callback(opt::RandomHintsCallback, index)
+
+SearchGraph's callback for selecting hints at random
+"""
+function callback(opt::RandomHintsCallback, index)
+    empty!(index.search_algo.hints)
+    n = length(index.db)
+    m = ceil(Int, log(opt.logbase, length(index.db)))
+    sample = unique(rand(1:n, 2m))
+    sample = sample[1:m]
+    append!(index.search_algo.hints, sample)
+end
+
+
+"""
+    callback(opt::OptimizeParametersCallback, index)
 
 SearchGraph's callback for adjunting search parameters
 """
-function callback(opt::OptimizingCallback, index)
+function callback(opt::OptimizeParametersCallback, index)
     seq = ExhaustiveSearch(index.dist, index.db; ksearch=opt.ksearch)
-    queries = index.db[ unique(rand(1:length(index.db), opt.numqueries)) ]
+    sample = unique(rand(1:length(index.db), opt.numqueries))
+    queries = index.db[sample]
     perf = Performance(seq, queries, opt.ksearch; popnearest=true)
     optimize!(perf, index, recall=opt.recall)
 end

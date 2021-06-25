@@ -188,6 +188,12 @@ git-tree-sha1 = "85f8e6578bf1f9ee0d11e7bb1b1456435479d47c"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "1.4.1"
 
+[[Parameters]]
+deps = ["OrderedCollections", "UnPack"]
+git-tree-sha1 = "2276ac65f1e236e0a6ea70baff3f62ad4c625345"
+uuid = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+version = "0.12.2"
+
 [[Parsers]]
 deps = ["Dates"]
 git-tree-sha1 = "c8abc88faa3f7a3950832ac5d6e690881590d6dc"
@@ -250,10 +256,10 @@ deps = ["Distributed", "Mmap", "Random", "Serialization"]
 uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[SimilaritySearch]]
-deps = ["DataStructures", "Dates", "Distances", "LinearAlgebra", "Random", "StatsBase", "Test"]
+deps = ["DataStructures", "Dates", "Distances", "LinearAlgebra", "Parameters", "Random", "StatsBase", "Test"]
 path = ".."
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
-version = "0.5.0"
+version = "0.5.1"
 
 [[Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"

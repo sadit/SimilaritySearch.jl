@@ -4,12 +4,18 @@ using SimilaritySearch, Random, JSON
 generate_dataset(dim, n) = [rand(Float32, dim) for i in 1:n]
 
 
-function main_search_graph(perf, dist, S, k; opts...)
-    println("================  SearchGraph $(JSON.json(opts)) ================")
-    println("=== objects: $(length(S)), knn: $k")
+function main_search_graph(perf, S, k; automatic_optimization, opts...)
+    println("==============  SearchGraph ================")
+    println("=== objects: $(length(S)), dim=$(length(S[1])), knn: $k")
 
     start = time()
-    G = SearchGraph(dist, S; opts...)
+    G = SearchGraph(; opts...)
+    if !automatic_optimization
+        delete!(G.callback_list, :optimize_parameters)
+    end
+
+    println(G)
+    append!(G, S)
     buildtime = time() - start 
     
     p = probe(perf, G)
@@ -32,7 +38,8 @@ function main()
 
         for salgo in [BeamSearch(4, 4)]
             for nalgo in [LogNeighborhood()]
-                main_search_graph(perf, dist, S, k;
+                main_search_graph(perf, S, k;
+                    dist=dist,
                     search_algo=salgo,
                     neighborhood_algo=nalgo,
                     automatic_optimization=automatic_optimization,

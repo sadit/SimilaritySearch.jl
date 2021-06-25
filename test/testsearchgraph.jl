@@ -35,7 +35,7 @@ using Test
             dist,
             search_algo=search_algo_fun(),
             neighborhood_algo=neighborhood_algo_fun(),
-            callback_list=[]
+            callback_list=Dict()
         )
         append!(graph, db)
         @time p = probe(perf, graph)
