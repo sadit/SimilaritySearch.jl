@@ -14,7 +14,6 @@ function main_search_graph(perf, S, k; automatic_optimization, opts...)
         delete!(G.callback_list, :optimize_parameters)
     end
 
-    println(G)
     append!(G, S)
     buildtime = time() - start 
     
