@@ -36,14 +36,20 @@ distribution of the items being inserted (it is expected just a few elements sma
 function fixorder!(shift, id, dist)
     sp = shift + 1
     pos = N = length(id)
-    id_, dist_ = last(id), last(dist)    
-    @inbounds while pos > sp && dist_ < dist[pos-1]
-        pos -= 1
-    end
+    id_, dist_ = last(id), last(dist)
+    #if N-sp > 15
+    #    D = @view dist[sp:end-1]
+    #    pos = Base.Sort.searchsortedlast(D, dist_) + sp
+    #else
+        @inbounds while pos > sp && dist_ < dist[pos-1]
+            pos -= 1
+        end
+    #end
 
     @inbounds if pos < N
         while N > pos
-            id[N], dist[N] = id[N-1], dist[N-1]
+            id[N] = id[N-1]
+            dist[N] = dist[N-1]
             N -= 1
         end
 
@@ -109,7 +115,7 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function Base.pop!(res::KnnResult)
-    pop!(res.id), pop!(res.dist)
+    pop!(res.id) => pop!(res.dist)
 end
 
 @inline Base.maximum(res::KnnResult) = last(res.dist)

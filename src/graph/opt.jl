@@ -20,9 +20,9 @@ function optimize!(
         perf::Performance,
         search_algo::LocalSearchAlgorithm,
         index::SearchGraph;
-        recall::Float64=0.9,
+        recall::Real=0.9,
         bsize::Integer=4,
-        tol::Float64=0.01,
+        tol::Real=0.01,
         maxiters::Integer=3,
         probes::Integer=0
     )
@@ -35,7 +35,7 @@ function optimize!(
     best_list = [(score=score_function(p), state=search_algo, perf=p)]
     exploration = Dict(search_algo => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
 
-    index.opts.verbose && println(stderr, "==== BEGIN Opt. $(string(search_algo)), expected recall: $recall, n: $n")
+    index.verbose && println(stderr, "==== BEGIN Opt. $(string(search_algo)), expected recall: $recall, n: $n")
     prev_score = -1.0
     iter = 0
 
@@ -43,7 +43,7 @@ function optimize!(
     while abs(best_list[1].score - prev_score) > tol && iter < maxiters
         iter += 1
         prev_score = best_list[1].score
-        index.opts.verbose && println(stderr, "  == Begin Opt. $(string(search_algo)) iteration: $iter, expected recall: $recall, n: $n")
+        index.verbose && println(stderr, "  == Begin Opt. $(string(search_algo)) iteration: $iter, expected recall: $recall, n: $n")
         
         for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
             S = get(exploration, prev.state, -1)
@@ -63,7 +63,7 @@ function optimize!(
                     if length(best_list) < bsize || score > best_list[bsize].score
                         push!(best_list, (score=score, state=state, perf=p))
                         if score > best_list[1].score
-                            index.opts.verbose && println(stderr, "    ** new best conf: $(state_string(best_list[end])), #beam: $(length(best_list)), n: $(n)")
+                            index.verbose && println(stderr, "    ** new best conf: $(state_string(best_list[end])), #beam: $(length(best_list)), n: $(n)")
                         end
                     end
                 end
@@ -74,11 +74,11 @@ function optimize!(
         if length(best_list) > bsize
             best_list = best_list[1:bsize]
         end
-        index.opts.verbose && println(stderr, "  == Iteration finished, current best: $(state_string(best_list[1])), #beam: $(length(best_list)), n: $(n)")
+        index.verbose && println(stderr, "  == Iteration finished, current best: $(state_string(best_list[1])), #beam: $(length(best_list)), n: $(n)")
     end
 
     copy!(index.search_algo, best_list[1].state)
-    index.opts.verbose && println(stderr, "==== END Opt. Finished, best: $(state_string(best_list[1])), n: $(n)")
+    index.verbose && println(stderr, "==== END Opt. Finished, best: $(state_string(best_list[1])), n: $(n)")
     index
 end
 

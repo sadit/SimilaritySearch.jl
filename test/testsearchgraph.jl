@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-using SimilaritySearch
+using SimilaritySearch, Random
 using Test
 
 #
@@ -10,6 +10,7 @@ using Test
 
 @testset "vector indexing with SearchGraph" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
+    Random.seed!(0)
     ksearch = 10
     n, m, dim = 1000, 30, 3
 
@@ -30,22 +31,25 @@ using Test
             () -> BeamSearch()  
         ]
         @info "==================="
-        graph = SearchGraph(dist, db;
+        graph = SearchGraph(;
+            dist,
             search_algo=search_algo_fun(),
             neighborhood_algo=neighborhood_algo_fun(),
-            automatic_optimization=false)
+            callback_list=[]
+        )
+        append!(graph, db)
         @time p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(p)"
         @test p.macrorecall >= 0.6
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
 
-        graph = SearchGraph(dist, db;
+        graph = SearchGraph(;
+            dist,
             search_algo=search_algo_fun(),
-            neighborhood_algo=neighborhood_algo_fun(),
-            automatic_optimization=true, 
-            recall=0.9,
-            verbose=false)
+            neighborhood_algo=neighborhood_algo_fun()
+        )
+        append!(graph, db)
         @time p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(p); using automatic optimization"
         @test p.macrorecall >= 0.7

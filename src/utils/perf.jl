@@ -26,7 +26,7 @@ struct StatsKnn
     farthestdist::Float64
     length::Float64
 
-    StatsKnn(res::KnnResult) = new(sum(res.dist), first(res.dist), last(res.dist), length(res))
+    StatsKnn(res::KnnResult) = new(sum(p[end] for p in res), minimum(res), maximum(res), length(res))
     function StatsKnn(reslist::AbstractVector{T}) where {T<:KnnResult}
         distancessum = 0.0
         nearestdist = 0.0
@@ -86,7 +86,7 @@ function Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector
     dist = DistCounter(_goldsearch.dist, 0)
     goldsearch = copy(_goldsearch, dist=dist)
     gold, searchtime, evaluations = perf_search_batch(goldsearch, queries, ksearch, popnearest)
-    Performance(queries, ksearch, popnearest, gold, searchtime, evaluations, StatsKnn(gold))
+    Performance(queries, Int(ksearch), popnearest, gold, searchtime, evaluations, StatsKnn(gold))
 end
 
 

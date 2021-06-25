@@ -64,18 +64,17 @@ The index supports insertions; for instance, it can be fully constructed using i
 ```@example
 using SimilaritySearch
 
-index = SearchGraph(L2Distance(), Vector{Float32}[])
+index = SearchGraph()
 
-for i in 1:1000
-    push!(index, rand(Float32, 4))
-end
+append!(index, [rand(Float32, 4) for i in 1:1000])
 
 search(index, rand(Float32, 4), 3)
 ```
 
-Each insertion is performed by the `push!` function.
+Each insertion is performed by the `push!` function or a chunk of items with `append!`; the last function also allows parallel insertions.
 ```@docs
 push!(::SearchGraph, elem)
+append!(::SearchGraph, elem)
 ```
 
 ### Customizing the insertion method

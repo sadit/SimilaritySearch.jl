@@ -5,6 +5,7 @@ module SimilaritySearch
 abstract type Index end
 abstract type AbstractSearchContext end
 
+using Parameters
 import Distances: evaluate, PreMetric
 export AbstractSearchContext, PreMetric, evaluate, search
 
