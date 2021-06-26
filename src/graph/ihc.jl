@@ -97,24 +97,24 @@ function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
 end
 
 """
-    search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
+    search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints)
 
 Performs an iterated hill climbing search for `q`.
 """
-function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult)
+function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints)
     n = length(index.db)
     restarts = min(isearch.restarts, n)
     empty!(isearch.vstate)
     _range = 1:n
 
     # @info "XXXXXXXXXXXX ===== $(isearch.restarts), $(length(isearch.vstate))"
-    if length(isearch.hints) == 0
+    if length(hints) == 0
          @inbounds for i in 1:isearch.restarts
             startpoint = rand(_range)
             searchat(isearch, index, q, res, startpoint)
         end
     else
-        @inbounds for startpoint in isearch.hints
+        @inbounds for startpoint in hints
             searchat(isearch, index, q, res, startpoint)
         end
     end

@@ -30,7 +30,7 @@ end
 end
 
 @with_kw struct RandomHintsCallback <: Callback
-    logbase::Float32 = 2.0
+    logbase::Float32 = 1.5
 end
 
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm, NType<:NeighborhoodAlgorithm}<:AbstractSearchContext
@@ -193,12 +193,12 @@ function push!(index::SearchGraph, item)
 end
 
 """
-    search(index::SearchGraph, q, res::KnnResult)  
+    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult)
-    length(index.db) > 0 && search(index.search_algo, index, q, res)
+function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
+    length(index.db) > 0 && search(index.search_algo, index, q, res, hints)
     res
 end
 
@@ -230,11 +230,10 @@ end
 SearchGraph's callback for selecting hints at random
 """
 function callback(opt::RandomHintsCallback, index)
-    empty!(index.search_algo.hints)
     n = length(index.db)
     m = ceil(Int, log(opt.logbase, length(index.db)))
-    sample = unique(rand(1:n, 2m))
-    sample = sample[1:m]
+    sample = unique(rand(1:n, m))
+    empty!(index.search_algo.hints)
     append!(index.search_algo.hints, sample)
 end
 

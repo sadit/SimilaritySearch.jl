@@ -95,16 +95,16 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult)
+function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
     n = length(index.db)
     n == 0 && return res
 
     empty!(bs.beam, bs.bsize)
-    beamsearch_init(bs, index, q, res, bs.hints, bs.vstate)
+    beamsearch_init(bs, index, q, res, hints, bs.vstate)
     prev_score = typemax(Float32)
     
-    while abs(prev_score - last(res.dist)) > 0.0  # prepared to allow early stopping
-        prev_score = last(res.dist)
+    while abs(prev_score - maximum(res)) > 0.0  # prepared to allow early stopping
+        prev_score = maximum(res)
         push!(bs.beam, first(res))
         beamsearch_inner(index, q, res, bs.beam, bs.vstate)
     end
