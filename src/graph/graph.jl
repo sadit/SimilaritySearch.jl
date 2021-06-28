@@ -22,14 +22,14 @@ const VisitedVertices = Dict{Int32, UInt8}
     vstate[i] = state
 end
 
-@with_kw struct OptimizeParametersCallback <: Callback
+@with_kw mutable struct OptimizeParametersCallback <: Callback
     recall::Float32 = 0.9
     tol::Float32 = 0.01
     ksearch::Int32 = 10
     numqueries::Int32 = 32
 end
 
-@with_kw struct RandomHintsCallback <: Callback
+@with_kw mutable struct RandomHintsCallback <: Callback
     logbase::Float32 = 1.5
 end
 
@@ -76,6 +76,7 @@ Note: Parallel construction doesn't trigger callbacks listed in `callback_list',
 function Base.append!(index::SearchGraph, db;
         parallel=false, parallel_firstblock=30_000, parallel_block=10_000)
 
+    @info "inserting $(length(db))"
     if parallel
         parallel_firstblock = min(length(db), parallel_firstblock)
         for i in 1:parallel_firstblock
@@ -89,7 +90,7 @@ function Base.append!(index::SearchGraph, db;
         
         while sp < n
             ep = min(n, sp + parallel_block)
-            index.verbose && println(stderr, string(index), (sp=sp, ep=ep, n=n), Dates.now())
+            index.verbose && println(stderr, "inserting chunk", index, (sp=sp, ep=ep, n=n), " ", Dates.now())
             X = @view db[sp:ep]
             parallel_append!(INDEXES, X)
             sp = ep + 1

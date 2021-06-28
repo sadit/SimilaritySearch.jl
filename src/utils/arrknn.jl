@@ -122,6 +122,10 @@ end
 @inline Base.minimum(res::KnnResult) = @inbounds res.dist[firstindex(res)]
 @inline Base.firstindex(res::KnnResult) = 1+res.shift
 @inline Base.lastindex(res::KnnResult) = lastindex(res.id)
+@inline Base.first(res::KnnResult) = @inbounds res.id[firstindex(res)] => res.dist[firstindex(res)]
+@inline Base.last(res::KnnResult) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
+@inline Base.argmin(res::KnnResult) = @inbounds res.id[firstindex(res)]
+@inline Base.argmax(res::KnnResult) = @inbounds res.id[lastindex(res)]
 
 """
     length(p::KnnResult)
