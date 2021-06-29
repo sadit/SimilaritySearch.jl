@@ -76,7 +76,6 @@ Note: Parallel construction doesn't trigger callbacks listed in `callback_list',
 function Base.append!(index::SearchGraph, db;
         parallel=false, parallel_firstblock=30_000, parallel_block=10_000)
 
-    @info "inserting $(length(db))"
     if parallel
         parallel_firstblock = min(length(db), parallel_firstblock)
         for i in 1:parallel_firstblock
@@ -119,7 +118,7 @@ function parallel_append!(INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
     end
 
     for i in 1:m
-        push_neighborhood!(INDEXES[1], X[i], N[i])
+        push_neighborhood!(INDEXES[1], X[i], N[i]; apply_callbacks=false)
     end
 end
 
@@ -164,25 +163,27 @@ function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32}; apply_ca
 
     push!(index.links, L)
 
-    if apply_callbacks
-        n = length(index.db)
-
-        if n >= index.callback_starting
-            k = ceil(Int, log(index.callback_logbase, 1+n))
-            k1 = ceil(Int, log(index.callback_logbase, 2+n))
-            if k != k1
-                for (name, callback_object) in index.callback_list
-                    index.verbose && println(stderr, "calling callback ", name, "; n=$n")
-                    callback(callback_object, index)
-                end
-            end
-        end
-    end
+    apply_callbacks && callbacks(index)
 
     if index.verbose && length(index.db) % 10000 == 0
         println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
     end
 
+end
+
+function callbacks(index::SearchGraph)
+    n = length(index.db)
+
+    if n >= index.callback_starting
+        k = ceil(Int, log(index.callback_logbase, 1+n))
+        k1 = ceil(Int, log(index.callback_logbase, 2+n))
+        if k != k1
+            for (name, callback_object) in index.callback_list
+                index.verbose && println(stderr, "calling callback ", name, "; n=$n")
+                callback(callback_object, index)
+            end
+        end
+    end
 end
 
 """
