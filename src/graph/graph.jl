@@ -163,16 +163,7 @@ function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32})
     end
 
     push!(index.links, L)
-end
 
-"""
-    push!(index::SearchGraph, item)
-
-Appends `item` into the index.
-"""
-function push!(index::SearchGraph, item)
-    neighbors = find_neighborhood(index, item)
-    push_neighborhood!(index, item, neighbors)
     n = length(index.db)
 
     if n >= index.callback_starting
@@ -190,6 +181,16 @@ function push!(index::SearchGraph, item)
         println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
     end
 
+end
+
+"""
+    push!(index::SearchGraph, item)
+
+Appends `item` into the index.
+"""
+function push!(index::SearchGraph, item)
+    neighbors = find_neighborhood(index, item)
+    push_neighborhood!(index, item, neighbors)
     neighbors
 end
 
