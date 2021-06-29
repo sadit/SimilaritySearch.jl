@@ -149,12 +149,12 @@ function find_neighborhood(index::SearchGraph, item)::Vector{Int32}
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, L::AbstractVector{Int32})
+    push_neighborhood!(index::SearchGraph, item, L::AbstractVector{Int32}; apply_callbacks=true)
 
 Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
 vertex created for ìtem` (internal function)
 """
-function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32})
+function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32}; apply_callbacks=true)
     push!(index.db, item)
     n = length(index.db)
 
@@ -164,15 +164,17 @@ function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32})
 
     push!(index.links, L)
 
-    n = length(index.db)
+    if apply_callbacks
+        n = length(index.db)
 
-    if n >= index.callback_starting
-        k = ceil(Int, log(index.callback_logbase, 1+n))
-        k1 = ceil(Int, log(index.callback_logbase, 2+n))
-        if k != k1
-            for (name, callback_object) in index.callback_list
-                index.verbose && println(stderr, "calling callback ", name, "; n=$n")
-                callback(callback_object, index)
+        if n >= index.callback_starting
+            k = ceil(Int, log(index.callback_logbase, 1+n))
+            k1 = ceil(Int, log(index.callback_logbase, 2+n))
+            if k != k1
+                for (name, callback_object) in index.callback_list
+                    index.verbose && println(stderr, "calling callback ", name, "; n=$n")
+                    callback(callback_object, index)
+                end
             end
         end
     end
