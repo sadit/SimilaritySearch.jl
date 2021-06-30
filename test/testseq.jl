@@ -11,7 +11,7 @@ function test_seq(db, dist::PreMetric, ksearch, valid_lower=1e-3)
 
     for i in rand(1:length(db), 100)
         res = search(seq, db[i], ksearch)
-        @test first(res).dist < valid_lower
+        @test minimum(res) < valid_lower
     end    
 end
 

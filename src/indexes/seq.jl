@@ -13,10 +13,10 @@ export ExhaustiveSearch, search, push!, fit, optimize!
 
 Solves queries evaluating `dist` for the query and all elements in the dataset.
 """
-struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
-    dist::DistanceType
-    db::DataType
-    res::KnnResult
+@with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
+    dist::DistanceType = SqL2Distance()
+    db::DataType = Vector{Int32}[]
+    res::KnnResult = KnnResult(10)
 end
 
 ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) =
@@ -24,9 +24,6 @@ ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) =
 
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db, res=KnnResult(maxlength(seq.res))) = 
     ExhaustiveSearch(dist, db, res)
-
-Base.string(seq::ExhaustiveSearch) =
-    "{ExhaustiveSearch: dist=$(seq.dist), n=$(length(seq.db))}"
 
 """
     search(seq::ExhaustiveSearch, q, res::KnnResult)

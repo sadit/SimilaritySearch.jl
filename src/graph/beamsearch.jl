@@ -11,26 +11,25 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 Multithreading applications must have copies of this object due to shared cache objects.
 
 - `hints`: An initial hint for the exploration (empty hints imply `bsize` random starting points).
+- `bsize`: The size of the beam.
 - `beam`: A cache object for reducing memory allocations
 - `vstate`: A cache object for reducing memory allocations
 """
-mutable struct BeamSearch <: LocalSearchAlgorithm
-    hints::Vector{Int32}
-    bsize::Int32  # size of the search beam
-    beam::KnnResult
-    vstate::VisitedVertices
+@with_kw mutable struct BeamSearch{BeamType<:KnnResult} <: LocalSearchAlgorithm
+    hints::Vector{Int32} = Int32[]
+    bsize::Int32 = 8  # size of the search beam
+    beam::BeamType = KnnResult(8)
+    vstate::VisitedVertices = VisitedVertices()
 end
 
-function BeamSearch(bsize::Integer=16; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
-    BeamSearch(hints, bsize, beam, vstate)
-end
 
 Base.copy(bsearch::BeamSearch;
         hints=bsearch.hints,
         bsize=bsearch.bsize,
         beam=KnnResult(Int(bsize)),
         vstate=VisitedVertices()
-    ) = BeamSearch(hints, bsize, beam, vstate)
+    ) = BeamSearch(; hints, bsize, beam, vstate)
+
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
     dst.hints = src.hints
@@ -45,9 +44,9 @@ Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.
 ### local search algorithm
 
 function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    if getstate(vstate, objID) === UNKNOWN
+    @inbounds if getstate(vstate, objID) === UNKNOWN
         setstate!(vstate, objID, VISITED)
-        @inbounds d = evaluate(index.dist, q, index[objID])
+        d = evaluate(index.dist, q, index[objID])
         push!(res, objID, d)
     end
 end
@@ -57,7 +56,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
 
     if length(hints) == 0
         _range = 1:length(index)
-         @inbounds for i in 1:bs.bsize
+         for i in 1:bs.bsize
             objID = rand(_range)
             beamsearch_queue(index, q, res, objID, vstate)
         end
@@ -92,15 +91,10 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
-    n = length(index)
-    n == 0 && return res
+    if length(index) > 0
+        empty!(bs.beam, bs.bsize)
+        beamsearch_init(bs, index, q, res, hints, bs.vstate)
 
-    empty!(bs.beam, bs.bsize)
-    beamsearch_init(bs, index, q, res, hints, bs.vstate)
-    prev_score = typemax(Float32)
-    
-    while abs(prev_score - maximum(res)) > 0.0  # prepared to allow early stopping
-        prev_score = maximum(res)
         push!(bs.beam, first(res))
         beamsearch_inner(index, q, res, bs.beam, bs.vstate)
     end
@@ -113,6 +107,6 @@ function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Int
     probes = probes == 0 ? logn : probes
     f(x) = max(2, x + rand(-logn:logn))
     for i in 1:probes
-        copy(gsearch, bsize=f(gsearch.bsize)) |> fun
+        BeamSearch(bsize=f(gsearch.bsize)) |> fun
     end
 end

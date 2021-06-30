@@ -45,13 +45,10 @@ function k_near_and_far(dist::PreMetric, near::KnnResult, far::KnnResult, obj::T
     end
 
     row = [near[i] for i in eachindex(near)]
-    for i in eachindex(near)
-        row[i] = near[i]
-    end
     
     for i in length(far):-1:1
-        p = far[i]
-        push!(row, i + k => p.id => -p.dist)
+        id_, dist_ = far[i]
+        push!(row, id_ => -dist_)
     end
 
     row
@@ -101,9 +98,7 @@ function search(kvp::Kvp, q::T, res::KnnResult) where T
         objSparseRow = kvp.sparsetable[i]
 
         discarded = false
-        @inbounds for item in objSparseRow
-            pivID = item.id
-            dop = item.dist
+        @inbounds for (pivID, dop) in objSparseRow
             if abs(dop - qI[pivID]) > covrad(res)
                 discarded = true
                 break

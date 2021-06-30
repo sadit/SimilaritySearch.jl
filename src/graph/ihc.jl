@@ -19,22 +19,15 @@ Multithreading applications must have copies of this object due to shared cache 
 - `localimprovements`: An experimental technique that if it is true it will achieve very high quality results, at cost of increasing searching time.
 - `vstate`: A cache object for reducing memory allocations
 """
-mutable struct IHCSearch <: LocalSearchAlgorithm
-    hints::Vector{Int32}
-    restarts::Int32
-    localimprovements::Bool
-    vstate::VisitedVertices
+@with_kw mutable struct IHCSearch <: LocalSearchAlgorithm
+    hints::Vector{Int32} = Int32[]
+    restarts::Int32 = 16
+    localimprovements::Bool = false
+    vstate::VisitedVertices = VisitedVertices()
 end
 
-IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false) =
-    IHCSearch(hints, restarts, localimprovements, VisitedVertices())
-
-IHCSearch(restarts::Integer=20; hints=Int32[], localimprovements=false) =
-    IHCSearch(hints, restarts, localimprovements, VisitedVertices())
-
-
 Base.copy(ihc::IHCSearch; hints=ihc.hints, restarts=ihc.restarts, localimprovements=ihc.localimprovements, vstate=VisitedVertices()) =
-    IHCSearch(hints, restarts, localimprovements, vstate)
+    IHCSearch(; hints, restarts, localimprovements, vstate)
 
 function Base.copy!(dst::IHCSearch, src::IHCSearch)
     dst.restarts = src.restarts
@@ -42,8 +35,6 @@ function Base.copy!(dst::IHCSearch, src::IHCSearch)
     dst.hints = src.hints
     dst.localimprovements = src.localimprovements
 end
-
-Base.string(s::IHCSearch) = """{IHCSearch: restarts=$(s.restarts), hints=$(length(s.hints)), localimprovements:$(s.localimprovements)}"""
 
 """
     hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
@@ -106,7 +97,7 @@ function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints
     empty!(isearch.vstate)
     _range = 1:n
     if length(hints) == 0
-         @inbounds for i in 1:restartsmin(isearch.restarts, n)
+         @inbounds for i in 1:min(isearch.restarts, n)
             startpoint = rand(_range)
             searchat(isearch, index, q, res, startpoint)
         end

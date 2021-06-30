@@ -80,7 +80,7 @@ Computes the Manhattan's distance between `a` and `b`
 function evaluate(::L1Distance, a, b)
     d = zero(eltype(a))
 
-    @inbounds @simd for i = 1:length(a)
+    @fastmath @inbounds @simd for i in eachindex(a)
 	    m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
     end
@@ -96,9 +96,8 @@ Computes the Euclidean's distance betweem `a` and `b`
 function evaluate(::L2Distance, a, b)
     d = zero(eltype(a))
 
-    @simd for i = 1:length(a)
-        #m = a[i] - b[i]
-        @inbounds d += (a[i] - b[i])^2 #m * m
+    @fastmath @inbounds @simd for i in eachindex(a)
+        d += (a[i] - b[i])^2 #m * m
     end
 
     sqrt(d)
@@ -112,8 +111,8 @@ Computes the squared Euclidean's distance between `a` and `b`
 function evaluate(::SqL2Distance, a, b)
     d = zero(eltype(a))
 
-    @simd for i in eachindex(a)
-        @inbounds d += (a[i] - b[i])^2
+    @fastmath @inbounds @simd for i in eachindex(a)
+        d += (a[i] - b[i])^2
         # d += m * m
     end
 

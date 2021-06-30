@@ -4,7 +4,6 @@
 using SimilaritySearch
 using Test
 
-
 @testset "Result set" begin
     k = 4
     V = rand(Float32, 50)
@@ -16,7 +15,11 @@ using Test
     end
 
     @show res Vsorted
-    @test first(res).dist == Vsorted[1].dist
-    @test [x.id for x in res] == [x.id for x in Vsorted[1:k]]
-    @test [x.dist for x in res] == [x.dist for x in Vsorted[1:k]]
+    @test minimum(res) == first(Vsorted)[end]
+    @test maximum(res) == last(Vsorted)[end]
+    @test argmin(res) == first(Vsorted)[1]
+    @test argmax(res) == last(Vsorted)[1]
+
+    @test collect(keys(res)) == first.(Vsorted)
+    @test collect(values(res)) == last.(Vsorted)
 end

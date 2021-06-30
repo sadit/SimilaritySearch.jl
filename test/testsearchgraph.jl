@@ -27,8 +27,8 @@ using Test
                 () -> LogSatNeighborhood(),
                 () -> SatNeighborhood()
         ], search_algo_fun in [
-            () -> IHCSearch(4)  
-            () -> BeamSearch()  
+            () -> IHCSearch(restarts=4)  
+            () -> BeamSearch(bsize=4)
         ]
         @info "==================="
         graph = SearchGraph(;

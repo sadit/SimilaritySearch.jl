@@ -105,7 +105,7 @@ Removes and returns the nearest neeighboor pair from the pool, an O(length(p.poo
 """
 @inline function Base.popfirst!(res::KnnResult)
     res.shift += 1
-    res.id[res.shift] => res.dist[res.shift]
+    @inbounds res.id[res.shift] => res.dist[res.shift]
     #popfirst!(res.id), popfirst!(res.dist)
 end
 
@@ -128,12 +128,6 @@ end
 @inline Base.last(res::KnnResult) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
 @inline Base.argmin(res::KnnResult) = @inbounds res.id[firstindex(res)]
 @inline Base.argmax(res::KnnResult) = @inbounds res.id[lastindex(res)]
-
-"""
-    length(p::KnnResult)
-
-length returns the number of items in the result set
-"""
 @inline Base.length(res::KnnResult) = length(res.id) - res.shift
 
 """

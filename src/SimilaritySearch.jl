@@ -21,9 +21,9 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(search
     search(searchctx, q, searchctx.res)
 end
 
-Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
-Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
-Base.eachindex(searchctx::AbstractSearchContext) = eachindex(searchctx.db)
+@inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
+@inline Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
+@inline Base.eachindex(searchctx::AbstractSearchContext) = eachindex(searchctx.db)
 
 include("distances/bits.jl")
 include("distances/sets.jl")

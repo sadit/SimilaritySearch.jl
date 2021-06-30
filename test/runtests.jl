@@ -23,7 +23,7 @@ function create_sequence(dim, sort)
     s
 end
 
-#include("testresults.jl")
-#include("testseq.jl")
-#include("testpivots.jl")
+include("testresults.jl")
+include("testseq.jl")
+include("testpivots.jl")
 include("testsearchgraph.jl")

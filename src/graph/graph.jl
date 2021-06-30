@@ -2,7 +2,6 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, SearchGraphOptions, find_neighborhood, push_neighborhood!, VisitedVertices
-
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
 abstract type Callback end
@@ -155,7 +154,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{Int32}; 
     push!(index.db, item)
     n = length(index)
 
-    for objID in neighbors
+    @inbounds for objID in neighbors
         push!(index.links[objID], n)
     end
 
