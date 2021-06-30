@@ -33,6 +33,7 @@ end
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm, NType<:NeighborhoodAlgorithm}<:AbstractSearchContext
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
+    #links::KnnResult{Int32,Float32}[] = KnnResult{Int32,Float32}[]
     links::Vector{Vector{Int32}} = Vector{Int32}[]
     search_algo::SType = BeamSearch()
     neighborhood_algo::NType = LogNeighborhood()
