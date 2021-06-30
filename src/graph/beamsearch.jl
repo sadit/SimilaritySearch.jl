@@ -5,45 +5,41 @@ using Random
 export BeamSearch
 
 """
-    BeamSearch(bsize::Integer=16, ssize=bsize; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
+    BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
 
 BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of `bsize` elements and neighborhoods at the time.
 Multithreading applications must have copies of this object due to shared cache objects.
 
-- `ssize`: The size of the first sampling.
-- `hints`: An initial hint for the exploration (if it is not empty, then superseeds `ssize` and the initial sampling).
+- `hints`: An initial hint for the exploration (empty hints imply `bsize` random starting points).
 - `beam`: A cache object for reducing memory allocations
 - `vstate`: A cache object for reducing memory allocations
 """
 mutable struct BeamSearch <: LocalSearchAlgorithm
     hints::Vector{Int32}
     bsize::Int32  # size of the search beam
-    ssize::Int32  # size of the first search beam (initial sampling)
     beam::KnnResult
     vstate::VisitedVertices
 end
 
-function BeamSearch(bsize::Integer=16, ssize=bsize; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
-    BeamSearch(hints, bsize, ssize, beam, vstate)
+function BeamSearch(bsize::Integer=16; hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
+    BeamSearch(hints, bsize, beam, vstate)
 end
 
 Base.copy(bsearch::BeamSearch;
         hints=bsearch.hints,
         bsize=bsearch.bsize,
-        ssize=bsearch.ssize,
         beam=KnnResult(Int(bsize)),
         vstate=VisitedVertices()
-    ) = BeamSearch(hints, bsize, ssize, beam, vstate)
+    ) = BeamSearch(hints, bsize, beam, vstate)
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
     dst.hints = src.hints
     dst.bsize = src.bsize
-    dst.ssize = src.ssize
     dst.beam = src.beam
     dst.vstate = src.vstate
 end
 
-Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), ssize=$(s.ssize), hints=$(length(s.hints))"""
+Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.hints))"""
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
@@ -51,7 +47,7 @@ Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), ssize=$(s.ssize),
 function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     if getstate(vstate, objID) === UNKNOWN
         setstate!(vstate, objID, VISITED)
-        @inbounds d = evaluate(index.dist, q, index.db[objID])
+        @inbounds d = evaluate(index.dist, q, index[objID])
         push!(res, objID, d)
     end
 end
@@ -60,8 +56,8 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     empty!(vstate)
 
     if length(hints) == 0
-        _range = 1:length(index.db)
-         @inbounds for i in 1:bs.ssize
+        _range = 1:length(index)
+         @inbounds for i in 1:bs.bsize
             objID = rand(_range)
             beamsearch_queue(index, q, res, objID, vstate)
         end
@@ -80,7 +76,7 @@ function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult
         @inbounds for childID in index.links[prev_id]
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
-                d = evaluate(index.dist, q, index.db[childID])
+                d = evaluate(index.dist, q, index[childID])
                 push!(res, childID, d) && push!(beam, childID, d)
                 #d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
             end
@@ -96,7 +92,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `res`: The result object, it stores the results and also specifies the kind of query
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
-    n = length(index.db)
+    n = length(index)
     n == 0 && return res
 
     empty!(bs.beam, bs.bsize)
@@ -117,6 +113,6 @@ function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Int
     probes = probes == 0 ? logn : probes
     f(x) = max(2, x + rand(-logn:logn))
     for i in 1:probes
-        copy(gsearch, bsize=f(gsearch.bsize), ssize=f(gsearch.ssize)) |> fun
+        copy(gsearch, bsize=f(gsearch.bsize)) |> fun
     end
 end

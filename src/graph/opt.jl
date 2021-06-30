@@ -26,7 +26,7 @@ function optimize!(
         maxiters::Integer=3,
         probes::Integer=0
     )
-    n = length(index.db)
+    n = length(index)
     score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
     # score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
     #score_function(p) = p.recall < recall ? p.recall : 1.0 + 1.0 / (1.0 + sum(p.evaluations))

@@ -20,17 +20,17 @@ LogSatNeighborhood(base=1.1) = LogSatNeighborhood(base, KnnResult(1))
 Base.copy(algo::LogSatNeighborhood) = LogSatNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogSatNeighborhood, index::SearchGraph, item)
-    n = length(index.db)
+    n = length(index)
     k = max(1, ceil(Int, log(algo.base, n)))
     N = Int32[]
     near = algo.near
 
     @inbounds for (id, dist) in search(index, item, k)
-        pobj = index.db[id]
+        pobj = index[id]
         empty!(near)
         push!(near, 0, dist)
         for nearID in N
-            d = evaluate(index.dist, index.db[nearID], pobj)
+            d = evaluate(index.dist, index[nearID], pobj)
             push!(near, nearID, d)
         end
 

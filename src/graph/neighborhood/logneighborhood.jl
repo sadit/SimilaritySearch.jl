@@ -16,7 +16,7 @@ end
 Base.copy(algo::LogNeighborhood) = LogNeighborhood(algo.base)
 
 function find_neighborhood(algo::LogNeighborhood, index::SearchGraph, item)
-    n = length(index.db)
+    n = length(index)
     k = max(1, log(algo.base, n) |> ceil |> Int)
     copy(search(index, item, k).id)
 end

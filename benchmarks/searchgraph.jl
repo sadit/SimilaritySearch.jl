@@ -3,14 +3,13 @@ using SimilaritySearch, Random, JSON
 
 generate_dataset(dim, n) = [rand(Float32, dim) for i in 1:n]
 
-
-function main_search_graph(perf, S, k; automatic_optimization, opts...)
+function main_search_graph(perf, S, k; optimize_parameters, opts...)
     println("==============  SearchGraph ================")
     println("=== objects: $(length(S)), dim=$(length(S[1])), knn: $k")
 
     start = time()
     G = SearchGraph(; opts...)
-    if !automatic_optimization
+    if !optimize_parameters
         delete!(G.callback_list, :optimize_parameters)
     end
 
@@ -25,7 +24,7 @@ end
 
 function main()
     k = 7
-    automatic_optimization = false
+    optimize_parameters = false
     n = 100_000
     dist = SqL2Distance()
     nqueries = 1000
@@ -35,13 +34,13 @@ function main()
         gold = ExhaustiveSearch(dist, S; ksearch=k)
         perf = Performance(gold, Q, k; popnearest=false)
 
-        for salgo in [BeamSearch(4, 4)]
+        for salgo in [BeamSearch(4)]
             for nalgo in [LogNeighborhood()]
                 main_search_graph(perf, S, k;
                     dist=dist,
                     search_algo=salgo,
                     neighborhood_algo=nalgo,
-                    automatic_optimization=automatic_optimization,
+                    optimize_parameters=optimize_parameters,
                     verbose=false
                 )
             end

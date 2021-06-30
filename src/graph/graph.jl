@@ -80,7 +80,7 @@ function Base.append!(index::SearchGraph, db;
             push!(index, db[i])
         end
 
-        sp = length(index.db) + 1
+        sp = length(index) + 1
         n = length(db)
 
         INDEXES = [copy(index) for i in 1:Threads.nthreads()]
@@ -141,36 +141,36 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 its neighbors (intenal function)
 """
 function find_neighborhood(index::SearchGraph, item)::Vector{Int32}
-    n = length(index.db)
+    n = length(index)
     n == 0 ? Int32[] : find_neighborhood(index.neighborhood_algo, index, item)
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, L::AbstractVector{Int32}; apply_callbacks=true)
+    push_neighborhood!(index::SearchGraph, item, neighbors::AbstractVector{Int32}; apply_callbacks=true)
 
 Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
 vertex created for ìtem` (internal function)
 """
-function push_neighborhood!(index::SearchGraph, item, L::Vector{Int32}; apply_callbacks=true)
+function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{Int32}; apply_callbacks=true)
     push!(index.db, item)
-    n = length(index.db)
+    n = length(index)
 
-    for objID in L
+    for objID in neighbors
         push!(index.links[objID], n)
     end
 
-    push!(index.links, L)
+    push!(index.links, neighbors)
 
     apply_callbacks && callbacks(index)
 
-    if index.verbose && length(index.db) % 10000 == 0
-        println(stderr, "added n=$(length(index.db)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
+    if index.verbose && length(index) % 10000 == 0
+        println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
     end
 
 end
 
 function callbacks(index::SearchGraph)
-    n = length(index.db)
+    n = length(index)
 
     if n >= index.callback_starting
         k = ceil(Int, log(index.callback_logbase, 1+n))
@@ -201,7 +201,7 @@ end
 Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
-    length(index.db) > 0 && search(index.search_algo, index, q, res, hints)
+    length(index) > 0 && search(index.search_algo, index, q, res, hints)
     res
 end
 
@@ -233,8 +233,8 @@ end
 SearchGraph's callback for selecting hints at random
 """
 function callback(opt::RandomHintsCallback, index)
-    n = length(index.db)
-    m = ceil(Int, log(opt.logbase, length(index.db)))
+    n = length(index)
+    m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(1:n, m))
     empty!(index.search_algo.hints)
     append!(index.search_algo.hints, sample)
@@ -248,8 +248,8 @@ SearchGraph's callback for adjunting search parameters
 """
 function callback(opt::OptimizeParametersCallback, index)
     seq = ExhaustiveSearch(index.dist, index.db; ksearch=opt.ksearch)
-    sample = unique(rand(1:length(index.db), opt.numqueries))
-    queries = index.db[sample]
+    sample = unique(rand(1:length(index), opt.numqueries))
+    queries = index[sample]
     perf = Performance(seq, queries, opt.ksearch; popnearest=true)
     optimize!(perf, index, recall=opt.recall)
 end

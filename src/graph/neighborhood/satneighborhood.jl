@@ -21,11 +21,11 @@ function find_neighborhood(algo::SatNeighborhood, index::SearchGraph, item)
     near = algo.near
     N = Int32[]
     @inbounds for (id, dist) in search(index, item, algo.k)
-        pobj = index.db[id]
+        pobj = index[id]
         empty!(near)
         push!(near, 0, dist)
         for nearID in N
-            d = evaluate(index.dist, index.db[nearID], pobj)
+            d = evaluate(index.dist, index[nearID], pobj)
             push!(near, nearID, d)
         end
 

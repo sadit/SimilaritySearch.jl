@@ -63,7 +63,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
             S = get(vstate, childID, UNKNOWN)
             S != UNKNOWN && continue
             vstate[childID] = VISITED
-            d = convert(Float32, evaluate(index.dist, index.db[childID], q))
+            d = convert(Float32, evaluate(index.dist, index[childID], q))
             if localimprovements  ## this yields to better quality but has no early stopping
                 push!(res, childID, d)
                 if d < dmin
@@ -90,7 +90,7 @@ function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
     S = get(isearch.vstate, startpoint, UNKNOWN)
     if S == UNKNOWN
         isearch.vstate[startpoint] = VISITED
-        d = convert(Float32, evaluate(index.dist, q, index.db[startpoint]))
+        d = convert(Float32, evaluate(index.dist, q, index[startpoint]))
         push!(res, startpoint, d)
         hill_climbing(isearch, index, q, res, startpoint)
     end
@@ -102,14 +102,11 @@ end
 Performs an iterated hill climbing search for `q`.
 """
 function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints)
-    n = length(index.db)
-    restarts = min(isearch.restarts, n)
+    n = length(index)
     empty!(isearch.vstate)
     _range = 1:n
-
-    # @info "XXXXXXXXXXXX ===== $(isearch.restarts), $(length(isearch.vstate))"
     if length(hints) == 0
-         @inbounds for i in 1:isearch.restarts
+         @inbounds for i in 1:restartsmin(isearch.restarts, n)
             startpoint = rand(_range)
             searchat(isearch, index, q, res, startpoint)
         end

@@ -9,11 +9,11 @@ export allknn
 Finds k-nearest-neighbors for all items in the index's dataset; removes the object itself from its knn 
 """
 function allknn(index::Index, dist::PreMetric; k::Int=1)
-    n = length(index.db)
+    n = length(index)
     A = [KnnResult(k+1) for i in 1:n]
 
     for i in 1:n
-        x = index.db[i]
+        x = index[i]
         res = A[i]
         search(index, dist, x, res)
         if first(res).id == i
@@ -58,11 +58,11 @@ Finds k-nearest-neighbors for all items in the index's dataset; removes the obje
 This function is optimized for the SearchGraph similarity-index
 """
 function allknn(index::SearchGraph, dist::PreMetric; k::Int=1)
-    n = length(index.db)
+    n = length(index)
     A = [KnnResult(k+1) for i in 1:n]
     # TODO: Test caching the distance function
     for i in 1:n
-        q = index.db[i]
+        q = index[i]
         res = A[i]
         hints = [p.id for p in res]
         append!(hints, index.links[i])

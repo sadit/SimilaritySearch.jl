@@ -77,7 +77,7 @@ function search(index::PivotedSearch, q, res::KnnResult)
         end
 
         if need_eval
-            d = evaluate(index.dist, q, index.db[i])
+            d = evaluate(index.dist, q, index[i])
             push!(res, i, d)
         end
     end
