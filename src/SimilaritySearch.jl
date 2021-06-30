@@ -21,15 +21,19 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(search
     search(searchctx, q, searchctx.res)
 end
 
+Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
+Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
+Base.eachindex(searchctx::AbstractSearchContext) = eachindex(searchctx.db)
+
 include("distances/bits.jl")
 include("distances/sets.jl")
 include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
-#include("utils/knn.jl")
-include("utils/arrknn.jl")
 
+include("utils/knnresult.jl")
 include("utils/perf.jl")
+
 include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
 include("indexes/pivottable.jl")

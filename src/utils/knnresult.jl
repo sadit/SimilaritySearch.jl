@@ -118,6 +118,8 @@ Removes and returns the last item in the pool, it is an O(1) operation
     pop!(res.id) => pop!(res.dist)
 end
 
+@inline Base.keys(res::KnnResult) = @view res.id[eachindex(res)]
+@inline Base.values(res::KnnResult) = @view res.dist[eachindex(res)]
 @inline Base.maximum(res::KnnResult) = last(res.dist)
 @inline Base.minimum(res::KnnResult) = @inbounds res.dist[firstindex(res)]
 @inline Base.firstindex(res::KnnResult) = 1+res.shift

@@ -9,8 +9,6 @@ abstract type Callback end
 
 ### Basic operations on the index
 
-const OPTIMIZE_LOGBASE_STARTING = 4
-
 const UNKNOWN = UInt8(0)
 const VISITED = UInt8(1)
 const EXPLORED = UInt8(2)
