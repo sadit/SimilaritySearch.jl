@@ -1,9 +1,12 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices
+export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices
+
+export NeighborhoodReduction, SatNeighborhood, find_neighborhood, push_neighborhood!
+
+abstract type NeighborhoodReduction end
 abstract type LocalSearchAlgorithm end
-abstract type NeighborhoodAlgorithm end
 abstract type Callback end
 
 ### Basic operations on the index
@@ -38,7 +41,7 @@ The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_c
 - The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
 for \$out\$  elements in the current index.
 - The \$in\$ size is computed as \$\\Delta in\$, i.e., this is not searched in the current index yet for accepting future edges.
-- reduceby is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$
+- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$
 
 Note: The underlying graph is undirected, in and out edges are fused in the same priority queue; old edges can be discarded when closer elements are found.
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
@@ -49,18 +52,18 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     logbase::Float32 = 2
     minsize::Int32 = 2
     Δ::Float32 = 1
-    reduce::ReduceType = IdentityNeighborhood()
+    reduce::ReduceType = SatNeighborhood()
 end
 
-Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduceby=N.reduceby) =
-    Neighborhood(; k, ksearch, logbase, minsize, Δ, reduceby) 
+Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduce=copy(N.reduce)) =
+    Neighborhood(; k, ksearch, logbase, minsize, Δ, reduce)
 
 struct NeighborhoodCallback <: Callback end
 
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
-    links::Vector{KnnResult{Int32,Float16}} = KnnResult{Int32,Float16}[]
+    links::Vector{KnnResult{Int32,Float32}} = KnnResult{Int32,Float32}[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
     res::KnnResult = KnnResult(10)
@@ -90,6 +93,12 @@ Base.copy(g::SearchGraph;
     ) =
     SearchGraph(; dist, db, links, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
 
+include("opt.jl")
+include("neighborhood.jl")
+## search algorithms
+include("ihc.jl")
+include("beamsearch.jl")
+
 
 """
     append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)
@@ -113,13 +122,13 @@ function Base.append!(index::SearchGraph, db;
         sp = length(index) + 1
         n = length(db)
 
-        INDEXES = [copy(index; neighborhood=index.neighborhood) for i in 1:Threads.nthreads()]
+        INDEXES = [copy(index) for i in 1:Threads.nthreads()]
         
         while sp < n
             ep = min(n, sp + parallel_block)
             index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now(), "; index=", index)
             X = @view db[sp:ep]
-            parallel_append!(INDEXES, X)
+            parallel_append!(index, INDEXES, X)
             apply_callbacks && callbacks(index)
             sp = ep + 1
         end
@@ -134,32 +143,25 @@ function Base.append!(index::SearchGraph, db;
 end
 
 """
-    parallel_append!(INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
+    parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
 
 Insert all items in `X` into the set of indexes. All indexes are _views_ of the same index;
 callbacks are not called here. Internal function.
 """
-function parallel_append!(INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
+function parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
     m = length(X)
-    I = INDEXES[1]
-    N = Vector{eltype(I.links)}(undef, m)
+    N = Vector{eltype(index.links)}(undef, m)
     Threads.@threads for i in 1:m
         tid = Threads.threadid()
+        INDEXES[tid].neighborhood.k = index.neighborhood.k
+        INDEXES[tid].neighborhood.ksearch = index.neighborhood.ksearch
         N[i] = find_neighborhood(INDEXES[tid], X[i])
     end
 
     for i in 1:m
-        push_neighborhood!(I, X[i], N[i]; apply_callbacks=false)
+        push_neighborhood!(index, X[i], N[i]; apply_callbacks=false)
     end
 end
-
-
-include("opt.jl")
-include("neighborhood.jl")
-## search algorithms
-include("ihc.jl")
-include("beamsearch.jl")
-
 
 function callbacks(index::SearchGraph)
     n = length(index)
