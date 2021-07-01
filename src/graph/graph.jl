@@ -52,7 +52,7 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     logbase::Float32 = 2
     minsize::Int32 = 2
     Δ::Float32 = 1
-    reduce::ReduceType = SatNeighborhood()
+    reduce::ReduceType = IdentityNeighborhood()
 end
 
 Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduce=copy(N.reduce)) =
