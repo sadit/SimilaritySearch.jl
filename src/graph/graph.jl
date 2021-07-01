@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, SearchGraphOptions, find_neighborhood, push_neighborhood!, VisitedVertices
+export LocalSearchAlgorithm, NeighborhoodAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices
 abstract type LocalSearchAlgorithm end
 abstract type NeighborhoodAlgorithm end
 abstract type Callback end
@@ -43,13 +43,13 @@ for \$out\$  elements in the current index.
 Note: The underlying graph is undirected, in and out edges are fused in the same priority queue; old edges can be discarded when closer elements are found.
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 """
-@with_kw mutable struct Neighborhood
+@with_kw mutable struct Neighborhood{ReduceType<:NeighborhoodReduction}
     k::Int32 = 2 # actual neighborhood
     ksearch::Int32 = 2
     logbase::Float32 = 2
     minsize::Int32 = 2
     Δ::Float32 = 1
-    reduceby::Symbol = :none # valid: :none, :sat, how to apply others without modifying the package?
+    reduce::ReduceType = IdentityNeighborhood()
 end
 
 Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduceby=N.reduceby) =
@@ -155,53 +155,11 @@ end
 
 
 include("opt.jl")
-
+include("neighborhood.jl")
 ## search algorithms
 include("ihc.jl")
 include("beamsearch.jl")
 
-"""
-    find_neighborhood(index::SearchGraph{T}, item)
-
-Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
-its neighbors (intenal function)
-"""
-function find_neighborhood(index::SearchGraph, item)
-    n = length(index)
-    neighbors = KnnResult(index.neighborhood.ksearch, Float16)
-
-    if n > 0
-        search(index, item, neighbors)
-        # if index.neighborhood.reduceby === :sat @ TODO
-    end
-    
-    neighbors
-end
-
-"""
-    push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; apply_callbacks=true)
-
-Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
-vertex created for ìtem` (internal function)
-"""
-function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; apply_callbacks=true)
-    push!(index.db, item)
-    push!(index.links, neighbors)
-    n = length(index)
-    k = index.neighborhood.k
-
-    @inbounds for (id, dist) in neighbors
-        v = index.links[id]
-        v.k = max(maxlength(v), k) # adjusting maximum size to the current allowed neighborhood size
-        push!(v, n => dist)
-    end
-
-    apply_callbacks && callbacks(index)
-
-    if index.verbose && length(index) % 10000 == 0
-        println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(typeof(index.neighborhood_algo)), $(now())")
-    end
-end
 
 function callbacks(index::SearchGraph)
     n = length(index)
