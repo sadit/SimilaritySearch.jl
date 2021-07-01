@@ -22,7 +22,7 @@ mutable struct KnnResult{RefType<:Integer,DistType<:Real}
     end
 end
 
-KnnResult(k::Integer) = KnnResult(Int32[], Float32[], k)
+KnnResult(k::Integer, F=Float32) = KnnResult(Int32[], F[], k)
 
 function Base.copy(res::KnnResult)
     compact!(res)

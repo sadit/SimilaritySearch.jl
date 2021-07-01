@@ -21,39 +21,18 @@ using Test
     seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
     
-    for neighborhood_algo_fun in [
-                () -> FixedNeighborhood(8), ## objects need to be created at each usage here since 
-                () -> LogNeighborhood(), ## since they contain state data
-                () -> LogSatNeighborhood(),
-                () -> SatNeighborhood()
-        ], search_algo_fun in [
-            () -> IHCSearch(restarts=4)  
-            () -> BeamSearch(bsize=4)
-        ]
+    #() -> 8), ## objects need to be created at each usage here since 
+    #() -> LogNeighborhood(), ## since they contain state data
+    #() -> LogSatNeighborhood(),
+    #() -> SatNeighborhood()
+    for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=4)]
         @info "==================="
-        graph = SearchGraph(;
-            dist,
-            search_algo=search_algo_fun(),
-            neighborhood_algo=neighborhood_algo_fun(),
-            callback_list=Dict()
-        )
+        graph = SearchGraph(; dist, search_algo=search_algo_fun())
         append!(graph, db)
         @time p = probe(perf, graph)
-        @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(p)"
+        @info "testing search_algo: $(string(graph.search_algo)), p: $(p)"
         @test p.macrorecall >= 0.6
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
-
-        graph = SearchGraph(;
-            dist,
-            search_algo=search_algo_fun(),
-            neighborhood_algo=neighborhood_algo_fun()
-        )
-        append!(graph, db)
-        @time p = probe(perf, graph)
-        @info "testing search_algo: $(string(graph.search_algo)), neighborhood_algo: $(graph.neighborhood_algo), p: $(p); using automatic optimization"
-        @test p.macrorecall >= 0.7
-        @info "queries per second: $(1/p.searchtime)"
-
     end
 end

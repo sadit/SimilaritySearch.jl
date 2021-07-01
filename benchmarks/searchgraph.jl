@@ -9,8 +9,10 @@ function main_search_graph(perf, S, k; optimize_parameters, opts...)
 
     start = time()
     G = SearchGraph(; opts...)
-    !optimize_parameters && delete!(G.callback_list, :optimize_parameters)
-    # G.callback_list[:optimize_hints].logbase = 2
+    !optimize_parameters && delete!(G.callbacks, :parameters)
+    #G.neighborhood.logbase = 1.5
+    #G.neighborhood.logbase = Inf
+    #G.neighborhood.minsize = 10
 
     append!(G, S)
     buildtime = time() - start 
@@ -34,15 +36,12 @@ function main()
         perf = Performance(gold, Q, k; popnearest=false)
 
         for salgo in [BeamSearch(bsize=4)]
-            for nalgo in [LogNeighborhood()]
-                main_search_graph(perf, S, k;
-                    dist=dist,
-                    search_algo=salgo,
-                    neighborhood_algo=nalgo,
-                    optimize_parameters=optimize_parameters,
-                    verbose=false
-                )
-            end
+            main_search_graph(perf, S, k;
+                dist=dist,
+                search_algo=salgo,
+                optimize_parameters=optimize_parameters,
+                verbose=false
+            )
         end
     end
 end

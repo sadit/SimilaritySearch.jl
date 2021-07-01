@@ -50,7 +50,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
         dmin = typemax(Float32)
         omin = -1
         vstate[nodeID] = EXPLORED
-        @inbounds for childID in index.links[nodeID]
+        @inbounds for childID in keys(index.links[nodeID])
             S = get(vstate, childID, UNKNOWN)
             S != UNKNOWN && continue
             vstate[childID] = VISITED

@@ -72,7 +72,7 @@ function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult
         prev_id, prev_dist = popfirst!(beam)
         getstate(vstate, prev_id) === EXPLORED && continue
         setstate!(vstate, prev_id, EXPLORED)
-        @inbounds for childID in index.links[prev_id]
+        @inbounds for childID in keys(index.links[prev_id])
             if getstate(vstate, childID) === UNKNOWN
                 setstate!(vstate, childID, VISITED)
                 d = evaluate(index.dist, q, index[childID])
@@ -94,7 +94,6 @@ function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
     if length(index) > 0
         empty!(bs.beam, bs.bsize)
         beamsearch_init(bs, index, q, res, hints, bs.vstate)
-
         push!(bs.beam, first(res))
         beamsearch_inner(index, q, res, bs.beam, bs.vstate)
     end
