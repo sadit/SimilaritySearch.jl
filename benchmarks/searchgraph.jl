@@ -13,7 +13,6 @@ function main_search_graph(perf, S, k; optimize_parameters, opts...)
     #G.neighborhood.logbase = 1.5
     #G.neighborhood.logbase = Inf
     #G.neighborhood.minsize = 10
-
     append!(G, S)
     buildtime = time() - start 
     
