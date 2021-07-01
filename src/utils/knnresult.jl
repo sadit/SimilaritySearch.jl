@@ -24,7 +24,10 @@ end
 
 KnnResult(k::Integer) = KnnResult(Int32[], Float32[], k)
 
-Base.copy(res::KnnResult) = KnnResult(copy(res.id), copy(res.dist), res.k)
+function Base.copy(res::KnnResult)
+    compact!(res)
+    KnnResult(copy(res.id), copy(res.dist), res.k)
+end
 
 """
     fixorder!(sp, id, dist)
@@ -65,21 +68,10 @@ end
 Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
-    n = length(res)
-    if n < maxlength(res)
+    if length(res) < maxlength(res)
         k = res.k
         if length(res.id) >= 2k-1
-            j = res.shift
-            @inbounds for i in 1:n
-                j += 1
-                res.id[i] = res.id[j]
-                res.dist[i] = res.dist[j]
-            end
-
-            resize!(res.id, n+1)
-            resize!(res.dist, n+1)
-            res.shift = 0
-
+            compact!(res, 1)
             @inbounds res.id[end], res.dist[end] = id, dist
         else
             push!(res.id, id)
@@ -93,6 +85,23 @@ Appends an item into the result set
     @inbounds res.id[end], res.dist[end] = id, dist
     fixorder!(res.shift, res.id, res.dist)
     true
+end
+
+function compact!(res::KnnResult, resize_extra=0)
+    if res.shift > 0
+        n = length(res)
+        j = res.shift
+        @inbounds for i in 1:n
+            j += 1
+            res.id[i] = res.id[j]
+            res.dist[i] = res.dist[j]
+        end
+        res.shift = 0
+        resize!(res.id, n+resize_extra)
+        resize!(res.dist, n+resize_extra)
+    end
+
+    res
 end
 
 @inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
