@@ -3,17 +3,20 @@ using SimilaritySearch, Random, JSON
 
 generate_dataset(dim, n) = [rand(Float32, dim) for i in 1:n]
 
-function main_search_graph(perf, S, k; optimize_parameters, opts...)
+function main_search_graph(perf, S, k; optimize_parameters, parallel=false, opts...)
     println("==============  SearchGraph ================")
     println("=== objects: $(length(S)), dim=$(length(S[1])), knn: $k")
 
     start = time()
     G = SearchGraph(; opts...)
     !optimize_parameters && delete!(G.callbacks, :parameters)
-    #G.neighborhood.logbase = 1.5
-    #G.neighborhood.logbase = Inf
-    #G.neighborhood.minsize = 10
-    append!(G, S)
+    #G.neighborhood.logbase = 2
+    #G.neighborhood.minsize = 1
+    G.neighborhood.logbase = Inf
+    G.neighborhood.minsize = 10
+    G.neighborhood.reduce = SatNeighborhood()
+
+    append!(G, S; parallel, parallel_firstblock=30_000, parallel_block=10_000)
     buildtime = time() - start 
     
     p = probe(perf, G)
@@ -39,6 +42,7 @@ function main()
                 dist=dist,
                 search_algo=salgo,
                 optimize_parameters=optimize_parameters,
+                parallel=true,
                 verbose=false
             )
         end

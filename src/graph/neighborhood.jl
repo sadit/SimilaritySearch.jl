@@ -2,20 +2,21 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 """
-    find_neighborhood(index::SearchGraph{T}, item)
+    find_neighborhood(index::SearchGraph{T}, item; res=index.res)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
 its neighbors (intenal function)
 """
-function find_neighborhood(index::SearchGraph, item)
+function find_neighborhood(index::SearchGraph, item; res=index.res)
     n = length(index)
-    neighbors = KnnResult(index.neighborhood.ksearch)
-
-    if n > 0
-        neighbors = reduce(index.neighborhood.reduce, search(index, item, neighbors), index)
-    end
+    N = index.neighborhood
     
-    neighbors
+    if n > 0
+        empty!(res, N.ksearch)
+        reduce(N.reduce, search(index, item, res), index)
+    else
+        KnnResult(N.ksearch)
+    end
 end
 
 """
@@ -38,7 +39,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; appl
 
     apply_callbacks && callbacks(index)
 
-    if index.verbose && length(index) % 10000 == 0
+    if index.verbose && length(index) % 100_000 == 0
         println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(now())")
     end
 end
@@ -52,17 +53,19 @@ It starts with `k` near items that are reduced to a small neighborhood due to th
 """
 mutable struct SatNeighborhood <: NeighborhoodReduction
     near::KnnResult{Int32,Float32}
-    tmp::KnnResult{Int32,Float32}
-    SatNeighborhood() = new(KnnResult(1), KnnResult(10))
+    SatNeighborhood() = new(KnnResult(1))
 end
 
 Base.copy(::SatNeighborhood) = SatNeighborhood()
 
+"""
+    reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
+
+Reduces `res` using the SAT strategy.
+"""
 function Base.reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
     near = sat.near
-    N = sat.tmp
-    sat.tmp = res
-    empty!(N, maxlength(res))
+    N = KnnResult(maxlength(res))
 
     @inbounds for (id, dist) in res
         pobj = index[id]
@@ -87,4 +90,4 @@ It does not modifies the given neighborhood
 struct IdentityNeighborhood <: NeighborhoodReduction end
 
 Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
-Base.reduce(sat::IdentityNeighborhood, res::KnnResult, index::SearchGraph) = res
+Base.reduce(sat::IdentityNeighborhood, res::KnnResult, index::SearchGraph) =  copy(res)

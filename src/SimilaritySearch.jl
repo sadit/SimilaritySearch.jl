@@ -7,7 +7,9 @@ abstract type AbstractSearchContext end
 
 using Parameters
 import Distances: evaluate, PreMetric
-export AbstractSearchContext, PreMetric, evaluate, search
+export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
+
+include("utils/knnresult.jl")
 
 """
     search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))
@@ -21,6 +23,22 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(search
     search(searchctx, q, searchctx.res)
 end
 
+function searchbatch(searchctx::AbstractSearchContext, Q, k::Integer=maxlength(searchctx.res); parallel=false)
+    searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)])
+end
+
+function searchbatch(searchctx::AbstractSearchContext, Q, KNN::Vector{<:KnnResult}; parallel=false)
+    if parallel
+        Threads.@threads for i in eachindex(Q, KNN)
+            search(searchctx, Q[i], KNN[i])
+        end
+    else
+        for i in eachindex(Q, KNN)
+            search(searchctx, Q[i], KNN[i])
+        end
+    end
+end
+
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = eachindex(searchctx.db)
@@ -31,7 +49,6 @@ include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
 
-include("utils/knnresult.jl")
 include("utils/perf.jl")
 
 include("indexes/pivotselection.jl")

@@ -3,10 +3,26 @@
 
 export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices
 
-export NeighborhoodReduction, SatNeighborhood, find_neighborhood, push_neighborhood!
+export NeighborhoodReduction, SatNeighborhood, IdentityNeighborhood, find_neighborhood, push_neighborhood!
 
+"""
+    abstract type NeighborhoodReduction end
+    
+Overrides `Base.reduce(::NeighborhoodReduction, res::KnnResult, index::SearchGraph)` to postprocess `res` using some criteria.
+Called from `find_neighborhood`, and returns a new KnnResult struct (perhaps a copy of res) since `push_neighborhood` captures
+the reference of its output.
+"""
 abstract type NeighborhoodReduction end
 abstract type LocalSearchAlgorithm end
+
+"""
+    abstract type Callback end
+
+Abstract type to trigger callbacks after some number of insertions.
+SearchGraph stores the callbacks in `callbacks` (a dictionary that associates symbols and callback objects);
+A SearchGraph object controls when callbacks are fired using `callback_logbase` and `callback_starting`
+
+"""
 abstract type Callback end
 
 ### Basic operations on the index
@@ -41,18 +57,19 @@ The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_c
 - The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
 for \$out\$  elements in the current index.
 - The \$in\$ size is computed as \$\\Delta in\$, i.e., this is not searched in the current index yet for accepting future edges.
-- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$
+- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the reduced result set.
 
 Note: The underlying graph is undirected, in and out edges are fused in the same priority queue; old edges can be discarded when closer elements are found.
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
+
 """
-@with_kw mutable struct Neighborhood{ReduceType<:NeighborhoodReduction}
+@with_kw mutable struct Neighborhood
     k::Int32 = 2 # actual neighborhood
     ksearch::Int32 = 2
     logbase::Float32 = 2
     minsize::Int32 = 2
     Δ::Float32 = 1
-    reduce::ReduceType = IdentityNeighborhood()
+    reduce::NeighborhoodReduction = IdentityNeighborhood()
 end
 
 Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduce=copy(N.reduce)) =
@@ -152,10 +169,10 @@ function parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVect
     m = length(X)
     N = Vector{eltype(index.links)}(undef, m)
     Threads.@threads for i in 1:m
-        tid = Threads.threadid()
-        INDEXES[tid].neighborhood.k = index.neighborhood.k
-        INDEXES[tid].neighborhood.ksearch = index.neighborhood.ksearch
-        N[i] = find_neighborhood(INDEXES[tid], X[i])
+        I = INDEXES[Threads.threadid()]
+        I.neighborhood.k = index.neighborhood.k
+        I.neighborhood.ksearch = index.neighborhood.ksearch
+        N[i] = find_neighborhood(I, X[i])
     end
 
     for i in 1:m
@@ -209,7 +226,6 @@ end
 
 Optimizes the index for the specified kind of queries.
 """
-
 function optimize!(perf::Performance,
               index::SearchGraph;
               recall=0.9,

@@ -28,6 +28,7 @@ using Test
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=4)]
         @info "==================="
         graph = SearchGraph(; dist, search_algo=search_algo_fun())
+        graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db)
         @time p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), p: $(p)"
