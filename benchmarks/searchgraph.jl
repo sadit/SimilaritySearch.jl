@@ -42,7 +42,7 @@ function main()
                 dist=dist,
                 search_algo=salgo,
                 optimize_parameters=optimize_parameters,
-                parallel=true,
+                parallel=false,
                 verbose=false
             )
         end
