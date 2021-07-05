@@ -1,86 +1,89 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
-using Dates
+using SearchModels, Random
+import SearchModels: combine, mutate, config_type
 
-"""
-    function optimize!(search_algo::LocalSearchAlgorithm,
-                       index::SearchGraph{T},
-                       recall::Float64,
-                       perf::Performance;
-                       bsize::Int=4,
-                       tol::Float64=0.01,
-                       probes::Int=0) where T
+@with_kw struct BeamSearchSpace <: AbstractSolutionSpace
+    bsize = 1:4:16
+    origin::BeamSearch
+end
 
-Optimizes a local search index for an specific algorithm to get the desired performance.
-Note that optimizing for low-recall will yield to faster searches; the train queries
-are specified as part of the `perf` struct.
-"""
-function optimize!(
-        perf::Performance,
-        search_algo::LocalSearchAlgorithm,
-        index::SearchGraph;
-        recall::Real=0.9,
-        bsize::Integer=4,
-        tol::Real=0.01,
-        maxiters::Integer=3,
-        probes::Integer=0
-    )
-    n = length(index)
-    score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
-    # score_function(p) = p.macrorecall < recall ? p.macrorecall : 1.0 + n / p.evaluations
-    #score_function(p) = p.recall < recall ? p.recall : 1.0 + 1.0 / (1.0 + sum(p.evaluations))
-    #score_function(p) = 1.0 / (1.0 + sum(p.evaluations))
-    p = probe(perf, index)
-    best_list = [(score=score_function(p), state=search_algo, perf=p)]
-    exploration = Dict(search_algo => 0)  ## -1 unexplored; 0 visited; 1 visited & expanded
-
-    index.verbose && println(stderr, "==== BEGIN Opt. $(string(search_algo)), expected recall: $recall, n: $n")
-    prev_score = -1.0
-    iter = 0
-
-    state_string(s) = "(state=$(string(s.state)), score=$(s.score), perf=$(s.perf)  )"
-    while abs(best_list[1].score - prev_score) > tol && iter < maxiters
-        iter += 1
-        prev_score = best_list[1].score
-        index.verbose && println(stderr, "  == Begin Opt. $(string(search_algo)) iteration: $iter, expected recall: $recall, n: $n")
-        
-        for prev in @view best_list[1:end]  ## the view also fixes the size of best_list even after push!
-            S = get(exploration, prev.state, -1)
-            if S == 1
-                continue  # visited and explored
-            elseif S == 0
-                exploration[prev.state] = 1
-            end
-            
-            opt_expand_neighborhood(prev.state, n, iter, probes) do state
-                S = get(exploration, state, -1)
-                if S == -1
-                    exploration[state] = 0
-                    copy!(index.search_algo, state)
-                    p = probe(perf, index)
-                    score = score_function(p)
-                    if length(best_list) < bsize || score > best_list[bsize].score
-                        push!(best_list, (score=score, state=state, perf=p))
-                        if score > best_list[1].score
-                            index.verbose && println(stderr, "    ** new best conf: $(state_string(best_list[end])), #beam: $(length(best_list)), n: $(n)")
-                        end
-                    end
-                end
-            end
-        end
-    
-        sort!(best_list, by=(x) -> -x.score)
-        if length(best_list) > bsize
-            best_list = best_list[1:bsize]
-        end
-        index.verbose && println(stderr, "  == Iteration finished, current best: $(state_string(best_list[1])), #beam: $(length(best_list)), n: $(n)")
-    end
-
-    copy!(index.search_algo, best_list[1].state)
-    index.verbose && println(stderr, "==== END Opt. Finished, best: $(state_string(best_list[1])), n: $(n)")
-    index
+function _create_bs(o::BeamSearch, bsize)
+    BeamSearch(hints=o.hints, bsize=bsize, beam=o.beam, vstate=o.vstate)
 end
 
 
+Base.eltype(::BeamSearchSpace) = BeamSearch
+Base.rand(space::BeamSearchSpace) = _create_bs(space.origin, rand(space.bsize))
+combine(a::BeamSearch, b::BeamSearch) = _create_bs(a, div(a.bsize + b.bsize, 2))
+mutate(space::BeamSearchSpace, c::BeamSearch, iter) = _create_bs(c, SearchModels.scale(c.bsize, s=1.1, lower=1))
 
+@with_kw struct IHCSearchSpace <: AbstractSolutionSpace
+    restarts = 1:4:16
+    origin::IHCSearch
+end
+
+function _create_ihc(o::IHCSearch, restarts)
+    IHCSearch(hints=o.hints, restarts=restarts, localimprovements=o.localimprovements, vstate=o.vstate)
+end
+
+Base.eltype(::IHCSearchSpace) = IHCSearch
+Base.rand(space::IHCSearchSpace) = _create_ihc(space.origin, rand(space.restarts))
+combine(a::IHCSearch, b::IHCSearch) = _create_ihc(a, div(a.restarts + b.restarts, 2))
+mutate(space::IHCSearchSpace, c::IHCSearch, iter) = _create_ihc(c, SearchModels.scale(c.restarts, s=1.1, lower=1))
+
+"""
+    callback(opt::OptimizeParametersCallback, index)
+
+SearchGraph's callback for adjunting search parameters
+"""
+function callback(opt::OptimizeParametersCallback, index)
+    sample = unique(rand(1:length(index), opt.numqueries))
+    queries = index[sample]
+
+    error_function = if opt.error === :recall
+        seq = ExhaustiveSearch(index.dist, index.db; ksearch=opt.ksearch)
+        perf = Performance(seq, queries, opt.ksearch; popnearest=true)
+        function error_function1(c)
+            copy!(index.search_algo, c)
+            p = probe(perf, index)
+            index.verbose && println(stderr, "== SearchGraph optimizing recall, err: ", p, ", using configuration: ", c)
+            1 / (p.macrorecall + 1)
+        end
+    elseif opt.error === :distance
+        function error_function2(c)
+            d = 0.0
+            copy!(index.search_algo, c)
+            for q in queries
+                d += maximum(keys(search(index, q, opt.ksearch)))
+            end
+            d /= length(queries)
+
+            index.verbose && println(stderr, "== SearchGraph optimizing covering radius, err: ", d, ", using configuration: ", c)
+            d
+        end
+    elseif opt.error == :distance_and_searchtime
+        function error_function3(c)
+            d = 0.0
+            copy!(index.search_algo, c)
+            t = time()
+            for q in queries
+                d += maximum(search(index, q, opt.ksearch))
+            end
+            t = time() - t
+            d *= t
+            index.verbose && println(stderr, "== SearchGraph optimizing distance and searchtime, err: ", d, " using configuration: ", c)
+            d
+        end
+    else
+        error("unknown $(opt.error), valid options are :recall, :distance, and :distance_and_searchtime")
+    end
+    
+    space = index.search_algo isa BeamSearch ? BeamSearchSpace(origin=index.search_algo) : IHCSearchSpace(origin=index.search_algo)
+    bestlist = search_models(space, error_function, opt.initialpopulation; maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol)
+    config, err = bestlist[1]
+    copy!(index.search_algo, config)
+    index.verbose && println(stderr, "== finished optimization SearchGraphdistance, err: ", err, ", with configuration: ", config)
+    index
+end

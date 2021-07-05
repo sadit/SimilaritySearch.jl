@@ -9,12 +9,12 @@ function main_search_graph(perf, S, k; optimize_parameters, parallel=false, opts
 
     start = time()
     G = SearchGraph(; opts...)
-    !optimize_parameters && delete!(G.callbacks, :parameters)
+    #!optimize_parameters && delete!(G.callbacks, :parameters)
     #G.neighborhood.logbase = 2
     #G.neighborhood.minsize = 1
-    G.neighborhood.logbase = Inf
-    G.neighborhood.minsize = 10
-    G.neighborhood.reduce = SatNeighborhood()
+    #G.neighborhood.logbase = Inf
+    #G.neighborhood.minsize = 10
+    #G.neighborhood.reduce = SatNeighborhood()
 
     append!(G, S; parallel, parallel_firstblock=30_000, parallel_block=10_000)
     buildtime = time() - start 

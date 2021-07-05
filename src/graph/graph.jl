@@ -39,10 +39,13 @@ const VisitedVertices = Dict{Int32, UInt8}
 end
 
 @with_kw mutable struct OptimizeParametersCallback <: Callback
-    recall::Float32 = 0.9
-    tol::Float32 = 0.01
+    error = :distance # :recall, :distance, :distance_and_searchtime
     ksearch::Int32 = 10
     numqueries::Int32 = 32
+    initialpopulation::Int32 = 4
+    maxpopulation::Int32 = 4
+    tol::Float32 = 0.01
+    maxiters::Int32 = 4
 end
 
 @with_kw mutable struct RandomHintsCallback <: Callback
@@ -110,12 +113,13 @@ Base.copy(g::SearchGraph;
     ) =
     SearchGraph(; dist, db, links, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
 
-include("opt.jl")
-include("neighborhood.jl")
+
 ## search algorithms
 include("ihc.jl")
 include("beamsearch.jl")
-
+## parameter optimization and neighborhood definitions
+include("opt.jl")
+include("neighborhood.jl")
 
 """
     append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)
@@ -180,6 +184,11 @@ function parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVect
     end
 end
 
+"""
+    callbacks(index::SearchGraph)
+
+Process all registered callbacks in `index`
+"""
 function callbacks(index::SearchGraph)
     n = length(index)
 
@@ -217,27 +226,6 @@ function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.h
 end
 
 """
-    optimize!(perf::Performance,
-              index::SearchGraph;
-              recall=0.9,
-              tol::Real=0.001,
-              maxiters::Integer=3,
-              probes::Integer=0)
-
-Optimizes the index for the specified kind of queries.
-"""
-function optimize!(perf::Performance,
-              index::SearchGraph;
-              recall=0.9,
-              tol::Real=0.001,
-              maxiters::Integer=3,
-              probes::Integer=0)
-
-    optimize!(perf, index.search_algo, index; recall=recall, tol=tol, maxiters=maxiters, probes=probes)
-end
-
-
-"""
     callback(opt::RandomHintsCallback, index)
 
 SearchGraph's callback for selecting hints at random
@@ -259,17 +247,4 @@ function callback(opt::NeighborhoodCallback, index)
     N = index.neighborhood
     N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
     N.k = N.ksearch + ceil(Int, N.ksearch * N.Δ)
-end
-
-"""
-    callback(opt::OptimizeParametersCallback, index)
-
-SearchGraph's callback for adjunting search parameters
-"""
-function callback(opt::OptimizeParametersCallback, index)
-    seq = ExhaustiveSearch(index.dist, index.db; ksearch=opt.ksearch)
-    sample = unique(rand(1:length(index), opt.numqueries))
-    queries = index[sample]
-    perf = Performance(seq, queries, opt.ksearch; popnearest=true)
-    optimize!(perf, index, recall=opt.recall)
 end
