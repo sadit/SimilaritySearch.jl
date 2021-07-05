@@ -11,291 +11,1736 @@ for q in Q
     println(search(index, q, KnnResult(3)))
 end</code></pre><pre class="documenter-example-output">calling callback hints; n=10
 calling callback parameters; n=10
-==== BEGIN Opt. {BeamSearch: bsize=8, hints=4, expected recall: 0.9, n: 10
-  == Begin Opt. {BeamSearch: bsize=8, hints=4 iteration: 1, expected recall: 0.9, n: 10
-  == Iteration finished, current best: (state={BeamSearch: bsize=4, hints=0, score=0.7625, perf=StatsComparison(0.7625, 1.0, 0.855263157894737, 1.4901161193847656e-6, 7.625, StatsKnn(15.03302276134491, 1.1572892889380455, 3.2521508634090424, 6.625), 1.0132789611816406e-6, StatsKnn(21.72052812576294, 1.0910494700074196, 3.5016181766986847, 9.0))  ), #beam: 4, n: 10
-==== END Opt. Finished, best: (state={BeamSearch: bsize=4, hints=0, score=0.7625, perf=StatsComparison(0.7625, 1.0, 0.855263157894737, 1.4901161193847656e-6, 7.625, StatsKnn(15.03302276134491, 1.1572892889380455, 3.2521508634090424, 6.625), 1.0132789611816406e-6, StatsKnn(21.72052812576294, 1.0910494700074196, 3.5016181766986847, 9.0))  ), n: 10
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 10.0 worst-error: 10.0
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 10.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=10.0, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 10.0, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[3, 4, 10, 5, 1]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=10
 calling callback hints; n=16
 calling callback parameters; n=16
-==== BEGIN Opt. {BeamSearch: bsize=4, hints=6, expected recall: 0.9, n: 16
-  == Begin Opt. {BeamSearch: bsize=4, hints=6 iteration: 1, expected recall: 0.9, n: 16
-    ** new best conf: (state={BeamSearch: bsize=14, hints=0, score=2.142857142857143, perf=StatsComparison(0.916083916083916, 0.916083916083916, 0.916083916083916, 2.310826228215144e-6, 14.0, StatsKnn(19.39081434103159, 0.9432273071545821, 2.7069542591388407, 10.0), 1.155413114107572e-6, StatsKnn(18.426951555105354, 0.8735261192688575, 2.53369795359098, 10.0))  ), #beam: 4, n: 16
-  == Iteration finished, current best: (state={BeamSearch: bsize=14, hints=0, score=2.142857142857143, perf=StatsComparison(0.916083916083916, 0.916083916083916, 0.916083916083916, 2.310826228215144e-6, 14.0, StatsKnn(19.39081434103159, 0.9432273071545821, 2.7069542591388407, 10.0), 1.155413114107572e-6, StatsKnn(18.426951555105354, 0.8735261192688575, 2.53369795359098, 10.0))  ), #beam: 4, n: 16
-  == Begin Opt. {BeamSearch: bsize=13, hints=0 iteration: 2, expected recall: 0.9, n: 16
-  == Iteration finished, current best: (state={BeamSearch: bsize=14, hints=0, score=2.142857142857143, perf=StatsComparison(0.916083916083916, 0.916083916083916, 0.916083916083916, 2.310826228215144e-6, 14.0, StatsKnn(19.39081434103159, 0.9432273071545821, 2.7069542591388407, 10.0), 1.155413114107572e-6, StatsKnn(18.426951555105354, 0.8735261192688575, 2.53369795359098, 10.0))  ), #beam: 4, n: 16
-==== END Opt. Finished, best: (state={BeamSearch: bsize=14, hints=0, score=2.142857142857143, perf=StatsComparison(0.916083916083916, 0.916083916083916, 0.916083916083916, 2.310826228215144e-6, 14.0, StatsKnn(19.39081434103159, 0.9432273071545821, 2.7069542591388407, 10.0), 1.155413114107572e-6, StatsKnn(18.426951555105354, 0.8735261192688575, 2.53369795359098, 10.0))  ), n: 16
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 15.307692307692308, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 14.76923076923077 worst-error: 15.307692307692308
+== SearchGraph optimizing covering radius, err: 14.846153846153847, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.846153846153847, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.846153846153847, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 15.307692307692308, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 15.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 2&gt; population: 4, bsize: 4, queue: 8, observed: 20, best-error: 14.76923076923077 worst-error: 14.76923076923077
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 14.76923076923077, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=14.76923076923077, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 14.76923076923077, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((6,)) Int32[9, 5, 13, 15, 2, 8]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=16
 calling callback hints; n=24
 calling callback parameters; n=24
-==== BEGIN Opt. {BeamSearch: bsize=14, hints=8, expected recall: 0.9, n: 24
-  == Begin Opt. {BeamSearch: bsize=14, hints=8 iteration: 1, expected recall: 0.9, n: 24
-    ** new best conf: (state={BeamSearch: bsize=11, hints=0, score=2.0607734806629834, perf=StatsComparison(0.9943181818181819, 0.9943181818181819, 0.9943181818181819, 3.7401914596557617e-6, 22.625, StatsKnn(15.206261694431305, 0.8049653265625238, 2.015517294406891, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 2, n: 24
-    ** new best conf: (state={BeamSearch: bsize=13, hints=0, score=2.1002865329512894, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.6209821701049805e-6, 21.8125, StatsKnn(15.249961376190186, 0.8049653265625238, 2.0328923240303993, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 3, n: 24
-    ** new best conf: (state={BeamSearch: bsize=18, hints=0, score=2.063711911357341, perf=StatsComparison(0.9886363636363636, 0.9886363636363636, 0.9886363636363636, 3.5017728805541992e-6, 22.5625, StatsKnn(15.265487670898438, 0.807373994961381, 2.023886390030384, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 4, n: 24
-    ** new best conf: (state={BeamSearch: bsize=13, hints=0, score=2.090909090909091, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.680586814880371e-6, 22.0, StatsKnn(15.253729462623596, 0.8049653265625238, 2.027025558054447, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 5, n: 24
-  == Iteration finished, current best: (state={BeamSearch: bsize=13, hints=0, score=2.1002865329512894, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.6209821701049805e-6, 21.8125, StatsKnn(15.249961376190186, 0.8049653265625238, 2.0328923240303993, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 4, n: 24
-  == Begin Opt. {BeamSearch: bsize=9, hints=0 iteration: 2, expected recall: 0.9, n: 24
-    ** new best conf: (state={BeamSearch: bsize=12, hints=0, score=2.103448275862069, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.5017728805541992e-6, 21.75, StatsKnn(15.362989246845245, 0.8475850354880095, 2.0303878262639046, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 13, n: 24
-    ** new best conf: (state={BeamSearch: bsize=23, hints=0, score=2.119533527696793, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.427267074584961e-6, 21.4375, StatsKnn(15.246838450431824, 0.8049653265625238, 2.032053656876087, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 16, n: 24
-    ** new best conf: (state={BeamSearch: bsize=10, hints=0, score=2.119533527696793, perf=StatsComparison(0.9431818181818181, 0.946969696969697, 0.9448863636363636, 3.56137752532959e-6, 21.4375, StatsKnn(15.350764751434326, 0.8744825534522533, 2.0809397846460342, 9.875), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 21, n: 24
-  == Iteration finished, current best: (state={BeamSearch: bsize=23, hints=0, score=2.119533527696793, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.427267074584961e-6, 21.4375, StatsKnn(15.246838450431824, 0.8049653265625238, 2.032053656876087, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 4, n: 24
-  == Begin Opt. {BeamSearch: bsize=10, hints=0 iteration: 3, expected recall: 0.9, n: 24
-  == Iteration finished, current best: (state={BeamSearch: bsize=23, hints=0, score=2.119533527696793, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.427267074584961e-6, 21.4375, StatsKnn(15.246838450431824, 0.8049653265625238, 2.032053656876087, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), #beam: 4, n: 24
-==== END Opt. Finished, best: (state={BeamSearch: bsize=23, hints=0, score=2.119533527696793, perf=StatsComparison(0.9829545454545454, 0.9829545454545454, 0.9829545454545454, 3.427267074584961e-6, 21.4375, StatsKnn(15.246838450431824, 0.8049653265625238, 2.032053656876087, 10.0), 1.2516975402832031e-6, StatsKnn(15.182490289211273, 0.8049653265625238, 2.0139540880918503, 10.0))  ), n: 24
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 21.57894736842105 worst-error: 21.57894736842105
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 21.57894736842105, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=21.57894736842105, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 21.57894736842105, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((5,)) Int32[17, 5, 9, 4, 16]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=24
 calling callback hints; n=37
 calling callback parameters; n=37
-==== BEGIN Opt. {BeamSearch: bsize=23, hints=8, expected recall: 0.9, n: 37
-  == Begin Opt. {BeamSearch: bsize=23, hints=8 iteration: 1, expected recall: 0.9, n: 37
-    ** new best conf: (state={BeamSearch: bsize=30, hints=0, score=2.1844512195121952, perf=StatsComparison(0.9783549783549784, 0.9783549783549784, 0.9783549783549784, 4.9954368954613096e-6, 31.238095238095237, StatsKnn(12.509247144063314, 0.6691781566256568, 1.6420957985378446, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 5, n: 37
-  == Iteration finished, current best: (state={BeamSearch: bsize=30, hints=0, score=2.1844512195121952, perf=StatsComparison(0.9783549783549784, 0.9783549783549784, 0.9783549783549784, 4.9954368954613096e-6, 31.238095238095237, StatsKnn(12.509247144063314, 0.6691781566256568, 1.6420957985378446, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 4, n: 37
-  == Begin Opt. {BeamSearch: bsize=35, hints=0 iteration: 2, expected recall: 0.9, n: 37
-    ** new best conf: (state={BeamSearch: bsize=32, hints=0, score=2.2046511627906975, perf=StatsComparison(0.987012987012987, 0.987012987012987, 0.987012987012987, 4.813784644717262e-6, 30.714285714285715, StatsKnn(12.408958662123908, 0.6691781566256568, 1.6216487430390858, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 8, n: 37
-    ** new best conf: (state={BeamSearch: bsize=22, hints=0, score=2.193548387096774, perf=StatsComparison(0.987012987012987, 0.987012987012987, 0.987012987012987, 5.574453444707961e-6, 31.0, StatsKnn(12.411356925964355, 0.6691781566256568, 1.6411340690794445, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 10, n: 37
-    ** new best conf: (state={BeamSearch: bsize=22, hints=0, score=2.2027863777089784, perf=StatsComparison(0.9913419913419914, 0.9913419913419914, 0.9913419913419914, 4.950023832775298e-6, 30.761904761904763, StatsKnn(12.397513435000466, 0.6691781566256568, 1.6249747276306152, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 12, n: 37
-    ** new best conf: (state={BeamSearch: bsize=24, hints=0, score=2.199074074074074, perf=StatsComparison(0.9913419913419914, 0.9913419913419914, 0.9913419913419914, 5.097616286504836e-6, 30.857142857142858, StatsKnn(12.394543329874674, 0.6691781566256568, 1.6196712141945249, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 14, n: 37
-  == Iteration finished, current best: (state={BeamSearch: bsize=32, hints=0, score=2.2046511627906975, perf=StatsComparison(0.987012987012987, 0.987012987012987, 0.987012987012987, 4.813784644717262e-6, 30.714285714285715, StatsKnn(12.408958662123908, 0.6691781566256568, 1.6216487430390858, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 4, n: 37
-  == Begin Opt. {BeamSearch: bsize=31, hints=0 iteration: 3, expected recall: 0.9, n: 37
-  == Iteration finished, current best: (state={BeamSearch: bsize=32, hints=0, score=2.2046511627906975, perf=StatsComparison(0.987012987012987, 0.987012987012987, 0.987012987012987, 4.813784644717262e-6, 30.714285714285715, StatsKnn(12.408958662123908, 0.6691781566256568, 1.6216487430390858, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), #beam: 4, n: 37
-==== END Opt. Finished, best: (state={BeamSearch: bsize=32, hints=0, score=2.2046511627906975, perf=StatsComparison(0.987012987012987, 0.987012987012987, 0.987012987012987, 4.813784644717262e-6, 30.714285714285715, StatsKnn(12.408958662123908, 0.6691781566256568, 1.6216487430390858, 10.0), 1.7711094447544643e-6, StatsKnn(12.385887145996094, 0.6691781566256568, 1.616335704213097, 10.0))  ), n: 37
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 34.375 worst-error: 34.583333333333336
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 12
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 34.583333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=34.583333333333336, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 34.375, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((8,)) Int32[6, 26, 5, 3, 21, 31, 35, 2]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=37
 calling callback hints; n=56
 calling callback parameters; n=56
-==== BEGIN Opt. {BeamSearch: bsize=32, hints=9, expected recall: 0.9, n: 56
-  == Begin Opt. {BeamSearch: bsize=32, hints=9 iteration: 1, expected recall: 0.9, n: 56
-    ** new best conf: (state={BeamSearch: bsize=26, hints=0, score=2.339130434782609, perf=StatsComparison(0.9917355371900828, 0.9917355371900828, 0.9917355371900828, 5.364418029785156e-6, 41.81818181818182, StatsKnn(10.326953302730214, 0.5252524207938801, 1.367119930007241, 10.0), 2.0482323386452417e-6, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0))  ), #beam: 5, n: 56
-    ** new best conf: (state={BeamSearch: bsize=29, hints=0, score=2.3553355335533555, perf=StatsComparison(1.0, 1.0, 1.0, 5.407766862349077e-6, 41.31818181818182, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0), 2.0482323386452417e-6, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0))  ), #beam: 7, n: 56
-  == Iteration finished, current best: (state={BeamSearch: bsize=29, hints=0, score=2.3553355335533555, perf=StatsComparison(1.0, 1.0, 1.0, 5.407766862349077e-6, 41.31818181818182, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0), 2.0482323386452417e-6, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0))  ), #beam: 4, n: 56
-  == Begin Opt. {BeamSearch: bsize=29, hints=0 iteration: 2, expected recall: 0.9, n: 56
-  == Iteration finished, current best: (state={BeamSearch: bsize=29, hints=0, score=2.3553355335533555, perf=StatsComparison(1.0, 1.0, 1.0, 5.407766862349077e-6, 41.31818181818182, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0), 2.0482323386452417e-6, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0))  ), #beam: 4, n: 56
-==== END Opt. Finished, best: (state={BeamSearch: bsize=29, hints=0, score=2.3553355335533555, perf=StatsComparison(1.0, 1.0, 1.0, 5.407766862349077e-6, 41.31818181818182, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0), 2.0482323386452417e-6, StatsKnn(10.317287986928767, 0.5252524207938801, 1.3654562451622703, 10.0))  ), n: 56
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 51.59090909090909 worst-error: 51.59090909090909
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 51.59090909090909, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=51.59090909090909, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 51.59090909090909, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((10,)) Int32[2, 19, 18, 52, 25, 34, 38, 12, 31, 1]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=56
 calling callback hints; n=85
 calling callback parameters; n=85
-==== BEGIN Opt. {BeamSearch: bsize=29, hints=10, expected recall: 0.9, n: 85
-  == Begin Opt. {BeamSearch: bsize=29, hints=10 iteration: 1, expected recall: 0.9, n: 85
-    ** new best conf: (state={BeamSearch: bsize=30, hints=0, score=2.6113744075829386, perf=StatsComparison(1.0, 1.0, 1.0, 6.953875223795573e-6, 52.75, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 2, n: 85
-    ** new best conf: (state={BeamSearch: bsize=33, hints=0, score=2.621621621621622, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 52.416666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 5, n: 85
-  == Iteration finished, current best: (state={BeamSearch: bsize=33, hints=0, score=2.621621621621622, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 52.416666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 4, n: 85
-  == Begin Opt. {BeamSearch: bsize=31, hints=0 iteration: 2, expected recall: 0.9, n: 85
-    ** new best conf: (state={BeamSearch: bsize=28, hints=0, score=2.630695443645084, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 52.125, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 5, n: 85
-    ** new best conf: (state={BeamSearch: bsize=25, hints=0, score=2.630695443645084, perf=StatsComparison(1.0, 1.0, 1.0, 6.794929504394531e-6, 52.125, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 9, n: 85
-  == Iteration finished, current best: (state={BeamSearch: bsize=28, hints=0, score=2.630695443645084, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 52.125, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 4, n: 85
-  == Begin Opt. {BeamSearch: bsize=42, hints=0 iteration: 3, expected recall: 0.9, n: 85
-    ** new best conf: (state={BeamSearch: bsize=21, hints=0, score=2.6929460580912865, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 50.208333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 5, n: 85
-    ** new best conf: (state={BeamSearch: bsize=23, hints=0, score=2.6680294358135734, perf=StatsComparison(1.0, 1.0, 1.0, 6.546576817830403e-6, 50.958333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 6, n: 85
-    ** new best conf: (state={BeamSearch: bsize=26, hints=0, score=2.654501216545012, perf=StatsComparison(1.0, 1.0, 1.0, 6.4174334208170576e-6, 51.375, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 7, n: 85
-    ** new best conf: (state={BeamSearch: bsize=21, hints=0, score=2.6653061224489796, perf=StatsComparison(1.0, 1.0, 1.0, 6.705522537231445e-6, 51.041666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 9, n: 85
-    ** new best conf: (state={BeamSearch: bsize=18, hints=0, score=2.6571892770105605, perf=StatsComparison(1.0, 1.0, 1.0, 6.874402364095052e-6, 51.291666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 10, n: 85
-    ** new best conf: (state={BeamSearch: bsize=27, hints=0, score=2.63855421686747, perf=StatsComparison(1.0, 1.0, 1.0, 7.12275505065918e-6, 51.875, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 11, n: 85
-    ** new best conf: (state={BeamSearch: bsize=26, hints=0, score=2.64119066773934, perf=StatsComparison(1.0, 1.0, 1.0, 6.665786107381185e-6, 51.791666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 12, n: 85
-    ** new best conf: (state={BeamSearch: bsize=24, hints=0, score=2.6612377850162865, perf=StatsComparison(1.0, 1.0, 1.0, 6.665786107381185e-6, 51.166666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 13, n: 85
-    ** new best conf: (state={BeamSearch: bsize=18, hints=0, score=2.6571892770105605, perf=StatsComparison(1.0, 1.0, 1.0, 6.784995396931966e-6, 51.291666666666664, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 14, n: 85
-    ** new best conf: (state={BeamSearch: bsize=28, hints=0, score=2.63855421686747, perf=StatsComparison(0.9962121212121211, 0.9962121212121211, 0.9962121212121211, 6.626049677530925e-6, 51.875, StatsKnn(11.689507206281027, 0.6570831326146921, 1.481854925553004, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 15, n: 85
-    ** new best conf: (state={BeamSearch: bsize=17, hints=0, score=2.6845582163501236, perf=StatsComparison(1.0, 1.0, 1.0, 6.586313247680664e-6, 50.458333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 16, n: 85
-    ** new best conf: (state={BeamSearch: bsize=20, hints=0, score=2.6929460580912865, perf=StatsComparison(1.0, 1.0, 1.0, 6.4571698506673174e-6, 50.208333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 17, n: 85
-    ** new best conf: (state={BeamSearch: bsize=17, hints=0, score=2.6929460580912865, perf=StatsComparison(1.0, 1.0, 1.0, 6.496906280517578e-6, 50.208333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 18, n: 85
-  == Iteration finished, current best: (state={BeamSearch: bsize=21, hints=0, score=2.6929460580912865, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 50.208333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), #beam: 4, n: 85
-==== END Opt. Finished, best: (state={BeamSearch: bsize=21, hints=0, score=2.6929460580912865, perf=StatsComparison(1.0, 1.0, 1.0, 6.626049677530925e-6, 50.208333333333336, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0), 2.5431315104166665e-6, StatsKnn(11.676418344179789, 0.6570831326146921, 1.4806211590766907, 10.0))  ), n: 85
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 78.10344827586206 worst-error: 78.10344827586206
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 78.10344827586206, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=78.10344827586206, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 78.10344827586206, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((11,)) Int32[35, 1, 64, 6, 71, 44, 10, 7, 70, 68, 85]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=85
 calling callback hints; n=128
 calling callback parameters; n=128
-==== BEGIN Opt. {BeamSearch: bsize=21, hints=12, expected recall: 0.9, n: 128
-  == Begin Opt. {BeamSearch: bsize=21, hints=12 iteration: 1, expected recall: 0.9, n: 128
-    ** new best conf: (state={BeamSearch: bsize=12, hints=0, score=3.0895208004212744, perf=StatsComparison(1.0, 1.0, 1.0, 7.96779509513609e-6, 61.25806451612903, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 3, n: 128
-  == Iteration finished, current best: (state={BeamSearch: bsize=12, hints=0, score=3.0895208004212744, perf=StatsComparison(1.0, 1.0, 1.0, 7.96779509513609e-6, 61.25806451612903, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 4, n: 128
-  == Begin Opt. {BeamSearch: bsize=28, hints=0 iteration: 2, expected recall: 0.9, n: 128
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=3.892128279883382, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 5.6143729917464714e-6, 44.25806451612903, StatsKnn(8.829903679509316, 0.47937223603648527, 1.1401001714891004, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 5, n: 128
-    ** new best conf: (state={BeamSearch: bsize=10, hints=0, score=3.2142857142857144, perf=StatsComparison(1.0, 1.0, 1.0, 7.252539357831401e-6, 57.806451612903224, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 7, n: 128
-    ** new best conf: (state={BeamSearch: bsize=6, hints=0, score=3.5583494519664733, perf=StatsComparison(1.0, 1.0, 1.0, 6.129664759482107e-6, 50.03225806451613, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 8, n: 128
-    ** new best conf: (state={BeamSearch: bsize=12, hints=0, score=3.141392336751214, perf=StatsComparison(1.0, 1.0, 1.0, 7.383285030241936e-6, 59.774193548387096, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 11, n: 128
-    ** new best conf: (state={BeamSearch: bsize=11, hints=0, score=3.1565217391304348, perf=StatsComparison(1.0, 1.0, 1.0, 7.675540062689012e-6, 59.354838709677416, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 12, n: 128
-  == Iteration finished, current best: (state={BeamSearch: bsize=4, hints=0, score=3.892128279883382, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 5.6143729917464714e-6, 44.25806451612903, StatsKnn(8.829903679509316, 0.47937223603648527, 1.1401001714891004, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 4, n: 128
-  == Begin Opt. {BeamSearch: bsize=23, hints=0 iteration: 3, expected recall: 0.9, n: 128
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=4.095163806552263, perf=StatsComparison(0.9941348973607039, 0.9941348973607039, 0.9941348973607039, 4.676080519153226e-6, 41.354838709677416, StatsKnn(8.830104351043701, 0.47937223603648527, 1.1403008468689457, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 5, n: 128
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=4.035960214231063, perf=StatsComparison(0.9853372434017594, 0.9853372434017594, 0.9853372434017594, 4.545334846742692e-6, 42.16129032258065, StatsKnn(8.858740945016184, 0.47937223603648527, 1.1433045556468349, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 6, n: 128
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=3.8963503649635034, perf=StatsComparison(0.9941348973607039, 0.9941348973607039, 0.9941348973607039, 5.029862926852319e-6, 44.193548387096776, StatsKnn(8.839055230540614, 0.47937223603648527, 1.1432994296473842, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 8, n: 128
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=3.9700598802395213, perf=StatsComparison(0.9912023460410557, 0.9912023460410557, 0.9912023460410557, 4.5760985343687e-6, 43.096774193548384, StatsKnn(8.83543074515558, 0.47937223603648527, 1.140814027478618, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 9, n: 128
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=3.961194029850746, perf=StatsComparison(0.9853372434017595, 0.9853372434017595, 0.9853372434017595, 4.776062503937752e-6, 43.225806451612904, StatsKnn(8.840717654074393, 0.47937223603648527, 1.1444553309871304, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 11, n: 128
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=4.164274322169058, perf=StatsComparison(0.9882697947214076, 0.9882697947214076, 0.9882697947214076, 4.291534423828125e-6, 40.45161290322581, StatsKnn(8.837832635448825, 0.47937223603648527, 1.1411643912715297, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 16, n: 128
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=4.059367771781034, perf=StatsComparison(1.0, 1.0, 1.0, 4.737607894405242e-6, 41.83870967741935, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 20, n: 128
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=4.164274322169058, perf=StatsComparison(0.9882697947214076, 0.9882697947214076, 0.9882697947214076, 4.291534423828125e-6, 40.45161290322581, StatsKnn(8.837832635448825, 0.47937223603648527, 1.1411643912715297, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), #beam: 4, n: 128
-==== END Opt. Finished, best: (state={BeamSearch: bsize=2, hints=0, score=4.164274322169058, perf=StatsComparison(0.9882697947214076, 0.9882697947214076, 0.9882697947214076, 4.291534423828125e-6, 40.45161290322581, StatsKnn(8.837832635448825, 0.47937223603648527, 1.1411643912715297, 10.0), 3.1609689035723286e-6, StatsKnn(8.82967725876839, 0.47937223603648527, 1.1398737622845558, 10.0))  ), n: 128
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 118.39285714285714 worst-error: 118.39285714285714
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 12
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 118.39285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=118.39285714285714, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 118.39285714285714, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((12,)) Int32[88, 3, 98, 36, 8, 67, 13, 114, 127, 48, 45, 92]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=128
 calling callback hints; n=193
 calling callback parameters; n=193
-==== BEGIN Opt. {BeamSearch: bsize=2, hints=13, expected recall: 0.9, n: 193
-  == Begin Opt. {BeamSearch: bsize=2, hints=13 iteration: 1, expected recall: 0.9, n: 193
-  == Iteration finished, current best: (state={BeamSearch: bsize=21, hints=0, score=5.3184165232358005, perf=StatsComparison(0.9895104895104896, 0.9895104895104896, 0.9895104895104896, 4.887580871582031e-6, 44.69230769230769, StatsKnn(7.808676352867713, 0.41657926228183967, 0.9752472960031949, 10.0), 3.998096172626202e-6, StatsKnn(7.789962401756873, 0.41657926228183967, 0.9708833946631505, 10.0))  ), #beam: 4, n: 193
-==== END Opt. Finished, best: (state={BeamSearch: bsize=21, hints=0, score=5.3184165232358005, perf=StatsComparison(0.9895104895104896, 0.9895104895104896, 0.9895104895104896, 4.887580871582031e-6, 44.69230769230769, StatsKnn(7.808676352867713, 0.41657926228183967, 0.9752472960031949, 10.0), 3.998096172626202e-6, StatsKnn(7.789962401756873, 0.41657926228183967, 0.9708833946631505, 10.0))  ), n: 193
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 169.17857142857142 worst-error: 170.14285714285714
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.67857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 170.14285714285714, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 2&gt; population: 4, bsize: 4, queue: 8, observed: 20, best-error: 169.17857142857142 worst-error: 169.67857142857142
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 3&gt; population: 4, bsize: 4, queue: 8, observed: 28, best-error: 169.17857142857142 worst-error: 169.17857142857142
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 169.17857142857142, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; reached maximum number of iterations 4
+== finished optimization SearchGraphdistance, err: 169.17857142857142, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((13,)) Int32[152, 156, 181, 150, 139, 93, 54, 153, 115, 74, 109, 123, 171]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=193
 calling callback hints; n=290
 calling callback parameters; n=290
-==== BEGIN Opt. {BeamSearch: bsize=21, hints=14, expected recall: 0.9, n: 290
-  == Begin Opt. {BeamSearch: bsize=21, hints=14 iteration: 1, expected recall: 0.9, n: 290
-    ** new best conf: (state={BeamSearch: bsize=17, hints=0, score=4.465690053970702, perf=StatsComparison(1.0, 1.0, 1.0, 1.1321037046370968e-5, 83.6774193548387, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 2, n: 290
-    ** new best conf: (state={BeamSearch: bsize=25, hints=0, score=4.378429161969184, perf=StatsComparison(1.0, 1.0, 1.0, 1.1321037046370968e-5, 85.83870967741936, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 3, n: 290
-    ** new best conf: (state={BeamSearch: bsize=23, hints=0, score=4.3444940476190474, perf=StatsComparison(1.0, 1.0, 1.0, 1.1682510375976562e-5, 86.70967741935483, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 4, n: 290
-    ** new best conf: (state={BeamSearch: bsize=33, hints=0, score=4.3809702895825495, perf=StatsComparison(1.0, 1.0, 1.0, 1.1259509671118952e-5, 85.7741935483871, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 5, n: 290
-    ** new best conf: (state={BeamSearch: bsize=23, hints=0, score=4.4027252081756245, perf=StatsComparison(1.0, 1.0, 1.0, 1.1128763998708418e-5, 85.2258064516129, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 6, n: 290
-  == Iteration finished, current best: (state={BeamSearch: bsize=17, hints=0, score=4.465690053970702, perf=StatsComparison(1.0, 1.0, 1.0, 1.1321037046370968e-5, 83.6774193548387, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 4, n: 290
-  == Begin Opt. {BeamSearch: bsize=32, hints=0 iteration: 2, expected recall: 0.9, n: 290
-    ** new best conf: (state={BeamSearch: bsize=23, hints=0, score=4.5089773614363775, perf=StatsComparison(1.0, 1.0, 1.0, 1.0705763293850807e-5, 82.64516129032258, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 5, n: 290
-    ** new best conf: (state={BeamSearch: bsize=11, hints=0, score=5.191142191142191, perf=StatsComparison(1.0, 1.0, 1.0, 9.067596927765877e-6, 69.19354838709677, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 6, n: 290
-    ** new best conf: (state={BeamSearch: bsize=16, hints=0, score=4.745833333333334, perf=StatsComparison(1.0, 1.0, 1.0, 1.0128944150863155e-5, 77.41935483870968, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 7, n: 290
-    ** new best conf: (state={BeamSearch: bsize=19, hints=0, score=4.487199379363848, perf=StatsComparison(1.0, 1.0, 1.0, 1.087496357579385e-5, 83.16129032258064, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 8, n: 290
-    ** new best conf: (state={BeamSearch: bsize=8, hints=0, score=5.570411794611083, perf=StatsComparison(1.0, 1.0, 1.0, 7.998558782762096e-6, 63.45161290322581, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 9, n: 290
-    ** new best conf: (state={BeamSearch: bsize=16, hints=0, score=4.645579886455799, perf=StatsComparison(1.0, 1.0, 1.0, 1.0613472230972782e-5, 79.54838709677419, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 10, n: 290
-    ** new best conf: (state={BeamSearch: bsize=15, hints=0, score=4.598879103282626, perf=StatsComparison(1.0, 1.0, 1.0, 1.0644235918598791e-5, 80.58064516129032, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 11, n: 290
-    ** new best conf: (state={BeamSearch: bsize=19, hints=0, score=4.503507404520654, perf=StatsComparison(1.0, 1.0, 1.0, 1.0836508966261341e-5, 82.7741935483871, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 16, n: 290
-  == Iteration finished, current best: (state={BeamSearch: bsize=8, hints=0, score=5.570411794611083, perf=StatsComparison(1.0, 1.0, 1.0, 7.998558782762096e-6, 63.45161290322581, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 4, n: 290
-  == Begin Opt. {BeamSearch: bsize=34, hints=0 iteration: 3, expected recall: 0.9, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=6.226744186046512, perf=StatsComparison(0.9912023460410558, 0.9912023460410558, 0.9912023460410558, 6.1219738375756045e-6, 55.483870967741936, StatsKnn(7.562558958607335, 0.427419533652644, 0.9588479226635348, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 6, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=6.2727272727272725, perf=StatsComparison(0.9912023460410557, 0.9912023460410557, 0.9912023460410557, 5.998919087071572e-6, 55.0, StatsKnn(7.562583354211623, 0.427419533652644, 0.9584384118357012, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 8, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=6.518723143032536, perf=StatsComparison(0.9912023460410556, 0.9912023460410556, 0.9912023460410556, 5.6451366793724795e-6, 52.54838709677419, StatsKnn(7.563502050215198, 0.427419533652644, 0.955823959842805, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 9, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=5.926027397260274, perf=StatsComparison(0.9882697947214076, 0.9882697947214076, 0.9882697947214076, 6.452683479555192e-6, 58.87096774193548, StatsKnn(7.570356999674151, 0.427419533652644, 0.9567822871669647, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 10, n: 290
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=6.07622811970638, perf=StatsComparison(0.9941348973607039, 0.9941348973607039, 0.9941348973607039, 6.706483902469758e-6, 57.12903225806452, StatsKnn(7.55191066188197, 0.427419533652644, 0.9568150158851377, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 11, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=6.422195416164053, perf=StatsComparison(0.9882697947214076, 0.9882697947214076, 0.9882697947214076, 5.906628024193548e-6, 53.483870967741936, StatsKnn(7.570178477994857, 0.427419533652644, 0.9587188228484123, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 12, n: 290
-    ** new best conf: (state={BeamSearch: bsize=6, hints=0, score=5.986134220743206, perf=StatsComparison(1.0, 1.0, 1.0, 7.1679392168598794e-6, 58.16129032258065, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 13, n: 290
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=6.535714285714286, perf=StatsComparison(0.9824046920821113, 0.9824046920821113, 0.9824046920821113, 5.7066640546244956e-6, 52.38709677419355, StatsKnn(7.5777436379463445, 0.427419533652644, 0.9617664467903876, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 14, n: 290
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=6.217643644805572, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 6.421919791929183e-6, 55.58064516129032, StatsKnn(7.548142540839411, 0.427419533652644, 0.9565800582208941, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 16, n: 290
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=5.846361185983827, perf=StatsComparison(0.9941348973607039, 0.9941348973607039, 0.9941348973607039, 6.929520637758317e-6, 59.83870967741935, StatsKnn(7.55191066188197, 0.427419533652644, 0.9568150158851377, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 17, n: 290
-    ** new best conf: (state={BeamSearch: bsize=8, hints=0, score=5.704343275771847, perf=StatsComparison(1.0, 1.0, 1.0, 7.575558077904486e-6, 61.645161290322584, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 19, n: 290
-    ** new best conf: (state={BeamSearch: bsize=8, hints=0, score=5.636410520887055, perf=StatsComparison(1.0, 1.0, 1.0, 7.5832489998109875e-6, 62.54838709677419, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 22, n: 290
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=6.535714285714286, perf=StatsComparison(0.9824046920821113, 0.9824046920821113, 0.9824046920821113, 5.7066640546244956e-6, 52.38709677419355, StatsKnn(7.5777436379463445, 0.427419533652644, 0.9617664467903876, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), #beam: 4, n: 290
-==== END Opt. Finished, best: (state={BeamSearch: bsize=2, hints=0, score=6.535714285714286, perf=StatsComparison(0.9824046920821113, 0.9824046920821113, 0.9824046920821113, 5.7066640546244956e-6, 52.38709677419355, StatsKnn(7.5777436379463445, 0.427419533652644, 0.9617664467903876, 10.0), 5.1990632087953625e-6, StatsKnn(7.545293115800427, 0.427419533652644, 0.9537306485637542, 10.0))  ), n: 290
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 261.64516129032256, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 261.64516129032256, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 261.64516129032256 worst-error: 262.35483870967744
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 12
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 262.35483870967744, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=262.35483870967744, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 261.64516129032256, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((14,)) Int32[176, 265, 262, 89, 273, 62, 278, 288, 214, 136, 192, 19, 31, 132]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=290
 calling callback hints; n=436
 calling callback parameters; n=436
-==== BEGIN Opt. {BeamSearch: bsize=2, hints=15, expected recall: 0.9, n: 436
-  == Begin Opt. {BeamSearch: bsize=2, hints=15 iteration: 1, expected recall: 0.9, n: 436
-  == Iteration finished, current best: (state={BeamSearch: bsize=14, hints=0, score=8.368298368298369, perf=StatsComparison(0.993730407523511, 0.993730407523511, 0.993730407523511, 5.894693835028287e-6, 59.172413793103445, StatsKnn(6.03678376921292, 0.3067734454726351, 0.7767733119685074, 10.0), 6.799040169551455e-6, StatsKnn(6.032145195993884, 0.3067734454726351, 0.7739585155043108, 10.0))  ), #beam: 4, n: 436
-==== END Opt. Finished, best: (state={BeamSearch: bsize=14, hints=0, score=8.368298368298369, perf=StatsComparison(0.993730407523511, 0.993730407523511, 0.993730407523511, 5.894693835028287e-6, 59.172413793103445, StatsKnn(6.03678376921292, 0.3067734454726351, 0.7767733119685074, 10.0), 6.799040169551455e-6, StatsKnn(6.032145195993884, 0.3067734454726351, 0.7739585155043108, 10.0))  ), n: 436
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 403.3, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 403.3 worst-error: 403.53333333333336
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.53333333333336, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.3, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 2
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 403.3, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=403.53333333333336, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 403.3, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[108, 16, 133, 147, 242, 109, 271, 369, 208, 348, 20, 217, 230, 29, 138]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=436
 calling callback hints; n=655
 calling callback parameters; n=655
-==== BEGIN Opt. {BeamSearch: bsize=14, hints=16, expected recall: 0.9, n: 655
-  == Begin Opt. {BeamSearch: bsize=14, hints=16 iteration: 1, expected recall: 0.9, n: 655
-    ** new best conf: (state={BeamSearch: bsize=9, hints=0, score=8.760088855979266, perf=StatsComparison(1.0, 1.0, 1.0, 1.0371208190917969e-5, 84.40625, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 6, n: 655
-    ** new best conf: (state={BeamSearch: bsize=7, hints=0, score=9.414291449217181, perf=StatsComparison(1.0, 1.0, 1.0, 9.410083293914795e-6, 77.84375, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 7, n: 655
-    ** new best conf: (state={BeamSearch: bsize=10, hints=0, score=8.641268683922712, perf=StatsComparison(1.0, 1.0, 1.0, 1.099705696105957e-5, 85.71875, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 8, n: 655
-  == Iteration finished, current best: (state={BeamSearch: bsize=7, hints=0, score=9.414291449217181, perf=StatsComparison(1.0, 1.0, 1.0, 9.410083293914795e-6, 77.84375, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 4, n: 655
-  == Begin Opt. {BeamSearch: bsize=10, hints=0 iteration: 2, expected recall: 0.9, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=10.877474081055608, perf=StatsComparison(0.9943181818181819, 0.9943181818181819, 0.9943181818181819, 7.18235969543457e-6, 66.3125, StatsKnn(4.902408540248871, 0.2875216360553168, 0.6296189539134502, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 5, n: 655
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=10.40754039497307, perf=StatsComparison(1.0, 1.0, 1.0, 7.838010787963867e-6, 69.625, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 6, n: 655
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=10.030590262817752, perf=StatsComparison(1.0, 1.0, 1.0, 8.501112461090088e-6, 72.53125, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 8, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=10.262041537781705, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 7.659196853637695e-6, 70.71875, StatsKnn(4.901167526841164, 0.2875216360553168, 0.6283779460936785, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 9, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=11.062409985597697, perf=StatsComparison(1.0, 1.0, 1.0, 6.936490535736084e-6, 65.09375, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 11, n: 655
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=10.619091326296466, perf=StatsComparison(1.0, 1.0, 1.0, 7.875263690948486e-6, 68.09375, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 12, n: 655
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=10.492753623188406, perf=StatsComparison(1.0, 1.0, 1.0, 7.808208465576172e-6, 69.0, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 13, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=10.109083007388092, perf=StatsComparison(0.9943181818181819, 0.9943181818181819, 0.9943181818181819, 8.404254913330078e-6, 71.90625, StatsKnn(4.902408540248871, 0.2875216360553168, 0.6296189539134502, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 14, n: 655
-    ** new best conf: (state={BeamSearch: bsize=7, hints=0, score=9.544639217284956, perf=StatsComparison(1.0, 1.0, 1.0, 9.156763553619385e-6, 76.65625, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 16, n: 655
-    ** new best conf: (state={BeamSearch: bsize=6, hints=0, score=10.270234409553295, perf=StatsComparison(1.0, 1.0, 1.0, 8.717179298400879e-6, 70.65625, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 18, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=10.168853893263343, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 7.9423189163208e-6, 71.4375, StatsKnn(4.901097282767296, 0.2875216360553168, 0.6293600015342236, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 19, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=10.042277825711821, perf=StatsComparison(0.9943181818181819, 0.9943181818181819, 0.9943181818181819, 8.001923561096191e-6, 72.4375, StatsKnn(4.910228431224823, 0.2875216360553168, 0.6299496311694384, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 22, n: 655
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=11.062409985597697, perf=StatsComparison(1.0, 1.0, 1.0, 6.936490535736084e-6, 65.09375, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 4, n: 655
-  == Begin Opt. {BeamSearch: bsize=13, hints=0 iteration: 3, expected recall: 0.9, n: 655
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=11.304818092428713, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 6.936490535736084e-6, 63.5625, StatsKnn(4.901167526841164, 0.2875216360553168, 0.6283779460936785, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 6, n: 655
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=11.304818092428713, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 6.936490535736084e-6, 63.5625, StatsKnn(4.901167526841164, 0.2875216360553168, 0.6283779460936785, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), #beam: 4, n: 655
-==== END Opt. Finished, best: (state={BeamSearch: bsize=2, hints=0, score=11.304818092428713, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 6.936490535736084e-6, 63.5625, StatsKnn(4.901167526841164, 0.2875216360553168, 0.6283779460936785, 10.0), 9.655952453613281e-6, StatsKnn(4.899856269359589, 0.2875216360553168, 0.6281189937144518, 10.0))  ), n: 655
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 606.9677419354839 worst-error: 608.3225806451613
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 608.3225806451613, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 2&gt; population: 4, bsize: 4, queue: 8, observed: 20, best-error: 606.9677419354839 worst-error: 606.9677419354839
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 606.9677419354839, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=606.9677419354839, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 606.9677419354839, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((15,)) Int32[501, 476, 644, 302, 349, 115, 489, 468, 136, 527, 473, 130, 327, 305, 220]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=655
 calling callback hints; n=984
 calling callback parameters; n=984
-==== BEGIN Opt. {BeamSearch: bsize=2, hints=17, expected recall: 0.9, n: 984
-  == Begin Opt. {BeamSearch: bsize=2, hints=17 iteration: 1, expected recall: 0.9, n: 984
-  == Iteration finished, current best: (state={BeamSearch: bsize=6, hints=0, score=15.319236016371077, perf=StatsComparison(0.9914772727272727, 0.9914772727272727, 0.9914772727272727, 6.996095180511475e-6, 68.71875, StatsKnn(4.759919673204422, 0.2652882926631719, 0.5998574802652001, 10.0), 1.2472271919250488e-5, StatsKnn(4.757827036082745, 0.2652882926631719, 0.5982467345893383, 10.0))  ), #beam: 4, n: 984
-==== END Opt. Finished, best: (state={BeamSearch: bsize=6, hints=0, score=15.319236016371077, perf=StatsComparison(0.9914772727272727, 0.9914772727272727, 0.9914772727272727, 6.996095180511475e-6, 68.71875, StatsKnn(4.759919673204422, 0.2652882926631719, 0.5998574802652001, 10.0), 1.2472271919250488e-5, StatsKnn(4.757827036082745, 0.2652882926631719, 0.5982467345893383, 10.0))  ), n: 984
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 892.5625 worst-error: 892.5625
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 892.5625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=892.5625, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 892.5625, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((17,)) Int32[436, 373, 412, 289, 486, 786, 517, 913, 560, 38, 393, 604, 768, 251, 287, 727, 927]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=984
 calling callback hints; n=1476
 calling callback parameters; n=1476
-==== BEGIN Opt. {BeamSearch: bsize=6, hints=18, expected recall: 0.9, n: 1476
-  == Begin Opt. {BeamSearch: bsize=6, hints=18 iteration: 1, expected recall: 0.9, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=18.639167309175022, perf=StatsComparison(1.0, 1.0, 1.0, 9.682870680286038e-6, 83.6774193548387, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 7, n: 1476
-  == Iteration finished, current best: (state={BeamSearch: bsize=3, hints=0, score=18.639167309175022, perf=StatsComparison(1.0, 1.0, 1.0, 9.682870680286038e-6, 83.6774193548387, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 4, n: 1476
-  == Begin Opt. {BeamSearch: bsize=8, hints=0 iteration: 2, expected recall: 0.9, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=19.427708417237213, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 1.2451602566626764e-5, 80.09677419354838, StatsKnn(3.7283945083618164, 0.19174099136744777, 0.4908735953992413, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 5, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=19.33173076923077, perf=StatsComparison(1.0, 1.0, 1.0, 9.159887990643902e-6, 80.51612903225806, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 8, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=19.265868263473052, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 9.259869975428427e-6, 80.80645161290323, StatsKnn(3.7283945083618164, 0.19174099136744777, 0.4908735953992413, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 11, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=2, hints=0, score=20.330798479087452, perf=StatsComparison(1.0, 1.0, 1.0, 8.421559487619707e-6, 76.35483870967742, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 15, n: 1476
-    ** new best conf: (state={BeamSearch: bsize=3, hints=0, score=19.46489104116223, perf=StatsComparison(0.9970674486803519, 0.9970674486803519, 0.9970674486803519, 9.359851960212954e-6, 79.93548387096774, StatsKnn(3.7283945083618164, 0.19174099136744777, 0.4908735953992413, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 16, n: 1476
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=20.330798479087452, perf=StatsComparison(1.0, 1.0, 1.0, 8.421559487619707e-6, 76.35483870967742, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 4, n: 1476
-  == Begin Opt. {BeamSearch: bsize=9, hints=0 iteration: 3, expected recall: 0.9, n: 1476
-  == Iteration finished, current best: (state={BeamSearch: bsize=2, hints=0, score=20.330798479087452, perf=StatsComparison(1.0, 1.0, 1.0, 8.421559487619707e-6, 76.35483870967742, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), #beam: 4, n: 1476
-==== END Opt. Finished, best: (state={BeamSearch: bsize=2, hints=0, score=20.330798479087452, perf=StatsComparison(1.0, 1.0, 1.0, 8.421559487619707e-6, 76.35483870967742, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0), 1.712768308577999e-5, StatsKnn(3.72760832694269, 0.19174099136744777, 0.49008741494148006, 10.0))  ), n: 1476
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 1324.84375 worst-error: 1324.84375
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 10
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 10
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 1324.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=1324.84375, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 1324.84375, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((18,)) Int32[1061, 685, 374, 1271, 985, 57, 140, 894, 713, 905, 552, 1262, 852, 333, 153, 676, 718, 954]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=1476
 calling callback hints; n=2215
 calling callback parameters; n=2215
-==== BEGIN Opt. {BeamSearch: bsize=2, hints=19, expected recall: 0.9, n: 2215
-  == Begin Opt. {BeamSearch: bsize=2, hints=19 iteration: 1, expected recall: 0.9, n: 2215
-  == Iteration finished, current best: (state={BeamSearch: bsize=12, hints=0, score=28.09480122324159, perf=StatsComparison(0.9914772727272728, 0.9914772727272728, 0.9914772727272728, 8.687376976013184e-6, 81.75, StatsKnn(2.9344624429941177, 0.16346160165267065, 0.38573929853737354, 10.0), 2.4683773517608643e-5, StatsKnn(2.9319493621587753, 0.16346160165267065, 0.38391608372330666, 10.0))  ), #beam: 4, n: 2215
-==== END Opt. Finished, best: (state={BeamSearch: bsize=12, hints=0, score=28.09480122324159, perf=StatsComparison(0.9914772727272728, 0.9914772727272728, 0.9914772727272728, 8.687376976013184e-6, 81.75, StatsKnn(2.9344624429941177, 0.16346160165267065, 0.38573929853737354, 10.0), 2.4683773517608643e-5, StatsKnn(2.9319493621587753, 0.16346160165267065, 0.38391608372330666, 10.0))  ), n: 2215
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 2006.1875 worst-error: 2020.84375
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2020.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 15
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 2&gt; population: 4, bsize: 4, queue: 8, observed: 20, best-error: 2006.1875 worst-error: 2006.1875
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 4
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 4
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 4
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 6
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 8
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 2006.1875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=2006.1875, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 2006.1875, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((19,)) Int32[658, 1570, 1938, 1202, 1223, 1803, 608, 1838, 1175, 520, 763, 1125, 1841, 1458, 223, 2106, 1707, 1051, 34]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=2215
 calling callback hints; n=3324
 calling callback parameters; n=3324
-==== BEGIN Opt. {BeamSearch: bsize=12, hints=20, expected recall: 0.9, n: 3324
-  == Begin Opt. {BeamSearch: bsize=12, hints=20 iteration: 1, expected recall: 0.9, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=6, hints=0, score=31.416928796110952, perf=StatsComparison(0.9971590909090908, 0.9971590909090908, 0.9971590909090908, 1.3306736946105957e-5, 109.28125, StatsKnn(3.288399863988161, 0.18045748269651085, 0.42729337699711323, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 2, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=31.10699122558732, perf=StatsComparison(1.0, 1.0, 1.0, 1.3932585716247559e-5, 110.40625, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 3, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=11, hints=0, score=29.524537409493163, perf=StatsComparison(1.0, 1.0, 1.0, 1.697242259979248e-5, 116.53125, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 5, n: 3324
-  == Iteration finished, current best: (state={BeamSearch: bsize=6, hints=0, score=31.416928796110952, perf=StatsComparison(0.9971590909090908, 0.9971590909090908, 0.9971590909090908, 1.3306736946105957e-5, 109.28125, StatsKnn(3.288399863988161, 0.18045748269651085, 0.42729337699711323, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 4, n: 3324
-  == Begin Opt. {BeamSearch: bsize=25, hints=0 iteration: 2, expected recall: 0.9, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=31.813441483198147, perf=StatsComparison(0.9971590909090908, 0.9971590909090908, 0.9971590909090908, 1.3597309589385986e-5, 107.875, StatsKnn(3.288399863988161, 0.18045748269651085, 0.42729337699711323, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 5, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=31.742196531791908, perf=StatsComparison(1.0, 1.0, 1.0, 1.3940036296844482e-5, 108.125, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 18, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=31.885017421602786, perf=StatsComparison(0.9971590909090909, 0.9971590909090909, 0.9971590909090909, 1.3627111911773682e-5, 107.625, StatsKnn(3.288860362023115, 0.18045748269651085, 0.42719487752765417, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 20, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=5, hints=0, score=32.865787896944276, perf=StatsComparison(1.0, 1.0, 1.0, 1.2561678886413574e-5, 104.3125, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 21, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=4, hints=0, score=33.941467946732736, perf=StatsComparison(1.0, 1.0, 1.0, 1.294165849685669e-5, 100.90625, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 22, n: 3324
-    ** new best conf: (state={BeamSearch: bsize=6, hints=0, score=31.680126910873955, perf=StatsComparison(0.9971590909090908, 0.9971590909090908, 0.9971590909090908, 1.3403594493865967e-5, 108.34375, StatsKnn(3.288399863988161, 0.18045748269651085, 0.42729337699711323, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 23, n: 3324
-  == Iteration finished, current best: (state={BeamSearch: bsize=4, hints=0, score=33.941467946732736, perf=StatsComparison(1.0, 1.0, 1.0, 1.294165849685669e-5, 100.90625, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 4, n: 3324
-  == Begin Opt. {BeamSearch: bsize=12, hints=0 iteration: 3, expected recall: 0.9, n: 3324
-  == Iteration finished, current best: (state={BeamSearch: bsize=4, hints=0, score=33.941467946732736, perf=StatsComparison(1.0, 1.0, 1.0, 1.294165849685669e-5, 100.90625, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), #beam: 4, n: 3324
-==== END Opt. Finished, best: (state={BeamSearch: bsize=4, hints=0, score=33.941467946732736, perf=StatsComparison(1.0, 1.0, 1.0, 1.294165849685669e-5, 100.90625, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0), 3.4965574741363525e-5, StatsKnn(3.2880509980022907, 0.18045748269651085, 0.4269444961100817, 10.0))  ), n: 3324
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3084.25, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3084.25, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 3084.25 worst-error: 3097.8125
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3100.625, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 3097.8125, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=3097.8125, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 3084.25, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((20,)) Int32[928, 1088, 3323, 2565, 1516, 1096, 1309, 1265, 2916, 1437, 258, 2205, 1195, 821, 1588, 2184, 3268, 1620, 1520, 3235]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=3324
 calling callback hints; n=4986
 calling callback parameters; n=4986
-==== BEGIN Opt. {BeamSearch: bsize=4, hints=21, expected recall: 0.9, n: 4986
-  == Begin Opt. {BeamSearch: bsize=4, hints=21 iteration: 1, expected recall: 0.9, n: 4986
-  == Iteration finished, current best: (state={BeamSearch: bsize=22, hints=0, score=47.8994708994709, perf=StatsComparison(1.0, 1.0, 1.0, 1.3031065464019775e-5, 106.3125, StatsKnn(2.880446881055832, 0.1540698945755139, 0.3668100922368467, 10.0), 5.072355270385742e-5, StatsKnn(2.880446881055832, 0.1540698945755139, 0.3668100922368467, 10.0))  ), #beam: 4, n: 4986
-==== END Opt. Finished, best: (state={BeamSearch: bsize=22, hints=0, score=47.8994708994709, perf=StatsComparison(1.0, 1.0, 1.0, 1.3031065464019775e-5, 106.3125, StatsKnn(2.880446881055832, 0.1540698945755139, 0.3668100922368467, 10.0), 5.072355270385742e-5, StatsKnn(2.880446881055832, 0.1540698945755139, 0.3668100922368467, 10.0))  ), n: 4986
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 4413.0 worst-error: 4413.0
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 3
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 4413.0, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=4413.0, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 4413.0, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((21,)) Int32[1527, 18, 593, 1243, 4622, 1552, 1257, 545, 1611, 2690  …  1082, 833, 2281, 4348, 3136, 4925, 3138, 1718, 2227, 642]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=4986
 calling callback hints; n=7480
 calling callback parameters; n=7480
-==== BEGIN Opt. {BeamSearch: bsize=22, hints=22, expected recall: 0.9, n: 7480
-  == Begin Opt. {BeamSearch: bsize=22, hints=22 iteration: 1, expected recall: 0.9, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=16, hints=0, score=50.762993762993766, perf=StatsComparison(1.0, 1.0, 1.0, 2.193450927734375e-5, 150.3125, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 4, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=7, hints=0, score=59.46604787493894, perf=StatsComparison(1.0, 1.0, 1.0, 1.7121434211730957e-5, 127.9375, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 5, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=15, hints=0, score=51.48723897911833, perf=StatsComparison(1.0, 1.0, 1.0, 2.3379921913146973e-5, 148.15625, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 6, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=10, hints=0, score=57.720379146919434, perf=StatsComparison(1.0, 1.0, 1.0, 1.846998929977417e-5, 131.875, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 7, n: 7480
-  == Iteration finished, current best: (state={BeamSearch: bsize=7, hints=0, score=59.46604787493894, perf=StatsComparison(1.0, 1.0, 1.0, 1.7121434211730957e-5, 127.9375, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 4, n: 7480
-  == Begin Opt. {BeamSearch: bsize=42, hints=0 iteration: 2, expected recall: 0.9, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=7, hints=0, score=62.45314505776637, perf=StatsComparison(1.0, 1.0, 1.0, 1.6994774341583252e-5, 121.71875, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 8, n: 7480
-    ** new best conf: (state={BeamSearch: bsize=7, hints=0, score=61.246664988673544, perf=StatsComparison(1.0, 1.0, 1.0, 1.7061829566955566e-5, 124.15625, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 28, n: 7480
-  == Iteration finished, current best: (state={BeamSearch: bsize=7, hints=0, score=62.45314505776637, perf=StatsComparison(1.0, 1.0, 1.0, 1.6994774341583252e-5, 121.71875, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 4, n: 7480
-  == Begin Opt. {BeamSearch: bsize=10, hints=0 iteration: 3, expected recall: 0.9, n: 7480
-  == Iteration finished, current best: (state={BeamSearch: bsize=7, hints=0, score=62.45314505776637, perf=StatsComparison(1.0, 1.0, 1.0, 1.6994774341583252e-5, 121.71875, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), #beam: 4, n: 7480
-==== END Opt. Finished, best: (state={BeamSearch: bsize=7, hints=0, score=62.45314505776637, perf=StatsComparison(1.0, 1.0, 1.0, 1.6994774341583252e-5, 121.71875, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0), 7.778406143188477e-5, StatsKnn(2.1934495102614164, 0.121293063624762, 0.2771888989955187, 10.0))  ), n: 7480
+SearchModels&gt; search params iter=0, tol=0.01, initialpopulation=4, maxpopulation=4, bsize=4, mutbsize=4, crossbsize=4
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 13
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 1&gt; population: 4, bsize: 4, queue: 8, observed: 12, best-error: 6729.96875 worst-error: 6744.84375
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 7
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 1
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 10
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6744.84375, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 5
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels iteration 2&gt; population: 4, bsize: 4, queue: 8, observed: 20, best-error: 6729.96875 worst-error: 6729.96875
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 10
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 10
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+== SearchGraph optimizing covering radius, err: 6729.96875, using configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 11
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
+SearchModels&gt; stop by convergence error=6729.96875, tol=0.009999999776482582
+== finished optimization SearchGraphdistance, err: 6729.96875, with configuration: BeamSearch{KnnResult{Int32, Float32}}
+  hints: Array{Int32}((22,)) Int32[4400, 2779, 5616, 4817, 7279, 6002, 6907, 2226, 2714, 6481  …  4451, 4076, 6317, 5738, 5955, 6697, 1433, 6759, 5549, 444]
+  bsize: Int32 9
+  beam: KnnResult{Int32, Float32}
+  vstate: Dict{Int32, UInt8}
+
 calling callback neighborhood; n=7480
-KnnResult{Int32, Float32}(Int32[10, 803, 4158], Float32[0.08793834, 0.16466977, 0.17682654], 3, 0)
-KnnResult{Int32, Float32}(Int32[7088, 1119, 4410], Float32[0.0605546, 0.15093772, 0.1623575], 3, 0)
-KnnResult{Int32, Float32}(Int32[5234, 4739, 7163], Float32[0.09706495, 0.13415252, 0.14033502], 3, 0)
-KnnResult{Int32, Float32}(Int32[4068, 8080, 4584], Float32[0.033941615, 0.06153443, 0.068547085], 3, 0)
-KnnResult{Int32, Float32}(Int32[4959, 8659, 3278], Float32[0.24144392, 0.34093958, 0.4131842], 3, 0)</pre><p>There are a several options for the construction of the index, from specifying the precise searching algorithm (<code>search_algo</code>) and the neighborhood strategy to be used on construction (<code>neighborhood_algo</code>). You can also specify here if the construction will be made in parallel and how this paralllelism will be performed (<code>firstblock</code>, <code>block</code>).</p><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>SearchGraph</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>SearchGraphOptions</code>. Check Documenter&#39;s build log for details.</p></div></div><h2 id="Local-search-algorithms"><a class="docs-heading-anchor" href="#Local-search-algorithms">Local search algorithms</a><a id="Local-search-algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Local-search-algorithms" title="Permalink"></a></h2><p>Regarding the search search algorithm, there are two alternatives, based on local search heuristics.</p><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.BeamSearch" href="#SimilaritySearch.BeamSearch"><code>SimilaritySearch.BeamSearch</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())</code></pre><p>BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of <code>bsize</code> elements and neighborhoods at the time. Multithreading applications must have copies of this object due to shared cache objects.</p><ul><li><code>hints</code>: An initial hint for the exploration (empty hints imply <code>bsize</code> random starting points).</li><li><code>bsize</code>: The size of the beam.</li><li><code>beam</code>: A cache object for reducing memory allocations</li><li><code>vstate</code>: A cache object for reducing memory allocations</li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/beamsearch.jl#LL7-L17">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.IHCSearch" href="#SimilaritySearch.IHCSearch"><code>SimilaritySearch.IHCSearch</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false)
+KnnResult{Int32, Float32}(Int32[6512, 3386, 4253], Float32[0.08213154, 0.12086186, 0.13921255], 3, 0)
+KnnResult{Int32, Float32}(Int32[739, 1218, 3880], Float32[0.10675865, 0.11132531, 0.117115185], 3, 0)
+KnnResult{Int32, Float32}(Int32[8431, 2220, 1080], Float32[0.11632033, 0.11677139, 0.12838578], 3, 0)
+KnnResult{Int32, Float32}(Int32[5090, 2261, 2827], Float32[0.15261358, 0.21958946, 0.29787195], 3, 0)
+KnnResult{Int32, Float32}(Int32[7452, 2231, 3774], Float32[0.022753082, 0.05508187, 0.06536113], 3, 0)</pre><p>There are a several options for the construction of the index, from specifying the precise searching algorithm (<code>search_algo</code>) and the neighborhood strategy to be used on construction (<code>neighborhood_algo</code>). You can also specify here if the construction will be made in parallel and how this paralllelism will be performed (<code>firstblock</code>, <code>block</code>).</p><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>SearchGraph</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>SearchGraphOptions</code>. Check Documenter&#39;s build log for details.</p></div></div><h2 id="Local-search-algorithms"><a class="docs-heading-anchor" href="#Local-search-algorithms">Local search algorithms</a><a id="Local-search-algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Local-search-algorithms" title="Permalink"></a></h2><p>Regarding the search search algorithm, there are two alternatives, based on local search heuristics.</p><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.BeamSearch" href="#SimilaritySearch.BeamSearch"><code>SimilaritySearch.BeamSearch</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())</code></pre><p>BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of <code>bsize</code> elements and neighborhoods at the time. Multithreading applications must have copies of this object due to shared cache objects.</p><ul><li><code>hints</code>: An initial hint for the exploration (empty hints imply <code>bsize</code> random starting points).</li><li><code>bsize</code>: The size of the beam.</li><li><code>beam</code>: A cache object for reducing memory allocations</li><li><code>vstate</code>: A cache object for reducing memory allocations</li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/beamsearch.jl#LL7-L17">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.IHCSearch" href="#SimilaritySearch.IHCSearch"><code>SimilaritySearch.IHCSearch</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false)
 IHCSearch(restarts::Integer=20; hints=Int32[], localimprovements=false)
-IHCSearch(hints, restarts, localimprovements, vstate)</code></pre><p>IHCSearch is an iterated hill climbing algorithma, a local search algorithm. It greedily navigates the search graph and restart the search <code>restarts</code> times. Multithreading applications must have copies of this object due to shared cache objects.</p><ul><li><code>restarts</code>: The number of restarts.</li><li><code>hints</code>: An initial hint for the exploration (if it is not empty, then superseeds the initial points of the random starting points).</li><li><code>localimprovements</code>: An experimental technique that if it is true it will achieve very high quality results, at cost of increasing searching time.</li><li><code>vstate</code>: A cache object for reducing memory allocations</li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/ihc.jl#LL8-L21">source</a></section></article><h2 id="Neighborhood-algorithms"><a class="docs-heading-anchor" href="#Neighborhood-algorithms">Neighborhood algorithms</a><a id="Neighborhood-algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Neighborhood-algorithms" title="Permalink"></a></h2><p>Regarding neighborhood algorithms, the package defines the following ones:</p><p>Neighborhood algorithms</p><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>FixedNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>LogNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>LogSatNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.SatNeighborhood" href="#SimilaritySearch.SatNeighborhood"><code>SimilaritySearch.SatNeighborhood</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">SatNeighborhood(k=32)</code></pre><p>New items are connected with a small set of items computed with a SAT like scheme (<strong>cite</strong>). It starts with <code>k</code> near items that are reduced to a small neighborhood due to the SAT partitioning stage.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/neighborhood.jl#LL48-L53">source</a></section></article><h2 id="Incremental-construction-of-the-index"><a class="docs-heading-anchor" href="#Incremental-construction-of-the-index">Incremental construction of the index</a><a id="Incremental-construction-of-the-index-1"></a><a class="docs-heading-anchor-permalink" href="#Incremental-construction-of-the-index" title="Permalink"></a></h2><p>The index supports insertions; for instance, it can be fully constructed using insertions as follows:</p><pre><code class="language-julia">using SimilaritySearch
+IHCSearch(hints, restarts, localimprovements, vstate)</code></pre><p>IHCSearch is an iterated hill climbing algorithma, a local search algorithm. It greedily navigates the search graph and restart the search <code>restarts</code> times. Multithreading applications must have copies of this object due to shared cache objects.</p><ul><li><code>restarts</code>: The number of restarts.</li><li><code>hints</code>: An initial hint for the exploration (if it is not empty, then superseeds the initial points of the random starting points).</li><li><code>localimprovements</code>: An experimental technique that if it is true it will achieve very high quality results, at cost of increasing searching time.</li><li><code>vstate</code>: A cache object for reducing memory allocations</li></ul></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/ihc.jl#LL8-L21">source</a></section></article><h2 id="Neighborhood-algorithms"><a class="docs-heading-anchor" href="#Neighborhood-algorithms">Neighborhood algorithms</a><a id="Neighborhood-algorithms-1"></a><a class="docs-heading-anchor-permalink" href="#Neighborhood-algorithms" title="Permalink"></a></h2><p>Regarding neighborhood algorithms, the package defines the following ones:</p><p>Neighborhood algorithms</p><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>FixedNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>LogNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>LogSatNeighborhood</code>. Check Documenter&#39;s build log for details.</p></div></div><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.SatNeighborhood" href="#SimilaritySearch.SatNeighborhood"><code>SimilaritySearch.SatNeighborhood</code></a> — <span class="docstring-category">Type</span></header><section><div><pre><code class="language-julia">SatNeighborhood(k=32)</code></pre><p>New items are connected with a small set of items computed with a SAT like scheme (<strong>cite</strong>). It starts with <code>k</code> near items that are reduced to a small neighborhood due to the SAT partitioning stage.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/neighborhood.jl#LL48-L53">source</a></section></article><h2 id="Incremental-construction-of-the-index"><a class="docs-heading-anchor" href="#Incremental-construction-of-the-index">Incremental construction of the index</a><a id="Incremental-construction-of-the-index-1"></a><a class="docs-heading-anchor-permalink" href="#Incremental-construction-of-the-index" title="Permalink"></a></h2><p>The index supports insertions; for instance, it can be fully constructed using insertions as follows:</p><pre><code class="language-julia">using SimilaritySearch
 
 index = SearchGraph()
 
 append!(index, [rand(Float32, 4) for i in 1:1000])
 
-search(index, rand(Float32, 4), 3)</code></pre><pre class="documenter-example-output">KnnResult{Int32, Float32}(Int32[46, 121, 880], Float32[0.0085958475, 0.019939542, 0.032894764], 3, 0)</pre><p>Each insertion is performed by the <code>push!</code> function or a chunk of items with <code>append!</code>; the last function also allows parallel insertions.</p><article class="docstring"><header><a class="docstring-binding" id="Base.push!-Tuple{SearchGraph, Any}" href="#Base.push!-Tuple{SearchGraph, Any}"><code>Base.push!</code></a> — <span class="docstring-category">Method</span></header><section><div><pre><code class="language-julia">push!(index::SearchGraph, item)</code></pre><p>Appends <code>item</code> into the index.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/graph.jl#LL198-L202">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="Base.append!-Tuple{SearchGraph, Any}" href="#Base.append!-Tuple{SearchGraph, Any}"><code>Base.append!</code></a> — <span class="docstring-category">Method</span></header><section><div><pre><code class="language-julia">append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)</code></pre><p>Appends all items in db to the index. It can be made in parallel or sequentially. In case of a parallel appending, then <code>parallel_firstblock</code> indicates the minimum number of items before going parallel, and <code>parallel_block</code> sets the chunck size to append in parallel.</p><p>Note: Parallel construction doesn&#39;t trigger callbacks listed in `callbacks&#39;, they must be executed manually.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/graph.jl#LL120-L129">source</a></section></article><h3 id="Customizing-the-insertion-method"><a class="docs-heading-anchor" href="#Customizing-the-insertion-method">Customizing the insertion method</a><a id="Customizing-the-insertion-method-1"></a><a class="docs-heading-anchor-permalink" href="#Customizing-the-insertion-method" title="Permalink"></a></h3><p>In particular, the procedure of pushing items into the index is made calling <code>find_neighborhood</code> and <code>push_neighborhood</code>; these methods can be overriden or used in other wyas to customize the insertion of data and the construction of the index.</p><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.find_neighborhood" href="#SimilaritySearch.find_neighborhood"><code>SimilaritySearch.find_neighborhood</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia">find_neighborhood(index::SearchGraph{T}, item; res=index.res)</code></pre><p>Searches for <code>item</code> neighborhood in the index, i.e., if <code>item</code> were in the index whose items should be its neighbors (intenal function)</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/neighborhood.jl#LL4-L9">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.push_neighborhood!" href="#SimilaritySearch.push_neighborhood!"><code>SimilaritySearch.push_neighborhood!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia">push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; apply_callbacks=true)</code></pre><p>Inserts the object <code>item</code> into the index, i.e., creates an edge from items listed in L and the vertex created for ìtem` (internal function)</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/neighborhood.jl#LL22-L27">source</a></section></article><h3 id="Optimizing-the-index&#39;s-performance"><a class="docs-heading-anchor" href="#Optimizing-the-index&#39;s-performance">Optimizing the index&#39;s performance</a><a id="Optimizing-the-index&#39;s-performance-1"></a><a class="docs-heading-anchor-permalink" href="#Optimizing-the-index&#39;s-performance" title="Permalink"></a></h3><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.optimize!" href="#SimilaritySearch.optimize!"><code>SimilaritySearch.optimize!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia">function optimize!(search_algo::LocalSearchAlgorithm,
-                   index::SearchGraph{T},
-                   recall::Float64,
-                   perf::Performance;
-                   bsize::Int=4,
-                   tol::Float64=0.01,
-                   probes::Int=0) where T</code></pre><p>Optimizes a local search index for an specific algorithm to get the desired performance. Note that optimizing for low-recall will yield to faster searches; the train queries are specified as part of the <code>perf</code> struct.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/opt.jl#LL6-L18">source</a></section><section><div><pre><code class="nohighlight">optimize!(perf::Performance,
-          index::SearchGraph;
-          recall=0.9,
-          tol::Real=0.001,
-          maxiters::Integer=3,
-          probes::Integer=0)</code></pre><p>Optimizes the index for the specified kind of queries.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/a77b2afce00880f5621fcc6c1365eafc9a82045d/src/graph/graph.jl#LL219-L228">source</a></section></article></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../searching/">« Searching</a><a class="docs-footer-nextpage" href="../knnresult/">Knn results »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.3 on <span class="colophon-date" title="Friday 2 July 2021 15:22">Friday 2 July 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+search(index, rand(Float32, 4), 3)</code></pre><pre class="documenter-example-output">KnnResult{Int32, Float32}(Int32[545, 824, 737], Float32[0.011799233, 0.03761454, 0.04967774], 3, 0)</pre><p>Each insertion is performed by the <code>push!</code> function or a chunk of items with <code>append!</code>; the last function also allows parallel insertions.</p><article class="docstring"><header><a class="docstring-binding" id="Base.push!-Tuple{SearchGraph, Any}" href="#Base.push!-Tuple{SearchGraph, Any}"><code>Base.push!</code></a> — <span class="docstring-category">Method</span></header><section><div><pre><code class="language-julia">push!(index::SearchGraph, item)</code></pre><p>Appends <code>item</code> into the index.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/graph.jl#LL207-L211">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="Base.append!-Tuple{SearchGraph, Any}" href="#Base.append!-Tuple{SearchGraph, Any}"><code>Base.append!</code></a> — <span class="docstring-category">Method</span></header><section><div><pre><code class="language-julia">append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)</code></pre><p>Appends all items in db to the index. It can be made in parallel or sequentially. In case of a parallel appending, then <code>parallel_firstblock</code> indicates the minimum number of items before going parallel, and <code>parallel_block</code> sets the chunck size to append in parallel.</p><p>Note: Parallel construction doesn&#39;t trigger callbacks listed in `callbacks&#39;, they must be executed manually.</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/graph.jl#LL124-L133">source</a></section></article><h3 id="Customizing-the-insertion-method"><a class="docs-heading-anchor" href="#Customizing-the-insertion-method">Customizing the insertion method</a><a id="Customizing-the-insertion-method-1"></a><a class="docs-heading-anchor-permalink" href="#Customizing-the-insertion-method" title="Permalink"></a></h3><p>In particular, the procedure of pushing items into the index is made calling <code>find_neighborhood</code> and <code>push_neighborhood</code>; these methods can be overriden or used in other wyas to customize the insertion of data and the construction of the index.</p><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.find_neighborhood" href="#SimilaritySearch.find_neighborhood"><code>SimilaritySearch.find_neighborhood</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia">find_neighborhood(index::SearchGraph{T}, item; res=index.res)</code></pre><p>Searches for <code>item</code> neighborhood in the index, i.e., if <code>item</code> were in the index whose items should be its neighbors (intenal function)</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/neighborhood.jl#LL4-L9">source</a></section></article><article class="docstring"><header><a class="docstring-binding" id="SimilaritySearch.push_neighborhood!" href="#SimilaritySearch.push_neighborhood!"><code>SimilaritySearch.push_neighborhood!</code></a> — <span class="docstring-category">Function</span></header><section><div><pre><code class="language-julia">push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; apply_callbacks=true)</code></pre><p>Inserts the object <code>item</code> into the index, i.e., creates an edge from items listed in L and the vertex created for ìtem` (internal function)</p></div><a class="docs-sourcelink" target="_blank" href="https://github.com/sadit/SimilaritySearch.jl/blob/0baed34c42fe5ae2d1a08d12e5007d0c6eba470d/src/graph/neighborhood.jl#LL22-L27">source</a></section></article><h3 id="Optimizing-the-index&#39;s-performance"><a class="docs-heading-anchor" href="#Optimizing-the-index&#39;s-performance">Optimizing the index&#39;s performance</a><a id="Optimizing-the-index&#39;s-performance-1"></a><a class="docs-heading-anchor-permalink" href="#Optimizing-the-index&#39;s-performance" title="Permalink"></a></h3><div class="admonition is-warning"><header class="admonition-header">Missing docstring.</header><div class="admonition-body"><p>Missing docstring for <code>optimize!</code>. Check Documenter&#39;s build log for details.</p></div></div></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../searching/">« Searching</a><a class="docs-footer-nextpage" href="../knnresult/">Knn results »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 0.27.3 on <span class="colophon-date" title="Monday 5 July 2021 19:08">Monday 5 July 2021</span>. Using Julia version 1.6.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
