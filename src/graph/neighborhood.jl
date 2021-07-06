@@ -40,7 +40,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; appl
     apply_callbacks && callbacks(index)
 
     if index.verbose && length(index) % 100_000 == 0
-        println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(now())")
+        println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(Dates.now())")
     end
 end
 

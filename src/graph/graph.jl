@@ -1,9 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
-
-export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices
-
-export NeighborhoodReduction, SatNeighborhood, IdentityNeighborhood, find_neighborhood, push_neighborhood!
+using Dates
+export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices, NeighborhoodReduction, SatNeighborhood, IdentityNeighborhood, find_neighborhood, push_neighborhood!
 
 """
     abstract type NeighborhoodReduction end
@@ -80,6 +78,17 @@ Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=
 
 struct NeighborhoodCallback <: Callback end
 
+"""
+    struct SearchGraph <: AbstractSearchContext
+
+SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
+The performance is determined by the search algorithm `search_algo` and the neighborhood policy.
+It supports callbacks to adjust parameters as insertions are made.
+
+Note 1: Parallel searches need copies of the structure or passing a KnnResult per thread.
+Note 2: Parallel insertions should be made through `append!` function with `parallel=true`
+
+"""
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
@@ -97,7 +106,6 @@ struct NeighborhoodCallback <: Callback end
     callback_starting::Int32 = 8
     verbose::Bool = true
 end
-
 
 Base.copy(g::SearchGraph;
         dist=g.dist,
