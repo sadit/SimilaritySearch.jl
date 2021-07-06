@@ -100,12 +100,3 @@ function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
 
     res
 end
-
-function opt_expand_neighborhood(fun, gsearch::BeamSearch, n::Integer, iter::Integer, probes::Integer)
-    logn = ceil(Int, log(2, n+1))
-    probes = probes == 0 ? logn : probes
-    f(x) = max(2, x + rand(-logn:logn))
-    for i in 1:probes
-        BeamSearch(bsize=f(gsearch.bsize)) |> fun
-    end
-end

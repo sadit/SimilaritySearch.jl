@@ -109,18 +109,3 @@ function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints
 
     res
 end
-
-"""
-    opt_expand_neighborhood(fun, ihc::IHCSearch, n::Integer, iter::Integer, probes::Integer)
-
-Generates configurations of the IHCSearch that feed the `optimize!` function (internal function)
-"""
-function opt_expand_neighborhood(fun, ihc::IHCSearch, n::Integer, iter::Integer, probes::Integer)
-    logn = ceil(Int, log(2, n+1))
-    probes = probes == 0 ? logn : probes
-    f(x) = max(1, x + rand(-logn:logn))
-
-    for i in 1:probes
-        copy(ihc, restarts=f(ihc.restarts)) |> fun
-    end
-end

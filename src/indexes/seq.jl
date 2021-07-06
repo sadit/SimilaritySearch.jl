@@ -4,7 +4,7 @@
 import Base: push!
 import StatsBase: fit
 
-export ExhaustiveSearch, search, push!, fit, optimize!
+export ExhaustiveSearch, search, push!
 
 """
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, knn::KnnResult)
