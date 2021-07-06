@@ -89,7 +89,7 @@ struct NeighborhoodCallback <: Callback end
     res::KnnResult = KnnResult(10)
 
     callbacks::Dict{Symbol,Callback} = Dict(
-        :parameters => OptimizeParametersCallback(),
+        #:parameters => OptimizeParametersCallback(),
         :hints => RandomHintsCallback(),
         :neighborhood => NeighborhoodCallback()
     )
