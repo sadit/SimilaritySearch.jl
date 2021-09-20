@@ -2,6 +2,7 @@
 # License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 using Dates
 export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices, NeighborhoodReduction, SatNeighborhood, IdentityNeighborhood, find_neighborhood, push_neighborhood!
+export Callback, RandomHintsCallback, DisjointNeighborhoodHints
 
 """
     abstract type NeighborhoodReduction end
@@ -46,9 +47,6 @@ end
     maxiters::Int32 = 4
 end
 
-@with_kw mutable struct RandomHintsCallback <: Callback
-    logbase::Float32 = 1.5
-end
 
 """
     @with_kw mutable struct Neighborhood
@@ -123,11 +121,13 @@ Base.copy(g::SearchGraph;
 
 
 ## search algorithms
+
 include("ihc.jl")
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
 include("opt.jl")
 include("neighborhood.jl")
+include("hints.jl")
 
 """
     append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)
@@ -231,19 +231,6 @@ Solves the specified query `res` for the query object `q`.
 function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
     length(index) > 0 && search(index.search_algo, index, q, res, hints)
     res
-end
-
-"""
-    callback(opt::RandomHintsCallback, index)
-
-SearchGraph's callback for selecting hints at random
-"""
-function callback(opt::RandomHintsCallback, index)
-    n = length(index)
-    m = ceil(Int, log(opt.logbase, length(index)))
-    sample = unique(rand(1:n, m))
-    empty!(index.search_algo.hints)
-    append!(index.search_algo.hints, sample)
 end
 
 """
