@@ -30,7 +30,7 @@ Indicates that hints are selected to have a disjoint neighborhood
 """
 @with_kw struct DisjointNeighborhoodHints <: Callback
     logbase::Float32 = 1.5
-    expansion::Int32 = 3
+    expansion::Int32 = 2
 end
 
 """
@@ -42,17 +42,25 @@ function callback(opt::DisjointNeighborhoodHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
     visited = Set{Int}()
-    sample = Int32[]
+    empty!(index.search_algo.hints)
+    E = Pair{Int32,Int32}[]
     for i in 1:m
         p = rand(1:n)
         p in visited && continue
-        push!(sample, p)
+        push!(index.search_algo.hints, p)
         push!(visited, p)
-        for child in keys(index.links[i])
-            push!(visited, child)
+        # visit the neighborhood with some expansion factor
+        push!(E, p => 0)
+        while length(E) > 0
+            parent, e = pop!(E)
+            for child in keys(index.links[parent])
+                if !(child in visited)
+                    push!(visited, child)
+                    e + 1 <= opt.expansion && push!(E, child => e + 1)
+                end
+            end
         end
     end
-        
-    empty!(index.search_algo.hints)
-    append!(index.search_algo.hints, sample)
+    
+    @info "disjoint hints $m --> $(length(index.search_algo.hints))"
 end

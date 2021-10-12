@@ -38,7 +38,7 @@ function Base.copy!(dst::BeamSearch, src::BeamSearch)
     dst.vstate = src.vstate
 end
 
-Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.hints))"""
+Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.hints))}"""
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm
@@ -51,19 +51,17 @@ function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     end
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
-    empty!(vstate)
-
-    if length(hints) == 0
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)    
+    for objID in hints
+        beamsearch_queue(index, q, res, objID, vstate)
+    end
+    
+    if length(vstate) == 0
         _range = 1:length(index)
-         for i in 1:bs.bsize
-            objID = rand(_range)
-            beamsearch_queue(index, q, res, objID, vstate)
-        end
-    else
-        for objID in hints
-            beamsearch_queue(index, q, res, objID, vstate)
-        end
+        for i in 1:bs.bsize
+           objID = rand(_range)
+           beamsearch_queue(index, q, res, objID, vstate)
+       end
     end
 end
 
@@ -84,19 +82,21 @@ function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult
 end
 
 """
+    search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
 - `index`: the local search index
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
+- `hints`: Starting points for searching, randomly selected when it is an empty collection
+- `vstate`: A dictionary like object to store the visiting state of vertices
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints)
-    if length(index) > 0
-        empty!(bs.beam, bs.bsize)
-        beamsearch_init(bs, index, q, res, hints, bs.vstate)
-        push!(bs.beam, first(res))
-        beamsearch_inner(index, q, res, bs.beam, bs.vstate)
-    end
-
+function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+    empty!(vstate)
+    empty!(bs.beam, bs.bsize)
+    beamsearch_init(bs, index, q, res, hints, vstate)
+    push!(bs.beam, first(res))
+    beamsearch_inner(index, q, res, bs.beam, vstate)
     res
 end

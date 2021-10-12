@@ -10,7 +10,7 @@ export ExhaustiveSearch, search, push!
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer)
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10)    
 
-Solves queries evaluating `dist` for the query and all elements in the dataset.
+Solves queries evaluating `dist` for the query and all elements in the dataset
 """
 @with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
     dist::DistanceType = SqL2Distance()

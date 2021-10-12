@@ -24,19 +24,21 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(search
 end
 
 function searchbatch(searchctx::AbstractSearchContext, Q, k::Integer=maxlength(searchctx.res); parallel=false)
-    searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)])
+    searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)]; parallel)
 end
 
-function searchbatch(searchctx::AbstractSearchContext, Q, KNN::Vector{<:KnnResult}; parallel=false)
+function searchbatch(searchctx::AbstractSearchContext, Q, KNN; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q, KNN)
-            search(searchctx, Q[i], KNN[i])
+            @inbounds search(searchctx, Q[i], KNN[i])
         end
     else
-        for i in eachindex(Q, KNN)
+        @inbounds for i in eachindex(Q, KNN)
             search(searchctx, Q[i], KNN[i])
         end
     end
+
+    KNN
 end
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)

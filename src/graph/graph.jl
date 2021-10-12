@@ -37,6 +37,12 @@ const VisitedVertices = Dict{Int32, UInt8}
     vstate[i] = state
 end
 
+@inline function visit!(vstate::VisitedVertices, visited)
+    for v in visited
+        setstate!(vstate, v, VISITED)
+    end
+end
+
 @with_kw mutable struct OptimizeParametersCallback <: Callback
     error = :distance # :recall, :distance, :distance_and_searchtime
     ksearch::Int32 = 10
@@ -46,7 +52,6 @@ end
     tol::Float32 = 0.01
     maxiters::Int32 = 4
 end
-
 
 """
     @with_kw mutable struct Neighborhood
@@ -116,9 +121,7 @@ Base.copy(g::SearchGraph;
         callback_logbase=g.callback_logbase,
         callback_starting=g.callback_starting,
         verbose=true
-    ) =
-    SearchGraph(; dist, db, links, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
-
+) = SearchGraph(; dist, db, links, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
 
 ## search algorithms
 
@@ -130,19 +133,21 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    append!(index::SearchGraph, db; parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)
+    append!(index::SearchGraph, db; parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
 
 Appends all items in db to the index. It can be made in parallel or sequentially.
-In case of a parallel appending, then `parallel_firstblock` indicates the minimum
-number of items before going parallel, and `parallel_block` sets the chunck size
-to append in parallel.
+In case of a parallel appending, then:
+- `parallel_block` must be bigger than 1 and describes the batch size to append in parallel (i.e., in the order of thousands,
+  depending on the size of the `db` and the number of available threads).
+- `parallel_firstblock` indicates the minimum number of items inserted sequentially before going parallel, it can be 0 if the index is already
+  populated, defaults to `parallel_block`.
 
-Note: Parallel construction doesn't trigger callbacks listed in `callbacks', they must be executed manually.
+Note: Parallel doesn't trigger callbacks inside blocks.
 """
 function Base.append!(index::SearchGraph, db;
-        parallel=false, parallel_firstblock=30_000, parallel_block=10_000, apply_callbacks=true)
+        parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
 
-    if parallel
+    if parallel_block > 1
         parallel_firstblock = min(length(db), parallel_firstblock)
         for i in 1:parallel_firstblock
             push!(index, db[i])
@@ -155,7 +160,7 @@ function Base.append!(index::SearchGraph, db;
         
         while sp < n
             ep = min(n, sp + parallel_block)
-            index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now(), "; index=", index)
+            index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
             X = @view db[sp:ep]
             parallel_append!(index, INDEXES, X)
             apply_callbacks && callbacks(index)
@@ -205,7 +210,7 @@ function callbacks(index::SearchGraph)
         k1 = ceil(Int, log(index.callback_logbase, 2+n))
         if k != k1
             for (name, callback_object) in index.callbacks
-                index.verbose && println(stderr, "calling callback ", name, "; n=$n")
+                index.verbose && println(stderr, "calling callback ", name, "; n=$n, type=", typeof(callback_object))
                 callback(callback_object, index)
             end
         end
@@ -224,12 +229,17 @@ function push!(index::SearchGraph, item)
 end
 
 """
-    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
+    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=index.search_algo.hints)
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints)
-    length(index) > 0 && search(index.search_algo, index, q, res, hints)
+function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=nothing)
+    if vstate === nothing
+        vstate = index.search_algo.vstate
+        empty!(vstate)
+    end
+
+    length(index) > 0 && search(index.search_algo, index, q, res, hints, vstate)
     res
 end
 
