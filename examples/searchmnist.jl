@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.15.1
+# v0.16.1
 
 using Markdown
 using InteractiveUtils
@@ -30,6 +30,12 @@ This example shows how to search on the MNIST dataset
 
 ## Loading the required packages for the examples
 """
+
+# ╔═╡ 3934899f-6ef4-419b-9e0d-1b02db2175e3
+MNIST.download(i_accept_the_terms_of_use=true)
+
+# ╔═╡ ccb3f1fa-b32a-40e8-9a8b-1babc38d2d05
+
 
 # ╔═╡ d8d27dbc-5507-11eb-20e9-0f16ddba080b
 md"""
@@ -491,8 +497,10 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 
 # ╔═╡ Cell order:
 # ╟─5cd87a9e-5506-11eb-2744-6f02144677ff
-# ╟─c5af5d4a-455b-11eb-0b57-4d8d63615b85
-# ╟─d8d27dbc-5507-11eb-20e9-0f16ddba080b
+# ╠═c5af5d4a-455b-11eb-0b57-4d8d63615b85
+# ╠═3934899f-6ef4-419b-9e0d-1b02db2175e3
+# ╠═ccb3f1fa-b32a-40e8-9a8b-1babc38d2d05
+# ╠═d8d27dbc-5507-11eb-20e9-0f16ddba080b
 # ╟─a23b0cae-455d-11eb-0e50-4dc31c050cc1
 # ╟─1ce583f6-54fb-11eb-10ad-b5dc9328ca3b
 # ╟─5b743cbc-54fa-11eb-1be4-4b619e1070b2
