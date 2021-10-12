@@ -21,10 +21,6 @@ using Test
     seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
     
-    #() -> 8), ## objects need to be created at each usage here since 
-    #() -> LogNeighborhood(), ## since they contain state data
-    #() -> LogSatNeighborhood(),
-    #() -> SatNeighborhood()
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=4)]
         @info "==================="
         graph = SearchGraph(; dist, search_algo=search_algo_fun())

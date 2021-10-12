@@ -41,10 +41,9 @@ end
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer)
+function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer, vstate)
     omin::Int32 = -1
     dmin::Float32 = typemax(Float32)
-    vstate = isearch.vstate
     localimprovements = isearch.localimprovements
     while true
         dmin = typemax(Float32)
@@ -77,33 +76,32 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     end
 end
 
-function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint)
-    S = get(isearch.vstate, startpoint, UNKNOWN)
+function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint, vstate)
+    S = get(vstate, startpoint, UNKNOWN)
     if S == UNKNOWN
-        isearch.vstate[startpoint] = VISITED
+        vstate[startpoint] = VISITED
         d = convert(Float32, evaluate(index.dist, q, index[startpoint]))
         push!(res, startpoint, d)
-        hill_climbing(isearch, index, q, res, startpoint)
+        hill_climbing(isearch, index, q, res, startpoint, vstate)
     end
 end
 
 """
-    search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints)
+    search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
 
 Performs an iterated hill climbing search for `q`.
 """
-function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints)
+function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
     n = length(index)
-    empty!(isearch.vstate)
     _range = 1:n
     if length(hints) == 0
          @inbounds for i in 1:min(isearch.restarts, n)
             startpoint = rand(_range)
-            searchat(isearch, index, q, res, startpoint)
+            searchat(isearch, index, q, res, startpoint, vstate)
         end
     else
         @inbounds for startpoint in hints
-            searchat(isearch, index, q, res, startpoint)
+            searchat(isearch, index, q, res, startpoint, vstate)
         end
     end
 
