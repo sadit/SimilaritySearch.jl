@@ -1,6 +1,4 @@
 # This file is a part of SimilaritySearch.jl
-# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
-
 
 function create_vectors(n, dim, normalize=false)
     D = [rand(Float32, dim) for i in 1:n]

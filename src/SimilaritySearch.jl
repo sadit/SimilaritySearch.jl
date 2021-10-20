@@ -1,5 +1,4 @@
 # This file is a part of SimilaritySearch.jl
-# License is Apache 2.0: https://www.apache.org/licenses/LICENSE-2.0.txt
 
 module SimilaritySearch
 abstract type Index end
@@ -60,6 +59,4 @@ include("indexes/pivotselectiontables.jl")
 include("indexes/kvp.jl")
 
 include("graph/graph.jl")
-# include("utils/aknn.jl")
-# include("utils/classification.jl")
 end
