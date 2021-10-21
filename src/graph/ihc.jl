@@ -92,14 +92,15 @@ Performs an iterated hill climbing search for `q`.
 """
 function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
     n = length(index)
-    _range = 1:n
-    if length(hints) == 0
-         @inbounds for i in 1:min(isearch.restarts, n)
+
+    for startpoint in hints
+        searchat(isearch, index, q, res, startpoint, vstate)
+    end
+
+    if length(vstate) == 0
+        _range = 1:n
+        for i in 1:min(isearch.restarts, n)
             startpoint = rand(_range)
-            searchat(isearch, index, q, res, startpoint, vstate)
-        end
-    else
-        @inbounds for startpoint in hints
             searchat(isearch, index, q, res, startpoint, vstate)
         end
     end

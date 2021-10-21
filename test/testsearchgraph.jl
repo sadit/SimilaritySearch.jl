@@ -30,5 +30,6 @@ using Test
         @test p.macrorecall >= 0.6
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
+        exit(0)
     end
 end

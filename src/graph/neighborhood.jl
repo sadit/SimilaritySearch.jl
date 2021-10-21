@@ -8,13 +8,12 @@ its neighbors (intenal function)
 """
 function find_neighborhood(index::SearchGraph, item; res=index.res)
     n = length(index)
-    N = index.neighborhood
     
     if n > 0
-        empty!(res, N.ksearch)
-        reduce(N.reduce, search(index, item, res), index)
+        empty!(res, index.neighborhood.ksearch)
+        reduce(index.neighborhood.reduce, search(index, item, res), index)
     else
-        KnnResult(N.ksearch)
+        KnnResult(index.neighborhood.ksearch)
     end
 end
 
@@ -27,16 +26,16 @@ vertex created for ìtem` (internal function)
 function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; apply_callbacks=true)
     push!(index.db, item)
     push!(index.links, neighbors)
+    push!(index.locks, Threads.SpinLock())
     n = length(index)
     k = index.neighborhood.k
 
     @inbounds for (id, dist) in neighbors
-        v = index.links[id]
-        v.k = max(maxlength(v), k) # adjusting maximum size to the current allowed neighborhood size
-        push!(v, n => dist)
+        vertex = index.links[id]
+        vertex.k = max(maxlength(vertex), k) # adjusting maximum size to the current allowed neighborhood size
+        push!(vertex, n => dist)
     end
 
-    push!(index.locks, Threads.SpinLock())
     apply_callbacks && callbacks(index)
 
     if index.verbose && length(index) % 100_000 == 0
