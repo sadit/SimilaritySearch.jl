@@ -1,17 +1,18 @@
 # This file is a part of SimilaritySearch.jl
 
 """
-    find_neighborhood(index::SearchGraph{T}, item; res=index.res)
+    find_neighborhood(index::SearchGraph{T}, item, res, vstate)
 
-Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be
-its neighbors (intenal function)
+Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
+`res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
 """
-function find_neighborhood(index::SearchGraph, item; res=index.res)
+function find_neighborhood(index::SearchGraph, item, res, vstate)
     n = length(index)
     
     if n > 0
         empty!(res, index.neighborhood.ksearch)
-        reduce(index.neighborhood.reduce, search(index, item, res), index)
+        empty!(vstate)
+        reduce(index.neighborhood.reduce, search(index, item, res; vstate), index)
     else
         KnnResult(index.neighborhood.ksearch)
     end
@@ -89,4 +90,4 @@ It does not modifies the given neighborhood
 struct IdentityNeighborhood <: NeighborhoodReduction end
 
 Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
-Base.reduce(sat::IdentityNeighborhood, res::KnnResult, index::SearchGraph) =  copy(res)
+Base.reduce(sat::IdentityNeighborhood, res::KnnResult, index::SearchGraph) = copy(res)

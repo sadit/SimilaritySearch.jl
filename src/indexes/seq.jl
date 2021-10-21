@@ -5,23 +5,16 @@ import Base: push!
 export ExhaustiveSearch, search, push!
 
 """
-    ExhaustiveSearch(dist::PreMetric, db::AbstractVector, knn::KnnResult)
-    ExhaustiveSearch(dist::PreMetric, db::AbstractVector, k::Integer)
-    ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10)    
+    ExhaustiveSearch(dist::PreMetric, db::AbstractVector)
 
 Solves queries evaluating `dist` for the query and all elements in the dataset
 """
 @with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
     dist::DistanceType = SqL2Distance()
     db::DataType = Vector{Int32}[]
-    res::KnnResult = KnnResult(10)
 end
 
-ExhaustiveSearch(dist::PreMetric, db::AbstractVector; ksearch::Integer=10) =
-    ExhaustiveSearch(dist, db, KnnResult(ksearch))
-
-Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db, res=KnnResult(maxlength(seq.res))) = 
-    ExhaustiveSearch(dist, db, res)
+Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
 """
     search(seq::ExhaustiveSearch, q, res::KnnResult)

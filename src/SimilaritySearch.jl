@@ -10,6 +10,10 @@ export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
 
 include("utils/knnresult.jl")
 
+const GlobalKnnResult = [KnnResult(10)]   # see __init__ function at the end of this file
+
+@inline getknnresult(res=nothing) = res !== nothing ? res : @inbounds GlobalKnnResult[Threads.threadid()]
+
 """
     search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))
     search(searchctx::AbstractSearchContext, q)
@@ -17,12 +21,13 @@ include("utils/knnresult.jl")
 This is the most generic search function. It calls almost all implementations whenever an integer k is given.
 
 """
-function search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))
-    empty!(searchctx.res, k)
-    search(searchctx, q, searchctx.res)
+function search(searchctx::AbstractSearchContext, q, k::Integer=10)
+    res = getknnresult()
+    empty!(res, k)
+    search(searchctx, q, res)
 end
 
-function searchbatch(searchctx::AbstractSearchContext, Q, k::Integer=maxlength(searchctx.res); parallel=false)
+function searchbatch(searchctx::AbstractSearchContext, Q, k::Integer=10; parallel=false)
     searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)]; parallel)
 end
 
@@ -60,4 +65,13 @@ include("indexes/pivotselectiontables.jl")
 include("indexes/kvp.jl")
 
 include("graph/graph.jl")
+
+function __init__()
+    for i in 2:Threads.nthreads()
+        push!(GlobalKnnResult, KnnResult(10))
+        push!(GlobalVisitedVertices, VisitedVertices())
+        push!(GlobalBeamKnnResult, KnnResult(10))
+    end
+end
+
 end

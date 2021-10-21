@@ -3,8 +3,11 @@
 using Random
 export BeamSearch
 
+const GlobalBeamKnnResult = [KnnResult(10)]  # see __init__ function
+@inline getbeam() = @inbounds GlobalBeamKnnResult[Threads.threadid()]
+
 """
-    BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize), vstate=VisitedVertices())
+    BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize))
 
 BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of `bsize` elements and neighborhoods at the time.
 Multithreading applications must have copies of this object due to shared cache objects.
@@ -12,29 +15,21 @@ Multithreading applications must have copies of this object due to shared cache 
 - `hints`: An initial hint for the exploration (empty hints imply `bsize` random starting points).
 - `bsize`: The size of the beam.
 - `beam`: A cache object for reducing memory allocations
-- `vstate`: A cache object for reducing memory allocations
 """
-@with_kw mutable struct BeamSearch{BeamType<:KnnResult} <: LocalSearchAlgorithm
+@with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
     hints::Vector{Int32} = Int32[]
     bsize::Int32 = 8  # size of the search beam
-    beam::BeamType = KnnResult(8)
-    vstate::VisitedVertices = VisitedVertices()
 end
-
 
 Base.copy(bsearch::BeamSearch;
         hints=bsearch.hints,
-        bsize=bsearch.bsize,
-        beam=KnnResult(Int(bsize)),
-        vstate=VisitedVertices()
-    ) = BeamSearch(; hints, bsize, beam, vstate)
+        bsize=bsearch.bsize
+    ) = BeamSearch(; hints, bsize)
 
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
     dst.hints = src.hints
     dst.bsize = src.bsize
-    dst.beam = src.beam
-    dst.vstate = src.vstate
 end
 
 Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.hints))}"""
@@ -66,7 +61,7 @@ end
 
 function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate)
     while length(beam) > 0
-        prev_id, prev_dist = popfirst!(beam)
+        prev_id, prev_dist = popfirst!(beam)   
         getstate(vstate, prev_id) === EXPLORED && continue
         setstate!(vstate, prev_id, EXPLORED)
         @inbounds for childID in keys(index.links[prev_id])
@@ -92,10 +87,10 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `vstate`: A dictionary like object to store the visiting state of vertices
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
-    empty!(vstate)
-    empty!(bs.beam, bs.bsize)
+    beam = getbeam()
+    empty!(beam, bs.bsize)
     beamsearch_init(bs, index, q, res, hints, vstate)
-    push!(bs.beam, first(res))
-    beamsearch_inner(index, q, res, bs.beam, vstate)
+    push!(beam, first(res))
+    beamsearch_inner(index, q, res, beam, vstate)
     res
 end

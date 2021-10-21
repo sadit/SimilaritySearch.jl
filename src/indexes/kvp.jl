@@ -3,27 +3,25 @@
 using SimilaritySearch
 export Kvp, k_near_and_far, fit, search, push!
 
-struct Kvp{DataType<:AbstractVector, DistanceType<:PreMetric} <: AbstractSearchContext
+struct Kvp{DataType<:AbstractVector,DistanceType<:PreMetric} <: AbstractSearchContext
     dist::DistanceType
     db::DataType
     refs::DataType
     sparsetable::Vector{Vector{Pair{Int32,Float32}}}
     ksparse::Int
-    res::KnnResult
 end
 
-Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10) = 
-    Kvp(dist, db, refs, sparsetable, ksparse, KnnResult(ksearch))
+Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer) = 
+    Kvp(dist, db, refs, sparsetable, ksparse)
 
 Base.copy(kvp::Kvp;
         dist::PreMetric=kvp.dist,
         db::AbstractVector=kvp.db,
         refs::AbstractVector=kvp.refs,
         sparsetable::AbstractVector=kvp.sparsetable,
-        ksparse::Integer=kvp.ksparse,
-        res::KnnResult=KnnResult(maxlength(kvp.res))
+        ksparse::Integer=kvp.ksparse
     ) =
-    Kvp(dist, db, refs, sparsetable, ksparse, res)
+    Kvp(dist, db, refs, sparsetable, ksparse)
 
 Base.string(p::Kvp) = "{Kvp: dist=$(p.dist), n=$(length(p.db)), refs=$(length(p.refs)), ksparse=$(p.ksparse)}"
 
@@ -54,7 +52,7 @@ function k_near_and_far(dist::PreMetric, near::KnnResult, far::KnnResult, obj::T
 end
 
 """
-    Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer; ksearch::Integer=10)
+    Kvp(dist::PreMetric, db, refs, sparsetable, ksparse::Integer)
     Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
     Kvp(dist::PreMetric,
         db::AbstractVector;
@@ -65,13 +63,13 @@ Creates a K vantage points index: a sparse pivot table storing only `ksparse` ne
 
 """
 
-function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer; ksearch::Integer=10)
+function Kvp(dist::PreMetric, db::AbstractVector, refs::AbstractVector, ksparse::Integer)
     @info "Kvp, refs=$(typeof(db)), k=$(ksparse), numrefs=$(length(refs)), dist=$(dist)"
     near = KnnResult(ksparse)
     far = KnnResult(ksparse)
 
     sparsetable = [k_near_and_far(dist, near, far, db[i], refs, ksparse) for i in 1:length(db)]
-    Kvp(dist, db, refs, sparsetable, ksparse; ksearch=ksearch)
+    Kvp(dist, db, refs, sparsetable, ksparse)
 end
 
 function Kvp(dist::PreMetric,

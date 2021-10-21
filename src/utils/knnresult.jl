@@ -76,11 +76,13 @@ Appends an item into the result set
             push!(res.id, id)
             push!(res.dist, dist)
         end
+    
         fixorder!(res.shift, res.id, res.dist)
         return true
     end
 
     dist >= last(res.dist) && return false
+
     @inbounds res.id[end], res.dist[end] = id, dist
     fixorder!(res.shift, res.id, res.dist)
     true
@@ -164,6 +166,7 @@ as needed (only grows).
     @assert k > 0
     empty!(res.id)
     empty!(res.dist)
+
     res.k = k
     res.shift = 0
 end

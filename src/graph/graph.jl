@@ -43,6 +43,10 @@ end
     end
 end
 
+const GlobalVisitedVertices = [VisitedVertices()]  # initialized at __init__ function
+
+@inline getvisitedvertices(vstate=nothing) = vstate !== nothing ? vstate : @inbounds GlobalVisitedVertices[Threads.threadid()]
+
 @with_kw mutable struct OptimizeParametersCallback <: Callback
     error = :distance # :recall, :distance, :distance_and_searchtime
     ksearch::Int32 = 10
@@ -99,8 +103,6 @@ Note 2: Parallel insertions should be made through `append!` function with `para
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
-    res::KnnResult = KnnResult(10)
-
     callbacks::Dict{Symbol,Callback} = Dict(
         #:parameters => OptimizeParametersCallback(),
         :hints => RandomHintsCallback(),
@@ -120,12 +122,11 @@ Base.copy(g::SearchGraph;
         locks=g.locks,
         search_algo=copy(g.search_algo),
         neighborhood=copy(g.neighborhood),
-        res=KnnResult(maxlength(g.res)),
         callbacks=g.callbacks,
         callback_logbase=g.callback_logbase,
         callback_starting=g.callback_starting,
         verbose=true
-) = SearchGraph(; dist, db, links, locks, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
+) = SearchGraph(; dist, db, links, locks, search_algo, neighborhood, callbacks, callback_logbase, callback_starting, verbose)
 
 ## search algorithms
 
@@ -137,19 +138,19 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    append!(index::SearchGraph, db; parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
+    append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
 
 Appends all items in db to the index. It can be made in parallel or sequentially.
 In case of a parallel appending, then:
 - `parallel_block` must be bigger than 1 and describes the batch size to append in parallel (i.e., in the order of thousands,
   depending on the size of the `db` and the number of available threads).
-- `parallel_firstblock` indicates the minimum number of items inserted sequentially before going parallel, it can be 0 if the index is already
+- `parallel_minimum_first_block` indicates the minimum number of items inserted sequentially before going parallel, it can be 0 if the index is already
   populated, defaults to `parallel_block`.
 
 Note: Parallel doesn't trigger callbacks inside blocks.
 """
 function Base.append!(index::SearchGraph, db;
-    parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
+    parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
 
     if parallel_block == 1
         for item in db
@@ -159,10 +160,11 @@ function Base.append!(index::SearchGraph, db;
         return index
     end
 
-    parallel_firstblock = min(length(db), parallel_firstblock)
+    m = 0
     n = length(index) + length(db)
-    for i in 1:parallel_firstblock
-        push!(index, db[i])
+    while length(index) < parallel_minimum_first_block
+        m += 1
+        push!(index, db[m])
     end
 
     sp = length(index) + 1
@@ -171,18 +173,18 @@ function Base.append!(index::SearchGraph, db;
     resize!(index.db, n)
     resize!(index.links, n)
     for i in sp:n
-        index.db[i] = db[i]
+        m += 1
+        index.db[i] = db[m]
     end
-
-    INDEXES = [copy(index) for i in 1:Threads.nthreads()]
 
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
 
         # searching neighbors
+        # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-            index.links[i] = find_neighborhood(INDEXES[Threads.threadid()], db[i])
+            index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices())
         end
 
         # connecting neighbors
@@ -215,38 +217,25 @@ function Base.append!(index::SearchGraph, db;
 end
 
 """
-    callbacks(index::SearchGraph, n=length(index), m=n+1)
-
-Process all registered callbacks in `index`
-"""
-function callbacks(index::SearchGraph, n=length(index), m=n+1)
-    if n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m))
-        for (name, callback_object) in index.callbacks
-            index.verbose && println(stderr, "calling callback ", name, "; n=$(length(index)), type=", typeof(callback_object))
-            callback(callback_object, index)
-        end
-    end
-end
-
-"""
     push!(index::SearchGraph, item)
 
 Appends `item` into the index.
 """
 function push!(index::SearchGraph, item)
-    neighbors = find_neighborhood(index, item)
+    neighbors = find_neighborhood(index, item, getknnresult(), getvisitedvertices())
     push_neighborhood!(index, item, neighbors)
     neighbors
 end
 
+
 """
-    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=index.search_algo.hints)
+    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=nothing)
 
 Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=nothing)
     if vstate === nothing
-        vstate = index.search_algo.vstate
+        vstate = getvisitedvertices()
         empty!(vstate)
     end
 
@@ -264,3 +253,18 @@ function callback(opt::NeighborhoodCallback, index)
     N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
     N.k = N.ksearch + ceil(Int, N.ksearch * N.Δ)
 end
+
+"""
+    callbacks(index::SearchGraph, n=length(index), m=n+1)
+
+Process all registered callbacks in `index`
+"""
+function callbacks(index::SearchGraph, n=length(index), m=n+1)
+    if n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m))
+        for (name, callback_object) in index.callbacks
+            index.verbose && println(stderr, "calling callback ", name, "; n=$(length(index)), type=", typeof(callback_object))
+            callback(callback_object, index)
+        end
+    end
+end
+

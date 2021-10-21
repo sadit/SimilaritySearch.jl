@@ -21,8 +21,9 @@ using Test
     perf = Performance(seq, queries, ksearch)
     
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=4)]
-        @info "==================="
-        graph = SearchGraph(; dist, search_algo=search_algo_fun())
+        search_algo = search_algo_fun()
+        @info "=================== $search_algo"
+        graph = SearchGraph(; dist, search_algo=search_algo)
         graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db)
         @time p = probe(perf, graph)
@@ -30,6 +31,5 @@ using Test
         @test p.macrorecall >= 0.6
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
-        exit(0)
     end
 end

@@ -7,7 +7,7 @@ export IHCSearch
 """
     IHCSearch(hints::Vector; restarts=length(hints), localimprovements=false)
     IHCSearch(restarts::Integer=20; hints=Int32[], localimprovements=false)
-    IHCSearch(hints, restarts, localimprovements, vstate)
+    IHCSearch(hints, restarts, localimprovements)
 
 IHCSearch is an iterated hill climbing algorithma, a local search algorithm. It greedily navigates the search graph
 and restart the search `restarts` times.
@@ -16,21 +16,18 @@ Multithreading applications must have copies of this object due to shared cache 
 - `restarts`: The number of restarts.
 - `hints`: An initial hint for the exploration (if it is not empty, then superseeds the initial points of the random starting points).
 - `localimprovements`: An experimental technique that if it is true it will achieve very high quality results, at cost of increasing searching time.
-- `vstate`: A cache object for reducing memory allocations
 """
 @with_kw mutable struct IHCSearch <: LocalSearchAlgorithm
     hints::Vector{Int32} = Int32[]
     restarts::Int32 = 16
     localimprovements::Bool = false
-    vstate::VisitedVertices = VisitedVertices()
 end
 
-Base.copy(ihc::IHCSearch; hints=ihc.hints, restarts=ihc.restarts, localimprovements=ihc.localimprovements, vstate=VisitedVertices()) =
-    IHCSearch(; hints, restarts, localimprovements, vstate)
+Base.copy(ihc::IHCSearch; hints=ihc.hints, restarts=ihc.restarts, localimprovements=ihc.localimprovements) =
+    IHCSearch(; hints, restarts, localimprovements)
 
 function Base.copy!(dst::IHCSearch, src::IHCSearch)
     dst.restarts = src.restarts
-    dst.vstate = src.vstate
     dst.hints = src.hints
     dst.localimprovements = src.localimprovements
 end
