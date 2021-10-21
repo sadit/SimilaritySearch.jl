@@ -42,7 +42,8 @@ end
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
-@inline Base.eachindex(searchctx::AbstractSearchContext) = eachindex(searchctx.db)
+@inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
+@inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
 
 include("distances/bits.jl")
 include("distances/sets.jl")

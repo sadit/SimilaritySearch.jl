@@ -96,6 +96,7 @@ Note 2: Parallel insertions should be made through `append!` function with `para
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
     links::Vector{KnnResult{Int32,Float32}} = KnnResult{Int32,Float32}[]
+    locks::Vector{ReentrantLock} = ReentrantLock[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
     res::KnnResult = KnnResult(10)
@@ -105,15 +106,18 @@ Note 2: Parallel insertions should be made through `append!` function with `para
         :hints => RandomHintsCallback(),
         :neighborhood => NeighborhoodCallback()
     )
-    callback_logbase::Float32 = 1.5
+    callback_logbase::Float32 = 2
     callback_starting::Int32 = 8
     verbose::Bool = true
 end
+
+@inline Base.length(g::SearchGraph) = length(g.locks)
 
 Base.copy(g::SearchGraph;
         dist=g.dist,
         db=g.db,
         links=g.links,
+        locks=g.locks,
         search_algo=copy(g.search_algo),
         neighborhood=copy(g.neighborhood),
         res=KnnResult(maxlength(g.res)),
@@ -121,7 +125,7 @@ Base.copy(g::SearchGraph;
         callback_logbase=g.callback_logbase,
         callback_starting=g.callback_starting,
         verbose=true
-) = SearchGraph(; dist, db, links, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
+) = SearchGraph(; dist, db, links, locks, search_algo, neighborhood, res, callbacks, callback_logbase, callback_starting, verbose)
 
 ## search algorithms
 
@@ -145,74 +149,81 @@ In case of a parallel appending, then:
 Note: Parallel doesn't trigger callbacks inside blocks.
 """
 function Base.append!(index::SearchGraph, db;
-        parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
+    parallel_block=1, parallel_firstblock=parallel_block, apply_callbacks=true)
 
-    if parallel_block > 1
-        parallel_firstblock = min(length(db), parallel_firstblock)
-        for i in 1:parallel_firstblock
-            push!(index, db[i])
-        end
-
-        sp = length(index) + 1
-        n = length(db)
-
-        INDEXES = [copy(index) for i in 1:Threads.nthreads()]
-        
-        while sp < n
-            ep = min(n, sp + parallel_block)
-            index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
-            X = @view db[sp:ep]
-            parallel_append!(index, INDEXES, X)
-            apply_callbacks && callbacks(index)
-            sp = ep + 1
-        end
-    else
+    if parallel_block == 1
         for item in db
             push!(index, item)
         end
+
+        return index
+    end
+
+    parallel_firstblock = min(length(db), parallel_firstblock)
+    n = length(index) + length(db)
+    for i in 1:parallel_firstblock
+        push!(index, db[i])
+    end
+
+    sp = length(index) + 1
+    sp > n && return index
+
+    resize!(index.db, n)
+    resize!(index.links, n)
+    for i in sp:n
+        index.db[i] = db[i]
+    end
+
+    INDEXES = [copy(index) for i in 1:Threads.nthreads()]
+
+    while sp < n
+        ep = min(n, sp + parallel_block)
+        index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
+
+        # searching neighbors
+        Threads.@threads for i in sp:ep
+            index.links[i] = find_neighborhood(INDEXES[Threads.threadid()], db[i])
+        end
+
+        # connecting neighbors
+        k = index.neighborhood.k
+        Threads.@threads for i in sp:ep
+            @inbounds for (id, dist) in index.links[i]
+                lock(index.locks[id])
+                try
+                    vertex = index.links[id]
+                    vertex.k = max(maxlength(vertex), k)
+                    push!(vertex, i => dist)
+                finally
+                    unlock(index.locks[id])
+                end
+            end
+        end
+
+        # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
+        resize!(index.locks, ep)
+        for i in sp:ep
+            index.locks[i] = ReentrantLock()
+        end
+        
+        # apply callbacks
+        apply_callbacks && callbacks(index, sp, ep)
+        sp = ep + 1
     end
 
     index
-
 end
 
 """
-    parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
-
-Insert all items in `X` into the set of indexes. All indexes are _views_ of the same index;
-callbacks are not called here. Internal function.
-"""
-function parallel_append!(index, INDEXES::Vector{<:SearchGraph}, X::AbstractVector)
-    m = length(X)
-    N = Vector{eltype(index.links)}(undef, m)
-    Threads.@threads for i in 1:m
-        I = INDEXES[Threads.threadid()]
-        I.neighborhood.k = index.neighborhood.k
-        I.neighborhood.ksearch = index.neighborhood.ksearch
-        N[i] = find_neighborhood(I, X[i])
-    end
-
-    for i in 1:m
-        push_neighborhood!(index, X[i], N[i]; apply_callbacks=false)
-    end
-end
-
-"""
-    callbacks(index::SearchGraph)
+    callbacks(index::SearchGraph, n=length(index), m=n+1)
 
 Process all registered callbacks in `index`
 """
-function callbacks(index::SearchGraph)
-    n = length(index)
-
-    if n >= index.callback_starting
-        k = ceil(Int, log(index.callback_logbase, 1+n))
-        k1 = ceil(Int, log(index.callback_logbase, 2+n))
-        if k != k1
-            for (name, callback_object) in index.callbacks
-                index.verbose && println(stderr, "calling callback ", name, "; n=$n, type=", typeof(callback_object))
-                callback(callback_object, index)
-            end
+function callbacks(index::SearchGraph, n=length(index), m=n+1)
+    if n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m))
+        for (name, callback_object) in index.callbacks
+            index.verbose && println(stderr, "calling callback ", name, "; n=$(length(index)), type=", typeof(callback_object))
+            callback(callback_object, index)
         end
     end
 end

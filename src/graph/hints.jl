@@ -61,5 +61,5 @@ function callback(opt::DisjointNeighborhoodHints, index)
         end
     end
     
-    @info "disjoint hints $m --> $(length(index.search_algo.hints))"
+    # @info "disjoint hints $m --> $(length(index.search_algo.hints))"
 end

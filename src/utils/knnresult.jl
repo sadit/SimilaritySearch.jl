@@ -9,8 +9,8 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResult{RefType<:Integer,DistType<:Real}
-    id::Vector{RefType}
+mutable struct KnnResult{IdType<:Integer,DistType<:Real} <: AbstractVector{Tuple{IdType,DistType}}
+    id::Vector{IdType}
     dist::Vector{DistType}
     k::Int32  # number of neighbors
     shift::Int32 # shift position of the first element (to support popfirst! efficiently)
@@ -137,6 +137,7 @@ end
 @inline Base.argmin(res::KnnResult) = @inbounds res.id[firstindex(res)]
 @inline Base.argmax(res::KnnResult) = @inbounds res.id[lastindex(res)]
 @inline Base.length(res::KnnResult) = length(res.id) - res.shift
+@inline Base.size(res::KnnResult) = (length(res),)
 
 """
     maxlength(res::KnnResult)

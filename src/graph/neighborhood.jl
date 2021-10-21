@@ -36,6 +36,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; appl
         push!(v, n => dist)
     end
 
+    push!(index.locks, ReentrantLock())
     apply_callbacks && callbacks(index)
 
     if index.verbose && length(index) % 100_000 == 0
