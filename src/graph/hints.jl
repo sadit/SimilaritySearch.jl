@@ -18,8 +18,8 @@ function callback(opt::RandomHintsCallback, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(1:n, m))
-    empty!(index.search_algo.hints)
-    append!(index.search_algo.hints, sample)
+    empty!(index.hints)
+    append!(index.hints, sample)
 end
 
 """
@@ -41,12 +41,12 @@ function callback(opt::DisjointNeighborhoodHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
     visited = Set{Int}()
-    empty!(index.search_algo.hints)
+    empty!(index.hints)
     E = Pair{Int32,Int32}[]
     for i in 1:m
         p = rand(1:n)
         p in visited && continue
-        push!(index.search_algo.hints, p)
+        push!(index.hints, p)
         push!(visited, p)
         # visit the neighborhood with some expansion factor
         push!(E, p => 0)

@@ -7,32 +7,28 @@ const GlobalBeamKnnResult = [KnnResult(10)]  # see __init__ function
 @inline getbeam() = @inbounds GlobalBeamKnnResult[Threads.threadid()]
 
 """
-    BeamSearch(bsize::Integer=16, hints=Int32[], beam=KnnResult(bsize))
+    BeamSearch(bsize::Integer=16, beam=KnnResult(bsize))
 
 BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of `bsize` elements and neighborhoods at the time.
 Multithreading applications must have copies of this object due to shared cache objects.
 
-- `hints`: An initial hint for the exploration (empty hints imply `bsize` random starting points).
 - `bsize`: The size of the beam.
 - `beam`: A cache object for reducing memory allocations
 """
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
-    hints::Vector{Int32} = Int32[]
     bsize::Int32 = 8  # size of the search beam
 end
 
 Base.copy(bsearch::BeamSearch;
-        hints=bsearch.hints,
         bsize=bsearch.bsize
-    ) = BeamSearch(; hints, bsize)
+    ) = BeamSearch(; bsize)
 
 
 function Base.copy!(dst::BeamSearch, src::BeamSearch)
-    dst.hints = src.hints
     dst.bsize = src.bsize
 end
 
-Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize), hints=$(length(s.hints))}"""
+Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize)}"""
 
 # const BeamType = typeof((objID=Int32(0), dist=0.0))
 ### local search algorithm

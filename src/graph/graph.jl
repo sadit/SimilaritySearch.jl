@@ -92,8 +92,9 @@ SearchGraph index. It stores a set of points that can be compared through a dist
 The performance is determined by the search algorithm `search_algo` and the neighborhood policy.
 It supports callbacks to adjust parameters as insertions are made.
 
-Note 1: Parallel searches need copies of the structure or passing a KnnResult per thread.
-Note 2: Parallel insertions should be made through `append!` function with `parallel=true`
+- `hints`: Initial points for exploration (empty hints imply using random points)
+
+Note: Parallel insertions should be made through `append!` function with `parallel_block > 1`
 
 """
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
@@ -101,6 +102,7 @@ Note 2: Parallel insertions should be made through `append!` function with `para
     db::DataType = Vector{Float32}[]
     links::Vector{KnnResult{Int32,Float32}} = KnnResult{Int32,Float32}[]
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
+    hints::Vector{Int32} = Int32[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
     callbacks::Dict{Symbol,Callback} = Dict(
@@ -120,13 +122,14 @@ Base.copy(g::SearchGraph;
         db=g.db,
         links=g.links,
         locks=g.locks,
+        hints=g.hints,
         search_algo=copy(g.search_algo),
         neighborhood=copy(g.neighborhood),
         callbacks=g.callbacks,
         callback_logbase=g.callback_logbase,
         callback_starting=g.callback_starting,
         verbose=true
-) = SearchGraph(; dist, db, links, locks, search_algo, neighborhood, callbacks, callback_logbase, callback_starting, verbose)
+) = SearchGraph(; dist, db, links, locks, hints, search_algo, neighborhood, callbacks, callback_logbase, callback_starting, verbose)
 
 ## search algorithms
 
@@ -229,11 +232,11 @@ end
 
 
 """
-    search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=nothing)
+    search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult; hints=index.search_algo.hints, vstate=nothing)
+function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
     if vstate === nothing
         vstate = getvisitedvertices()
         empty!(vstate)
