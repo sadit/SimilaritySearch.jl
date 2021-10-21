@@ -96,7 +96,7 @@ Note 2: Parallel insertions should be made through `append!` function with `para
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
     links::Vector{KnnResult{Int32,Float32}} = KnnResult{Int32,Float32}[]
-    locks::Vector{ReentrantLock} = ReentrantLock[]
+    locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
     res::KnnResult = KnnResult(10)
@@ -106,7 +106,7 @@ Note 2: Parallel insertions should be made through `append!` function with `para
         :hints => RandomHintsCallback(),
         :neighborhood => NeighborhoodCallback()
     )
-    callback_logbase::Float32 = 2
+    callback_logbase::Float32 = 1.5
     callback_starting::Int32 = 8
     verbose::Bool = true
 end
@@ -203,7 +203,7 @@ function Base.append!(index::SearchGraph, db;
         # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
         resize!(index.locks, ep)
         for i in sp:ep
-            index.locks[i] = ReentrantLock()
+            index.locks[i] = Threads.SpinLock()
         end
         
         # apply callbacks
