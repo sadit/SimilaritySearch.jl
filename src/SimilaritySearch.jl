@@ -67,14 +67,11 @@ include("indexes/kvp.jl")
 include("graph/graph.jl")
 
 function __init__()
-    sizehint!(GlobalVisitedVertices[1], 64)
+    __init__visitedvertices()
+    __init__beamsearch()
+    __init__neighborhood()
     for i in 2:Threads.nthreads()
         push!(GlobalKnnResult, KnnResult(32))
-        v = VisitedVertices()
-        sizehint!(v, 64)
-        push!(GlobalVisitedVertices, v)
-        push!(GlobalBeamKnnResult, KnnResult(32))
-        push!(GlobalSatKnnResult, KnnResult(1))
     end
 end
 

@@ -40,11 +40,10 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     while true
         dmin = typemax(Float32)
         omin = -1
-        vstate[nodeID] = EXPLORED
+        setstate!(vstate, nodeID, EXPLORED)
         @inbounds for childID in keys(index.links[nodeID])
-            S = get(vstate, childID, UNKNOWN)
-            S != UNKNOWN && continue
-            vstate[childID] = VISITED
+            getstate(vstate, childID) != UNKNOWN  && continue
+            setstate!(vstate, childID, VISITED)
             d = convert(Float32, evaluate(index.dist, index[childID], q))
             if localimprovements  ## this yields to better quality but has no early stopping
                 push!(res, childID, d)
@@ -69,9 +68,8 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
 end
 
 function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint, vstate)
-    S = get(vstate, startpoint, UNKNOWN)
-    if S == UNKNOWN
-        vstate[startpoint] = VISITED
+    if getstate(vstate, startpoint) == UNKNOWN
+        setstate!(vstate, startpoint, VISITED)
         d = convert(Float32, evaluate(index.dist, q, index[startpoint]))
         push!(res, startpoint, d)
         hill_climbing(isearch, index, q, res, startpoint, vstate)
@@ -90,7 +88,7 @@ function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints
         searchat(isearch, index, q, res, startpoint, vstate)
     end
 
-    if length(vstate) == 0
+    if length(res) == 0
         _range = 1:n
         for i in 1:min(isearch.restarts, n)
             startpoint = rand(_range)

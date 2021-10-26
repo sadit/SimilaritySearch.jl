@@ -25,7 +25,6 @@ A SearchGraph object controls when callbacks are fired using `callback_logbase` 
 abstract type Callback end
 
 ### Basic operations on the index
-include("visitedvertices.jl")
 
 @with_kw mutable struct OptimizeParametersCallback <: Callback
     error = :distance # :recall, :distance, :distance_and_searchtime
@@ -96,6 +95,8 @@ Note: Parallel insertions should be made through `append!` function with `parall
 end
 
 @inline Base.length(g::SearchGraph) = length(g.locks)
+include("visitedvertices.jl")
+
 
 Base.copy(g::SearchGraph;
         dist=g.dist,
@@ -167,7 +168,7 @@ function Base.append!(index::SearchGraph, db;
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-           @inbounds index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices())
+           @inbounds index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices(index))
         end
 
         # connecting neighbors
@@ -205,7 +206,7 @@ end
 Appends `item` into the index.
 """
 function push!(index::SearchGraph, item)
-    neighbors = find_neighborhood(index, item, getknnresult(), getvisitedvertices())
+    neighbors = find_neighborhood(index, item, getknnresult(), getvisitedvertices(index))
     push_neighborhood!(index, item, neighbors)
     neighbors
 end
@@ -218,8 +219,7 @@ Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
     if vstate === nothing
-        vstate = getvisitedvertices()
-        empty!(vstate)
+        vstate = getvisitedvertices(index)
     end
 
     length(index) > 0 && search(index.search_algo, index, q, res, hints, vstate)

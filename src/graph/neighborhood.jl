@@ -11,7 +11,6 @@ function find_neighborhood(index::SearchGraph, item, res, vstate)
     
     if n > 0
         empty!(res, index.neighborhood.ksearch)
-        empty!(vstate)
         reduce(index.neighborhood.reduce, search(index, item, res; vstate), index)
     else
         KnnResult(index.neighborhood.ksearch)
@@ -46,6 +45,11 @@ end
 
 
 const GlobalSatKnnResult = [KnnResult(1)]
+function __init__neighborhood()
+    for i in 2:Threads.nthreads()
+        push!(GlobalSatKnnResult, KnnResult(1))
+    end
+end
 
 """
     SatNeighborhood()

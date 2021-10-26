@@ -3,8 +3,6 @@
 using Random
 export BeamSearch
 
-const GlobalBeamKnnResult = [KnnResult(30)]  # see __init__ function
-@inline getbeam() = @inbounds GlobalBeamKnnResult[Threads.threadid()]
 
 """
     BeamSearch(bsize::Integer=16, beam=KnnResult(bsize))
@@ -29,7 +27,19 @@ end
 
 Base.string(s::BeamSearch) = """{BeamSearch: bsize=$(s.bsize)}"""
 
-# const BeamType = typeof((objID=Int32(0), dist=0.0))
+const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
+@inline function getbeam(bs::BeamSearch)
+    @inbounds beam = GlobalBeamKnnResult[Threads.threadid()]
+    empty!(beam, bs.bsize)
+    beam
+end
+
+function __init__beamsearch()
+    for i in 2:Threads.nthreads()
+        push!(GlobalBeamKnnResult, KnnResult(32))
+    end
+end
+
 ### local search algorithm
 
 function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
@@ -40,12 +50,12 @@ function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     end
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)    
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
     for objID in hints
         beamsearch_queue(index, q, res, objID, vstate)
     end
     
-    if length(vstate) == 0
+    if length(res) == 0
         _range = 1:length(index)
         for i in 1:bs.bsize
            objID = rand(_range)
@@ -83,8 +93,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
     beamsearch_init(bs, index, q, res, hints, vstate)
-    beam = getbeam()
-    empty!(beam, bs.bsize)
+    beam = getbeam(bs)
     push!(beam, first(res))
     beamsearch_inner(index, q, res, beam, vstate)
     res
