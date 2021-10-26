@@ -3,7 +3,7 @@
 using Random
 export BeamSearch
 
-const GlobalBeamKnnResult = [KnnResult(10)]  # see __init__ function
+const GlobalBeamKnnResult = [KnnResult(30)]  # see __init__ function
 @inline getbeam() = @inbounds GlobalBeamKnnResult[Threads.threadid()]
 
 """
@@ -13,7 +13,6 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 Multithreading applications must have copies of this object due to shared cache objects.
 
 - `bsize`: The size of the beam.
-- `beam`: A cache object for reducing memory allocations
 """
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32 = 8  # size of the search beam
@@ -83,9 +82,9 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `vstate`: A dictionary like object to store the visiting state of vertices
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+    beamsearch_init(bs, index, q, res, hints, vstate)
     beam = getbeam()
     empty!(beam, bs.bsize)
-    beamsearch_init(bs, index, q, res, hints, vstate)
     push!(beam, first(res))
     beamsearch_inner(index, q, res, beam, vstate)
     res

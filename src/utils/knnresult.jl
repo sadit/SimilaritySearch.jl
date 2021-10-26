@@ -1,4 +1,5 @@
 # This file is a part of SimilaritySearch.jl
+using Intersections
 
 export KnnResult, maxlength, covrad, maxlength
 
@@ -15,13 +16,18 @@ mutable struct KnnResult{IdType<:Integer,DistType<:Real} <: AbstractVector{Tuple
     k::Int32  # number of neighbors
     shift::Int32 # shift position of the first element (to support popfirst! efficiently)
     
-    function KnnResult(id, dist, k::Integer)
+    function KnnResult(id::I, dist::D, k::Integer) where {I,D}
         @assert k > 0
-        new{eltype(id), eltype(dist)}(id, dist, Int32(k), 0)
+        new{eltype(I), eltype(D)}(id, dist, Int32(k), 0)
     end
 end
 
-KnnResult(k::Integer, F=Float32) = KnnResult(Int32[], F[], k)
+function KnnResult(k::Integer, F=Float32)
+    res = KnnResult(Int32[], F[], k)
+    sizehint!(res.id, k)
+    sizehint!(res.dist, k)
+    res
+end
 
 function Base.copy(res::KnnResult)
     compact!(res)
@@ -39,15 +45,14 @@ function fixorder!(shift, id, dist)
     sp = shift + 1
     pos = N = length(id)
     id_, dist_ = last(id), last(dist)
-    #if N-sp > 15
-    #    D = @view dist[sp:end-1]
-    #    pos = Base.Sort.searchsortedlast(D, dist_) + sp
-    #else
-        @inbounds while pos > sp && dist_ < dist[pos-1]
-            pos -= 1
-        end
-    #end
-
+    
+    pos = doublingsearchrev(dist, dist_, N, sp)
+    #pos = doublingsearch(dist, dist_, sp, N)
+    #pos = binarysearch(dist, dist_, sp, N)
+    #=@inbounds while pos > sp && dist_ < dist[pos-1]
+        pos -= 1
+    end=#
+    
     @inbounds if pos < N
         while N > pos
             id[N] = id[N-1]
@@ -166,7 +171,6 @@ as needed (only grows).
     @assert k > 0
     empty!(res.id)
     empty!(res.dist)
-
     res.k = k
     res.shift = 0
 end

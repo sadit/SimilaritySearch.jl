@@ -34,7 +34,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; appl
     @inbounds for (id, dist) in neighbors
         vertex = index.links[id]
         vertex.k = max(maxlength(vertex), k) # adjusting maximum size to the current allowed neighborhood size
-        push!(vertex, n => dist)
+        push!(vertex, n, dist)
     end
 
     apply_callbacks && callbacks(index)
@@ -45,16 +45,15 @@ function push_neighborhood!(index::SearchGraph, item, neighbors::KnnResult; appl
 end
 
 
+const GlobalSatKnnResult = [KnnResult(1)]
+
 """
-    SatNeighborhood(k=32)
+    SatNeighborhood()
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage.
 """
-mutable struct SatNeighborhood <: NeighborhoodReduction
-    near::KnnResult{Int32,Float32}
-    SatNeighborhood() = new(KnnResult(1))
-end
+struct SatNeighborhood <: NeighborhoodReduction end
 
 Base.copy(::SatNeighborhood) = SatNeighborhood()
 
@@ -64,9 +63,11 @@ Base.copy(::SatNeighborhood) = SatNeighborhood()
 Reduces `res` using the SAT strategy.
 """
 function Base.reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
-    near = sat.near
-    N = KnnResult(maxlength(res))
+    near = GlobalSatKnnResult[Threads.threadid()]
+    N = KnnResult(ceil(Int, maxlength(res)/2))
 
+    #@inbounds for i in lastindex(res):-1:firstindex(res)  # DistSat => works a little better but also produces a bit larger neighborhoods
+    #id, dist = res[i]
     @inbounds for (id, dist) in res
         pobj = index[id]
         empty!(near)
@@ -76,7 +77,7 @@ function Base.reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
             push!(near, nearID, d)
         end
 
-        argmin(near) == 0 && push!(N, id => dist)
+        argmin(near) == 0 && push!(N, id, dist)
     end
 
     N

@@ -6,7 +6,7 @@
 Indicates that hints are a random sample of the dataset
 """
 @with_kw mutable struct RandomHintsCallback <: Callback
-    logbase::Float32 = 1.5
+    logbase::Float32 = 1.1
 end
 
 """
@@ -28,7 +28,7 @@ end
 Indicates that hints are selected to have a disjoint neighborhood
 """
 @with_kw struct DisjointNeighborhoodHints <: Callback
-    logbase::Float32 = 1.5
+    logbase::Float32 = 1.3
     expansion::Int32 = 2
 end
 
@@ -40,7 +40,7 @@ SearchGraph's callback for selecting hints at random
 function callback(opt::DisjointNeighborhoodHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
-    visited = Set{Int}()
+    visited = Set{Int32}()
     empty!(index.hints)
     E = Pair{Int32,Int32}[]
     for i in 1:m
@@ -61,5 +61,5 @@ function callback(opt::DisjointNeighborhoodHints, index)
         end
     end
     
-    # @info "disjoint hints $m --> $(length(index.search_algo.hints))"
+    # @info "disjoint hints $m --> $(length(index.hints))"
 end

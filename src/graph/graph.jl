@@ -25,27 +25,7 @@ A SearchGraph object controls when callbacks are fired using `callback_logbase` 
 abstract type Callback end
 
 ### Basic operations on the index
-
-const UNKNOWN = UInt8(0)
-const VISITED = UInt8(1)
-const EXPLORED = UInt8(2)
-
-const VisitedVertices = Dict{Int32, UInt8}
-
-@inline getstate(vstate::VisitedVertices, i) = get(vstate, i, UNKNOWN)
-@inline function setstate!(vstate::VisitedVertices, i, state)
-    vstate[i] = state
-end
-
-@inline function visit!(vstate::VisitedVertices, visited)
-    for v in visited
-        setstate!(vstate, v, VISITED)
-    end
-end
-
-const GlobalVisitedVertices = [VisitedVertices()]  # initialized at __init__ function
-
-@inline getvisitedvertices(vstate=nothing) = vstate !== nothing ? vstate : @inbounds GlobalVisitedVertices[Threads.threadid()]
+include("visitedvertices.jl")
 
 @with_kw mutable struct OptimizeParametersCallback <: Callback
     error = :distance # :recall, :distance, :distance_and_searchtime
@@ -187,7 +167,7 @@ function Base.append!(index::SearchGraph, db;
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-            index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices())
+           @inbounds index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices())
         end
 
         # connecting neighbors
@@ -208,7 +188,7 @@ function Base.append!(index::SearchGraph, db;
         # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
         resize!(index.locks, ep)
         for i in sp:ep
-            index.locks[i] = Threads.SpinLock()
+            @inbounds index.locks[i] = Threads.SpinLock()
         end
         
         # apply callbacks

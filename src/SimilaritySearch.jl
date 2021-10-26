@@ -10,7 +10,7 @@ export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
 
 include("utils/knnresult.jl")
 
-const GlobalKnnResult = [KnnResult(10)]   # see __init__ function at the end of this file
+const GlobalKnnResult = [KnnResult(30)]   # see __init__ function at the end of this file
 
 @inline getknnresult(res=nothing) = res !== nothing ? res : @inbounds GlobalKnnResult[Threads.threadid()]
 
@@ -67,10 +67,14 @@ include("indexes/kvp.jl")
 include("graph/graph.jl")
 
 function __init__()
+    sizehint!(GlobalVisitedVertices[1], 64)
     for i in 2:Threads.nthreads()
-        push!(GlobalKnnResult, KnnResult(10))
-        push!(GlobalVisitedVertices, VisitedVertices())
-        push!(GlobalBeamKnnResult, KnnResult(10))
+        push!(GlobalKnnResult, KnnResult(32))
+        v = VisitedVertices()
+        sizehint!(v, 64)
+        push!(GlobalVisitedVertices, v)
+        push!(GlobalBeamKnnResult, KnnResult(32))
+        push!(GlobalSatKnnResult, KnnResult(1))
     end
 end
 
