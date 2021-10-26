@@ -20,7 +20,7 @@ using Test
     seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
     
-    for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=4)]
+    for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
         search_algo = search_algo_fun()
         @info "=================== $search_algo"
         graph = SearchGraph(; dist, search_algo=search_algo)
