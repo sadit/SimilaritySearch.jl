@@ -1,28 +1,25 @@
 # This file is a part of SimilaritySearch.jl
 
-const UNKNOWN = UInt8(0)
-const VISITED = UInt8(1)
-const EXPLORED = UInt8(2)
+@inline visited(vstate::BitVector, i)::Bool = @inbounds vstate[i]
 
-@inline getstate(vstate::Vector{UInt8}, i) = @inbounds vstate[i]
-
-@inline function setstate!(vstate::Vector{UInt8}, i, state)
-    @inbounds vstate[i] = state
+@inline function visit!(vstate::BitVector, i)
+    @inbounds vstate[i] = true
 end
 
-@inline getstate(vstate::Dict{Int32,UInt8}, i) = @inbounds get(vstate, i, UNKNOWN)
+@inline visited(vstate::Vector{UInt8}, i)::Bool = @inbounds vstate[i] == 1
 
-@inline function setstate!(vstate::Dict{Int32,UInt8}, i, state)
-    @inbounds vstate[i] = state
+@inline function visit!(vstate::Vector{UInt8}, i, state)
+    @inbounds vstate[i] = 1
 end
 
-@inline function visit!(vstate, visited)
-    for v in visited
-        setstate!(vstate, v, VISITED)
-    end
+@inline visited(vstate::Set{Int32}, i)::Bool = i ∈ vstate
+
+@inline function visit!(vstate::Set{Int32}, i)
+    @inbounds push!(vstate, i)
 end
 
-const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
+const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
+# const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Dict{Int32,UInt8}()]  # initialized at __init__ function
 
 function __init__visitedvertices()
@@ -35,8 +32,9 @@ function __init__visitedvertices()
     end=#
 end
 
-@inline function _init_vv(v::Vector, n)
-    length(v) < n && resize!(v, n)
+@inline function _init_vv(v::AbstractVector, n)
+    # length(v) < n &&
+    resize!(v, n)
     fill!(v, 0)
     v
 end

@@ -43,8 +43,8 @@ end
 ### local search algorithm
 
 function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    @inbounds if getstate(vstate, objID) === UNKNOWN
-        setstate!(vstate, objID, VISITED)
+    @inbounds if !visited(vstate, objID)
+        visit!(vstate, objID)
         d = evaluate(index.dist, q, index[objID])
         push!(res, objID, d)
     end
@@ -66,12 +66,10 @@ end
 
 function beamsearch_inner(index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate)
     while length(beam) > 0
-        prev_id, prev_dist = popfirst!(beam)   
-        getstate(vstate, prev_id) === EXPLORED && continue
-        setstate!(vstate, prev_id, EXPLORED)
+        prev_id, prev_dist = popfirst!(beam)
         @inbounds for childID in keys(index.links[prev_id])
-            if getstate(vstate, childID) === UNKNOWN
-                setstate!(vstate, childID, VISITED)
+            if !visited(vstate, childID)
+                visit!(vstate, childID)
                 d = evaluate(index.dist, q, index[childID])
                 push!(res, childID, d) && push!(beam, childID, d)
                 #d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
