@@ -23,22 +23,20 @@ end
 end
 
 const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
-#const GlobalVisitedVertices = [Dict{Int32,UInt8}()]  # initialized at __init__ function
+# const GlobalVisitedVertices = [Dict{Int32,UInt8}()]  # initialized at __init__ function
 
 function __init__visitedvertices()
     for i in 2:Threads.nthreads()
         push!(GlobalVisitedVertices, copy(GlobalVisitedVertices[1]))
     end
 
-    for i in eachindex(GlobalVisitedVertices)
-        sizehint!(GlobalVisitedVertices[i], 64)
-    end
+    #=for i in eachindex(GlobalVisitedVertices)
+        sizehint!(GlobalVisitedVertices[i], 128)
+    end=#
 end
 
 @inline function _init_vv(v::Vector, n)
-    length(v) < n != resize!(v, n)
-    #resize!(v, 8 + ((length(index) >>> 3) << 3))
-    #fill!(reinterpret(UInt64, v), 0)
+    length(v) < n && resize!(v, n)
     fill!(v, 0)
     v
 end

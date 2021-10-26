@@ -48,7 +48,7 @@ function fixorder!(shift, id, dist)
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)
-    if N > 16
+    if N > 8
         pos = doublingsearchrev(dist, dist_, sp, N)
     else
         @inbounds while pos > sp && dist_ < dist[pos-1]
