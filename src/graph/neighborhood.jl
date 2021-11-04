@@ -66,25 +66,30 @@ Base.copy(::SatNeighborhood) = SatNeighborhood()
 
 Reduces `res` using the SAT strategy.
 """
-function Base.reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
-    near = GlobalSatKnnResult[Threads.threadid()]
-    N = KnnResult(ceil(Int, maxlength(res)/2))
+@inline function Base.reduce(sat::SatNeighborhood, res::KnnResult, index::SearchGraph)
+    satreduce(KnnResult(maxlength(res)), res, index)
+end
 
+function satreduce(N, res::KnnResult, index::SearchGraph)
     #@inbounds for i in lastindex(res):-1:firstindex(res)  # DistSat => works a little better but also produces a bit larger neighborhoods
-    #id, dist = res[i]
+    #    id, dist = res[i]
     @inbounds for (id, dist) in res
-        pobj = index[id]
-        empty!(near)
-        push!(near, 0, dist)
-        for nearID in keys(N)
-            d = evaluate(index.dist, index[nearID], pobj)
-            push!(near, nearID, d)
-        end
-
-        argmin(near) == 0 && push!(N, id, dist)
+        satpush!(id, dist, N, index)
     end
 
     N
+end
+
+function satpush!(id, dist, N::KnnResult, index, near::KnnResult=GlobalSatKnnResult[Threads.threadid()])
+    @inbounds obj = index[id]
+    empty!(near)
+    push!(near, 0, dist)
+    @inbounds for nearID in keys(N)
+        d = evaluate(index.dist, index[nearID], obj)
+        push!(near, nearID, d)
+    end
+
+    argmin(near) == 0 && push!(N, id, dist)
 end
 
 """

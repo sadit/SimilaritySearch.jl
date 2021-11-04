@@ -1,88 +1,105 @@
 # This file is a part of SimilaritySearch.jl
 
 using SearchModels, Random
-import SearchModels: combine, mutate, config_type
+import SearchModels: combine, mutate
+export OptimizeParameters, optimize!
+
 
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
-    bsize = 1:4:16
-    origin::BeamSearch
+    bsize = 8:8:64
+    Δ = [0.97, 1.0, 1.03]                     # this really depends on the dataset
+    bsize_scale = (s=1.5, lower=2, upper=128) # all these are reasonably values
+    Δ_scale = (s=1.03, lower=0.7, upper=1.3) # that should work in most datasets
 end
-
-function _create_bs(o::BeamSearch, bsize)
-    BeamSearch(hints=o.hints, bsize=bsize, beam=o.beam, vstate=o.vstate)
-end
-
 
 Base.eltype(::BeamSearchSpace) = BeamSearch
-Base.rand(space::BeamSearchSpace) = _create_bs(space.origin, rand(space.bsize))
-combine(a::BeamSearch, b::BeamSearch) = _create_bs(a, div(a.bsize + b.bsize, 2))
-mutate(space::BeamSearchSpace, c::BeamSearch, iter) = _create_bs(c, SearchModels.scale(c.bsize, s=1.1, lower=1))
+Base.rand(space::BeamSearchSpace) = BeamSearch(rand(space.bsize), rand(space.Δ))
 
-@with_kw struct IHCSearchSpace <: AbstractSolutionSpace
-    restarts = 1:4:16
-    origin::IHCSearch
+function combine(a::BeamSearch, b::BeamSearch)
+    bsize = ceil(Int, (a.bsize + b.bsize) / 2)
+    Δ = (a.Δ + b.Δ) / 2
+    BeamSearch(; bsize, Δ)
 end
 
-function _create_ihc(o::IHCSearch, restarts)
-    IHCSearch(hints=o.hints, restarts=restarts, localimprovements=o.localimprovements, vstate=o.vstate)
+function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
+    bsize = SearchModels.scale(c.bsize; space.bsize_scale...)
+    Δ = SearchModels.scale(c.Δ; space.Δ_scale...)
+    BeamSearch(; bsize, Δ)
 end
 
-Base.eltype(::IHCSearchSpace) = IHCSearch
-Base.rand(space::IHCSearchSpace) = _create_ihc(space.origin, rand(space.restarts))
-combine(a::IHCSearch, b::IHCSearch) = _create_ihc(a, div(a.restarts + b.restarts, 2))
-mutate(space::IHCSearchSpace, c::IHCSearch, iter) = _create_ihc(c, SearchModels.scale(c.restarts, s=1.1, lower=1))
+@with_kw mutable struct OptimizeParameters <: Callback
+    kind = :pareto_distance_searchtime # :pareto_distance_searchtime and :pareto_recall_searchtime
+    ksearch::Int32 = 10
+    numqueries::Int32 = 32
+    initialpopulation::Int32 = 8
+    maxpopulation::Int32 = 4
+    tol::Float32 = 0.01
+    maxiters::Int32 = 8
+    space::BeamSearchSpace = BeamSearchSpace()
+end
+
+function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizeParameters, verbose)
+    seq = ExhaustiveSearch(index.dist, index.db)
+    knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
+    gtime = @elapsed searchbatch(seq, queries, knn; parallel=true)
+    gold = Set.(keys.(knn))
+
+    function lossfun(c)
+        searchtime = @elapsed Threads.@threads for i in eachindex(queries)
+            empty!(knn[i], opt.ksearch)
+            search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+        end
+
+        recall_ = sum(recall(gold[i], knn[i]) for i in eachindex(knn)) / length(knn)
+        verbose && println(stderr, "pareto_recall_searchtime> config: $(c), searchtime: $searchtime, recall: $recall_")
+        sqrt((searchtime / gtime)^2 + (1.0 - recall_)^2)
+    end
+end
+
+function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizeParameters, verbose)
+    knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
+
+    function lossfun(c)
+        searchtime = @elapsed Threads.@threads for i in eachindex(queries)
+            empty!(knn[i], opt.ksearch)
+            search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+        end
+
+        dmax_ = sum(maximum(knn_) for knn_ in knn) / length(queries)
+        verbose && println(stderr, "pareto_distance_searchtime> config: $(c), searchtime: $searchtime, dmax: $dmax_")
+        sqrt(searchtime^2 + dmax_^2)
+    end
+end
+
 
 """
-    callback(opt::OptimizeParametersCallback, index)
+    callback(opt::OptimizeParameters, index::SearchGraph)
 
 SearchGraph's callback for adjunting search parameters
 """
-function callback(opt::OptimizeParametersCallback, index)
-    sample = unique(rand(1:length(index), opt.numqueries))
-    queries = index[sample]
+function callback(opt::OptimizeParameters, index::SearchGraph)
+    optimize!(index, opt)
+end
 
-    error_function = if opt.error === :recall
-        seq = ExhaustiveSearch(index.dist, index.db; ksearch=opt.ksearch)
-        perf = Performance(seq, queries, opt.ksearch; popnearest=true)
-        function error_function1(c)
-            copy!(index.search_algo, c)
-            p = probe(perf, index)
-            index.verbose && println(stderr, "== SearchGraph optimizing recall, err: ", p, ", using configuration: ", c)
-            1 / (p.macrorecall + 1)
-        end
-    elseif opt.error === :distance
-        function error_function2(c)
-            d = 0.0
-            copy!(index.search_algo, c)
-            for q in queries
-                d += maximum(keys(search(index, q, opt.ksearch)))
-            end
-            d /= length(queries)
-
-            index.verbose && println(stderr, "== SearchGraph optimizing covering radius, err: ", d, ", using configuration: ", c)
-            d
-        end
-    elseif opt.error == :distance_and_searchtime
-        function error_function3(c)
-            d = 0.0
-            copy!(index.search_algo, c)
-            t = time()
-            for q in queries
-                d += maximum(search(index, q, opt.ksearch))
-            end
-            t = time() - t
-            d *= t
-            index.verbose && println(stderr, "== SearchGraph optimizing distance and searchtime, err: ", d, " using configuration: ", c)
-            d
-        end
-    else
-        error("unknown $(opt.error), valid options are :recall, :distance, and :distance_and_searchtime")
+function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose)
+    @assert index.search_algo isa BeamSearch
+    if queries === nothing
+        sample = unique(rand(1:length(index), opt.numqueries))
+        queries = index[sample]
     end
-    
-    space = index.search_algo isa BeamSearch ? BeamSearchSpace(origin=index.search_algo) : IHCSearchSpace(origin=index.search_algo)
-    bestlist = search_models(space, error_function, opt.initialpopulation; maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol)
+
+    error_function = if opt.kind === :pareto_recall_searchtime
+        pareto_recall_searchtime(index, queries, opt, verbose)
+    elseif opt.kind === :pareto_distance_searchtime
+        pareto_distance_searchtime(index, queries, opt, verbose)
+    else
+        error("unknown optimization $(opt.kind) for BeamSearch, valid options are :pareto_distance_searchtime and :pareto_recall_searchtime")
+    end
+
+    bestlist = search_models(opt.space, error_function, opt.initialpopulation; maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol, verbose=verbose)
     config, err = bestlist[1]
-    copy!(index.search_algo, config)
-    index.verbose && println(stderr, "== finished optimization SearchGraphdistance, err: ", err, ", with configuration: ", config)
+    index.search_algo.Δ = config.Δ
+    index.search_algo.bsize = config.bsize
+    verbose && println(stderr, "== finished optimization BeamSearch, err: ", err, ", with configuration: ", config, "opt:", opt)
     index
 end

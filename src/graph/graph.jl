@@ -26,16 +26,6 @@ abstract type Callback end
 
 ### Basic operations on the index
 
-@with_kw mutable struct OptimizeParametersCallback <: Callback
-    error = :distance # :recall, :distance, :distance_and_searchtime
-    ksearch::Int32 = 10
-    numqueries::Int32 = 32
-    initialpopulation::Int32 = 4
-    maxpopulation::Int32 = 4
-    tol::Float32 = 0.01
-    maxiters::Int32 = 4
-end
-
 """
     @with_kw mutable struct Neighborhood
     

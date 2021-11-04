@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Performance, StatsKnn, StatsComparison, scores, probe
+export Performance, StatsKnn, StatsComparison, probe, scores, recall
 
 mutable struct DistCounter{DistType<:PreMetric} <: PreMetric
     dist::DistType
@@ -136,7 +136,7 @@ end
 
 Compute recall and precision scores from the result sets.
 """
-function scores(gold::Set, res::Set)
+function scores(gold::Set, res)
     tp = intersect(gold, res)  # tn
     fp = length(setdiff(res, tp)) # |fp| == |ft| when |res| == |gold|
     fn = length(setdiff(gold, tp))
@@ -147,4 +147,7 @@ function scores(gold::Set, res::Set)
     (recall=recall, precision=precision, f1=2 * precision * recall / (precision + recall))
 end
 
-scores(gold::KnnResult, res::KnnResult) = scores(Set(gold.id), Set(res.id))
+
+scores(gold::Set, res::KnnResult) = scores(gold, keys(res))
+scores(gold::KnnResult, res) = scores(Set(keys(gold)), res)
+recall(gold, res) = scores(gold, res).recall
