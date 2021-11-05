@@ -58,6 +58,7 @@ end
 
 function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizeParameters, verbose)
     knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
+    S = Float64[]
 
     function lossfun(c)
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
@@ -66,11 +67,15 @@ function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizePa
         end
 
         dmax_ = sum(maximum(knn_) for knn_ in knn) / length(queries)
+        if length(S) == 0
+            push!(S, searchtime)
+            push!(S, dmax_)
+        end
+        gtime, gdmax = S
         verbose && println(stderr, "pareto_distance_searchtime> config: $(c), searchtime: $searchtime, dmax: $dmax_")
-        sqrt(searchtime^2 + dmax_^2)
+        sqrt((searchtime/gtime)^2 + (dmax_/gdmax)^2)
     end
 end
-
 
 """
     callback(opt::OptimizeParameters, index::SearchGraph)
