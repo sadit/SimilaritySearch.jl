@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using SearchModels, Random
+using StatsBase
 import SearchModels: combine, mutate
 export OptimizeParameters, optimize!
 
@@ -13,7 +14,7 @@ export OptimizeParameters, optimize!
 end
 
 Base.eltype(::BeamSearchSpace) = BeamSearch
-Base.rand(space::BeamSearchSpace) = BeamSearch(rand(space.bsize), rand(space.Δ))
+Base.rand(space::BeamSearchSpace) = BeamSearch(rand(space.bsize), rand(space.Δ), typemax(Int))
 
 function combine(a::BeamSearch, b::BeamSearch)
     bsize = ceil(Int, (a.bsize + b.bsize) / 2)
@@ -33,8 +34,9 @@ end
     numqueries::Int32 = 32
     initialpopulation::Int32 = 8
     maxpopulation::Int32 = 4
-    tol::Float32 = 0.01
+    tol::Float32 = 0.001
     maxiters::Int32 = 8
+    minrecall = 0.0  # only for :pareto_recall_searchtime
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
@@ -43,37 +45,57 @@ function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizePara
     knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
     gtime = @elapsed searchbatch(seq, queries, knn; parallel=true)
     gold = Set.(keys.(knn))
+    visited_ = Vector{Int}(undef, length(knn))
+    S = Float64[]
 
     function lossfun(c)
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
             empty!(knn[i], opt.ksearch)
-            search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+            res, v = search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+            visited_[i] = v
         end
 
-        recall_ = sum(recall(gold[i], knn[i]) for i in eachindex(knn)) / length(knn)
-        verbose && println(stderr, "pareto_recall_searchtime> config: $(c), searchtime: $searchtime, recall: $recall_")
-        sqrt((searchtime / gtime)^2 + (1.0 - recall_)^2)
+        recall_ = mean(recall(gold[i], knn[i]) for i in eachindex(knn))
+        v = extrema(visited_)
+        verbose && println(stderr, "pareto_recall_searchtime> config: $c, opt: $opt, searchtime: $searchtime, recall: $recall_")
+
+        #err = (searchtime / gtime)^2 + (1.0 - recall_)^2
+        
+        length(S) == 0 && push!(S, v[end])
+        err = (v[end] / S[1])^2 + (1.0 - recall_)^2
+
+        if opt.minrecall > 0
+            err += max(opt.minrecall - recall_, 0.0)
+        end
+
+        (err=err, visited=v, recall=recall_, searchtime=searchtime/length(knn))
+
     end
 end
 
 function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizeParameters, verbose)
     knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
     S = Float64[]
+    visited_ = Vector{Int}(undef, length(knn))
 
     function lossfun(c)
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
             empty!(knn[i], opt.ksearch)
-            search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+            res, v = search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index))
+            visited_[i] = v
         end
 
+        v = extrema(visited_)
         dmax_ = sum(maximum(knn_) for knn_ in knn) / length(queries)
         if length(S) == 0
-            push!(S, searchtime)
+            push!(S, v[end])
             push!(S, dmax_)
         end
-        gtime, gdmax = S
+
         verbose && println(stderr, "pareto_distance_searchtime> config: $(c), searchtime: $searchtime, dmax: $dmax_")
-        sqrt((searchtime/gtime)^2 + (dmax_/gdmax)^2)
+        err = sqrt((v[end]/S[1])^2 + (dmax_/S[2])^2)
+
+        (err=err, visited=v, searchtime=searchtime/length(knn))
     end
 end
 
@@ -86,7 +108,17 @@ function callback(opt::OptimizeParameters, index::SearchGraph)
     optimize!(index, opt)
 end
 
-function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose)
+"""
+    optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose, visits=2.0)
+
+Optimizes the index using the `opt` parameters. If `queries=nothing` then it selects a small sample randomply from 
+the already indexed objects; this sample size and the number of neighbors are also parameters in `opt`.
+
+Note:
+The `visits` parameters is a factor allowing early stopping based on the number of distance evaluations seen in the optimization procedure; please note that in some cases this will reduce the quality to limit the search times.
+Please also take into account that inserting items after limiting visits may also cause severe quality degradation when maxvisits is not also updated as required. You can always adjust maxvisits modifying `index.search_Algo.maxvisits`.
+"""
+function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose, visits=2.0)
     @assert index.search_algo isa BeamSearch
     if queries === nothing
         sample = unique(rand(1:length(index), opt.numqueries))
@@ -101,10 +133,13 @@ function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing,
         error("unknown optimization $(opt.kind) for BeamSearch, valid options are :pareto_distance_searchtime and :pareto_recall_searchtime")
     end
 
-    bestlist = search_models(opt.space, error_function, opt.initialpopulation; maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol, verbose=verbose)
-    config, err = bestlist[1]
+    params = SearchParams(maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol, verbose=verbose)
+    bestlist = search_models(error_function, opt.space, opt.initialpopulation, params; geterr=p->p.err)
+    config, perf = bestlist[1]
+    @show config, perf
     index.search_algo.Δ = config.Δ
     index.search_algo.bsize = config.bsize
-    verbose && println(stderr, "== finished optimization BeamSearch, err: ", err, ", with configuration: ", config, "opt:", opt)
-    index
+
+    index.search_algo.maxvisits = ceil(Int, visits * perf.visited[end])
+    verbose && println(stderr, "== finished optimization BeamSearch, perf: ", perf, ", with configuration: ", config, "opt:", opt)
 end

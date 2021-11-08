@@ -14,10 +14,11 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32 = 8  # size of the search beam
     Δ::Float32 = 1.0  # soft-margin for accepting an element into the beam
+    maxvisits::Int = typemax(Int) # maximum visits by search, useful for early stopping without convergence
 end
 
-Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ) =
-    BeamSearch(; bsize, Δ)
+Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
+    BeamSearch(; bsize, Δ, maxvisits)
 
 const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
 
@@ -36,45 +37,57 @@ end
 ### local search algorithm
 
 function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
+    visited_ = 0
     @inbounds if !visited(vstate, objID)
         visit!(vstate, objID)
+        visited_ += 1
         d = evaluate(index.dist, q, index[objID])
         push!(res, objID, d)
     end
+
+    visited_
 end
 
 function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+    visited_ = 0
+
     for objID in hints
-        beamsearch_queue(index, q, res, objID, vstate)
+        visited_ += beamsearch_queue(index, q, res, objID, vstate)
     end
     
     if length(res) == 0
         _range = 1:length(index)
         for i in 1:bs.bsize
            objID = rand(_range)
-           beamsearch_queue(index, q, res, objID, vstate)
+           visited_ += beamsearch_queue(index, q, res, objID, vstate)
        end
     end
+
+    visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_)
     Δ = bs.Δ
+    maxvisits = bs.maxvisits
+ 
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
-        # prev_dist > maximum(res) && break
         @inbounds for childID in keys(index.links[prev_id])
             if !visited(vstate, childID)
                 visit!(vstate, childID)
                 d = evaluate(index.dist, q, index[childID])
                 push!(res, childID, d)
+                visited_ += 1
+                visited_ > maxvisits && return visited_
                 if d <= Δ * maximum(res)
                     push!(beam, childID, d)
                     #satpush!(childID, d, beam, index)
                 end
-                # d <= 0.9 * farthest(res).dist && push!(beam, childID, d)
             end
         end
     end
+
+    visited_
 end
 
 """
@@ -89,9 +102,9 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `vstate`: A dictionary like object to store the visiting state of vertices
 """
 function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
-    beamsearch_init(bs, index, q, res, hints, vstate)
+    visited_ = beamsearch_init(bs, index, q, res, hints, vstate)
     beam = getbeam(bs)
-    push!(beam, first(res)) 
-    beamsearch_inner(bs, index, q, res, beam, vstate)
-    res
+    push!(beam, first(res))
+    visited_ = beamsearch_inner(bs, index, q, res, beam, vstate, visited_)
+    res, visited_
 end
