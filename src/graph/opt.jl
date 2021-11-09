@@ -46,7 +46,7 @@ function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizePara
     gtime = @elapsed searchbatch(seq, queries, knn; parallel=true)
     gold = Set.(keys.(knn))
     visited_ = Vector{Int}(undef, length(knn))
-    S = Float64[]
+    n = length(index)
 
     function lossfun(c)
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
@@ -59,10 +59,11 @@ function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizePara
         v = extrema(visited_)
         verbose && println(stderr, "pareto_recall_searchtime> config: $c, opt: $opt, searchtime: $searchtime, recall: $recall_")
 
-        #err = (searchtime / gtime)^2 + (1.0 - recall_)^2
-        
-        length(S) == 0 && push!(S, v[end])
-        err = (v[end] / S[1])^2 + (1.0 - recall_)^2
+        # err = (searchtime / gtime)^2 + (1.0 - recall_)^2 
+        #length(S) == 0 && push!(S, v[end])
+        #err = mean(v) / S[1] + (1.0 - recall_)
+        err = (mean(v) / n)^2 + (1.0 - recall_)^2
+        #err = (1.0 - recall_)
 
         if opt.minrecall > 0
             err += max(opt.minrecall - recall_, 0.0)
