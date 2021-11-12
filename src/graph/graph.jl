@@ -208,9 +208,7 @@ end
 Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
-    if vstate === nothing
-        vstate = getvisitedvertices(index)
-    end
+    vstate = vstate === nothing ? getvisitedvertices(index) : vstate
 
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, vstate)

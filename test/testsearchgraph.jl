@@ -55,11 +55,29 @@ using Test
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
-    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_recall_searchtime, tol=0.001, numqueries=50)
+    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime, tol=0.001, numqueries=50)
     append!(graph, db)
     @time p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
 
+    
+    @info "#############=========== Callback optimization 2 ==========###########"
+    @info "--- Optimizing parameters :pareto_distance_searchtime L2 with large norm ---"
+    dim = 8
+    db = [rand(1:100, dim) for i in 1:n]
+    queries = [rand(1:100, dim) for i in 1:m]
+    seq = ExhaustiveSearch(dist, db)
+    perf = Performance(seq, queries, ksearch)
+
+    graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
+    graph.neighborhood.reduce = SatNeighborhood()
+    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime, tol=0.001, numqueries=50)
+    append!(graph, db)
+    @time p = probe(perf, graph)
+    @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
+    @info graph.search_algo
+    @test p.macrorecall >= 0.6
+    
 end

@@ -22,9 +22,9 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 
 const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
 
-@inline function getbeam(bs::BeamSearch)
+@inline function getbeam(bsize::Integer)
     @inbounds beam = GlobalBeamKnnResult[Threads.threadid()]
-    empty!(beam, bs.bsize)
+    empty!(beam, bsize)
     beam
 end
 
@@ -48,7 +48,7 @@ function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     visited_
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
     visited_ = 0
 
     for objID in hints
@@ -57,7 +57,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     
     if length(res) == 0
         _range = 1:length(index)
-        for i in 1:bs.bsize
+        for i in 1:bsize
            objID = rand(_range)
            visited_ += beamsearch_queue(index, q, res, objID, vstate)
        end
@@ -66,10 +66,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_)
-    Δ = bs.Δ
-    maxvisits = bs.maxvisits
- 
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_, Δ, maxvisits)
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
         @inbounds for childID in keys(index.links[prev_id])
@@ -100,11 +97,17 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `res`: The result object, it stores the results and also specifies the kind of query
 - `hints`: Starting points for searching, randomly selected when it is an empty collection
 - `vstate`: A dictionary like object to store the visiting state of vertices
+
+Optional arguments (defaults to values in `bs`)
+- `bsize`: Beam size
+- `Δ`: exploration expansion factor
+- `maxvisits`: Maximum number of nodes to visit (distance evaluations)
+
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
-    visited_ = beamsearch_init(bs, index, q, res, hints, vstate)
-    beam = getbeam(bs)
+function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+    visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
+    beam = getbeam(bsize)
     push!(beam, first(res))
-    visited_ = beamsearch_inner(bs, index, q, res, beam, vstate, visited_)
+    visited_ = beamsearch_inner(bs, index, q, res, beam, vstate, visited_, Δ, maxvisits)
     res, visited_
 end
