@@ -154,7 +154,7 @@ Note:
 The `visits` parameters is a factor allowing early stopping based on the number of distance evaluations seen in the optimization procedure; please note that in some cases this will reduce the quality to limit the search times.
 Please also take into account that inserting items after limiting visits may also cause severe quality degradation when maxvisits is not also updated as required. You can always adjust maxvisits modifying `index.search_Algo.maxvisits`.
 """
-function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose, visits=2.0, maxvisits=sqrt)
+function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing, verbose=index.verbose, visits=2.0)
     @assert index.search_algo isa BeamSearch
     if queries === nothing
         sample = unique(rand(1:length(index), opt.numqueries))
