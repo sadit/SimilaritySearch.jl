@@ -7,12 +7,14 @@ export OptimizeParameters, optimize!, BeamSearchSpace
 
 
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
-    bsize = 8:8:32
-    Δ = [0.97, 1.0, 1.03]                     # this really depends on the dataset
-    bsize_scale = (s=1.5, lower=2, upper=256) # all these are reasonably values
-    Δ_scale = (s=1.03, lower=0.7, upper=1.9)  # that should work in most datasets
+    bsize = 8:8:64
+    Δ = [0.8, 0.9, 1.0, 1.1]                  # this really depends on the dataset, be careful
+    bsize_scale = (s=1.5, p1=0.8, p2=0.8, lower=2, upper=256)  # all these are reasonably values
+    Δ_scale = (s=1.07, p1=0.8, p2=0.8, lower=0.6, upper=1.99)  # that should work in most datasets
 end
 
+Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
+Base.isequal(a::BeamSearch, b::BeamSearch) = a.bsize == b.bsize && a.Δ == b.Δ && a.maxvisits == b.maxvisits
 Base.eltype(::BeamSearchSpace) = BeamSearch
 Base.rand(space::BeamSearchSpace) = BeamSearch(rand(space.bsize), rand(space.Δ), typemax(Int))
 
@@ -29,22 +31,21 @@ function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
 end
 
 @with_kw mutable struct OptimizeParameters <: Callback
-    kind = :pareto_distance_searchtime # :pareto_distance_searchtime and :pareto_recall_searchtime
+    kind = :pareto_distance_searchtime # :pareto_distance_searchtime, :pareto_recall_searchtime, :minimum_recall_searchtime
+    initialpopulation = 16
+    params = SearchParams(bsize=2, mutbsize=8, crossbsize=0)
     ksearch::Int32 = 10
     numqueries::Int32 = 32
-    initialpopulation::Int32 = 8
-    maxpopulation::Int32 = 4
-    tol::Float32 = 0.001
-    maxiters::Int32 = 8
-    minrecall = 0.0  # only for :pareto_recall_searchtime
-    maxvisits = n->2 * log(2, n)^3  # will be computed as ceil(Int, maxvisits(length(index)))
+    minrecall = 0.9  # used with :minimum_recall_searchtime
+    maxvisits = n -> 5000 + log(2, n)^3  # will be computed as ceil(Int, maxvisits(length(index)))
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
-function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizeParameters, verbose)
-    seq = ExhaustiveSearch(index.dist, index.db)
+function recall_searchtime(index::SearchGraph, db, queries, opt::OptimizeParameters, verbose)
+    @assert opt.kind in (:pareto_recall_searchtime, :minimum_recall_searchtime)
+    seq = ExhaustiveSearch(index.dist, db)
     knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
     gtime = @elapsed searchbatch(seq, queries, knn; parallel=true)
     gold = Set.(keys.(knn))
@@ -55,14 +56,14 @@ function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizePara
     vacc = Vector{Float64}(undef, nt)
     maxvisits = ceil(Int, opt.maxvisits(length(index)))
 
-    function lossfun(c)
+    function lossfun(conf)
         vmin .= typemax(eltype(vmin))
         vmax .= typemin(eltype(vmax))
         vacc .= 0.0
 
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
             empty!(knn[i], opt.ksearch)
-            res, v = search(c, index, queries[i], knn[i], index.hints, getvisitedvertices(index); maxvisits)
+            res, v = search(conf, index, queries[i], knn[i], index.hints, getvisitedvertices(index); maxvisits)
             ti = Threads.threadid()
             vmin[ti] = min(v, vmin[ti])
             vmax[ti] = max(v, vmax[ti])
@@ -71,15 +72,16 @@ function pareto_recall_searchtime(index::SearchGraph, queries, opt::OptimizePara
 
         v = minimum(vmin), sum(vacc)/length(knn), maximum(vmax)
         recall_ = mean(recall(gold[i], knn[i]) for i in eachindex(knn))
-        verbose && println(stderr, "pareto_recall_searchtime> config: $c, opt: $opt, searchtime: $searchtime, recall: $recall_")
+        verbose && println(stderr, "pareto_recall_searchtime> config: $conf, opt: $opt, searchtime: $searchtime, recall: $recall_")
 
-        # err = (searchtime / gtime)^2 + (1.0 - recall_)^2 
-        #length(S) == 0 && push!(S, v[end])
-        #err = mean(v) / S[1] + (1.0 - recall_)
-        err = (v[2] / maxvisits)^2 + (1.0 - recall_)^2 + max(opt.minrecall - recall_, 0.0)^2
-        ####err = _kfun(v[2] / maxvisits) + _kfun(1.0 - recall_) + _kfun(max(opt.minrecall - recall_, 0.0))
+        cost = v[2] / maxvisits
+        err = if opt.kind === :pareto_recall_searchtime
+            cost^2 + (1.0 - recall_)^2
+        else # opt.kind === :minimum_recall_searchtime
+            recall_ < opt.minrecall ? 3.0 - 2 * recall_ : cost
+        end
 
-        (err=err, visited=v, recall=recall_, searchtime=searchtime/length(knn))
+        (err=err, visited=v, recall=recall_, cost=cost, searchtime=searchtime/length(knn))
     end
 end
 
@@ -126,12 +128,13 @@ function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizePa
         else
             rmax[1]
         end
-        
+
+        cost = v[2] / maxvisits
         verbose && println(stderr, "pareto_distance_searchtime> config: $(c), searchtime: $searchtime, ravg: $ravg, rmax: $rmax_")
-        err = _kfun(v[2] / maxvisits) + _kfun(ravg / rmax_)
+        err = _kfun(cost) + _kfun(ravg / rmax_)
         #err = (mean(v)/n)^2 + (dmax_)^2
 
-        (err=err, visited=v, searchtime=searchtime/length(knn))
+        (err=err, visited=v, cost=cost, searchtime=searchtime/length(knn))
     end
 end
 
@@ -161,21 +164,21 @@ function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing,
         queries = index[sample]
     end
 
-    error_function = if opt.kind === :pareto_recall_searchtime
-        pareto_recall_searchtime(index, queries, opt, verbose)
+    error_function = if opt.kind in (:pareto_recall_searchtime, :minimum_recall_searchtime)
+        db = @view index.db[1:length(index)]
+        recall_searchtime(index, db, queries, opt, verbose)
     elseif opt.kind === :pareto_distance_searchtime
         pareto_distance_searchtime(index, queries, opt, verbose)
     else
         error("unknown optimization $(opt.kind) for BeamSearch, valid options are :pareto_distance_searchtime and :pareto_recall_searchtime")
     end
 
-    params = SearchParams(maxpopulation=opt.maxpopulation, maxiters=opt.maxiters, tol=opt.tol, verbose=verbose)
-    bestlist = search_models(error_function, opt.space, opt.initialpopulation, params; geterr=p->p.err)
+    bestlist = search_models(error_function, opt.space, opt.initialpopulation, opt.params; geterr=p->p.err)
     config, perf = bestlist[1]
-    @show config, perf
+    println(stderr, "== config: $config, perf: $perf")
     index.search_algo.Δ = config.Δ
     index.search_algo.bsize = config.bsize
-
     index.search_algo.maxvisits = ceil(Int, visits * perf.visited[end])
     verbose && println(stderr, "== finished optimization BeamSearch, perf: ", perf, ", with configuration: ", config, "opt:", opt)
+    bestlist
 end
