@@ -55,7 +55,7 @@ using Test
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
-    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime, tol=0.001, numqueries=50)
+    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime)
     append!(graph, db)
     @time p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
@@ -73,7 +73,7 @@ using Test
 
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
-    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime, tol=0.001, numqueries=50)
+    graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime)
     append!(graph, db)
     @time p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
