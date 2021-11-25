@@ -33,11 +33,11 @@ end
 @with_kw mutable struct OptimizeParameters <: Callback
     kind = :pareto_distance_searchtime # :pareto_distance_searchtime, :pareto_recall_searchtime, :minimum_recall_searchtime
     initialpopulation = 16
-    params = SearchParams(bsize=2, mutbsize=8, crossbsize=0)
+    params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1, maxiters=16)
     ksearch::Int32 = 10
-    numqueries::Int32 = 32
+    numqueries::Int32 = 64
     minrecall = 0.9  # used with :minimum_recall_searchtime
-    maxvisits = n -> 5000 + log(2, n)^3  # will be computed as ceil(Int, maxvisits(length(index)))
+    maxvisits = n -> 0.01n + log(2, n)^3 # will be computed as ceil(Int, maxvisits(length(index)))
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
@@ -132,7 +132,6 @@ function pareto_distance_searchtime(index::SearchGraph, queries, opt::OptimizePa
         cost = v[2] / maxvisits
         verbose && println(stderr, "pareto_distance_searchtime> config: $(c), searchtime: $searchtime, ravg: $ravg, rmax: $rmax_")
         err = _kfun(cost) + _kfun(ravg / rmax_)
-        #err = (mean(v)/n)^2 + (dmax_)^2
 
         (err=err, visited=v, cost=cost, searchtime=searchtime/length(knn))
     end
