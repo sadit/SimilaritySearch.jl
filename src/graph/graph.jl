@@ -1,8 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
-export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices, NeighborhoodReduction, SatNeighborhood, IdentityNeighborhood, find_neighborhood, push_neighborhood!
-export Callback, RandomHintsCallback, DisjointNeighborhoodHints
+export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices, NeighborhoodReduction
+export Callback
 
 """
     abstract type NeighborhoodReduction end
@@ -41,7 +41,6 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
 
 """
 @with_kw mutable struct Neighborhood
-    k::Int32 = 2 # actual neighborhood
     ksearch::Int32 = 2
     logbase::Float32 = 2
     minsize::Int32 = 2
@@ -49,8 +48,8 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     reduce::NeighborhoodReduction = IdentityNeighborhood()
 end
 
-Base.copy(N::Neighborhood; k=N.k, ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduce=copy(N.reduce)) =
-    Neighborhood(; k, ksearch, logbase, minsize, Δ, reduce)
+Base.copy(N::Neighborhood; ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, Δ=N.Δ, reduce=copy(N.reduce)) =
+    Neighborhood(; ksearch, logbase, minsize, Δ, reduce)
 
 struct NeighborhoodCallback <: Callback end
 
@@ -69,14 +68,14 @@ Note: Parallel insertions should be made through `append!` function with `parall
 @with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractVector, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
     dist::DistType = SqL2Distance()
     db::DataType = Vector{Float32}[]
-    links::Vector{KnnResult{Int32,Float32}} = KnnResult{Int32,Float32}[]
+    links::Vector{Vector{Int32}} = Vector{Int32}[]
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
     hints::Vector{Int32} = Int32[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
     callbacks::Dict{Symbol,Callback} = Dict(
-        #:parameters => OptimizeParametersCallback(),
-        :hints => RandomHintsCallback(),
+        # :parameters => OptimizeParametersCallback(),
+        :hints => DisjointHints(),
         :neighborhood => NeighborhoodCallback()
     )
     callback_logbase::Float32 = 1.5
@@ -164,12 +163,11 @@ function Base.append!(index::SearchGraph, db;
         # connecting neighbors
         k = index.neighborhood.k
         Threads.@threads for i in sp:ep
-            @inbounds for (id, dist) in index.links[i]
+            @inbounds for id in index.links[i]
                 lock(index.locks[id])
                 try
-                    vertex = index.links[id]
-                    vertex.k = max(maxlength(vertex), k)
-                    push!(vertex, i => dist)
+                    push!(index.links[id], i)
+                    # push_neighbor!(index.neighborhood.reduce, index.links[id], index, index[i], i, -1.0)
                 finally
                     unlock(index.locks[id])
                 end
@@ -225,7 +223,24 @@ SearchGraph's callback for adjusting neighborhood strategy
 function callback(opt::NeighborhoodCallback, index)
     N = index.neighborhood
     N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
-    N.k = N.ksearch + ceil(Int, N.ksearch * N.Δ)
+#=    N.k = N.ksearch + ceil(Int, N.ksearch * N.Δ)
+
+    hints = Int32[0]
+    neighbors = Int32[]
+
+    for i in 1:length(index) # prunning large # of links
+        L = index.links[i]
+        k = N.ksearch
+        if length(L) > k
+            hints[1] = i
+            res = getknnresult()
+            empty!(res, k)
+            empty!(neighbors)
+            reduce(index.neighborhood.reduce, index, index[i], search(index, index[i], res; hints=hints), neighbors)
+            empty!(L)
+            append!(L, neighbors)
+        end
+    end=#
 end
 
 """

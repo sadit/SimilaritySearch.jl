@@ -37,7 +37,7 @@ end
     ksearch::Int32 = 10
     numqueries::Int32 = 64
     minrecall = 0.9  # used with :minimum_recall_searchtime
-    maxvisits = n -> 0.01n + log(2, n)^3 # will be computed as ceil(Int, maxvisits(length(index)))
+    maxvisits = n->3log2(n)^3 # will be computed as ceil(Int, maxvisits(length(index)))
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
@@ -54,8 +54,8 @@ function recall_searchtime(index::SearchGraph, db, queries, opt::OptimizeParamet
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
-    maxvisits = ceil(Int, opt.maxvisits(length(index)))
-
+    maxvisits = ceil(Int, opt.maxvisits(n))
+    @info "--- setting $maxvisits for n=$n --"
     function lossfun(conf)
         vmin .= typemax(eltype(vmin))
         vmax .= typemin(eltype(vmax))
@@ -174,10 +174,9 @@ function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing,
 
     bestlist = search_models(error_function, opt.space, opt.initialpopulation, opt.params; geterr=p->p.err)
     config, perf = bestlist[1]
-    println(stderr, "== config: $config, perf: $perf")
+    verbose && println(stderr, "== finished opt. BeamSearch: search-params: $(opt.params), opt-config: $config, perf: $perf")
     index.search_algo.Δ = config.Δ
     index.search_algo.bsize = config.bsize
     index.search_algo.maxvisits = ceil(Int, visits * perf.visited[end])
-    verbose && println(stderr, "== finished optimization BeamSearch, perf: ", perf, ", with configuration: ", config, "opt:", opt)
     bestlist
 end

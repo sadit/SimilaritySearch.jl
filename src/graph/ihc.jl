@@ -34,7 +34,7 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
     while true
         dmin = typemax(Float32)
         imin = 0
-        @inbounds for childID in keys(index.links[nodeID])
+        @inbounds for childID in index.links[nodeID]
             visited(vstate, childID) && continue
             visit!(vstate, childID)
             visited_ += 1

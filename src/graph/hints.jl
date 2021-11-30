@@ -1,50 +1,101 @@
 # This file is a part of SimilaritySearch.jl
 
+export KDisjointHints, DisjointHints, RandomHints
 """
-    mutable struct RandomHintsCallback
+    mutable struct RandomHints
 
 Indicates that hints are a random sample of the dataset
 """
-@with_kw mutable struct RandomHintsCallback <: Callback
+@with_kw mutable struct RandomHints <: Callback
     logbase::Float32 = 1.1
 end
 
 """
-    callback(opt::RandomHintsCallback, index)
+    callback(opt::RandomHints, index)
 
 SearchGraph's callback for selecting hints at random
 """
-function callback(opt::RandomHintsCallback, index)
+function callback(opt::RandomHints, index)
     n = length(index)
-    m = ceil(Int, log(opt.logbase, length(index)))
-    sample = unique(rand(1:n, m))
+    m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
-    append!(index.hints, sample)
+    V = Set{Int}()
+
+    for i in 1:m
+        p = rand(1:n)
+        if !(p in V)
+            push!(V, p)
+            push!(index.hints, p)
+        end
+    end
+end
+
+function callback__(opt::RandomHints, index)
+    empty!(index.hints)
+    push!(index.hints, 1)
 end
 
 """
-    struct DisjointNeighborhoodHints
+    mutable struct DisjointHints
+
+Indicates that hints are a small disjoint (untouched neighbors) subsample 
+"""
+@with_kw mutable struct DisjointHints <: Callback
+    logbase::Float32 = 1.1
+end
+
+function callback(opt::DisjointHints, index)
+    n = length(index)
+    m = ceil(Int, log(opt.logbase, n))
+    #m = ceil(Int, n^0.3)
+    empty!(index.hints)
+    V = Set{Int}()
+    i = 0
+
+    while i < n && length(index.hints) < m
+        i += 1
+        L = index.links[i]
+        if length(L) > 1 && !(i in V)
+            push!(index.hints, i)
+            union!(V, L)
+        end
+    end
+
+    if length(index.hints) == 0
+        push!(index.hints, 1)
+    end 
+end
+"""
+    struct KDisjointHints
 
 Indicates that hints are selected to have a disjoint neighborhood
 """
-@with_kw struct DisjointNeighborhoodHints <: Callback
-    logbase::Float32 = 1.3
-    expansion::Int32 = 2
+@with_kw struct KDisjointHints <: Callback
+    logbase::Float32 = 1.1
+    disjoint::Int32 = 3
+    expansion::Int32 = 4
 end
 
 """
-    callback(opt::DisjointNeighborhoodHints, index)
+    callback(opt::KDisjointHints, index)
 
 SearchGraph's callback for selecting hints at random
 """
-function callback(opt::DisjointNeighborhoodHints, index)
+function callback(opt::KDisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
+    sample = unique(rand(1:n, opt.expansion * m))
+    m = min(length(sample), m)
+    sort!(sample, by=i->length(index.links[i]), rev=true)
+
     visited = Set{Int32}()
     empty!(index.hints)
     E = Pair{Int32,Int32}[]
-    for i in 1:m
-        p = rand(1:n)
+    i = 1
+    while length(index.hints) < m && i < length(sample)
+        # p = rand(1:n)
+        p = sample[i]
+        i += 1
         p in visited && continue
         push!(index.hints, p)
         push!(visited, p)

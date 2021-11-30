@@ -95,17 +95,18 @@ function perf_search_batch(index::AbstractSearchContext, queries, ksearch::Integ
         ksearch += 1
     end
     reslist = [KnnResult(ksearch) for i in 1:m]
-    search(index, queries[1], ksearch) # warming step
+    search(index, queries[1], ksearch)  # warming step
     evaluations = index.dist.count
-    start = time()
 
-    for i in 1:m
-        search(index, queries[i], reslist[i])
-        popnearest && popfirst!(reslist[i])
+    p = @timed searchbatch(index, queries, reslist; parallel=false)
+    if popnearest
+        for r in reslist
+            popfirst!(r)
+        end
     end
 
-    elapsed = time() - start
-    reslist, elapsed / m, (index.dist.count - evaluations) / m
+    @show m, p.time / m, p.bytes / m, p.gctime, p.gcstats
+    reslist, p.time / m, (index.dist.count - evaluations) / m
 end
 
 """

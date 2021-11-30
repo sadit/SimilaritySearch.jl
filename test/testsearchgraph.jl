@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, Random
+using SimilaritySearch, Random, StatsBase
 using Test
 
 #
@@ -26,27 +26,28 @@ using Test
         graph = SearchGraph(; dist, search_algo=search_algo)
         graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db)
-        @time p = probe(perf, graph)
+        p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), p: $(p)"
         @test p.macrorecall >= 0.6
-        @info "queries per second: $(1/p.searchtime)"
+        @info "queries per second: $(1 / p.searchtime)"
         @info "===="
+        #@info sort!(collect(countmap(length.(graph.links))))
     end
 
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
-    graph.neighborhood.reduce = SatNeighborhood()
+    graph.neighborhood.reduce = DistalSatNeighborhood()
     append!(graph, db)
     @info "---- starting :pareto_distance_searchtime optimization ---"
     optimize!(graph, OptimizeParameters())
-    @time p = probe(perf, graph)
+    p = probe(perf, graph)
     @info ":pareto_distance_search_time: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
 
     @info "---- starting :pareto_recall_searchtime optimization ---"
     optimize!(graph, OptimizeParameters(kind=:pareto_recall_searchtime))
-    @time p = probe(perf, graph)
+     p = probe(perf, graph)
     @info ":pareto_recall_search_time: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
@@ -57,7 +58,7 @@ using Test
     graph.neighborhood.reduce = SatNeighborhood()
     graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime)
     append!(graph, db)
-    @time p = probe(perf, graph)
+     p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
@@ -72,10 +73,10 @@ using Test
     perf = Performance(seq, queries, ksearch)
 
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
-    graph.neighborhood.reduce = SatNeighborhood()
+    graph.neighborhood.reduce = DistalSatNeighborhood()
     graph.callbacks[:optimization] = OptimizeParameters(kind=:pareto_distance_searchtime)
     append!(graph, db)
-    @time p = probe(perf, graph)
+    p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6

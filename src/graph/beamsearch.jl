@@ -69,7 +69,7 @@ end
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_, Δ, maxvisits)
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
-        @inbounds for childID in keys(index.links[prev_id])
+        @inbounds for childID in index.links[prev_id]
             if !visited(vstate, childID)
                 visit!(vstate, childID)
                 d = evaluate(index.dist, q, index[childID])
@@ -77,7 +77,10 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
                 visited_ += 1
                 visited_ > maxvisits && return visited_
                 if d <= Δ * maximum(res)
-                    push!(beam, childID, d)
+                    if length(index.links[childID]) > 1
+                        push!(beam, childID, d)
+                    end
+                    
                     #satpush!(childID, d, beam, index)
                 end
             end
