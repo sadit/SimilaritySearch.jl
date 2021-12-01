@@ -13,11 +13,11 @@ using Test
     ksearch = 10
     n, m, dim = 100_000, 100, 4
 
-    db = [rand(Float32, dim) for i in 1:n]
+    db = rand(Float32, dim, n)
     queries = [rand(Float32, dim) for i in 1:m]
 
     dist = SqL2Distance()
-    seq = ExhaustiveSearch(dist, StrideDatabase(hcat(db...)))
+    seq = ExhaustiveSearch(dist, StrideDatabase(db))
     #perf = Performance(seq, StrideDatabase(hcat(queries...)), ksearch)
     perf = Performance(seq, queries, ksearch)
     
@@ -56,7 +56,7 @@ using Test
 
     @info "========================= Callback optimization ======================"
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
-    graph = SearchGraph(; db=MatrixDatabase(hcat(db...)), dist, search_algo=BeamSearch(bsize=2), verbose=false)
+    graph = SearchGraph(; db=MatrixDatabase(db), dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_distance_searchtime))
     index!(graph)
@@ -64,13 +64,12 @@ using Test
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
-    
-    exit(0)
+
     @info "#############=========== Callback optimization 2 ==========###########"
     @info "--- Optimizing parameters :pareto_distance_searchtime L2 ---"
     dim = 8
-    db = MatrixDatabase(rand(Float32, dim, n))
-    queries = MatrixDatabase(rand(Float32, dim, m))
+    db = MatrixDatabase(ceil.(Int32, rand(Float32, dim, n) .* 100))
+    queries = VectorDatabase(ceil.(Int32, rand(Float32, dim, m) .* 100))
     seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
 

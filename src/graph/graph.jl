@@ -119,6 +119,7 @@ In case of a parallel appending, then:
 Note: Parallel doesn't trigger callbacks inside blocks.
 """
 function Base.append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
+    db = convert(AbstractDatabase, db)
     n = length(index) + length(db)
     append!(index.db, db)
     parallel_block == 1 && return _sequential_append_loop!(index)

@@ -7,6 +7,9 @@ export AbstractDatabase, MatrixDatabase, VectorDatabase, SubDatabase, StrideData
 abstract type AbstractDatabase
 end
 
+#
+# Support for StrideArrays
+#
 struct StrideDatabase{DataType} <: AbstractDatabase
     X::DataType
 end
@@ -15,6 +18,7 @@ StrideDatabase(m::Matrix) = StrideDatabase(StrideArray(m))
 @inline function Base.getindex(db::StrideDatabase, i::Integer)
     @view db.X[:, i]
 end
+@inline Base.setindex!(db::StrideDatabase, value, i) = @inbounds (db.data[i] .= value)
 
 @inline function Base.getindex(db::StrideDatabase, lst::Vector{<:Integer})
     [db[i] for i in lst]
@@ -25,6 +29,8 @@ end
 @inline Base.eltype(db::StrideDatabase) = eltype(db.X)
 
 #
+# Matrix dataset, i.e., columns are objects. We store them as vector to support appending items
+#
 struct MatrixDatabase{DType,Dim} <: AbstractDatabase
     data::Vector{DType}
     MatrixDatabase(m::Matrix) = new{eltype(m), size(m, 1)}(vec(m))
@@ -34,8 +40,9 @@ end
 
 @inline function Base.getindex(db::MatrixDatabase{DType,dim}, i::Integer) where {DType,dim}
     ep = i * dim
-    @view db.data[(ep - dim + 1):ep]
+    @inbounds @view db.data[(ep - dim + 1):ep]
 end
+@inline Base.setindex!(db::MatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
 
 @inline function Base.getindex(db::MatrixDatabase{DType,dim}, lst::Vector{<:Integer}) where {DType,dim}
     [db[i] for i in lst]
@@ -56,13 +63,28 @@ end
 end
 
 @inline Base.eltype(db::MatrixDatabase{DType,dim}) where {DType,dim} = AbstractVector{DType}
-@with_kw struct VectorDatabase{DType} <: AbstractDatabase
-    data::Vector{DType} = Vector{Vector{Float32}}(undef, 0)
+
+#
+# Generic array of objects
+#
+@with_kw struct VectorDatabase{DataType} <: AbstractDatabase
+    data::Vector{DataType} = Vector{Vector{Float32}}(undef, 0)  # by default, we use array of float32 vectors
 end
 
-VectorDatabase(m::Matrix) = VectorDatabase([Vector(c) for c in eachcol(m)])
+VectorDatabase(M::Matrix) = VectorDatabase([Vector(c) for c in eachcol(M)])
+VectorDatabase(M::VectorDatabase) = VectorDatabase(M.data)
+#VectorDatabase(M::AbstractDatabase) = VectorDatabase([Vector(m) for m in M])
+
+Base.convert(::Type{AbstractDatabase}, M::AbstractDatabase) = M
+Base.convert(::Type{AbstractDatabase}, M::Matrix) = MatrixDatabase(M)
+Base.convert(::Type{AbstractDatabase}, M::Vector) = VectorDatabase(M)
+Base.convert(::Type{AbstractDatabase}, M::Vector{Any}) = VectorDatabase(typeof(first(M)).(M))
+Base.convert(::Type{AbstractDatabase}, M::AbstractVector) = VectorDatabase(typeof(first(M)).(M))
+Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where T = M.data
+Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
 
 @inline Base.getindex(db::VectorDatabase, i) = @inbounds db.data[i]
+@inline Base.setindex!(db::VectorDatabase, value, i) = @inbounds (db.data[i] = value)
 @inline Base.length(db::VectorDatabase) = length(db.data)
 @inline Base.eachindex(db::VectorDatabase) = eachindex(db.data)
 @inline function Base.push!(db::VectorDatabase, v)
@@ -73,7 +95,25 @@ end
 @inline Base.append!(a::VectorDatabase, b) = append!(a.data, b)
 @inline Base.eltype(db::VectorDatabase) = eltype(db.data)
 
+#
+# SubDatabase ~ view of the dataset
+#
+struct SubDatabase{DBType,RType} <: AbstractDatabase
+    db::DBType
+    map::RType
+end
 
+@inline Base.getindex(sdb::SubDatabase, i) = @inbounds sdb.db[sdb.map[i]]
+@inline Base.length(sdb::SubDatabase) = length(sdb.map)
+@inline Base.eachindex(sdb::SubDatabase) = eachindex(sdb.map)
+@inline function Base.push!(sdb::SubDatabase, v)
+    error("push! unsupported operation on SubDatabase")
+end
+@inline Base.eltype(sdb::SubDatabase) = eltype(sdb.db)
+
+#
+# Generic functions
+#
 function Base.iterate(db::AbstractDatabase, state::Int=1)
     n = length(db)
     if n == 0 || state > n
@@ -82,21 +122,7 @@ function Base.iterate(db::AbstractDatabase, state::Int=1)
         @inbounds db[state], state + 1
     end
 end
-
-struct SubDatabase{DBType,RType} <: AbstractDatabase
-    db::DBType
-    range_::RType
-end
-
-@inline Base.getindex(sdb::SubDatabase, i) = @inbounds sdb.db[sdb.range_[i]]
-@inline Base.length(sdb::SubDatabase) = length(sdb.range_)
-@inline Base.eachindex(sdb::SubDatabase) = eachindex(sdb.range_)
-@inline function Base.push!(sdb::SubDatabase, v)
-    error("push! unsupported operation on SubDatabase")
-end
-@inline Base.eltype(sdb::SubDatabase) = eltype(sdb.db)
-
-@inline Base.view(db::AbstractDatabase, range_) = SubDatabase(db, range_)
+@inline Base.view(db::AbstractDatabase, map) = SubDatabase(db, map)
 @inline Base.size(db::AbstractDatabase) = (length(db),)
 @inline Random.rand(db::AbstractDatabase) = @inbounds db[rand(eachindex(db))]
 @inline Random.rand(db::AbstractDatabase, n::Integer) = [rand(db) for i in 1:n]

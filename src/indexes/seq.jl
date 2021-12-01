@@ -9,10 +9,17 @@ export ExhaustiveSearch, search
 
 Solves queries evaluating `dist` for the query and all elements in the dataset
 """
-@with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractDatabase} <: AbstractSearchContext
-    dist::DistanceType = SqL2Distance()
-    db::DataType = VectorDatabase{Float32}()
+struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractDatabase} <: AbstractSearchContext
+    dist::DistanceType
+    db::DataType
 end
+
+ExhaustiveSearch(dist::PreMetric, db::AbstractVector) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
+ExhaustiveSearch(dist::PreMetric, db::Matrix) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
+function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ExhaustiveSearch(dist, db)
+end
+
 
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 

@@ -6,6 +6,7 @@ using LinearAlgebra
 using Test
 
 function test_seq(db, dist::PreMetric, ksearch, valid_lower=1e-3)
+    db = convert(AbstractDatabase, db)
     seq = ExhaustiveSearch(dist, db)
 
     for i in rand(1:length(db), 100)
@@ -14,12 +15,10 @@ function test_seq(db, dist::PreMetric, ksearch, valid_lower=1e-3)
     end    
 end
 
-
 @testset "indexing vectors with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 3
-    db = MatrixDatabase(rand(4, 1000))
-
+    db = rand(4, 1000)
 
     for (recall_lower_bound, dist) in [
         (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
@@ -38,7 +37,7 @@ end
 @testset "indexing sequences with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
-    db = VectorDatabase([create_sequence(5, false) for i in 1:1000])
+    db = [create_sequence(5, false) for i in 1:1000]
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for dist in [
         CommonPrefixDissimilarity(),
@@ -53,7 +52,7 @@ end
 @testset "indexing sets with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
-    db = VectorDatabase([create_sequence(5, true) for i in 1:1000])
+    db = [create_sequence(5, true) for i in 1:1000]
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for dist in [
         JaccardDistance(),
@@ -69,18 +68,17 @@ end
     ksearch = 10
     X = rand(4, 1000)
     normalize!.(eachcol(X))
-    db = MatrixDatabase(X)
 
-    test_seq(db, NormalizedAngleDistance(), ksearch)
-    test_seq(db, NormalizedAngleDistance(), ksearch)
-    test_seq(db, NormalizedCosineDistance(), ksearch)
-    test_seq(db, NormalizedCosineDistance(), ksearch)
+    test_seq(X, NormalizedAngleDistance(), ksearch)
+    test_seq(X, NormalizedAngleDistance(), ksearch)
+    test_seq(X, NormalizedCosineDistance(), ksearch)
+    test_seq(X, NormalizedCosineDistance(), ksearch)
 end
 
 @testset "Binary hamming distance" begin
     n = 1000 # number of items in the dataset
     ksearch = 10
-    db = VectorDatabase([rand(UInt64, 8) for i in 1:n])
+    db = [rand(UInt64, 8) for i in 1:n]
 
     test_seq(db, BinaryHammingDistance(), ksearch)
 end
