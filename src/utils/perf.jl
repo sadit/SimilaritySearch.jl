@@ -71,7 +71,7 @@ Creates performance comparer for the given set of queries using a gold standard 
 - `ksearch`: the number of neighbors to retrieve
 - `popnearest`: set as `true` whenever queries are part of the dataset.
 """
-struct Performance{DataType<:AbstractVector, KnnResultType<:KnnResult}
+struct Performance{DataType, KnnResultType<:KnnResult}
     queries::DataType
     ksearch::Int
     popnearest::Bool
@@ -81,7 +81,7 @@ struct Performance{DataType<:AbstractVector, KnnResultType<:KnnResult}
     goldstats::StatsKnn
 end
 
-function Performance(_goldsearch::AbstractSearchContext, queries::AbstractVector, ksearch::Integer; popnearest=false)
+function Performance(_goldsearch::AbstractSearchContext, queries, ksearch::Integer; popnearest=false)
     dist = DistCounter(_goldsearch.dist, 0)
     goldsearch = copy(_goldsearch, dist=dist)
     gold, searchtime, evaluations = perf_search_batch(goldsearch, queries, ksearch, popnearest)

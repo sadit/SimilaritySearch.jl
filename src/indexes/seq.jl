@@ -2,16 +2,16 @@
 
 import Base: push!
 
-export ExhaustiveSearch, search, push!
+export ExhaustiveSearch, search
 
 """
     ExhaustiveSearch(dist::PreMetric, db::AbstractVector)
 
 Solves queries evaluating `dist` for the query and all elements in the dataset
 """
-@with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractVector} <: AbstractSearchContext
+@with_kw struct ExhaustiveSearch{DistanceType<:PreMetric, DataType<:AbstractDatabase} <: AbstractSearchContext
     dist::DistanceType = SqL2Distance()
-    db::DataType = Vector{Int32}[]
+    db::DataType = VectorDatabase{Float32}()
 end
 
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
@@ -20,17 +20,15 @@ Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(di
     search(seq::ExhaustiveSearch, q, res::KnnResult)
 
 Solves the query evaluating all items in the given query.
-
-By default, it uses an internal result buffer;
-multithreading applications must duplicate specify another `res` object.
 """
 function search(seq::ExhaustiveSearch, q, res::KnnResult)
-    db = seq.db
-
-    @inbounds for i in eachindex(db)
-        push!(res, i, evaluate(seq.dist, db[i], q))
+    @inbounds for i in eachindex(seq)
+        push!(res, i, evaluate(seq.dist, seq[i], q))
     end
 
     res
 end
 
+function Base.push!(seq::ExhaustiveSearch, u)
+    push!(seq.db, u)
+end

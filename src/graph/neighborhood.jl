@@ -1,6 +1,16 @@
 # This file is a part of SimilaritySearch.jl
+export IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, find_neighborhood, push_neighborhood!, NeighborhoodSize
 
-export IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, find_neighborhood, push_neighborhood!
+"""
+    callback(opt::NeighborhoodSize, index)
+
+SearchGraph's callback for adjusting neighborhood strategy
+"""
+function callback(opt::NeighborhoodSize, index)
+    N = index.neighborhood
+    N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
+end
+
 """
     find_neighborhood(index::SearchGraph{T}, item, res::KnnResult, vstate)
 
@@ -19,13 +29,13 @@ function find_neighborhood(index::SearchGraph, item, res::KnnResult, vstate)
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, neighbors; apply_callbacks=true)
+    push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true, apply_callbacks=true)
 
 Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
 vertex created for ìtem` (internal function)
 """
-function push_neighborhood!(index::SearchGraph, item, neighbors; apply_callbacks=true)
-    push!(index.db, item)
+function push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true, apply_callbacks=true)
+    push_item && push!(index.db, item)
     push!(index.links, neighbors)
     # push!(index.links, Int32[])
     push!(index.locks, Threads.SpinLock())
