@@ -47,7 +47,6 @@ end
 function callback(opt::DisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
-    #m = ceil(Int, n^0.3)
     empty!(index.hints)
     V = Set{Int}()
     i = 0

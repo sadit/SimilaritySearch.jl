@@ -32,8 +32,6 @@ using Test
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
     end
-    exit(0)
-
 
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
