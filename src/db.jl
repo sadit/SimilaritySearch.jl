@@ -1,13 +1,30 @@
 # This file is a part of SimilaritySearch.jl
 
 # Database interface
-using Random
-export AbstractDatabase, MatrixDatabase, VectorDatabase, SubDatabase
-
+using Random, StrideArrays
+export AbstractDatabase, MatrixDatabase, VectorDatabase, SubDatabase, StrideDatabase
 
 abstract type AbstractDatabase
 end
 
+struct StrideDatabase{DataType} <: AbstractDatabase
+    X::DataType
+end
+StrideDatabase(m::Matrix) = StrideDatabase(StrideArray(m))
+
+@inline function Base.getindex(db::StrideDatabase, i::Integer)
+    @view db.X[:, i]
+end
+
+@inline function Base.getindex(db::StrideDatabase, lst::Vector{<:Integer})
+    [db[i] for i in lst]
+end
+
+@inline Base.length(db::StrideDatabase) = size(db.X, 2)
+@inline Base.eachindex(db::StrideDatabase) = 1:length(db)
+@inline Base.eltype(db::StrideDatabase) = eltype(db.X)
+
+#
 struct MatrixDatabase{DType,Dim} <: AbstractDatabase
     data::Vector{DType}
     MatrixDatabase(m::Matrix) = new{eltype(m), size(m, 1)}(vec(m))
@@ -42,6 +59,8 @@ end
 @with_kw struct VectorDatabase{DType} <: AbstractDatabase
     data::Vector{DType} = Vector{Vector{Float32}}(undef, 0)
 end
+
+VectorDatabase(m::Matrix) = VectorDatabase([Vector(c) for c in eachcol(m)])
 
 @inline Base.getindex(db::VectorDatabase, i) = @inbounds db.data[i]
 @inline Base.length(db::VectorDatabase) = length(db.data)

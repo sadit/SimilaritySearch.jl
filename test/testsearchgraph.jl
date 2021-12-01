@@ -17,7 +17,8 @@ using Test
     queries = [rand(Float32, dim) for i in 1:m]
 
     dist = SqL2Distance()
-    seq = ExhaustiveSearch(dist, VectorDatabase(db))
+    seq = ExhaustiveSearch(dist, StrideDatabase(hcat(db...)))
+    #perf = Performance(seq, StrideDatabase(hcat(queries...)), ksearch)
     perf = Performance(seq, queries, ksearch)
     
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
@@ -51,7 +52,7 @@ using Test
     @info ":pareto_recall_search_time: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
-
+    
 
     @info "========================= Callback optimization ======================"
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
@@ -63,7 +64,8 @@ using Test
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
     @test p.macrorecall >= 0.6
-        
+    
+    exit(0)
     @info "#############=========== Callback optimization 2 ==========###########"
     @info "--- Optimizing parameters :pareto_distance_searchtime L2 ---"
     dim = 8
