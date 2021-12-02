@@ -77,11 +77,11 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
                 visited_ += 1
                 visited_ > maxvisits && return visited_
                 if d <= Δ * maximum(res)
-                    if length(index.links[childID]) > 1
-                        push!(beam, childID, d)
-                    end
-                    
-                    #satpush!(childID, d, beam, index)
+                    #if length(index.links[childID]) > 1
+                    push!(beam, childID, d)
+                    # length(beam) == maxlength(beam) && continue
+                    # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
+                    #end
                 end
             end
         end

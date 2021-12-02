@@ -163,13 +163,14 @@ function optimize!(index::SearchGraph, opt::OptimizeParameters; queries=nothing,
         queries = index[sample]
     end
 
-    error_function = if opt.kind in (:pareto_recall_searchtime, :minimum_recall_searchtime)
+    ValidOptions = (:pareto_recall_searchtime, :minimum_recall_searchtime)
+    error_function = if opt.kind in ValidOptions
         db = @view index.db[1:length(index)]
         recall_searchtime(index, db, queries, opt, verbose)
     elseif opt.kind === :pareto_distance_searchtime
         pareto_distance_searchtime(index, queries, opt, verbose)
     else
-        error("unknown optimization $(opt.kind) for BeamSearch, valid options are :pareto_distance_searchtime and :pareto_recall_searchtime")
+        error("unknown optimization $(opt.kind) for BeamSearch, valid options are $ValidOptions")
     end
 
     bestlist = search_models(error_function, opt.space, opt.initialpopulation, opt.params; geterr=p->p.err)

@@ -67,10 +67,11 @@ end
 #
 # Generic array of objects
 #
-@with_kw struct VectorDatabase{DataType} <: AbstractDatabase
-    data::Vector{DataType} = Vector{Vector{Float32}}(undef, 0)  # by default, we use array of float32 vectors
+struct VectorDatabase{DataType} <: AbstractDatabase
+    data::Vector{DataType}  # by default, we use array of float32 vectors
 end
 
+VectorDatabase(t::Type=Vector{Float32}) = VectorDatabase(Vector{t}(undef, 0))
 VectorDatabase(M::Matrix) = VectorDatabase([Vector(c) for c in eachcol(M)])
 VectorDatabase(M::VectorDatabase) = VectorDatabase(M.data)
 #VectorDatabase(M::AbstractDatabase) = VectorDatabase([Vector(m) for m in M])

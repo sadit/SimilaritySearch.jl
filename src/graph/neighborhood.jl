@@ -87,6 +87,10 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 function push_neighbor!(::Union{DistalSatNeighborhood,SatNeighborhood}, N, index::SearchGraph, item, id::Integer, dist::AbstractFloat)
+    sat_should_push(N, index, item, id, dist) && push!(N, id)
+end
+
+function sat_should_push(N::T, index, item, id, dist) where T
     near = GlobalSatKnnResult[Threads.threadid()]
     empty!(near)
 
@@ -99,18 +103,11 @@ function push_neighbor!(::Union{DistalSatNeighborhood,SatNeighborhood}, N, index
         push!(near, linkID, d)
     end
 
-    # argmin(near) == 0 && push!(N, id, dist)
-    if argmin(near) == 0
-        push!(N, id)
-        true
-    else
-        false
-    end
+    argmin(near) == 0
 end
 
 function push_neighbor!(::IdentityNeighborhood, N, index::SearchGraph, item, id::Integer, dist::AbstractFloat)
     push!(N, id)
-    true
 end
 
 
