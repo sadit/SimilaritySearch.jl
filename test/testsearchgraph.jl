@@ -67,7 +67,7 @@ using Test
 
     @info "#############=========== Callback optimization 2 ==========###########"
     @info "--- Optimizing parameters :pareto_distance_searchtime L2 ---"
-    dim = 8
+    dim = 4
     db = MatrixDatabase(ceil.(Int32, rand(Float32, dim, n) .* 100))
     queries = VectorDatabase(ceil.(Int32, rand(Float32, dim, m) .* 100))
     seq = ExhaustiveSearch(dist, db)
@@ -75,8 +75,9 @@ using Test
 
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
-    push!(graph.callbacks, OptimizeParameters(kind=:pareto_distance_searchtime))
+    push!(graph.callbacks, OptimizeParameters(kind=:pareto_recall_searchtime))
     index!(graph)
+    #optimize!(graph, OptimizeParameters(kind=:minimum_recall_searchtime, minrecall=0.7))
     p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo

@@ -42,27 +42,26 @@ Indicates that hints are a small disjoint (untouched neighbors) subsample
 """
 @with_kw mutable struct DisjointHints <: Callback
     logbase::Float32 = 1.1
+    expansion::Int32 = 8
 end
 
 function callback(opt::DisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
-    V = Set{Int}()
-    i = 0
-
-    while i < n && length(index.hints) < m
-        i += 1
-        L = index.links[i]
-        if length(L) > 1 && !(i in V)
-            push!(index.hints, i)
-            union!(V, L)
-        end
+    meansize = mean(length(index.links[i]) for i in 1:n)
+    res = KnnResult(opt.expansion * m)
+    for i in 1:n
+        push!(res, i, abs(length(index.links[i]) - meansize))
     end
 
-    if length(index.hints) == 0
-        push!(index.hints, 1)
-    end 
+    V = Set{Int}()
+
+    for (i, d) in res
+        i in V && continue
+        push!(index.hints, i)
+        union!(V, index.links[i])
+    end
 end
 """
     struct KDisjointHints
