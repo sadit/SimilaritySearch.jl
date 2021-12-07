@@ -14,7 +14,7 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32 = 8  # size of the search beam
     Δ::Float32 = 1.0  # soft-margin for accepting an element into the beam
-    maxvisits::Int = typemax(Int) # maximum visits by search, useful for early stopping without convergence
+    maxvisits::Int64 = 1000_000 # maximum visits by search, useful for early stopping without convergence, very high by default
 end
 
 Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
@@ -69,7 +69,7 @@ end
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_, Δ, maxvisits)
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
-        @inbounds for childID in keys(index.links[prev_id])
+        @inbounds for childID in index.links[prev_id]
             if !visited(vstate, childID)
                 visit!(vstate, childID)
                 d = evaluate(index.dist, q, index[childID])
@@ -77,8 +77,11 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
                 visited_ += 1
                 visited_ > maxvisits && return visited_
                 if d <= Δ * maximum(res)
+                    #if length(index.links[childID]) > 1
                     push!(beam, childID, d)
-                    #satpush!(childID, d, beam, index)
+                    # length(beam) == maxlength(beam) && continue
+                    # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
+                    #end
                 end
             end
         end

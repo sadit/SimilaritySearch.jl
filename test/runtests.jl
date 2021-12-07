@@ -1,15 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-function create_vectors(n, dim, normalize=false)
-    D = [rand(Float32, dim) for i in 1:n]
-    if normalize
-        for u in D
-            normalize!(u)
-        end
-    end
-
-    D
-end
+using LinearAlgebra
 
 function create_sequence(dim, sort)
     s = rand(1:10, dim)
@@ -23,5 +14,4 @@ end
 
 include("testresults.jl")
 include("testseq.jl")
-include("testpivots.jl")
 include("testsearchgraph.jl")

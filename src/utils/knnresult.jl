@@ -48,14 +48,14 @@ function fixorder!(shift, id, dist)
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)
-    if N > 8
+    if N > 16
         pos = doublingsearchrev(dist, dist_, sp, N)
     else
         @inbounds while pos > sp && dist_ < dist[pos-1]
             pos -= 1
         end
     end
-    
+
     @inbounds if pos < N
         while N > pos
             id[N] = id[N-1]
@@ -213,3 +213,4 @@ function Base.iterate(res::KnnResult, state::Int=1)
 end
 
 Base.eltype(res::KnnResult{I,F}) where {I,F} = Pair{I,F}
+#Base.IndexStyle(::Type{<:KnnResult}) = IndexLinear()

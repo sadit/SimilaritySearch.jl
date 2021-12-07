@@ -8,6 +8,7 @@ using Parameters
 import Distances: evaluate, PreMetric
 export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
 
+include("db.jl")
 include("utils/knnresult.jl")
 
 const GlobalKnnResult = [KnnResult(30)]   # see __init__ function at the end of this file
@@ -33,11 +34,11 @@ end
 
 function searchbatch(searchctx::AbstractSearchContext, Q, KNN; parallel=false)
     if parallel
-        Threads.@threads for i in eachindex(Q, KNN)
+        Threads.@threads for i in eachindex(Q)
             @inbounds search(searchctx, Q[i], KNN[i])
         end
     else
-        @inbounds for i in eachindex(Q, KNN)
+        @inbounds for i in eachindex(Q)
             search(searchctx, Q[i], KNN[i])
         end
     end
@@ -55,15 +56,9 @@ include("distances/sets.jl")
 include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
-
+include("distances/cloud.jl")
 include("utils/perf.jl")
-
-include("indexes/pivotselection.jl")
 include("indexes/seq.jl")
-include("indexes/pivottable.jl")
-include("indexes/pivotselectiontables.jl")
-include("indexes/kvp.jl")
-
 include("graph/graph.jl")
 
 function __init__()
