@@ -174,7 +174,7 @@ end
 function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply_callbacks)
     while sp < n
         ep = min(n, sp + parallel_block)
-        index.verbose && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
+        index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
 
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
@@ -188,7 +188,7 @@ function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply
                 lock(index.locks[id])
                 try
                     push!(index.links[id], i)
-                    # push_neighbor!(index.neighborhood.reduce, index.links[id], index, index[i], i, -1.0)
+                    # sat_should_push(index.links[id], index, index[i], i, -1.0) && push!(index.links[id], i)
                 finally
                     unlock(index.locks[id])
                 end

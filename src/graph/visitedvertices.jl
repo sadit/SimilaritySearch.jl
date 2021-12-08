@@ -39,6 +39,19 @@ end
     v
 end
 
+@inline function _init_vv(v::BitVector, n)
+    # length(v) < n &&
+    resize!(v, n)
+    chunks = v.chunks
+    @inbounds for i in eachindex(chunks)
+        if chunks[i] !== 0
+            chunks[i] = 0
+        end
+    end
+    # fill!(v.chunks, 0)
+    v
+end
+
 @inline function _init_vv(v::Set, n)
     empty!(v)
     v

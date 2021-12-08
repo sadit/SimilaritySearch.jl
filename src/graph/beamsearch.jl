@@ -20,7 +20,7 @@ end
 Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
     BeamSearch(; bsize, Δ, maxvisits)
 
-const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
+const GlobalBeamKnnResult = [KnnResultShifted(32)]  # see __init__ function
 
 @inline function getbeam(bsize::Integer)
     @inbounds beam = GlobalBeamKnnResult[Threads.threadid()]
@@ -30,7 +30,7 @@ end
 
 function __init__beamsearch()
     for i in 2:Threads.nthreads()
-        push!(GlobalBeamKnnResult, KnnResult(32))
+        push!(GlobalBeamKnnResult, KnnResultShifted(32))
     end
 end
 
@@ -66,7 +66,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam::KnnResult, vstate, visited_, Δ, maxvisits)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam, vstate, visited_, Δ, maxvisits)
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
         @inbounds for childID in index.links[prev_id]

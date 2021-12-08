@@ -37,12 +37,13 @@ vertex created for ìtem` (internal function)
 function push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true, apply_callbacks=true)
     push_item && push!(index.db, item)
     push!(index.links, neighbors)
-    # push!(index.links, Int32[])
     push!(index.locks, Threads.SpinLock())
     n = length(index)
+    n == 1 && return
+    ## vstate = getvisitedvertices(index)
     @inbounds for id in neighbors
         push!(index.links[id], n)
-        # push_neighbor!(index.neighborhood.reduce, index.links[id], index, item, n, -1.0)
+        # sat_should_push(index.links[id], index, item, n, -1.0) && push!(index.links[id], n)
     end
 
     apply_callbacks && callbacks(index)

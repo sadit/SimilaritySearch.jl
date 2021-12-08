@@ -10,6 +10,7 @@ export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
 
 include("db.jl")
 include("utils/knnresult.jl")
+include("utils/knnresultshifted.jl")
 
 const GlobalKnnResult = [KnnResult(30)]   # see __init__ function at the end of this file
 
