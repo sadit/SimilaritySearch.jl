@@ -33,7 +33,7 @@ function searchbatch(searchctx, Q, k::Integer=10; parallel=false)
     searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)]; parallel)
 end
 
- function searchbatch(searchctx, Q, KNN; parallel=false)
+function searchbatch(searchctx, Q, KNN; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
             @inbounds search(searchctx, Q[i], KNN[i])

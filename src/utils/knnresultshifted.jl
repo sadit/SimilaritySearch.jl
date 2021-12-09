@@ -179,4 +179,4 @@ function Base.iterate(res::KnnResultShifted, state::Int=1)
 end
 
 Base.eltype(res::KnnResultShifted{I,F}) where {I,F} = Pair{I,F}
-#Base.IndexStyle(::Type{<:KnnResultShifted}) = IndexLinear()
+Base.IndexStyle(::Type{<:KnnResultShifted}) = IndexLinear()
