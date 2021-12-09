@@ -28,7 +28,7 @@ using Test
         append!(graph, db; parallel_block=8)
         p = probe(perf, graph)
         @info "testing search_algo: $(string(graph.search_algo)), p: $(p)"
-        @test p.macrorecall >= 0.6
+        @test p.recall >= 0.6
         @info "queries per second: $(1/p.searchtime)"
         @info "===="
     end
@@ -42,7 +42,7 @@ using Test
     p = probe(perf, graph)
     @info ":pareto_distance_search_time: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
-    @test p.macrorecall >= 0.6
+    @test p.recall >= 0.6
 
 
     @info "---- starting :pareto_recall_searchtime optimization ---"
@@ -50,7 +50,7 @@ using Test
     p = probe(perf, graph)
     @info ":pareto_recall_search_time: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
-    @test p.macrorecall >= 0.6
+    @test p.recall >= 0.6
     
 
     @info "========================= Callback optimization ======================"
@@ -62,7 +62,7 @@ using Test
     p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
-    @test p.macrorecall >= 0.6
+    @test p.recall >= 0.6
 
     @info "#############=========== Callback optimization 2 ==========###########"
     @info "--- Optimizing parameters :pareto_distance_searchtime L2 ---"
@@ -80,6 +80,6 @@ using Test
     p = probe(perf, graph)
     @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
     @info graph.search_algo
-    @test p.macrorecall >= 0.6
+    @test p.recall >= 0.6
     
 end

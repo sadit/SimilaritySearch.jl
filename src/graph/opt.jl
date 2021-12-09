@@ -69,7 +69,7 @@ function eval_beamsearch_config(index::SearchGraph, gold, knn, queries, opt::Opt
         ravg = mean(maximum, knn)
 
         recall_ = if gold !== nothing
-            mean(recall(gold[i], knn[i]) for i in eachindex(knn))
+            mean(recall_score(gold[i], knn[i]) for i in eachindex(knn))
         else
             nothing
         end
