@@ -126,4 +126,5 @@ end
 @inline Base.view(db::AbstractDatabase, map) = SubDatabase(db, map)
 @inline Base.size(db::AbstractDatabase) = (length(db),)
 @inline Random.rand(db::AbstractDatabase) = @inbounds db[rand(eachindex(db))]
-@inline Random.rand(db::AbstractDatabase, n::Integer) = [rand(db) for i in 1:n]
+@inline Random.rand(db::AbstractDatabase, n::Integer) = SubDatabase(db, rand(1:length(db), n))
+@inline Random.rand(db::SubDatabase, n::Integer) = SubDatabase(db.db, rand(db.map, n))

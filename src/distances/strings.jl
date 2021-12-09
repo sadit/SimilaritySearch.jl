@@ -19,31 +19,31 @@ struct StringHammingDistance <: PreMetric
 end
 
 """
-    GenericLevenshteinDistance(icost, dcost, rcost)
+    GenericLevenshteinDistance(;icost, dcost, rcost)
 
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
-The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
+The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
 """
-struct GenericLevenshteinDistance <: PreMetric
-    icost::Int32 # insertion cost
-    dcost::Int32 # deletion cost
-    rcost::Int32 # replace cost
+@with_kw struct GenericLevenshteinDistance <: PreMetric
+    icost::Int32 = 1 # insertion cost
+    dcost::Int32 = 1 # deletion cost
+    rcost::Int32 = 1 # replace cost
+    C::Vector{Int16} = Vector{Int16}(undef, 64)
 end
 
-
 """
-    LevenshteinDistance(a, b)
+    LevenshteinDistance()
 
 Instantiates a GenericLevenshteinDistance object to perform traditional levenshtein distance
 """
-LevenshteinDistance() = GenericLevenshteinDistance(1, 1, 1)
+LevenshteinDistance() = GenericLevenshteinDistance()
 
 """
-    LcsDistance(a, b)
+    LcsDistance()
  
 Instantiates a GenericLevenshteinDistance object to perform LCS distance
 """
-LcsDistance() = GenericLevenshteinDistance(1, 1, 2)
+LcsDistance() = GenericLevenshteinDistance(rcost=2)
 
 """
     common_prefix(a, b)
@@ -87,7 +87,11 @@ function evaluate(lev::GenericLevenshteinDistance, a, b)
     alen == 0 && return blen
     blen == 0 && return alen
 
-    C = collect(Int32, 0:blen)
+    C = lev.C
+    resize!(C, blen+1)
+    @inbounds for i in 0:blen
+        C[i+1] = i
+    end
 
     prevA = 0
     @inbounds for i in 1:alen
@@ -108,7 +112,6 @@ function evaluate(lev::GenericLevenshteinDistance, a, b)
 
     prevA
 end
-
 
 
 """
