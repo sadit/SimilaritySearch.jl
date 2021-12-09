@@ -88,4 +88,3 @@ end
     queries = rand(db, 100)
     test_seq(db, queries, BinaryHammingDistance(), ksearch)
 end
-

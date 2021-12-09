@@ -13,12 +13,11 @@ using Test
     ksearch = 10
     n, m, dim = 100_000, 100, 4
 
-    db = rand(Float32, dim, n)
-    queries = [rand(Float32, dim) for i in 1:m]
+    db = MatrixDatabase(rand(Float32, dim, n))
+    queries = MatrixDatabase(rand(Float32, dim, m))
 
     dist = SqL2Distance()
-    seq = ExhaustiveSearch(dist, StrideDatabase(db))
-    #perf = Performance(seq, StrideDatabase(hcat(queries...)), ksearch)
+    seq = ExhaustiveSearch(dist, db)
     perf = Performance(seq, queries, ksearch)
     
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
@@ -56,7 +55,7 @@ using Test
 
     @info "========================= Callback optimization ======================"
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
-    graph = SearchGraph(; db=MatrixDatabase(db), dist, search_algo=BeamSearch(bsize=2), verbose=false)
+    graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_distance_searchtime))
     index!(graph)
