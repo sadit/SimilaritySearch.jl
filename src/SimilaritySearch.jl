@@ -12,7 +12,7 @@ include("db.jl")
 include("utils/knnresult.jl")
 include("utils/knnresultshifted.jl")
 
-const GlobalKnnResult = [KnnResult(30)]   # see __init__ function at the end of this file
+const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
 @inline getknnresult(res=nothing) = res !== nothing ? res : @inbounds GlobalKnnResult[Threads.threadid()]
 

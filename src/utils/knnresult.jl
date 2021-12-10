@@ -10,39 +10,40 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResult{IdVectorType<:AbstractVector,DistVectorType<:AbstractVector} <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
+mutable struct KnnResult{IdVectorType,DistVectorType}  # <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
     id::IdVectorType
     dist::DistVectorType
-    k::Int32  # number of neighbors
+    pos::Int
+    len::Int
 end
 
 function KnnResult(k::Integer=10, F=Float32)
-    res = KnnResult(Int32[], F[], convert(Int32, k))
-    sizehint!(res.id, k)
-    sizehint!(res.dist, k)
-    res
+    @assert k > 0
+    KnnResult(Vector{Int32}(undef, k), Vector{F}(undef, k), 0, convert(Int, k))
 end
 
 function Base.copy(res::KnnResult)
-    KnnResult(copy(res.id), copy(res.dist), res.k)
+    KnnResult(copy(res.id), copy(res.dist), res.pos, res.len)
 end
 
 """
-    fixorder!(sp, id, dist)
+    fixorder!(res, shift=0)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function fixorder!(shift, id, dist)
+function fixorder!(res, shift=0)
     sp = shift + 1
-    pos = N = length(id)
-    id_, dist_ = last(id), last(dist)
+    pos = N = lastindex(res)
+    id = res.id
+    dist = res.dist
+    id_, dist_ = last(res)
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)
     if N > 16
-        pos = doublingsearchrev(dist, dist_, sp, N)
+        pos = doublingsearchrev(dist, dist_, sp, N)::Int
     else
         @inbounds while pos > sp && dist_ < dist[pos-1]
             pos -= 1
@@ -59,6 +60,8 @@ function fixorder!(shift, id, dist)
         dist[N] = dist_
         id[N] = id_
     end
+
+    nothing
 end
 
 """
@@ -67,33 +70,41 @@ end
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
-    if length(res) < maxlength(res)
-        k = res.k
-        push!(res.id, id)
-        push!(res.dist, dist)    
-        fixorder!(0, res.id, res.dist)
+@inline function Base.push!(res::KnnResult, id::Int32, dist::Float32)
+    @inbounds if length(res) < maxlength(res)
+        res.pos += 1
+        res.id[res.pos] = id
+        res.dist[res.pos] = dist
+        fixorder!(res)
         return true
     end
 
-    dist >= last(res.dist) && return false
+    dist >= maximum(res) && return false
 
-    @inbounds res.id[end], res.dist[end] = id, dist
-    fixorder!(0, res.id, res.dist)
+    @inbounds res.id[res.pos] = id
+    @inbounds res.dist[res.pos] = dist
+    fixorder!(res)
+
     true
 end
 
-
+@inline Base.push!(res::KnnResult, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
 @inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
-
 
 """
     popfirst!(p::KnnResult)
 
-Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
+Removes and returns the nearest neeighboor pair from the pool, an O(length(p)) operation
 """
 @inline function Base.popfirst!(res::KnnResult)
-    popfirst!(res.id) => popfirst!(res.dist)
+    p = res.id[1] => res.dist[1]
+    @inbounds for i in 1:(res.pos-1)
+        res.id[i] = res.id[i+1]
+        res.dist[i] = res.dist[i+1]
+    end
+
+    res.pos -= 1
+    p
 end
 
 """
@@ -102,20 +113,22 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function Base.pop!(res::KnnResult)
-    pop!(res.id) => pop!(res.dist)
+    p = res.id[res.pos] => res.dist[res.pos]
+    res.pos -= 1
+    p
 end
 
 @inline Base.firstindex(res::KnnResult) = 1
-@inline Base.lastindex(res::KnnResult) = lastindex(res.id)
+@inline Base.lastindex(res::KnnResult) = res.pos
+@inline Base.length(res::KnnResult) = res.pos
 @inline Base.keys(res::KnnResult) = @view res.id[eachindex(res)]
 @inline Base.values(res::KnnResult) = @view res.dist[eachindex(res)]
-@inline Base.maximum(res::KnnResult) = last(res.dist)
+@inline Base.maximum(res::KnnResult) = @inbounds res.dist[lastindex(res)]
 @inline Base.minimum(res::KnnResult) = @inbounds res.dist[firstindex(res)]
-@inline Base.first(res::KnnResult) = @inbounds res.id[firstindex(res)] => res.dist[firstindex(res)]
-@inline Base.last(res::KnnResult) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
 @inline Base.argmin(res::KnnResult) = @inbounds res.id[firstindex(res)]
 @inline Base.argmax(res::KnnResult) = @inbounds res.id[lastindex(res)]
-@inline Base.length(res::KnnResult) = length(res.id)
+@inline Base.first(res::KnnResult) = @inbounds res.id[firstindex(res)] => res.dist[firstindex(res)]
+@inline Base.last(res::KnnResult) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
 @inline Base.size(res::KnnResult) = (length(res),)
 
 """
@@ -123,14 +136,14 @@ end
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult) = res.k
+@inline maxlength(res::KnnResult) = res.len
 
 """
     covrad(p::KnnResult)
 
 Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
 """
-@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : res.dist[end]
+@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
 
 """
     empty!(res::KnnResult)
@@ -139,11 +152,14 @@ Returns the coverage radius of the result set; if length(p) < K then typemax(Flo
 Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
 as needed (only grows).
 """
-@inline function Base.empty!(res::KnnResult, k::Integer=res.k)
+@inline function Base.empty!(res::KnnResult, k::Integer=maxlength(res))
     @assert k > 0
-    empty!(res.id)
-    empty!(res.dist)
-    res.k = k
+    if k > maxlength(res)
+        resize!(res.id, k)
+        resize!(res.dist, k)
+    end
+    res.pos = 0
+    res.len = k
 end
 
 """
@@ -180,4 +196,4 @@ function Base.iterate(res::KnnResult, state::Int=1)
 end
 
 Base.eltype(res::KnnResult{I,F}) where {I,F} = Pair{eltype(I),eltype(F)}
-Base.IndexStyle(::Type{<:KnnResult}) = IndexLinear()
+#Base.IndexStyle(::Type{<:KnnResult}) = IndexLinear()

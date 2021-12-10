@@ -18,18 +18,20 @@ using Test
 
     dist = SqL2Distance()
     seq = ExhaustiveSearch(dist, db)
-    perf = Performance(seq, queries, ksearch)
-    
+    gold = searchbatch(seq, queries, ksearch)
+
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
         search_algo = search_algo_fun()
         @info "=================== $search_algo"
         graph = SearchGraph(; db=MatrixDatabase(Float32, dim), dist, search_algo=search_algo)
         graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db; parallel_block=8)
-        p = probe(perf, graph)
-        @info "testing search_algo: $(string(graph.search_algo)), p: $(p)"
-        @test p.recall >= 0.6
-        @info "queries per second: $(1/p.searchtime)"
+        timedsearchbatch(graph, queries, ksearch)
+        @timev reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+        recall = macrorecall(gold, reslist)        
+        @info "testing search_algo: $(string(graph.search_algo)), time: $(searchtime)"
+        @test recall >= 0.6
+        @info "queries per second: $(1/searchtime), recall: $recall"
         @info "===="
     end
 
@@ -39,18 +41,20 @@ using Test
     append!(graph, db)
     @info "---- starting :pareto_distance_searchtime optimization ---"
     optimize!(graph, OptimizeParameters())
-    p = probe(perf, graph)
-    @info ":pareto_distance_search_time: $p ; queries per second:", 1/p.searchtime
+    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(gold, reslist)
+    @info ":pareto_distance_search_time:> queries per second: ", 1/searchtime, ", recall:", recall
     @info graph.search_algo
-    @test p.recall >= 0.6
+    @test recall >= 0.6
 
 
     @info "---- starting :pareto_recall_searchtime optimization ---"
     optimize!(graph, OptimizeParameters(kind=:pareto_recall_searchtime))
-    p = probe(perf, graph)
-    @info ":pareto_recall_search_time: $p ; queries per second:", 1/p.searchtime
+    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(gold, reslist)
+    @info ":pareto_recall_search_time:> queries per second: ", 1/searchtime, ", recall:", recall
     @info graph.search_algo
-    @test p.recall >= 0.6
+    @test recall >= 0.6
     
 
     @info "========================= Callback optimization ======================"
@@ -59,10 +63,11 @@ using Test
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_distance_searchtime))
     index!(graph)
-    p = probe(perf, graph)
-    @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
+    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(gold, reslist)
+    @info "testing without additional optimizations: queries per second:", 1/searchtime, ", recall: ", recall
     @info graph.search_algo
-    @test p.recall >= 0.6
+    @test recall >= 0.6
 
     @info "#############=========== Callback optimization 2 ==========###########"
     @info "--- Optimizing parameters :pareto_distance_searchtime L2 ---"
@@ -70,16 +75,15 @@ using Test
     db = MatrixDatabase(ceil.(Int32, rand(Float32, dim, n) .* 100))
     queries = VectorDatabase(ceil.(Int32, rand(Float32, dim, m) .* 100))
     seq = ExhaustiveSearch(dist, db)
-    perf = Performance(seq, queries, ksearch)
-
+    gold = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_recall_searchtime))
     index!(graph)
     #optimize!(graph, OptimizeParameters(kind=:minimum_recall_searchtime, minrecall=0.7))
-    p = probe(perf, graph)
-    @info "testing without additional optimizations: $p ; queries per second:", 1/p.searchtime
+    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(gold, reslist)
+    @info "testing without additional optimizations> queries per second:", 1/searchtime, ", recall: ", recall
     @info graph.search_algo
-    @test p.recall >= 0.6
-    
+    @test recall >= 0.6
 end

@@ -68,15 +68,15 @@ function eval_beamsearch_config(index::SearchGraph, gold, knn, queries, opt::Opt
         rmin, rmax = extrema(maximum, knn)
         ravg = mean(maximum, knn)
 
-        recall_ = if gold !== nothing
-            mean(recall_score(gold[i], knn[i]) for i in eachindex(knn))
+        recall = if gold !== nothing
+            macrorecall(gold, knn)
         else
             nothing
         end
 
-        verbose && println(stderr, "eval_beamsearch_config> config: $conf, opt: $opt, searchtime: $searchtime, recall: $recall_")
+        verbose && println(stderr, "eval_beamsearch_config> config: $conf, opt: $opt, searchtime: $searchtime, recall: $recall")
 
-        (visited=v, radius=(rmin, ravg, rmax), recall=recall_, searchtime=searchtime/length(knn))
+        (visited=v, radius=(rmin, ravg, rmax), recall=recall, searchtime=searchtime/length(knn))
     end
 end
 

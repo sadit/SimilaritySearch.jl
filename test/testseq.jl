@@ -8,9 +8,8 @@ using Test
 function test_seq(db, queries, dist::PreMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     reslist = [KnnResult(ksearch) for i in eachindex(queries)]
+    @timev searchbatch(seq, queries, reslist)
 
-    t = @timed searchbatch(seq, queries, reslist)
-    @info t.gcstats
     for r in reslist
         @test minimum(r) < valid_lower
     end    

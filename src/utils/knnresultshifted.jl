@@ -9,7 +9,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResultShifted{IdType<:Integer,DistType<:Real} <: AbstractVector{Tuple{IdType,DistType}}
+mutable struct KnnResultShifted{IdType<:Integer,DistType<:Real} # <: AbstractVector{Tuple{IdType,DistType}}
     id::Vector{IdType}
     dist::Vector{DistType}
     k::Int32  # number of neighbors
@@ -51,14 +51,16 @@ Appends an item into the result set
             push!(res.dist, dist)
         end
     
-        fixorder!(res.shift, res.id, res.dist)
+        fixorder!(res, res.shift)
+        #fixorder!(res.shift, res.id, res.dist)
         return true
     end
 
     dist >= last(res.dist) && return false
 
     @inbounds res.id[end], res.dist[end] = id, dist
-    fixorder!(res.shift, res.id, res.dist)
+    fixorder!(res, res.shift)
+    #fixorder!(res.shift, res.id, res.dist)
     true
 end
 

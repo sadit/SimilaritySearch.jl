@@ -48,7 +48,7 @@ end
     [db[i] for i in lst]
 end
 
-@inline Base.length(db::MatrixDatabase{DType,dim}) where {DType,dim} = Int(length(db.data) / dim)
+@inline Base.length(db::MatrixDatabase{DType,dim}) where {DType,dim} = length(db.data) ÷ dim
 @inline Base.eachindex(db::MatrixDatabase) = 1:length(db)
 @inline function Base.push!(db::MatrixDatabase{DType,dim}, v) where {DType,dim}
     append!(db.data, v)

@@ -20,7 +20,7 @@ end
 Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
     BeamSearch(; bsize, Δ, maxvisits)
 
-const GlobalBeamKnnResult = [KnnResultShifted(32)]  # see __init__ function
+const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
 
 @inline function getbeam(bsize::Integer)
     @inbounds beam = GlobalBeamKnnResult[Threads.threadid()]
@@ -30,7 +30,7 @@ end
 
 function __init__beamsearch()
     for i in 2:Threads.nthreads()
-        push!(GlobalBeamKnnResult, KnnResultShifted(32))
+        push!(GlobalBeamKnnResult, KnnResult(32))
     end
 end
 
