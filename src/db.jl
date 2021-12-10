@@ -2,7 +2,7 @@
 
 # Database interface
 using Random, StrideArrays
-export AbstractDatabase, MatrixDatabase, VectorDatabase, SubDatabase, StrideDatabase
+export AbstractDatabase, MatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase, StrideDatabase
 
 abstract type AbstractDatabase
 end
@@ -31,38 +31,54 @@ end
 #
 # Matrix dataset, i.e., columns are objects. We store them as vector to support appending items
 #
-struct MatrixDatabase{DType,Dim} <: AbstractDatabase
+struct DynamicMatrixDatabase{DType,Dim} <: AbstractDatabase
     data::Vector{DType}
-    MatrixDatabase(m::Matrix) = new{eltype(m), size(m, 1)}(vec(m))
-    MatrixDatabase(dtype::Type, dim::Integer) = new{dtype,dim}(Vector{dtype}(undef, 0))
-    MatrixDatabase(A::AbstractVector) = new{eltype(A[1]), length(A[1])}(vcat(A...))
+    DynamicMatrixDatabase(m::Matrix) = new{eltype(m), size(m, 1)}(vec(m))
+    DynamicMatrixDatabase(dtype::Type, dim::Integer) = new{dtype,dim}(Vector{dtype}(undef, 0))
+    DynamicMatrixDatabase(A::AbstractVector) = new{eltype(A[1]), length(A[1])}(vcat(A...))
 end
 
-@inline function Base.getindex(db::MatrixDatabase{DType,dim}, i::Integer) where {DType,dim}
+@inline function Base.getindex(db::DynamicMatrixDatabase{DType,dim}, i::Integer) where {DType,dim}
     ep = i * dim
     @inbounds @view db.data[(ep - dim + 1):ep]
 end
-@inline Base.setindex!(db::MatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
+@inline Base.setindex!(db::DynamicMatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
 
-@inline function Base.getindex(db::MatrixDatabase{DType,dim}, lst::Vector{<:Integer}) where {DType,dim}
+@inline function Base.getindex(db::DynamicMatrixDatabase{DType,dim}, lst::Vector{<:Integer}) where {DType,dim}
     [db[i] for i in lst]
 end
 
-@inline Base.length(db::MatrixDatabase{DType,dim}) where {DType,dim} = length(db.data) ÷ dim
-@inline Base.eachindex(db::MatrixDatabase) = 1:length(db)
-@inline function Base.push!(db::MatrixDatabase{DType,dim}, v) where {DType,dim}
+@inline Base.length(db::DynamicMatrixDatabase{DType,dim}) where {DType,dim} = length(db.data) ÷ dim
+@inline Base.eachindex(db::DynamicMatrixDatabase) = 1:length(db)
+@inline function Base.push!(db::DynamicMatrixDatabase{DType,dim}, v) where {DType,dim}
     append!(db.data, v)
     db
 end
-@inline Base.append!(a::MatrixDatabase{DType,dim}, b::MatrixDatabase{DType2,dim})  where {DType,dim,DType2} = append!(a.data, b.data)
-@inline function Base.append!(a::MatrixDatabase{DType,dim}, B) where {DType,dim}
+@inline Base.append!(a::DynamicMatrixDatabase{DType,dim}, b::DynamicMatrixDatabase{DType2,dim})  where {DType,dim,DType2} = append!(a.data, b.data)
+@inline function Base.append!(a::DynamicMatrixDatabase{DType,dim}, B) where {DType,dim}
     @assert all(b->length(b) == dim, B)
     for b in B
         push!(a, b)
     end
 end
 
-@inline Base.eltype(db::MatrixDatabase{DType,dim}) where {DType,dim} = AbstractVector{DType}
+@inline Base.eltype(db::DynamicMatrixDatabase{DType,dim}) where {DType,dim} = AbstractVector{DType}
+
+#
+# Matrix dataset, i.e., columns are objects. We store them as vector to support appending items
+#
+struct MatrixDatabase{MType} <: AbstractDatabase
+    matrix::MType
+    MatrixDatabase(m::Matrix) = new{typeof(m)}(m)
+end
+
+@inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
+@inline Base.setindex!(db::MatrixDatabase, value, i) = @inbounds (db.matrix[:, i] .= value)
+@inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
+@inline Base.eachindex(db::MatrixDatabase) = 1:length(db)
+@inline Base.push!(db::MatrixDatabase, v) = error("Unsupported operation")
+@inline Base.append!(a::MatrixDatabase, b) = error("Unsupported operation")
+@inline Base.eltype(db::MatrixDatabase) = AbstractVector{eltype(db.matrix)}
 
 #
 # Generic array of objects

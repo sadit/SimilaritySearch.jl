@@ -117,7 +117,7 @@ function optimize!(
     @assert index.search_algo isa BeamSearch
     if queries === nothing
         sample = unique(rand(1:length(index), opt.numqueries))
-        queries = index[sample]
+        queries = SubDatabase(index.db, sample)
     end
 
     recall_options = (:pareto_recall_searchtime, :minimum_recall_searchtime)

@@ -6,7 +6,7 @@ abstract type AbstractSearchContext end
 
 using Parameters
 import Distances: evaluate, PreMetric
-export AbstractSearchContext, PreMetric, evaluate, search, searchbatch
+export AbstractSearchContext, PreMetric, evaluate, search, searchbatch, knnresults
 
 include("db.jl")
 include("utils/knnresult.jl")
@@ -30,7 +30,9 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=10)
 end
 
 function searchbatch(searchctx, Q, k::Integer=10; parallel=false)
-    searchbatch(searchctx, Q, [KnnResult(k) for i in 1:length(Q)]; parallel)
+    R = knnresults(k, length(Q))
+    searchbatch(searchctx, Q, R; parallel)
+    R
 end
 
 function searchbatch(searchctx, Q, KNN; parallel=false)
@@ -45,6 +47,18 @@ function searchbatch(searchctx, Q, KNN; parallel=false)
     end
 
     KNN
+end
+
+function knnresults__(k::Int, m::Int)
+    I = Matrix{Int32}(undef, k, m)
+    D = Matrix{Float32}(undef, k, m)
+
+    [KnnResult(view(I, :, i), view(D, :, i), 0, k) for i in 1:m], I, D
+end
+
+
+function knnresults(k::Int, m::Int)
+    [KnnResult(k) for i in 1:m]
 end
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)

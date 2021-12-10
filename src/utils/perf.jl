@@ -31,7 +31,7 @@ function macrorecall(gold, res)::Float64
 end
 
 function timedsearchbatch(index, queries, ksearch::Integer; parallel=false)
-    reslist = [KnnResult(ksearch) for q in queries]
+    reslist = knnresults(ksearch, length(queries))
     t = @elapsed searchbatch(index, queries, reslist; parallel)
     reslist, t/length(reslist)
 end

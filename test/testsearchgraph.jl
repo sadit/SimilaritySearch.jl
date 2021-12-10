@@ -23,7 +23,7 @@ using Test
     for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
         search_algo = search_algo_fun()
         @info "=================== $search_algo"
-        graph = SearchGraph(; db=MatrixDatabase(Float32, dim), dist, search_algo=search_algo)
+        graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
         graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db; parallel_block=8)
         timedsearchbatch(graph, queries, ksearch)
@@ -81,7 +81,7 @@ using Test
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_recall_searchtime))
     index!(graph)
     #optimize!(graph, OptimizeParameters(kind=:minimum_recall_searchtime, minrecall=0.7))
-    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
+    @timev reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(gold, reslist)
     @info "testing without additional optimizations> queries per second:", 1/searchtime, ", recall: ", recall
     @info graph.search_algo
