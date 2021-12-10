@@ -10,20 +10,21 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResult{IdVectorType,DistVectorType}  # <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
-    id::IdVectorType
-    dist::DistVectorType
+mutable struct KnnResult  # <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
+    id::Matrix{Int32}
+    dist::Matrix{Float32}
+    col::Int
     pos::Int
     len::Int
 end
 
-function KnnResult(k::Integer=10, F=Float32)
+function KnnResult(k::Integer=10)
     @assert k > 0
-    KnnResult(Vector{Int32}(undef, k), Vector{F}(undef, k), 0, convert(Int, k))
+    KnnResult(Matrix{Int32}(undef, k, 1), Matrix{Float32}(undef, k, 1), 1, 0, k)
 end
 
-function Base.copy(res::KnnResult)
-    KnnResult(copy(res.id), copy(res.dist), res.pos, res.len)
+function KnnResult(id::Matrix{Int32}, dist::Matrix{Float32}, col::Integer)
+    KnnResult(id, dist, col, 0, size(id, 1))
 end
 
 """
@@ -38,27 +39,28 @@ function fixorder!(res, shift=0)
     pos = N = lastindex(res)
     id = res.id
     dist = res.dist
+    col = res.col
     id_, dist_ = last(res)
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)
-    if N > 16
+    #=if N > 64
         pos = doublingsearchrev(dist, dist_, sp, N)::Int
-    else
-        @inbounds while pos > sp && dist_ < dist[pos-1]
+    else=#
+        @inbounds while pos > sp && dist_ < dist[pos-1, col]
             pos -= 1
         end
-    end
+    #end
 
     @inbounds if pos < N
         while N > pos
-            id[N] = id[N-1]
-            dist[N] = dist[N-1]
+            id[N, col] = id[N-1, col]
+            dist[N, col] = dist[N-1, col]
             N -= 1
         end
 
-        dist[N] = dist_
-        id[N] = id_
+        dist[N, col] = dist_
+        id[N, col] = id_
     end
 
     nothing
@@ -73,16 +75,16 @@ Appends an item into the result set
 @inline function Base.push!(res::KnnResult, id::Int32, dist::Float32)
     @inbounds if length(res) < maxlength(res)
         res.pos += 1
-        res.id[res.pos] = id
-        res.dist[res.pos] = dist
+        res.id[res.pos, res.col] = id
+        res.dist[res.pos, res.col] = dist
         fixorder!(res)
         return true
     end
 
     dist >= maximum(res) && return false
 
-    @inbounds res.id[res.pos] = id
-    @inbounds res.dist[res.pos] = dist
+    @inbounds res.id[res.pos, res.col] = id
+    @inbounds res.dist[res.pos, res.col] = dist
     fixorder!(res)
 
     true
@@ -94,13 +96,13 @@ end
 """
     popfirst!(p::KnnResult)
 
-Removes and returns the nearest neeighboor pair from the pool, an O(length(p)) operation
+Removes and returns the nearest neeighbor pair from the pool, an O(length(p)) operation
 """
 @inline function Base.popfirst!(res::KnnResult)
-    p = res.id[1] => res.dist[1]
+    p = res.id[1, res.col] => res.dist[1, res.col]
     @inbounds for i in 1:(res.pos-1)
-        res.id[i] = res.id[i+1]
-        res.dist[i] = res.dist[i+1]
+        res.id[i, res.col] = res.id[i+1, res.col]
+        res.dist[i, res.col] = res.dist[i+1, res.col]
     end
 
     res.pos -= 1
@@ -113,7 +115,7 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function Base.pop!(res::KnnResult)
-    p = res.id[res.pos] => res.dist[res.pos]
+    p = res.id[res.pos, res.col] => res.dist[res.pos, res.col]
     res.pos -= 1
     p
 end
@@ -168,9 +170,8 @@ end
 Access the i-th item in `res`
 """
 @inline function Base.getindex(res::KnnResult, i)
-    @inbounds res.id[i] => res.dist[i]
+    @inbounds res.id[i, res.col] => res.dist[i, res.col]
 end
-
 
 """
     eachindex(res::KnnResult)
@@ -195,5 +196,5 @@ function Base.iterate(res::KnnResult, state::Int=1)
     end
 end
 
-Base.eltype(res::KnnResult{I,F}) where {I,F} = Pair{eltype(I),eltype(F)}
+Base.eltype(res::KnnResult) where {I,F} = Pair{Int32,Float32}
 #Base.IndexStyle(::Type{<:KnnResult}) = IndexLinear()

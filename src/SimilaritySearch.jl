@@ -30,35 +30,24 @@ function search(searchctx::AbstractSearchContext, q, k::Integer=10)
 end
 
 function searchbatch(searchctx, Q, k::Integer=10; parallel=false)
-    R = knnresults(k, length(Q))
-    searchbatch(searchctx, Q, R; parallel)
-    R
+    m = length(Q)
+    I = Matrix{Int32}(undef, k, m)
+    D = Matrix{Float32}(undef, k, m)
+    searchbatch(searchctx, Q, I, D; parallel)
 end
 
-function searchbatch(searchctx, Q, KNN; parallel=false)
+function searchbatch(searchctx, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
-            @inbounds search(searchctx, Q[i], KNN[i])
+            @inbounds search(searchctx, Q[i], KnnResult(I, D, i))
         end
     else
-        @inbounds for i in eachindex(Q)
-            search(searchctx, Q[i], KNN[i])
+        @time @inbounds for i in eachindex(Q)
+            search(searchctx, Q[i], KnnResult(I, D, i))
         end
     end
 
-    KNN
-end
-
-function knnresults__(k::Int, m::Int)
-    I = Matrix{Int32}(undef, k, m)
-    D = Matrix{Float32}(undef, k, m)
-
-    [KnnResult(view(I, :, i), view(D, :, i), 0, k) for i in 1:m], I, D
-end
-
-
-function knnresults(k::Int, m::Int)
-    [KnnResult(k) for i in 1:m]
+    I, D
 end
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)

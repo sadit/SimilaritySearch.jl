@@ -19,3 +19,4 @@ function main(k, n=30_000_000)
 end
 
 main(10)
+main(10)

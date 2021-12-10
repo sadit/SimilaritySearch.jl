@@ -13,5 +13,5 @@ function create_sequence(dim, sort)
 end
 
 include("testresults.jl")
-include("testseq.jl")
-include("testsearchgraph.jl")
+#include("testseq.jl")
+#include("testsearchgraph.jl")

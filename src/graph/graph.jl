@@ -233,7 +233,8 @@ function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate
         search(index.search_algo, index, q, res, hints, vstate)
     end
     
-    res
+    #res
+    nothing
 end
 
 
