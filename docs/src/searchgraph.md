@@ -42,7 +42,7 @@ Regarding the search search algorithm, there are two alternatives, based on loca
 ```@docs
 
 BeamSearch
-IHCSearch
+
 
 ```
 

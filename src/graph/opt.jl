@@ -42,12 +42,13 @@ end
 
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
-function eval_beamsearch_config(index::SearchGraph, gold, knn, queries, opt::OptimizeParameters, maxvisits, verbose)
+function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnResult}, queries, opt::OptimizeParameters, maxvisits, verbose)
     n = length(index)
     nt = Threads.nthreads()
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
+    covradius = Vector{Float64}(undef, length(knnlist))
 
     @info "--- setting $maxvisits for n=$n --"
     function lossfun(conf)
@@ -56,27 +57,31 @@ function eval_beamsearch_config(index::SearchGraph, gold, knn, queries, opt::Opt
         vacc .= 0.0
 
         searchtime = @elapsed Threads.@threads for i in eachindex(queries)
-            empty!(knn[i], opt.ksearch)
-            res, v = search(conf, index, queries[i], knn[i], index.hints, getvisitedvertices(index); maxvisits)
+            res = reuse!(knnlist[i], opt.ksearch)
+            st, v = search(conf, index, queries[i], res, index.hints, getvisitedvertices(index); maxvisits)
             ti = Threads.threadid()
             vmin[ti] = min(v, vmin[ti])
             vmax[ti] = max(v, vmax[ti])
             vacc[ti] += v
         end
 
-        v = minimum(vmin), sum(vacc)/length(knn), maximum(vmax)
-        rmin, rmax = extrema(maximum, knn)
-        ravg = mean(maximum, knn)
+        v = minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)
+        st = KnnResultState(0) # we assume 0 (res's shift=>0), this is true for the BS algorithm, and typical algorithms
+        for i in eachindex(knnlist)
+            covradius[i] = maximum(knnlist[i], st)
+        end
+        rmin, rmax = extrema(covradius)
+        ravg = mean(covradius)
 
         recall = if gold !== nothing
-            macrorecall(gold, knn)
+            macrorecall(gold, [Set(res.id) for res in knnlist])
         else
             nothing
         end
 
         verbose && println(stderr, "eval_beamsearch_config> config: $conf, opt: $opt, searchtime: $searchtime, recall: $recall")
 
-        (visited=v, radius=(rmin, ravg, rmax), recall=recall, searchtime=searchtime/length(knn))
+        (visited=v, radius=(rmin, ravg, rmax), recall=recall, searchtime=searchtime/length(knnlist))
     end
 end
 
@@ -121,12 +126,12 @@ function optimize!(
     end
 
     recall_options = (:pareto_recall_searchtime, :minimum_recall_searchtime)
-    knn = [KnnResult(opt.ksearch) for i in eachindex(queries)]
+    knnlist = [KnnResult(opt.ksearch) for i in eachindex(queries)]
     gold = if opt.kind in recall_options
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
-        searchbatch(seq, queries, knn; parallel=true)
-        Set.(keys.(knn))
+        searchbatch(seq, queries, knnlist; parallel=true)
+        [Set(res.id) for res in knnlist]
     else
         nothing
     end
@@ -142,7 +147,7 @@ function optimize!(
         end
     end
 
-    error_function = eval_beamsearch_config(index, gold, knn, queries, opt, maxvisits, verbose)
+    error_function = eval_beamsearch_config(index, gold, knnlist, queries, opt, maxvisits, verbose)
 
     function geterr(p)
         cost = p.visited[2] / M[]

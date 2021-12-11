@@ -20,11 +20,10 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 function find_neighborhood(index::SearchGraph, item)
     n = length(index)
     if n > 0
-        res = getknnresult()
+        res = getknnresult(index.neighborhood.ksearch)
         vstate = getvisitedvertices(index)
-        prepare!(res, index.neighborhood.ksearch)
-        k, visits_ = search(index.search_algo, index, item, res, index.hints, vstate)
-        reduce(index.neighborhood.reduce, index, item, res, k)
+        st, visits_ = search(index.search_algo, index, item, res, index.hints, vstate)
+        reduce(index.neighborhood.reduce, index, item, res, st)
     else
         Int32[]
     end
@@ -94,18 +93,18 @@ function push_neighbor!(::Union{DistalSatNeighborhood,SatNeighborhood}, N, index
 end
 
 function sat_should_push(N::T, index, item, id, dist) where T
-    near = GlobalSatKnnResult[Threads.threadid()]
-
+    near = reuse!(GlobalSatKnnResult[Threads.threadid()], 1)
+    st = initialstate(near)
     @inbounds obj = index[id]
     dist = dist < 0.0 ? evaluate(index.dist, item, obj) : dist
-    push!(near, 0, 0, dist)
+    st = push!(near, st, 0, dist)
 
     @inbounds for linkID in N
         d = evaluate(index.dist, index[linkID], obj)
-        push!(near, 0, linkID, d)
+        st = push!(near, st, linkID, d)
     end
 
-    getid(near, 1) == 0
+    argmin(near, st) == 0
 end
 
 function push_neighbor!(::IdentityNeighborhood, N, index::SearchGraph, item, id::Integer, dist::AbstractFloat)
@@ -113,10 +112,10 @@ function push_neighbor!(::IdentityNeighborhood, N, index::SearchGraph, item, id:
 end
 
 
-function Base.reduce(nreduction::NeighborhoodReduction, index::SearchGraph, item, res, k, N=Int32[])
-    for i in 1:k
-        id, dist = res[i]
-        push_neighbor!(nreduction, N, index, item, id, dist)
+function Base.reduce(red::NeighborhoodReduction, index::SearchGraph, item, res, st, N=Int32[])
+    for i in 1:length(res, st)
+        id, dist = getpair(res, st, i)
+        push_neighbor!(red, N, index, item, id, dist)
     end
 
     N
@@ -128,10 +127,10 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function Base.reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, k, N=Int32[])
+@inline function Base.reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, st, N=Int32[])
 
     @inbounds for i in k:-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
-        id, dist = res[i]
+        id, dist = getpair(res, st, i)
         push_neighbor!(sat, N, index, item, id, dist)
     end
 

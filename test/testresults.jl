@@ -36,7 +36,7 @@ end
 
 @testset "Matrix-based result set" begin
     k = 10
-    res = KnnResult(k)
+    res = KnnResultMatrix(k)
     st = initialstate(res)
     V, Vsorted = create_random_array(50, k)
     for i in eachindex(V)
@@ -48,7 +48,7 @@ end
 
 @testset "shifted vector-based result set" begin
     k = 10
-    res = KnnResultShifted(k)
+    res = KnnResult(k)
     st = initialstate(res)
     V, Vsorted = create_random_array(50, k)
     for i in eachindex(V)
@@ -58,47 +58,3 @@ end
     testsorted(res, st, Vsorted)
 end
 
-exit(0)
-
-@testset "Vector-based result set" begin
-    k = 4
-    V = rand(Float32, 50)
-    Vsorted = sort!([i => v for (i, v) in enumerate(V)], by=x->x[2])[1:k]
-    res = KnnResultVector(k)
-
-    n = 0
-    for i in eachindex(V)
-        n = push!(res, n, i, V[i])
-    end
-
-    @show res Vsorted
-    @test getdist(res, 1) == first(Vsorted)[end]
-    @test getdist(res, n) == last(Vsorted)[end]
-    @test getid(res, 1) == first(Vsorted)[1]
-    @test getid(res, n) == last(Vsorted)[1]
-
-    @test collect(getidlist(res, n)) == first.(Vsorted)
-    @test collect(getdistlist(res, n)) == last.(Vsorted)
-end
-
-
-@testset "Shifted result set" begin
-    k = 4
-    V = rand(Float32, 50)
-    Vsorted = sort!([i => v for (i, v) in enumerate(V)], by=x->x[2])[1:k]
-    res = KnnResultShifted(k)
-
-    n = 0
-    for i in eachindex(V)
-        n = push!(res, n, i, V[i])
-    end
-
-    @show res Vsorted
-    @test getdist(res, 1) == first(Vsorted)[end]
-    @test getdist(res, n) == last(Vsorted)[end]
-    @test getid(res, 1) == first(Vsorted)[1]
-    @test getid(res, n) == last(Vsorted)[1]
-
-    @test collect(getidlist(res, n)) == first.(Vsorted)
-    @test collect(getdistlist(res, n)) == last.(Vsorted)
-end

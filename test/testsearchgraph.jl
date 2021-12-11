@@ -20,8 +20,8 @@ using Test
     seq = ExhaustiveSearch(dist, db)
     goldI, goldD, goldtime = timedsearchbatch(seq, queries, ksearch)
 
-    for search_algo_fun in [() -> BeamSearch(bsize=2), () -> IHCSearch(restarts=4)]
-        search_algo = search_algo_fun()
+    for bsize in [2, 12]
+        search_algo = BeamSearch(; bsize)
         @info "=================== $search_algo"
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
         # graph.neighborhood.reduce = SatNeighborhood()
@@ -37,7 +37,6 @@ using Test
         @test recall >= 0.6
         @info "queries per second: $(1/searchtime), recall: $recall"
         @info "===="
-        exit(0)
     end
 
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
@@ -46,8 +45,8 @@ using Test
     append!(graph, db)
     @info "---- starting :pareto_distance_searchtime optimization ---"
     optimize!(graph, OptimizeParameters())
-    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
-    recall = macrorecall(gold, reslist)
+    I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(goldI, I)
     @info ":pareto_distance_search_time:> queries per second: ", 1/searchtime, ", recall:", recall
     @info graph.search_algo
     @test recall >= 0.6
@@ -55,12 +54,11 @@ using Test
 
     @info "---- starting :pareto_recall_searchtime optimization ---"
     optimize!(graph, OptimizeParameters(kind=:pareto_recall_searchtime))
-    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
-    recall = macrorecall(gold, reslist)
+    I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(goldI, I)
     @info ":pareto_recall_search_time:> queries per second: ", 1/searchtime, ", recall:", recall
     @info graph.search_algo
     @test recall >= 0.6
-    
 
     @info "========================= Callback optimization ======================"
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"
@@ -68,8 +66,8 @@ using Test
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_distance_searchtime))
     index!(graph)
-    reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
-    recall = macrorecall(gold, reslist)
+    I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(goldI, I)
     @info "testing without additional optimizations: queries per second:", 1/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.6
@@ -80,14 +78,14 @@ using Test
     db = MatrixDatabase(ceil.(Int32, rand(Float32, dim, n) .* 100))
     queries = VectorDatabase(ceil.(Int32, rand(Float32, dim, m) .* 100))
     seq = ExhaustiveSearch(dist, db)
-    gold = searchbatch(seq, queries, ksearch)
+    goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
     push!(graph.callbacks, OptimizeParameters(kind=:pareto_recall_searchtime))
     index!(graph)
     #optimize!(graph, OptimizeParameters(kind=:minimum_recall_searchtime, minrecall=0.7))
-    @timev reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
-    recall = macrorecall(gold, reslist)
+    I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+    recall = macrorecall(goldI, I)
     @info "testing without additional optimizations> queries per second:", 1/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.6

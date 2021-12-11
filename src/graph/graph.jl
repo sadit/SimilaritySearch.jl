@@ -99,7 +99,6 @@ Base.copy(g::SearchGraph;
 
 ## search algorithms
 
-include("ihc.jl")
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
 include("opt.jl")
@@ -226,12 +225,11 @@ Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res; hints=index.hints, vstate=getvisitedvertices(index))
     if length(index) > 0
-        search(index.search_algo, index, q, res, hints, vstate)
+        search(index.search_algo, index, q, res, hints, vstate)[1]
     else
-        0, 0
+        initialstate(res)
     end
- end
-
+end
 
 """
     callbacks(index::SearchGraph, n=length(index), m=n+1)

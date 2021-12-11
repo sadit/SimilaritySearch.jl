@@ -9,13 +9,15 @@ import Distances: evaluate, PreMetric
 export AbstractSearchContext, PreMetric, evaluate, search, searchbatch, knnresults
 
 include("db.jl")
-include("utils/knnresult.jl")
+include("utils/knnresultmatrix.jl")
 include("utils/knnresultvector.jl")
-include("utils/knnresultshifted.jl")
 
-const GlobalKnnResult = [KnnResultVector(32)]   # see __init__ function at the end of this file
+const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
-@inline getknnresult(res=nothing) = res !== nothing ? res : @inbounds GlobalKnnResult[Threads.threadid()]
+@inline function getknnresult(k::Integer)
+    res = @inbounds GlobalKnnResult[Threads.threadid()]
+    reuse!(res, k)
+end
 
 """
     search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))
@@ -25,41 +27,43 @@ This is the most generic search function. It calls almost all implementations wh
 
 """
 function search(searchctx::AbstractSearchContext, q, k::Integer=10)
-    res = getknnresult()
-    empty!(res, k)
+    res = getknnresult(k)
     search(searchctx, q, res)
 end
 
-function searchbatch(searchctx, Q, k::Integer=10; parallel=false)
+function searchbatch(index, Q, k::Integer=10; parallel=false)
     m = length(Q)
     I = zeros(Int32, k, m)
     D = Matrix{Float32}(undef, k, m)
+    searchbatch(index, Q, I, D; parallel)
+end
 
+function searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
-            @inbounds search(searchctx, Q[i], KnnResult(I, D, i))
+            @inbounds search(index, Q[i], KnnResultMatrix(I, D, i))
         end
     else
         @time @inbounds for i in eachindex(Q)
-            search(searchctx, Q[i], KnnResult(I, D, i))
+            search(index, Q[i], KnnResultMatrix(I, D, i))
         end
     end
 
     I, D
 end
 
-function searchbatch(searchctx, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
+function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
-            @inbounds search(searchctx, Q[i], KnnResult(I, D, i))
+            @inbounds search(index, Q[i], KNN[i])
         end
     else
         @time @inbounds for i in eachindex(Q)
-            search(searchctx, Q[i], KnnResult(I, D, i))
+            search(index, Q[i], KNN[i])
         end
     end
 
-    I, D
+    KNN
 end
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
@@ -82,7 +86,7 @@ function __init__()
     __init__beamsearch()
     __init__neighborhood()
     for i in 2:Threads.nthreads()
-        push!(GlobalKnnResult, KnnResultVector(32))
+        push!(GlobalKnnResult, KnnResult(32))
     end
 end
 

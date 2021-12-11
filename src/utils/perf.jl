@@ -13,8 +13,10 @@ end
 
 _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
+_convert_as_Set(a::KnnResult) = Set(a.id)
 
 function macrorecall(goldI::Matrix, resI::Matrix, k=size(goldI, 1))::Float64
+    @assert size(goldI) == size(resI)
     n = size(goldI, 2)
     s = 0.0
     for i in 1:n
@@ -26,20 +28,25 @@ function macrorecall(goldI::Matrix, resI::Matrix, k=size(goldI, 1))::Float64
     s / n
 end
 
+function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
+    @assert size(goldlist) == size(reslist)
+    s = 0.0
+    n = length(goldlist)
+    for i in 1:n
+        g = goldlist[i]
+        r = reslist[i]
+        #g = view(goldlist[i], 1:k)
+        #r = view(reslist[i], 1:k)
+        s += recallscore(g, r)
+    end
+
+    s / n
+end
+
 function timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
     m = length(Q)
     I = zeros(Int32, ksearch, m)
     D = Matrix{Float32}(undef, ksearch, m)
-
-    t = @elapsed if parallel
-        Threads.@threads for i in eachindex(Q)
-            @inbounds search(index, Q[i], KnnResult(I, D, i))
-        end
-    else
-        @inbounds for i in eachindex(Q)
-            @elapsed search(index, Q[i], KnnResult(I, D, i))
-        end
-    end
-
+    t = @elapsed (I, D = searchbatch(index, Q, I, D; parallel))
     I, D, t/length(Q)
 end

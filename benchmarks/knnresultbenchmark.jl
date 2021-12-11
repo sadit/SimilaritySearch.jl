@@ -24,9 +24,9 @@ end
 
 ksearch = 10
 n = 1000
+main(KnnResultMatrix(ksearch), n)
 main(KnnResult(ksearch), n)
-main(KnnResultShifted(ksearch), n)
 
 n = 30_000_000
+@timev main(KnnResultMatrix(ksearch), n)
 @timev main(KnnResult(ksearch), n)
-@timev main(KnnResultShifted(ksearch), n)
