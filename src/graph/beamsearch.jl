@@ -36,47 +36,47 @@ end
 
 ### local search algorithm
 
-function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    visited_ = 0
+function beamsearch_queue(index::SearchGraph, q, res, k, objID, vstate, visited_)
     @inbounds if !visited(vstate, objID)
         visit!(vstate, objID)
         visited_ += 1
         d = evaluate(index.dist, q, index[objID])
-        push!(res, objID, d)
+        k = push!(res, k, objID, d)
     end
 
-    visited_
+    k, visited_
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate, bsize)
     visited_ = 0
+    k = 0
 
     for objID in hints
-        visited_ += beamsearch_queue(index, q, res, objID, vstate)
+        k, visited = beamsearch_queue(index, q, res, k, objID, vstate, visited_)
     end
     
-    if length(res) == 0
+    if k == 0
         _range = 1:length(index)
         for i in 1:bsize
            objID = rand(_range)
-           visited_ += beamsearch_queue(index, q, res, objID, vstate)
+           k, visited_ = beamsearch_queue(index, q, res, k, objID, vstate, visited_)
        end
     end
 
-    visited_
+    k, visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, beam, vstate, visited_, Δ, maxvisits)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, k, beam, vstate, Δ, maxvisits, visited_)
     while length(beam) > 0
         prev_id, prev_dist = popfirst!(beam)
         @inbounds for childID in index.links[prev_id]
             if !visited(vstate, childID)
                 visit!(vstate, childID)
                 d = evaluate(index.dist, q, index[childID])
-                push!(res, childID, d)
+                k = push!(res, k, childID, d)
                 visited_ += 1
                 visited_ > maxvisits && return visited_
-                if d <= Δ * maximum(res)
+                if d <= Δ * getdist(res, k)
                     #if length(index.links[childID]) > 1
                     push!(beam, childID, d)
                     # length(beam) == maxlength(beam) && continue
@@ -87,11 +87,11 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
         end
     end
 
-    visited_
+    k, visited_
 end
 
 """
-    search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
+    search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate)
 
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
@@ -107,10 +107,10 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
-    visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
+function search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+    # k is the number of neighbors in res
+    k, visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
     beam = getbeam(bsize)
-    push!(beam, first(res))
-    visited_ = beamsearch_inner(bs, index, q, res, beam, vstate, visited_, Δ, maxvisits)
-    res, visited_
+    push!(beam, res[1])
+    beamsearch_inner(bs, index, q, res, k, beam, vstate, Δ, maxvisits, visited_)
 end

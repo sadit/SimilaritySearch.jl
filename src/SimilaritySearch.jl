@@ -10,9 +10,10 @@ export AbstractSearchContext, PreMetric, evaluate, search, searchbatch, knnresul
 
 include("db.jl")
 include("utils/knnresult.jl")
+include("utils/knnresultvector.jl")
 include("utils/knnresultshifted.jl")
 
-const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
+const GlobalKnnResult = [KnnResultVector(32)]   # see __init__ function at the end of this file
 
 @inline getknnresult(res=nothing) = res !== nothing ? res : @inbounds GlobalKnnResult[Threads.threadid()]
 
@@ -31,9 +32,20 @@ end
 
 function searchbatch(searchctx, Q, k::Integer=10; parallel=false)
     m = length(Q)
-    I = Matrix{Int32}(undef, k, m)
+    I = zeros(Int32, k, m)
     D = Matrix{Float32}(undef, k, m)
-    searchbatch(searchctx, Q, I, D; parallel)
+
+    if parallel
+        Threads.@threads for i in eachindex(Q)
+            @inbounds search(searchctx, Q[i], KnnResult(I, D, i))
+        end
+    else
+        @time @inbounds for i in eachindex(Q)
+            search(searchctx, Q[i], KnnResult(I, D, i))
+        end
+    end
+
+    I, D
 end
 
 function searchbatch(searchctx, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
@@ -70,7 +82,7 @@ function __init__()
     __init__beamsearch()
     __init__neighborhood()
     for i in 2:Threads.nthreads()
-        push!(GlobalKnnResult, KnnResult(32))
+        push!(GlobalKnnResult, KnnResultVector(32))
     end
 end
 

@@ -11,28 +11,33 @@ using Test
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
     Random.seed!(0)
     ksearch = 10
-    n, m, dim = 100_000, 100, 4
+    n, m, dim = 100_000, 100, 8
 
     db = MatrixDatabase(rand(Float32, dim, n))
     queries = MatrixDatabase(rand(Float32, dim, m))
 
     dist = SqL2Distance()
     seq = ExhaustiveSearch(dist, db)
-    gold = searchbatch(seq, queries, ksearch)
+    goldI, goldD, goldtime = timedsearchbatch(seq, queries, ksearch)
 
-    for search_algo_fun in [() -> IHCSearch(restarts=4), () -> BeamSearch(bsize=2)]
+    for search_algo_fun in [() -> BeamSearch(bsize=2), () -> IHCSearch(restarts=4)]
         search_algo = search_algo_fun()
         @info "=================== $search_algo"
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
-        graph.neighborhood.reduce = SatNeighborhood()
+        # graph.neighborhood.reduce = SatNeighborhood()
         append!(graph, db; parallel_block=8)
-        timedsearchbatch(graph, queries, ksearch)
-        @timev reslist, searchtime = timedsearchbatch(graph, queries, ksearch)
-        recall = macrorecall(gold, reslist)        
+        I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+        #@info sort!(length.(graph.links), rev=true)
+        @show goldD[:, 1]
+        @show D[:, 1]
+        @show goldI[:, 1]
+        @show I[:, 1]
+        recall = macrorecall(goldI, I)
         @info "testing search_algo: $(string(graph.search_algo)), time: $(searchtime)"
         @test recall >= 0.6
         @info "queries per second: $(1/searchtime), recall: $recall"
         @info "===="
+        exit(0)
     end
 
     @info "--- Optimizing parameters :pareto_distance_searchtime ---"

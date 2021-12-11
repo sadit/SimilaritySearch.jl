@@ -9,28 +9,57 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResultShifted{IdType<:Integer,DistType<:Real} # <: AbstractVector{Tuple{IdType,DistType}}
-    id::Vector{IdType}
-    dist::Vector{DistType}
-    k::Int32  # number of neighbors
-    shift::Int32 # shift position of the first element (to support popfirst! efficiently)
+struct KnnResultShifted <: AbstractKnnResult # <: AbstractVector{Tuple{IdType,DistType}}
+    id::Vector{Int32}
+    dist::Vector{Float32}
+    k::Int  # number of neighbors
+end
+
+function KnnResultShifted(k::Integer)
+    @assert k > 0
+    KnnResultShifted(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+end
+
+function initialstate(::KnnResultShifted)
+    KnnResultState(0)
+end
+
+"""
+    _shifted_fixorder!(res, shift=0)
+
+Sorts the result in place; the possible element out of order is on the last entry always.
+It implements a kind of insertion sort that it is efficient due to the expected
+distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
+"""
+function _shifted_fixorder!(res, st::KnnResultState)
+    sp = st.pos + 1
+    pos = N = lastindex(res.id)
+    id = res.id
+    dist = res.dist
+    id_, dist_ = res.id[end], res.dist[end]
     
-    function KnnResultShifted(id::I, dist::D, k::Integer) where {I,D}
-        @assert k > 0
-        new{eltype(I), eltype(D)}(id, dist, Int32(k), 0)
+    #pos = doublingsearch(dist, dist_, sp, N)
+    #pos = binarysearch(dist, dist_, sp, N)
+    #if N > 16
+    #    pos = doublingsearchrev(dist, dist_, sp, N)::Int
+    #else
+        @inbounds while pos > sp && dist_ < dist[pos-1]
+            pos -= 1
+        end
+    #end
+
+    @inbounds if pos < N
+        while N > pos
+            id[N] = id[N-1]
+            dist[N] = dist[N-1]
+            N -= 1
+        end
+
+        dist[N] = dist_
+        id[N] = id_
     end
-end
 
-function KnnResultShifted(k::Integer, F=Float32)
-    res = KnnResultShifted(Int32[], F[], k)
-    sizehint!(res.id, k)
-    sizehint!(res.dist, k)
-    res
-end
-
-function Base.copy(res::KnnResultShifted)
-    compact!(res)
-    KnnResultShifted(copy(res.id), copy(res.dist), res.k)
+    nothing
 end
 
 
@@ -40,40 +69,42 @@ end
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResultShifted, id::Integer, dist::Real)
-    if length(res) < maxlength(res)
+@inline function Base.push!(res::KnnResultShifted, st::KnnResultState, id::Integer, dist::Real)
+    if length(res, st) < maxlength(res, st)
         k = res.k
         if length(res.id) >= 2k-1
-            compact!(res, 1)
+            compact!(res, st, 1)
+            st = KnnResultState(0)
             @inbounds res.id[end], res.dist[end] = id, dist
         else
             push!(res.id, id)
             push!(res.dist, dist)
         end
     
-        fixorder!(res, res.shift)
-        #fixorder!(res.shift, res.id, res.dist)
-        return true
+        _shifted_fixorder!(res, st)
+        #_shifted_fixorder!(res.shift, res.id, res.dist)
+        return st
     end
 
-    dist >= last(res.dist) && return false
+    dist >= last(res.dist) && return st
 
     @inbounds res.id[end], res.dist[end] = id, dist
-    fixorder!(res, res.shift)
-    #fixorder!(res.shift, res.id, res.dist)
-    true
+    _shifted_fixorder!(res, st)
+    #_shifted_fixorder!(res.shift, res.id, res.dist)
+    st
 end
 
-function compact!(res::KnnResultShifted, resize_extra=0)
-    if res.shift > 0
-        n = length(res)
-        j = res.shift
+function compact!(res::KnnResultShifted, st::KnnResultState, resize_extra)
+    shift = st.pos
+    if shift > 0
+        n = length(res, st)
+        j = shift
         @inbounds for i in 1:n
             j += 1
             res.id[i] = res.id[j]
             res.dist[i] = res.dist[j]
         end
-        res.shift = 0
+
         resize!(res.id, n+resize_extra)
         resize!(res.dist, n+resize_extra)
     end
@@ -81,104 +112,64 @@ function compact!(res::KnnResultShifted, resize_extra=0)
     res
 end
 
-@inline Base.push!(res::KnnResultShifted, p::Pair) = push!(res, p.first, p.second)
-
-
 """
-    popfirst!(p::KnnResultShifted)
+    popfirst!(p::KnnResultShifted, st::KnnResultState)
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResultShifted)
-    res.shift += 1
-    @inbounds res.id[res.shift] => res.dist[res.shift]
-    #popfirst!(res.id), popfirst!(res.dist)
+@inline function Base.popfirst!(res::KnnResultShifted, st::KnnResultState)
+    @inbounds argmin(res, st) => minimum(res, st), KnnResultState(st.pos+1)
 end
 
 """
-    pop!(p)
+    pop!(res::KnnResultShifted, st::KnnResultState)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function Base.pop!(res::KnnResultShifted)
-    pop!(res.id) => pop!(res.dist)
+@inline function Base.pop!(res::KnnResultShifted, st::KnnResultState)
+    pop!(res.id) => pop!(res.dist), st
 end
-
-@inline Base.keys(res::KnnResultShifted) = @view res.id[eachindex(res)]
-@inline Base.values(res::KnnResultShifted) = @view res.dist[eachindex(res)]
-@inline Base.maximum(res::KnnResultShifted) = last(res.dist)
-@inline Base.minimum(res::KnnResultShifted) = @inbounds res.dist[firstindex(res)]
-@inline Base.firstindex(res::KnnResultShifted) = 1+res.shift
-@inline Base.lastindex(res::KnnResultShifted) = lastindex(res.id)
-@inline Base.first(res::KnnResultShifted) = @inbounds res.id[firstindex(res)] => res.dist[firstindex(res)]
-@inline Base.last(res::KnnResultShifted) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
-@inline Base.argmin(res::KnnResultShifted) = @inbounds res.id[firstindex(res)]
-@inline Base.argmax(res::KnnResultShifted) = @inbounds res.id[lastindex(res)]
-@inline Base.length(res::KnnResultShifted) = length(res.id) - res.shift
-@inline Base.size(res::KnnResultShifted) = (length(res),)
 
 """
     maxlength(res::KnnResultShifted)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResultShifted) = res.k
+@inline maxlength(res::KnnResultShifted, st::KnnResultState) = res.k
+@inline Base.length(res::KnnResultShifted, st::KnnResultState) = length(res.id) - st.pos
 
 """
-    covrad(p::KnnResultShifted)
+    reuse!(res::KnnResultShifted)
+    reuse!(res::KnnResultShifted, k::Integer)
 
-Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
+Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline covrad(res::KnnResultShifted)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : res.dist[end]
-
-"""
-    empty!(res::KnnResultShifted)
-    empty!(res::KnnResultShifted, k::Integer)
-
-Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
-as needed (only grows).
-"""
-@inline function Base.empty!(res::KnnResultShifted, k::Integer=res.k)
+@inline function reuse!(res::KnnResultShifted, k::Integer=res.k)
     @assert k > 0
-    empty!(res.id)
-    empty!(res.dist)
-    res.k = k
-    res.shift = 0
+    resize!(res.id, k)
+    resize!(res.dist, k)
+    res_ = KnnResultShifted(res.id, res.dist, k)
+    res_, initialstate(res_)
 end
 
 """
-    getindex(res::KnnResultShifted, i)
+    getindex(res::KnnResultShifted, st::KnnResultState, i)
 
 Access the i-th item in `res`
 """
-@inline function Base.getindex(res::KnnResultShifted, i)
-    i += res.shift
+@inline function Base.get(res::KnnResultShifted, st::KnnResultState, i)
+    i += st.pos
     @inbounds res.id[i] => res.dist[i]
 end
 
+@inline getid(res::KnnResultShifted, st::KnnResultState, i) = @inbounds res.id[i+st.pos]
+@inline getdist(res::KnnResultShifted, st::KnnResultState, i) = @inbounds res.dist[i+st.pos]
 
-"""
-    eachindex(res::KnnResultShifted)
-
-Iterator of valid item indexes in `res`
-"""
-@inline Base.eachindex(res::KnnResultShifted) = firstindex(res):lastindex(res)
-
-##### iterator interface
-### KnnResultShifted
-"""
-    Base.iterate(res::KnnResultShifted, state::Int=1)
-
-Support for iteration
-"""
-function Base.iterate(res::KnnResultShifted, state::Int=1)
-    n = length(res)
-    if n == 0 || state > n
-        nothing
-    else
-        @inbounds res[state], state + 1
-    end
-end
-
-Base.eltype(res::KnnResultShifted{I,F}) where {I,F} = Pair{I,F}
-Base.IndexStyle(::Type{<:KnnResultShifted}) = IndexLinear()
+@inline Base.last(res::KnnResultShifted, st::KnnResultState) = last(res.id) => last(res.dist)
+@inline Base.first(res::KnnResultShifted, st::KnnResultState) = res.id[st.pos+1] => res.dist[st.pos+1]
+@inline Base.maximum(res::KnnResultShifted, st::KnnResultState) = last(res.dist)
+@inline Base.minimum(res::KnnResultShifted, st::KnnResultState) = res.dist[1+st.pos]
+@inline Base.argmax(res::KnnResultShifted, st::KnnResultState) = last(res.id)
+@inline Base.argmin(res::KnnResultShifted, st::KnnResultState) = res.id[1+st.pos]
+@inline idview(res::KnnResultShifted, st::KnnResultState) = @view res.id[st.pos+1:end]
+@inline distview(res::KnnResultShifted, st::KnnResultState) = @view res.dist[st.pos+1:end]

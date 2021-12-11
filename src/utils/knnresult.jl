@@ -1,8 +1,13 @@
 # This file is a part of SimilaritySearch.jl
 using Intersections
 
-export KnnResult, maxlength, covrad, maxlength
+export KnnResult, KnnResultState, maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview
 
+struct KnnResultState
+    pos::Int
+end
+
+abstract type AbstractKnnResult end
 """
     KnnResult(ksearch::Integer)
 
@@ -10,37 +15,40 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-mutable struct KnnResult  # <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
+struct KnnResult <: AbstractKnnResult  # <: AbstractVector{Tuple{eltype(IdVectorType),eltype(DistVectorType)}}
     id::Matrix{Int32}
     dist::Matrix{Float32}
     col::Int
-    pos::Int
-    len::Int
 end
 
 function KnnResult(k::Integer=10)
     @assert k > 0
-    KnnResult(Matrix{Int32}(undef, k, 1), Matrix{Float32}(undef, k, 1), 1, 0, k)
+    KnnResult(Matrix{Int32}(undef, k, 1), Matrix{Float32}(undef, k, 1), 1)
 end
 
 function KnnResult(id::Matrix{Int32}, dist::Matrix{Float32}, col::Integer)
-    KnnResult(id, dist, col, 0, size(id, 1))
+    KnnResult(id, dist, col)
 end
 
+function initialstate(::KnnResult)
+    KnnResultState(0)
+end
+
+
 """
-    fixorder!(res, shift=0)
+    fixorder!(res::KnnResult, shift=0)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function fixorder!(res, shift=0)
-    sp = shift + 1
-    pos = N = lastindex(res)
+function fixorder!(res::KnnResult, st::KnnResultState)
+    sp = 1
+    pos = N = st.pos
     id = res.id
     dist = res.dist
     col = res.col
-    id_, dist_ = last(res)
+    id_, dist_ = id[pos, col], dist[pos, col]
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)
@@ -72,129 +80,81 @@ end
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResult, id::Int32, dist::Float32)
-    @inbounds if length(res) < maxlength(res)
-        res.pos += 1
-        res.id[res.pos, res.col] = id
-        res.dist[res.pos, res.col] = dist
-        fixorder!(res)
-        return true
+@inline function Base.push!(res::KnnResult, st::KnnResultState, id::Int32, dist::Float32)
+    pos = st.pos
+    @inbounds if pos < maxlength(res, st)
+        pos += 1
+        res.id[pos, res.col] = id
+        res.dist[pos, res.col] = dist
+        st = KnnResultState(pos)
+        fixorder!(res, st)
+        return st
     end
 
-    dist >= maximum(res) && return false
+    @inbounds dist >= getdist(res, st, pos) && return st
 
-    @inbounds res.id[res.pos, res.col] = id
-    @inbounds res.dist[res.pos, res.col] = dist
-    fixorder!(res)
+    @inbounds res.id[pos, res.col] = id
+    @inbounds res.dist[pos, res.col] = dist
+    fixorder!(res, st)
 
-    true
+    st
 end
 
-@inline Base.push!(res::KnnResult, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
-@inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
+@inline Base.push!(res::AbstractKnnResult, st::KnnResultState, id::Integer, dist::Real) = push!(res, st, convert(Int32, id), convert(Float32, dist))
+@inline Base.push!(res::AbstractKnnResult, st::KnnResultState, p::Pair) = push!(res, st, p.first, p.second)
 
 """
     popfirst!(p::KnnResult)
 
 Removes and returns the nearest neeighbor pair from the pool, an O(length(p)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)
+@inline function Base.popfirst!(res::KnnResult, st::KnnResultState)
     p = res.id[1, res.col] => res.dist[1, res.col]
-    @inbounds for i in 1:(res.pos-1)
+    pos = st.pos - 1
+    @inbounds for i in 1:pos
         res.id[i, res.col] = res.id[i+1, res.col]
         res.dist[i, res.col] = res.dist[i+1, res.col]
     end
 
-    res.pos -= 1
-    p
+    p, KnnResultState(pos)
 end
 
 """
-    pop!(p)
+    pop!(p, st::KnnResultState)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function Base.pop!(res::KnnResult)
-    p = res.id[res.pos, res.col] => res.dist[res.pos, res.col]
-    res.pos -= 1
-    p
+@inline function Base.pop!(res::KnnResult, st::KnnResultState)
+    res.id[st.pos, res.col] => res.dist[st.pos, res.col], KnnResultState(st.pos - 1)
 end
 
-@inline Base.firstindex(res::KnnResult) = 1
-@inline Base.lastindex(res::KnnResult) = res.pos
-@inline Base.length(res::KnnResult) = res.pos
-@inline Base.keys(res::KnnResult) = @view res.id[eachindex(res)]
-@inline Base.values(res::KnnResult) = @view res.dist[eachindex(res)]
-@inline Base.maximum(res::KnnResult) = @inbounds res.dist[lastindex(res)]
-@inline Base.minimum(res::KnnResult) = @inbounds res.dist[firstindex(res)]
-@inline Base.argmin(res::KnnResult) = @inbounds res.id[firstindex(res)]
-@inline Base.argmax(res::KnnResult) = @inbounds res.id[lastindex(res)]
-@inline Base.first(res::KnnResult) = @inbounds res.id[firstindex(res)] => res.dist[firstindex(res)]
-@inline Base.last(res::KnnResult) = @inbounds res.id[lastindex(res)] => res.dist[lastindex(res)]
-@inline Base.size(res::KnnResult) = (length(res),)
-
 """
-    maxlength(res::KnnResult)
+    maxlength(res::KnnResult, st::KnnResultState)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult) = res.len
+@inline maxlength(res::KnnResult, st::KnnResultState) = size(res.id, 1)
+@inline Base.length(res::KnnResult, st::KnnResultState) = st.pos
 
 """
-    covrad(p::KnnResult)
-
-Returns the coverage radius of the result set; if length(p) < K then typemax(Float32) is returned
-"""
-@inline covrad(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
-
-"""
-    empty!(res::KnnResult)
-    empty!(res::KnnResult, k::Integer)
-
-Clears the content of the result pool. If k is given then the size of the pool is changed; the internal buffer is adjusted
-as needed (only grows).
-"""
-@inline function Base.empty!(res::KnnResult, k::Integer=maxlength(res))
-    @assert k > 0
-    if k > maxlength(res)
-        resize!(res.id, k)
-        resize!(res.dist, k)
-    end
-    res.pos = 0
-    res.len = k
-end
-
-"""
-    getindex(res::KnnResult, i)
+    getindex(res::KnnResult, st::KnnResultState, i)
 
 Access the i-th item in `res`
 """
-@inline function Base.getindex(res::KnnResult, i)
+@inline function getpair(res::KnnResult, st::KnnResultState, i)
     @inbounds res.id[i, res.col] => res.dist[i, res.col]
 end
 
-"""
-    eachindex(res::KnnResult)
+@inline getid(res::KnnResult, st::KnnResultState, i) = @inbounds res.id[i, res.col]
+@inline getdist(res::KnnResult, st::KnnResultState, i) = @inbounds res.dist[i, res.col]
 
-Iterator of valid item indexes in `res`
-"""
-@inline Base.eachindex(res::KnnResult) = firstindex(res):lastindex(res)
+@inline Base.last(res::KnnResult, st::KnnResultState) = getpair(res, st, st.pos)
+@inline Base.first(res::KnnResult, st::KnnResultState) = getpair(res, st, 1)
+@inline Base.maximum(res::KnnResult, st::KnnResultState) = getdist(res, st, st.pos)
+@inline Base.minimum(res::KnnResult, st::KnnResultState) = getdist(res, st, 1)
+@inline Base.argmax(res::KnnResult, st::KnnResultState) = getid(res, st, st.pos)
+@inline Base.argmin(res::KnnResult, st::KnnResultState) = getid(res, st, 1)
+@inline idview(res::KnnResult, st::KnnResultState) = @view res.id[1:st.pos, res.col]
+@inline distview(res::KnnResult, st::KnnResultState) = @view res.dist[1:st.pos, res.col]
 
-##### iterator interface
-### KnnResult
-"""
-    Base.iterate(res::KnnResult, state::Int=1)
-
-Support for iteration
-"""
-function Base.iterate(res::KnnResult, state::Int=1)
-    n = length(res)
-    if n == 0 || state > n
-        nothing
-    else
-        @inbounds res[state], state + 1
-    end
-end
-
-Base.eltype(res::KnnResult) where {I,F} = Pair{Int32,Float32}
-#Base.IndexStyle(::Type{<:KnnResult}) = IndexLinear()
+@inline Base.eachindex(res::AbstractKnnResult, st::KnnResultState) = 1:length(res, st)

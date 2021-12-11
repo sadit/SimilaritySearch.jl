@@ -157,8 +157,6 @@ function index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_blo
 
     sp = length(index) + 1
     sp > n && return index
-
-    # resize!(index.db, n)
     resize!(index.links, n)
     _parallel_append_loop!(index, sp, n, parallel_block, apply_callbacks)
 end
@@ -179,7 +177,7 @@ function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-            @inbounds index.links[i] = find_neighborhood(index, index.db[i], getknnresult(), getvisitedvertices(index))
+            @inbounds index.links[i] = find_neighborhood(index, index.db[i])
         end
 
         # connecting neighbors
@@ -215,27 +213,24 @@ end
 Appends `item` into the index.
 """
 function push!(index::SearchGraph, item; push_item=true)
-    neighbors = find_neighborhood(index, item, getknnresult(), getvisitedvertices(index))
+    neighbors = find_neighborhood(index, item)
     push_neighborhood!(index, item, neighbors; push_item)
     neighbors
 end
 
 
 """
-    search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
+    search(index::SearchGraph, q, res; hints=index.hints, vstate=nothing)
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, vstate=nothing)
-    vstate = vstate === nothing ? getvisitedvertices(index) : vstate
-
+function search(index::SearchGraph, q, res; hints=index.hints, vstate=getvisitedvertices(index))
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, vstate)
+    else
+        0, 0
     end
-    
-    #res
-    nothing
-end
+ end
 
 
 """
@@ -251,4 +246,3 @@ function callbacks(index::SearchGraph, n=length(index), m=n+1)
         end
     end
 end
-

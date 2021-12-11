@@ -2,12 +2,6 @@
 
 export Performance, probe, recallscore, timedsearchbatch, macrorecall
 
-statsknn(reslist::AbstractVector{<:KnnResult}) = (
-    maximum=mean(maximum(res) for res in reslist),
-    minimum=mean(minimum(res) for res in reslist),
-    k=mean(length(res) for res in reslist)
-)
-
 """
     recallscore(gold::Set, res)
 
@@ -17,21 +11,35 @@ function recallscore(gold, res)::Float64
     length(intersect(_convert_as_set(gold), _convert_as_set(res))) / length(gold)
 end
 
-_convert_as_set(a::KnnResult) = keys(a)
 _convert_as_set(a::Set) = a
-_convert_as_set(a::Vector{<:Integer}) = a
+_convert_as_set(a::AbstractVector) = Set(a)
 
-function macrorecall(gold, res)::Float64
+function macrorecall(goldI::Matrix, resI::Matrix, k=size(goldI, 1))::Float64
+    n = size(goldI, 2)
     s = 0.0
-    for i in eachindex(gold)
-        s += recallscore(gold[i], res[i])
+    for i in 1:n
+        g = view(goldI, 1:k, i)
+        r = view(resI, 1:k, i)
+        s += recallscore(g, r)
     end
 
-    s / length(gold)
+    s / n
 end
 
-function timedsearchbatch(index, queries, ksearch::Integer; parallel=false)
-    reslist = knnresults(ksearch, length(queries))
-    t = @elapsed searchbatch(index, queries, reslist; parallel)
-    reslist, t/length(reslist)
+function timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
+    m = length(Q)
+    I = zeros(Int32, ksearch, m)
+    D = Matrix{Float32}(undef, ksearch, m)
+
+    t = @elapsed if parallel
+        Threads.@threads for i in eachindex(Q)
+            @inbounds search(index, Q[i], KnnResult(I, D, i))
+        end
+    else
+        @inbounds for i in eachindex(Q)
+            @elapsed search(index, Q[i], KnnResult(I, D, i))
+        end
+    end
+
+    I, D, t/length(Q)
 end

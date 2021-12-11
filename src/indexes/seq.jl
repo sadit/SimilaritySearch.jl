@@ -29,11 +29,12 @@ Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(di
 Solves the query evaluating all items in the given query.
 """
 function search(seq::ExhaustiveSearch, q, res::KnnResult)
+    n = 0
     @inbounds for i in eachindex(seq)
-        push!(res, i, evaluate(seq.dist, seq[i], q))
+        n = push!(res, n, i, evaluate(seq.dist, seq[i], q))
     end
 
-    res
+    nothing
 end
 
 function Base.push!(seq::ExhaustiveSearch, u)

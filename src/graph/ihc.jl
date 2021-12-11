@@ -28,7 +28,7 @@ end
 
 Runs a single hill climbing search process starting in vertex `nodeID`
 """
-function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, nodeID::Integer, vstate, visited_)
+function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, k, nodeID::Integer, vstate, visited_)
     imin = 0
  
     while true
@@ -39,8 +39,8 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
             visit!(vstate, childID)
             visited_ += 1
             d = convert(Float32, evaluate(index.dist, index[childID], q))
-    
-            if push!(res, childID, d) && d < dmin
+            k = push!(res, k, childID, d)
+            if d < dmin
                 dmin = d
                 imin = childID
             end
@@ -50,20 +50,20 @@ function hill_climbing(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult
         nodeID = imin
     end
 
-    visited_
+    k, visited_
 end
 
-function searchat(isearch::IHCSearch, index::SearchGraph, q, res, startpoint, vstate, visited_)
+function searchat(isearch::IHCSearch, index::SearchGraph, q, res, k, startpoint, vstate, visited_)
     if !visited(vstate, startpoint)
         visit!(vstate, startpoint)
         visited_ += 1
 
         d = convert(Float32, evaluate(index.dist, q, index[startpoint]))
-        push!(res, startpoint, d)
-        visited_ = hill_climbing(isearch, index, q, res, startpoint, vstate, visited_)
+        k = push!(res, k, startpoint, d)
+        k, visited_ = hill_climbing(isearch, index, q, res, k, startpoint, vstate, visited_)
     end
 
-    visited_
+    k, visited_
 end
 
 """
@@ -73,18 +73,18 @@ Performs an iterated hill climbing search for `q`.
 """
 function search(isearch::IHCSearch, index::SearchGraph, q, res::KnnResult, hints, vstate)
     n = length(index)
-    visited_ = 0
+    k = visited_ = 0
     for startpoint in hints
-        visited_ = searchat(isearch, index, q, res, startpoint, vstate, visited_)
+        k, visited_ = searchat(isearch, index, q, res, k, startpoint, vstate, visited_)
     end
 
-    if length(res) == 0
+    if k == 0
         _range = 1:n
         for i in 1:min(isearch.restarts, n)
             startpoint = rand(_range)
-            visited_ = searchat(isearch, index, q, res, startpoint, vstate, visited_)
+            k, visited_ = searchat(isearch, index, q, res, startpoint, vstate, visited_)
         end
     end
 
-    res, visited_
+    k, visited_
 end

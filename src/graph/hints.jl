@@ -51,13 +51,15 @@ function callback(opt::DisjointHints, index)
     empty!(index.hints)
     meansize = mean(length(index.links[i]) for i in 1:n)
     res = KnnResult(opt.expansion * m)
+    k = 0
     for i in 1:n
-        push!(res, i, abs(length(index.links[i]) - meansize))
+        k = push!(res, k, i, abs(length(index.links[i]) - meansize))
     end
 
     V = Set{Int}()
 
-    for (i, d) in res
+    for j in 1:k
+        (i, d) = res[j]
         i in V && continue
         push!(index.hints, i)
         union!(V, index.links[i])
