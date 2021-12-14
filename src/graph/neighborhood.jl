@@ -17,16 +17,13 @@ end
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 `res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
 """
-function find_neighborhood(index::SearchGraph, item; hints=index.hints, self_link=0)
+function find_neighborhood(index::SearchGraph, item; hints=index.hints)
     n = length(index)
     if n > 0
         res = getknnresult(index.neighborhood.ksearch)
         vstate = getvisitedvertices(index)
         st, visits_ = search(index.search_algo, index, item, res, hints, vstate)
-        if self_link > 0 && self_link === argmin(res, st) # self link
-            _, st = popfirst!(res, st)
-        end
-        reduce(index.neighborhood.reduce, index, item, res, st)
+        reduce_neighborhood(index.neighborhood.reduce, index, item, res, st)
     else
         Int32[]
     end
@@ -115,7 +112,7 @@ function push_neighbor!(::IdentityNeighborhood, N, index::SearchGraph, item, id:
 end
 
 
-function Base.reduce(red::NeighborhoodReduction, index::SearchGraph, item, res, st, N=Int32[])
+function reduce_neighborhood(red::NeighborhoodReduction, index::SearchGraph, item, res, st, N=Int32[])
     for i in 1:length(res, st)
         id, dist = getpair(res, st, i)
         push_neighbor!(red, N, index, item, id, dist)
@@ -130,9 +127,8 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function Base.reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, st, N=Int32[])
-
-    @inbounds for i in k:-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
+@inline function reduce_neighborhood(sat::DistalSatNeighborhood, index::SearchGraph, item, res, st, N=Int32[])
+    @inbounds for i in length(res, st):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
         id, dist = getpair(res, st, i)
         push_neighbor!(sat, N, index, item, id, dist)
     end

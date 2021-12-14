@@ -31,9 +31,9 @@ function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
 end
 
 @with_kw mutable struct OptimizeParameters <: Callback
-    kind = :pareto_distance_searchtime # :pareto_distance_searchtime, :pareto_recall_searchtime, :minimum_recall_searchtime
+    kind = :pareto_recall_searchtime # :pareto_distance_searchtime, :pareto_recall_searchtime, :minimum_recall_searchtime
     initialpopulation = 16
-    params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1, maxiters=16)
+    params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
     ksearch::Int32 = 10
     numqueries::Int32 = 64
     minrecall = 0.9  # used with :minimum_recall_searchtime
@@ -63,6 +63,7 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
                 res = reuse!(knnlist[i], opt.ksearch)
                 q = queries[i]
                 vstate = getvisitedvertices(index)
+                
                 st, v = search(conf, index, q, res, index.hints, vstate; maxvisits)
                 ti = Threads.threadid()
                 vmin[ti] = min(v, vmin[ti])
@@ -121,7 +122,7 @@ function optimize!(
         index::SearchGraph,
         opt::OptimizeParameters;
         queries=nothing,
-        scalemaxvisits=1.0,
+        scalemaxvisits=2.0,
         maxvisits=2 * index.search_algo.maxvisits,
         verbose=index.verbose
     )
@@ -142,8 +143,8 @@ function optimize!(
         nothing
     end
 
-    M = Ref(0.0)
-    R = Ref(0.0)
+    M = Ref(0.0)  # max visits
+    R = Ref(0.0)  # max radius
     function inspect_pop(space, params, population)
         if M[] == 0.0
             for (c, p) in population
@@ -174,9 +175,10 @@ function optimize!(
         inspect_population=inspect_pop,
         geterr=geterr)
     config, perf = bestlist[1]
+    maxvisits = ceil(Int, scalemaxvisits * perf.visited[end])
     verbose && println(stderr, "== finished opt. BeamSearch: search-params: $(opt.params), opt-config: $config, perf: $perf, maxvisits=$maxvisits")
     index.search_algo.Δ = config.Δ
     index.search_algo.bsize = config.bsize
-    index.search_algo.maxvisits = ceil(Int, scalemaxvisits * perf.visited[end])
+    index.search_algo.maxvisits = maxvisits
     bestlist
 end
