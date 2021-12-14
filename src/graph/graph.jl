@@ -168,6 +168,20 @@ function _sequential_append_loop!(index::SearchGraph)
     index
 end
 
+function _connect_links(index, sp, ep)
+    Threads.@threads for i in sp:ep
+        @inbounds for id in index.links[i]
+            lock(index.locks[id])
+            try
+                push!(index.links[id], i)
+                # sat_should_push(index.links[id], index, index[i], i, -1.0) && push!(index.links[id], i)
+            finally
+                unlock(index.locks[id])
+            end
+        end
+    end
+end
+
 function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply_callbacks)
     while sp < n
         ep = min(n, sp + parallel_block)
@@ -180,18 +194,8 @@ function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply
         end
 
         # connecting neighbors
-        Threads.@threads for i in sp:ep
-            @inbounds for id in index.links[i]
-                lock(index.locks[id])
-                try
-                    push!(index.links[id], i)
-                    # sat_should_push(index.links[id], index, index[i], i, -1.0) && push!(index.links[id], i)
-                finally
-                    unlock(index.locks[id])
-                end
-            end
-        end
-
+        _connect_links(index, sp, ep)
+        
         # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
         resize!(index.locks, ep)
         for i in sp:ep
@@ -225,9 +229,9 @@ Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, q, res; hints=index.hints, vstate=getvisitedvertices(index))
     if length(index) > 0
-        search(index.search_algo, index, q, res, hints, vstate)[1]
+        search(index.search_algo, index, q, res, hints, vstate)
     else
-        initialstate(res)
+        initialstate(res), 0
     end
 end
 
@@ -236,8 +240,8 @@ end
 
 Process all registered callbacks
 """
-function callbacks(index::SearchGraph, n=length(index), m=n+1)
-    if n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m))
+function callbacks(index::SearchGraph, n=length(index), m=n+1; force=false)
+    if force || (n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m)))
         for c in index.callbacks
             index.verbose && println(stderr, "calling callback ", typeof(c), " at n=", length(index))
             callback(c, index)

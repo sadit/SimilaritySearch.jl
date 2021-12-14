@@ -80,6 +80,7 @@ include("distances/cloud.jl")
 include("utils/perf.jl")
 include("indexes/seq.jl")
 include("graph/graph.jl")
+include("graph/rebuild.jl")
 
 function __init__()
     __init__visitedvertices()

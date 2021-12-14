@@ -15,7 +15,7 @@ _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
 _convert_as_Set(a::KnnResult) = Set(a.id)
 
-function macrorecall(goldI::Matrix, resI::Matrix, k=size(goldI, 1))::Float64
+function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
     @assert size(goldI) == size(resI)
     n = size(goldI, 2)
     s = 0.0

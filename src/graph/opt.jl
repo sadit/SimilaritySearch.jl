@@ -55,14 +55,20 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
         vmin .= typemax(eltype(vmin))
         vmax .= typemin(eltype(vmax))
         vacc .= 0.0
-
-        searchtime = @elapsed Threads.@threads for i in eachindex(queries)
-            res = reuse!(knnlist[i], opt.ksearch)
-            st, v = search(conf, index, queries[i], res, index.hints, getvisitedvertices(index); maxvisits)
-            ti = Threads.threadid()
-            vmin[ti] = min(v, vmin[ti])
-            vmax[ti] = max(v, vmax[ti])
-            vacc[ti] += v
+        
+        searchtime = @elapsed begin
+            Threads.@threads for i in 1:length(queries)
+            #    @info length(queries), opt.ksearch, length(knnlist)
+                #earchtime = @elapsed for i in eachindex(queries)
+                res = reuse!(knnlist[i], opt.ksearch)
+                q = queries[i]
+                vstate = getvisitedvertices(index)
+                st, v = search(conf, index, q, res, index.hints, vstate; maxvisits)
+                ti = Threads.threadid()
+                vmin[ti] = min(v, vmin[ti])
+                vmax[ti] = max(v, vmax[ti])
+                vacc[ti] += v
+            end
         end
 
         v = minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)

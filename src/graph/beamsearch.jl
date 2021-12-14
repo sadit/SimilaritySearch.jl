@@ -79,7 +79,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, st::KnnRes
                 d = evaluate(index.dist, q, index[childID])
                 st = push!(res, st, childID, d)
                 visited_ += 1
-                visited_ > maxvisits && return visited_
+                visited_ > maxvisits && return (st, visited_)
                 if d <= Δ * maximum(res, st)
                     #if length(index.links[childID]) > 1
                     beam_st = push!(beam, beam_st, childID, d)
