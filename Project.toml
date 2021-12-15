@@ -1,10 +1,9 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.8.0"
+version = "0.8.1"
 
 [deps]
-Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Intersections = "6d0fbc77-481e-44fe-9ace-1653ddcdea34"
