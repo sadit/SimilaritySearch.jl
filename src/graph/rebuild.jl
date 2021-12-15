@@ -14,7 +14,7 @@ function rebuild(g::SearchGraph)
         reverse[i] = Vector{Int32}(undef, 0)
     end
     
-    G = copy(g; links=direct, neighborhood=copy(g.neighborhood), locks=copy(g.locks), hints=copy(g.hints), callbacks=copy(g.callbacks))
+    G = copy(g; links=direct, neighborhood=copy(g.neighborhood), locks=copy(g.locks), hints=copy(g.hints), callbacks=copy(g.callbacks), search_algo=copy(g.search_algo))
     _connect_reverse_links_neg(G.links, reverse, G.locks, 1, length(G))
     callbacks(G, force=true)
     G
@@ -37,7 +37,6 @@ function _connect_reverse_links_neg(direct, reverse, locks, sp, ep)
             lock(locks[id])
             try
                 push!(reverse[id], i)
-                # sat_should_push(index.links[id], index, index[i], i, -1.0) && push!(index.links[id], i)
             finally
                 unlock(locks[id])
             end

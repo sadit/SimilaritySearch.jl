@@ -63,7 +63,6 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
                 res = reuse!(knnlist[i], opt.ksearch)
                 q = queries[i]
                 vstate = getvisitedvertices(index)
-                
                 st, v = search(conf, index, q, res, index.hints, vstate; maxvisits)
                 ti = Threads.threadid()
                 vmin[ti] = min(v, vmin[ti])
