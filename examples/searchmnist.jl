@@ -17,8 +17,8 @@ end
 # ╔═╡ c5af5d4a-455b-11eb-0b57-4d8d63615b85
 begin
 	using SimilaritySearch
-	using MLDatasets # this dataset allows access the dataset
-	using Colors # allows to show images in the Pluto notebook
+	using MLDatasets # this dataset allows accessing the dataset
+	using Colors # allows showing images in the Pluto notebook
 end
 
 # ╔═╡ 5cd87a9e-5506-11eb-2744-6f02144677ff
@@ -57,29 +57,38 @@ begin
 	T, y = MNIST.traindata()
 	n = size(T, 3)
 	X = MatrixDatabase(Matrix{Float32}(reshape(T, (28*28, n))))
+	#X = MatrixDatabase(reshape(T, (28*28, n)))
+
+	#=
+	struct SqL2 <: SimilaritySearch.SemiMetric
+	end
+	
+	function SimilaritySearch.evaluate(::SqL2, u, v)
+		s = zero(Float32)
+		@inbounds @simd for i in eachindex(u)
+			m = (u[i] - v[i])
+			s += m*m
+		end
+		s
+	end
+	dist = SqL2()
+	=#
+	dist = SqL2Distance()
+	dist, typeof(T), size(T)
 end
 
 # ╔═╡ 1ce583f6-54fb-11eb-10ad-b5dc9328ca3b
 begin
-	
-	index = ExhaustiveSearch(SqL2Distance(), X);
-	#=index = SearchGraph(; dist=SqL2Distance(), db=X)
+
+	#index = ExhaustiveSearch(dist, X);
+	index = SearchGraph(; dist, db=X)
 	index.neighborhood.reduce = SatNeighborhood()
 	push!(index.callbacks, OptimizeParameters(; kind=:pareto_recall_searchtime))
 	index!(index)
-	optimize!(index, OptimizeParameters(; kind=:minimum_recall_searchtime, minrecall=0.9))=#
+	optimize!(index, OptimizeParameters(; kind=:minimum_recall_searchtime, minrecall=0.9))
 end
 
-# ╔═╡ 67e9606f-af6e-4813-8398-cc5926ff9a0e
-
-
-# ╔═╡ 96728ce9-00cd-4ff5-97be-e57505be970b
-
-
-# ╔═╡ d59a74f5-8487-4c63-8f83-5b7985f631de
-
-
-# ╔═╡ 34a65122-3798-44e4-934f-be89f00240d1
+# ╔═╡ 3a26b6ac-9590-411f-bd47-28043fe04c09
 
 
 # ╔═╡ 5b743cbc-54fa-11eb-1be4-4b619e1070b2
@@ -124,7 +133,7 @@ SimilaritySearch = "053f045d-5466-53fd-b400-a066f88fe02a"
 [compat]
 Colors = "~0.12.8"
 MLDatasets = "~0.5.14"
-SimilaritySearch = "~0.8.1"
+SimilaritySearch = "~0.8.3"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -646,9 +655,9 @@ uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.SimilaritySearch]]
 deps = ["Dates", "Distances", "Intersections", "LinearAlgebra", "Parameters", "Random", "SearchModels", "StatsBase", "StrideArrays", "Test"]
-git-tree-sha1 = "08a074493c190960bd68ccd94644314ce5dfe5f1"
+git-tree-sha1 = "cdf136fb91d241fcd2509fdf6adb02640021a254"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
-version = "0.8.1"
+version = "0.8.3"
 
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
@@ -819,12 +828,9 @@ uuid = "3f19e933-33d8-53b3-aaab-bd5110c3b7a0"
 # ╠═3934899f-6ef4-419b-9e0d-1b02db2175e3
 # ╟─d8d27dbc-5507-11eb-20e9-0f16ddba080b
 # ╠═6f1d3416-b309-459b-8e76-e8600a8a09a8
-# ╟─a23b0cae-455d-11eb-0e50-4dc31c050cc1
+# ╠═a23b0cae-455d-11eb-0e50-4dc31c050cc1
 # ╠═1ce583f6-54fb-11eb-10ad-b5dc9328ca3b
-# ╠═67e9606f-af6e-4813-8398-cc5926ff9a0e
-# ╠═96728ce9-00cd-4ff5-97be-e57505be970b
-# ╠═d59a74f5-8487-4c63-8f83-5b7985f631de
-# ╠═34a65122-3798-44e4-934f-be89f00240d1
+# ╠═3a26b6ac-9590-411f-bd47-28043fe04c09
 # ╟─5b743cbc-54fa-11eb-1be4-4b619e1070b2
 # ╠═def63abc-45e7-11eb-231d-11d94709acd3
 # ╟─00000000-0000-0000-0000-000000000001
