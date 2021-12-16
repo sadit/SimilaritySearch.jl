@@ -6,7 +6,7 @@ abstract type AbstractSearchContext end
 
 using Parameters
 import Distances: evaluate, SemiMetric
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, knnresults
+export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch
 
 include("db.jl")
 include("utils/knnresultmatrix.jl")
@@ -14,23 +14,24 @@ include("utils/knnresultvector.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
+"""
+    getknnresult(k::Integer) -> KnnResult
+
+Internal function to share result sets for the same thread and avoid memory allocations.
+"""
 @inline function getknnresult(k::Integer)
     res = @inbounds GlobalKnnResult[Threads.threadid()]
     reuse!(res, k)
 end
 
 """
-    search(searchctx::AbstractSearchContext, q, k::Integer=maxlength(searchctx.res))
-    search(searchctx::AbstractSearchContext, q)
+    searchbatch(index, Q, k::Integer=10; parallel=false) -> indices, distances
 
-This is the most generic search function. It calls almost all implementations whenever an integer k is given.
+Searches a batch of queries in the given index (searches for k neighbors).
 
+Note: The i-th column in indices and distances correspond to the i-th query in `Q`
+Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function search(searchctx::AbstractSearchContext, q, k::Integer=10)
-    res = getknnresult(k)
-    search(searchctx, q, res)
-end
-
 function searchbatch(index, Q, k::Integer=10; parallel=false)
     m = length(Q)
     I = zeros(Int32, k, m)
@@ -38,13 +39,18 @@ function searchbatch(index, Q, k::Integer=10; parallel=false)
     searchbatch(index, Q, I, D; parallel)
 end
 
+"""
+    searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false) -> indices, distances
+
+Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
+"""
 function searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
             @inbounds search(index, Q[i], KnnResultMatrix(I, D, i))
         end
     else
-        @time @inbounds for i in eachindex(Q)
+        @inbounds for i in eachindex(Q)
             search(index, Q[i], KnnResultMatrix(I, D, i))
         end
     end
@@ -52,19 +58,26 @@ function searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=fa
     I, D
 end
 
+"""
+    searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false) -> indices, distances
+
+Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
+
+"""
 function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
             @inbounds search(index, Q[i], KNN[i])
         end
     else
-        @time @inbounds for i in eachindex(Q)
+        @inbounds for i in eachindex(Q)
             search(index, Q[i], KNN[i])
         end
     end
 
     KNN
 end
+
 
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]

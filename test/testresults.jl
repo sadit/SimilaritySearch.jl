@@ -4,8 +4,11 @@ using SimilaritySearch
 using Test
 
 function testsorted(res, st, Vsorted)
-    @info "========================", (typeof(res), length(res, st), maxlength(res, st), st)
+    @info "========================", (typeof(res), length(res, st), length(res), maxlength(res), st)
     @show res Vsorted
+
+    @test length(res, st) == length(res)
+    @test collect(res) == Vsorted
 
     @test minimum(res, st) == first(Vsorted)[end]
     @test maximum(res, st) == last(Vsorted)[end]
@@ -21,11 +24,15 @@ function testsorted(res, st, Vsorted)
     _, st = pop!(res, st)
     @test collect(idview(res, st)) == first.(Vsorted)
     @test collect(distview(res, st)) == last.(Vsorted)
+    @test length(res, st) == length(res)
+    @test collect(res) == Vsorted
 
     popfirst!(Vsorted)
     _, st = popfirst!(res, st)
     @test collect(idview(res, st)) == first.(Vsorted)
     @test collect(distview(res, st)) == last.(Vsorted)
+    @test length(res, st) == length(res)
+    @test collect(res) == Vsorted
 end
 
 function create_random_array(n, k)

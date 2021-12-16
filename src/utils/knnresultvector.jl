@@ -70,7 +70,7 @@ end
 Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResult, st::KnnResultState, id::Integer, dist::Real)
-    if length(res, st) < maxlength(res, st)
+    if length(res, st) < maxlength(res)
         k = res.k
         if length(res.id) >= 2k-1
             compact!(res, st, 1)
@@ -118,7 +118,9 @@ end
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
 @inline function Base.popfirst!(res::KnnResult, st::KnnResultState)
-    @inbounds argmin(res, st) => minimum(res, st), KnnResultState(st.pos+1)
+    p = argmin(res, st) => minimum(res, st)
+    res.id[1] = 0  # mark as deleted
+    p, KnnResultState(st.pos+1)
 end
 
 """
@@ -135,8 +137,18 @@ end
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult, st::KnnResultState) = res.k
+@inline maxlength(res::KnnResult) = res.k
 @inline Base.length(res::KnnResult, st::KnnResultState) = length(res.id) - st.pos
+
+function Base.length(res::KnnResult)
+    i = 1
+    n = length(res.id)
+    while i < n && res.id[i] == 0
+        i += 1
+    end
+
+    n - i + 1
+end
 
 """
     reuse!(res::KnnResult)
@@ -172,3 +184,32 @@ end
 @inline Base.argmin(res::KnnResult, st::KnnResultState) = res.id[1+st.pos]
 @inline idview(res::KnnResult, st::KnnResultState) = @view res.id[st.pos+1:end]
 @inline distview(res::KnnResult, st::KnnResultState) = @view res.dist[st.pos+1:end]
+
+
+"""
+    Base.eachindex(res::AbstractKnnResult, st::KnnResultState)
+
+Each index range
+"""
+@inline Base.eachindex(res::AbstractKnnResult, st::KnnResultState) = 1:length(res, st)
+
+##### iterator interface
+### KnnResult
+"""
+    Base.iterate(res::AbstractKnnResult, state::Int=1)
+
+Support for iteration
+"""
+
+
+function Base.iterate(res::KnnResult, i::Int=1)
+    n = length(res.id)
+    (n == 0 || i > n) && return nothing
+
+    while i < n && res.id[i] == 0
+        i += 1
+    end
+    
+    i > n && return nothing
+    @inbounds res.id[i] => res.dist[i], i + 1
+end

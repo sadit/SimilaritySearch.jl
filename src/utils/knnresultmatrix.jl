@@ -82,7 +82,7 @@ Appends an item into the result set
 """
 @inline function Base.push!(res::KnnResultMatrix, st::KnnResultState, id::Int32, dist::Float32)
     pos = st.pos
-    @inbounds if pos < maxlength(res, st)
+    @inbounds if pos < maxlength(res)
         pos += 1
         res.id[pos, res.col] = id
         res.dist[pos, res.col] = dist
@@ -115,7 +115,7 @@ Removes and returns the nearest neeighbor pair from the pool, an O(length(p)) op
         res.id[i, res.col] = res.id[i+1, res.col]
         res.dist[i, res.col] = res.dist[i+1, res.col]
     end
-
+    res.id[st.pos, res.col] = 0
     p, KnnResultState(pos)
 end
 
@@ -125,16 +125,27 @@ end
 Removes and returns the last item in the pool, it is an O(1) operation
 """
 @inline function Base.pop!(res::KnnResultMatrix, st::KnnResultState)
-    res.id[st.pos, res.col] => res.dist[st.pos, res.col], KnnResultState(st.pos - 1)
+    p = res.id[st.pos, res.col] => res.dist[st.pos, res.col]
+    res.id[st.pos, res.col] = 0  # zero is special (marks final element)
+    p, KnnResultState(st.pos - 1)
 end
 
 """
-    maxlength(res::KnnResultMatrix, st::KnnResultState)
+    maxlength(res::KnnResultMatrix)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResultMatrix, st::KnnResultState) = size(res.id, 1)
+@inline maxlength(res::KnnResultMatrix) = size(res.id, 1)
 @inline Base.length(res::KnnResultMatrix, st::KnnResultState) = st.pos
+@inline function Base.length(res::KnnResultMatrix)
+    i = 1
+    n = maxlength(res)
+    @inbounds while i <= n && res.id[i, res.col] != 0
+        i += 1
+    end
+
+    i - 1
+end
 
 """
     getindex(res::KnnResultMatrix, st::KnnResultState, i)
@@ -158,3 +169,17 @@ end
 @inline distview(res::KnnResultMatrix, st::KnnResultState) = @view res.dist[1:st.pos, res.col]
 
 @inline Base.eachindex(res::AbstractKnnResult, st::KnnResultState) = 1:length(res, st)
+
+function Base.iterate(res::KnnResultMatrix, i::Int=1)
+    n = maxlength(res)
+    (n == 0 || i > n) && return nothing
+    @inbounds id = res.id[i, res.col]
+    if id == 0
+        nothing
+    else
+        @inbounds dist = res.dist[i, res.col]
+        id => dist, i + 1
+    end
+end
+
+Base.eltype(res::AbstractKnnResult) = Pair{Int32,Float32}
