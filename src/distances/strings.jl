@@ -7,7 +7,7 @@ export CommonPrefixDissimilarity, GenericLevenshteinDistance, StringHammingDista
 
 Uses the common prefix as a measure of dissimilarity between two strings
 """
-struct CommonPrefixDissimilarity <: PreMetric
+struct CommonPrefixDissimilarity <: SemiMetric
 end
 
 """
@@ -15,7 +15,7 @@ end
 
 The hamming distance counts the differences between two equally sized strings
 """
-struct StringHammingDistance <: PreMetric
+struct StringHammingDistance <: SemiMetric
 end
 
 """
@@ -24,7 +24,7 @@ end
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
 The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
 """
-@with_kw struct GenericLevenshteinDistance <: PreMetric
+@with_kw struct GenericLevenshteinDistance <: SemiMetric
     icost::Int32 = 1 # insertion cost
     dcost::Int32 = 1 # deletion cost
     rcost::Int32 = 1 # replace cost

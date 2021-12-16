@@ -14,7 +14,7 @@ The cosine is defined as:
 
 The cosine distance is defined as ``1 - \\cos(u,v)``
 """
-struct CosineDistance <: PreMetric end
+struct CosineDistance <: SemiMetric end
 
 """
    AngleDistance()
@@ -25,7 +25,7 @@ The angle distance is defined as:
 ```
 
 """
-struct AngleDistance <: PreMetric end
+struct AngleDistance <: SemiMetric end
 """
     NormalizedCosineDistance()
 
@@ -36,7 +36,7 @@ Similar to [`CosineDistance`](@ref) but suppose that input vectors are already n
 ```
 
 """
-struct NormalizedCosineDistance <: PreMetric end
+struct NormalizedCosineDistance <: SemiMetric end
 
 """
     NormalizedAngleDistance()
@@ -48,7 +48,7 @@ Similar to [`AngleDistance`](@ref) but suppose that input vectors are already no
 ```
 
 """
-struct NormalizedAngleDistance <: PreMetric end
+struct NormalizedAngleDistance <: SemiMetric end
 
 const π_2 = π / 2
 

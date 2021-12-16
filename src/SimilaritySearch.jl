@@ -5,8 +5,8 @@ abstract type Index end
 abstract type AbstractSearchContext end
 
 using Parameters
-import Distances: evaluate, PreMetric
-export AbstractSearchContext, PreMetric, evaluate, search, searchbatch, knnresults
+import Distances: evaluate, SemiMetric
+export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, knnresults
 
 include("db.jl")
 include("utils/knnresultmatrix.jl")

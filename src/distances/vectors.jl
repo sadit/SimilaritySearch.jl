@@ -12,7 +12,7 @@ The manhattan distance or ``L_1`` is defined as
 L_1(u, v) = \\sum_i{|u_i - v_i|}
 ```
 """
-struct L1Distance <: PreMetric end
+struct L1Distance <: SemiMetric end
 
 """
     L2Distance()
@@ -23,7 +23,7 @@ The euclidean distance or ``L_2`` is defined as
 L_2(u, v) = \\sqrt{\\sum_i{(u_i - v_i)^2}}
 ```
 """
-struct L2Distance <: PreMetric end
+struct L2Distance <: SemiMetric end
 
 """
     SqL2Distance()
@@ -37,7 +37,7 @@ L_2(u, v) = \\sum_i{(u_i - v_i)^2}
 It avoids the computation of the square root and should be used
 whenever you are able do it.
 """
-struct SqL2Distance <: PreMetric end
+struct SqL2Distance <: SemiMetric end
 
 """
     LInftyDistance()
@@ -49,7 +49,7 @@ L_{\\infty}(u, v) = \\max_i{\\left| u_i - v_i \\right|}
 ```
 
 """
-struct LInftyDistance <: PreMetric end
+struct LInftyDistance <: SemiMetric end
 
 """
     LpDistance(p)
@@ -63,7 +63,7 @@ L_p(u, v) = \\left|\\sum_i{(u_i - v_i)^p}\\right|^{1/p}
 
 Where ``p_{inv} = 1/p``. Note that you can specify unrelated `p` and `pinv` if you need an specific behaviour.
 """
-struct LpDistance <: PreMetric
+struct LpDistance <: SemiMetric
     p::Float32
     pinv::Float32
 end

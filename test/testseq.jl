@@ -5,7 +5,7 @@ using Distances
 using LinearAlgebra
 using Test
 
-function test_seq(db, queries, dist::PreMetric, ksearch, valid_lower=1e-3)
+function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     id, dist = searchbatch(seq, queries, 10)
 

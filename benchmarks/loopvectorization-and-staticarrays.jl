@@ -1,6 +1,6 @@
 using SimilaritySearch, Random, LoopVectorization, StaticArrays
 
-struct SqL2Turbo <: PreMetric end
+struct SqL2Turbo <: SemiMetric end
 
 function SimilaritySearch.evaluate(::SqL2Turbo, u::T, v::T) where T
     d = zero(Float32)

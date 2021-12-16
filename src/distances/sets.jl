@@ -12,7 +12,7 @@ The Jaccard distance is defined as
 J(u, v) = \\frac{|u \\cap v|}{|u \\cup v|}
 ```
 """
-struct JaccardDistance <: PreMetric end
+struct JaccardDistance <: SemiMetric end
 
 """
     DiceDistance()
@@ -23,7 +23,7 @@ The Dice distance is defined as
 D(u, v) = \\frac{2 |u \\cap v|}{|u| + |v|}
 ```
 """
-struct DiceDistance <: PreMetric end
+struct DiceDistance <: SemiMetric end
 
 """
     IntersectionDissimilarity()
@@ -34,7 +34,7 @@ The intersection dissimilarity uses the size of the intersection as a mesuare of
 I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
 ```
 """
-struct IntersectionDissimilarity <: PreMetric end
+struct IntersectionDissimilarity <: SemiMetric end
 
 """
     union_intersection(a::T, b::T)

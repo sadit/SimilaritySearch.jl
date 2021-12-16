@@ -44,11 +44,13 @@ function _connect_reverse_links_neg(direct, reverse, locks, sp, ep)
     end
 
     Threads.@threads for i in sp:ep
-        if length(direct[i]) >= length(reverse[i])
-            append!(direct[i], reverse[i])
-        else
-            append!(reverse[i], direct[i])
-            direct[i] = reverse[i]
+        @inbounds begin
+            if length(direct[i]) >= length(reverse[i])
+                append!(direct[i], reverse[i])
+            else
+                append!(reverse[i], direct[i])
+                direct[i] = reverse[i]
+            end
         end
     end
 end

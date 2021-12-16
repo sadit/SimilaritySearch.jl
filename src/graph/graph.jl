@@ -63,7 +63,7 @@ It supports callbacks to adjust parameters as insertions are made.
 Note: Parallel insertions should be made through `append!` function with `parallel_block > 1`
 
 """
-@with_kw struct SearchGraph{DistType<:PreMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
+@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
     links::Vector{Vector{Int32}} = Vector{Int32}[]

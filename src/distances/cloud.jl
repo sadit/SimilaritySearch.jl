@@ -2,7 +2,7 @@
 export HausdorffDistance, MinHausdorffDistance
 
 raw"""
-    HausdorffDistance(dist::PreMetric)
+    HausdorffDistance(dist::SemiMetric)
 
 Hausdorff distance is defined as the maximum of the minimum between two clouds of points.
 
@@ -10,11 +10,11 @@ Hausdorff distance is defined as the maximum of the minimum between two clouds o
 
 where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V``.
 """
-struct HausdorffDistance{Dtype<:PreMetric} <: PreMetric
+struct HausdorffDistance{Dtype<:SemiMetric} <: SemiMetric
     dist::Dtype
 end
 
-function _exhaustive_nndist(dist::PreMetric, u::T, V) where T
+function _exhaustive_nndist(dist::SemiMetric, u::T, V) where T
     min_ = typemax(eltype(u))
 
     @inbounds for j in eachindex(V)
@@ -24,7 +24,7 @@ function _exhaustive_nndist(dist::PreMetric, u::T, V) where T
     min_
 end
 
-function _hausdorff1(dist::PreMetric, u, v)
+function _hausdorff1(dist::SemiMetric, u, v)
     s = 0.0
     @inbounds for i in eachindex(u)
         s = max(s, _exhaustive_nndist(dist, u[i], v))
@@ -42,15 +42,15 @@ function SimilaritySearch.evaluate(m::HausdorffDistance, u, v)
 end
 
 """
-    MinHausdorffDistance(dist::PreMetric)
+    MinHausdorffDistance(dist::SemiMetric)
 
 Similar to Hausdorff distance but using minimum instead of maximum.
 """
-struct MinHausdorffDistance{Dtype<:PreMetric} <: PreMetric
+struct MinHausdorffDistance{Dtype<:SemiMetric} <: SemiMetric
     dist::Dtype
 end
 
-function _minhausdorff1(dist::PreMetric, u, v)
+function _minhausdorff1(dist::SemiMetric, u, v)
     s = 0.0
     @inbounds for i in eachindex(u)
         s = min(s, _exhaustive_nndist(dist, u[i], v))
