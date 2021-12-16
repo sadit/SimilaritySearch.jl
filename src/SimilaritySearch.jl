@@ -9,8 +9,8 @@ import Distances: evaluate, SemiMetric
 export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch
 
 include("db.jl")
-include("utils/knnresultmatrix.jl")
-include("utils/knnresultvector.jl")
+include("knnresultmatrix.jl")
+include("knnresultvector.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
@@ -90,8 +90,8 @@ include("distances/strings.jl")
 include("distances/vectors.jl")
 include("distances/cos.jl")
 include("distances/cloud.jl")
-include("utils/perf.jl")
-include("indexes/seq.jl")
+include("perf.jl")
+include("seq.jl")
 include("graph/graph.jl")
 include("graph/rebuild.jl")
 
