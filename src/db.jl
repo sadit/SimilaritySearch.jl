@@ -69,7 +69,7 @@ end
 #
 struct MatrixDatabase{MType} <: AbstractDatabase
     matrix::MType
-    MatrixDatabase(m::Matrix) = new{typeof(m)}(m)
+    MatrixDatabase(m::AbstractMatrix) = new{typeof(m)}(m)
 end
 
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
@@ -88,12 +88,12 @@ struct VectorDatabase{DataType} <: AbstractDatabase
 end
 
 VectorDatabase(t::Type=Vector{Float32}) = VectorDatabase(Vector{t}(undef, 0))
-VectorDatabase(M::Matrix) = VectorDatabase([Vector(c) for c in eachcol(M)])
+VectorDatabase(M::AbstractMatrix) = VectorDatabase([Vector(c) for c in eachcol(M)])
 VectorDatabase(M::VectorDatabase) = VectorDatabase(M.data)
 #VectorDatabase(M::AbstractDatabase) = VectorDatabase([Vector(m) for m in M])
 
 Base.convert(::Type{AbstractDatabase}, M::AbstractDatabase) = M
-Base.convert(::Type{AbstractDatabase}, M::Matrix) = MatrixDatabase(M)
+Base.convert(::Type{AbstractDatabase}, M::AbstractMatrix) = MatrixDatabase(M)
 Base.convert(::Type{AbstractDatabase}, M::Vector) = VectorDatabase(M)
 Base.convert(::Type{AbstractDatabase}, M::Vector{Any}) = VectorDatabase(typeof(first(M)).(M))
 Base.convert(::Type{AbstractDatabase}, M::AbstractVector) = VectorDatabase(typeof(first(M)).(M))
