@@ -185,14 +185,6 @@ end
 @inline idview(res::KnnResult, st::KnnResultState) = @view res.id[st.pos+1:end]
 @inline distview(res::KnnResult, st::KnnResultState) = @view res.dist[st.pos+1:end]
 
-
-"""
-    Base.eachindex(res::AbstractKnnResult, st::KnnResultState)
-
-Each index range
-"""
-@inline Base.eachindex(res::AbstractKnnResult, st::KnnResultState) = 1:length(res, st)
-
 ##### iterator interface
 ### KnnResult
 """
