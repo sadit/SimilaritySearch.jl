@@ -1,4 +1,3 @@
-# This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch, Random
 using Test

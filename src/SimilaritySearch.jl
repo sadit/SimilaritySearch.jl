@@ -40,11 +40,11 @@ function searchbatch(index, Q, k::Integer=10; parallel=false)
 end
 
 """
-    searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false) -> indices, distances
+    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false) -> indices, distances
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 """
-function searchbatch(index, Q, I::Matrix{Int32}, D::Matrix{Float32}; parallel=false)
+function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false)
     if parallel
         Threads.@threads for i in eachindex(Q)
             @inbounds search(index, Q[i], KnnResultMatrix(I, D, i))
@@ -94,6 +94,7 @@ include("perf.jl")
 include("seq.jl")
 include("graph/graph.jl")
 include("graph/rebuild.jl")
+include("allknn.jl")
 
 function __init__()
     __init__visitedvertices()
