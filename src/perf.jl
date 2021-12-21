@@ -13,7 +13,7 @@ end
 
 _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
-_convert_as_Set(a::KnnResult) = Set(a.id)
+_convert_as_set(a::KnnResult) = Set(a.id)
 
 function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
     @assert size(goldI) == size(resI)
