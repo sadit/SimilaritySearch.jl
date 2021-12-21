@@ -59,11 +59,9 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
         searchtime = @elapsed begin
             Threads.@threads for i in 1:length(queries)
             #    @info length(queries), opt.ksearch, length(knnlist)
-                #earchtime = @elapsed for i in eachindex(queries)
-                res = reuse!(knnlist[i], opt.ksearch)
-                q = queries[i]
+                #earchtime = @elapsed for i in eachindex(queries)    
                 vstate = getvisitedvertices(index)
-                st, v = search(conf, index, q, res, index.hints, vstate; maxvisits)
+                res, st, v = search(conf, index,  queries[i], reuse!(knnlist[i], opt.ksearch), index.hints, vstate; maxvisits)
                 ti = Threads.threadid()
                 vmin[ti] = min(v, vmin[ti])
                 vmax[ti] = max(v, vmax[ti])
@@ -72,7 +70,9 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
         end
 
         v = minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)
-        st = KnnResultState(0) # we assume 0 (res's shift=>0), this is true for the BS algorithm, and typical algorithms
+        # we assume 0 (res's shift=>0), this is true for the BS algorithm, and typical algorithms
+        # popshift! is used with other purposes and must to be applied to the result set
+        st = KnnResultState(0)
         for i in eachindex(knnlist)
             covradius[i] = maximum(knnlist[i], st)
         end
@@ -86,7 +86,6 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
         end
 
         verbose && println(stderr, "eval_beamsearch_config> config: $conf, opt: $opt, searchtime: $searchtime, recall: $recall")
-
         (visited=v, radius=(rmin, ravg, rmax), recall=recall, searchtime=searchtime/length(knnlist))
     end
 end

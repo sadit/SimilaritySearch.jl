@@ -20,9 +20,8 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 function find_neighborhood(index::SearchGraph, item; hints=index.hints)
     n = length(index)
     if n > 0
-        res = getknnresult(index.neighborhood.ksearch)
         vstate = getvisitedvertices(index)
-        st, visits_ = search(index.search_algo, index, item, res, hints, vstate)
+        res, st, visits_ = search(index.search_algo, index, item, getknnresult(index.neighborhood.ksearch), hints, vstate)
         reduce_neighborhood(index.neighborhood.reduce, index, item, res, st)
     else
         Int32[]

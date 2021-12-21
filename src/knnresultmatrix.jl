@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 using Intersections
 
-export KnnResultMatrix, KnnResultState, maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
+export AbstractKnnResult, KnnResultMatrix, KnnResultState, maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
 
 struct KnnResultState
     pos::Int

@@ -34,7 +34,7 @@ function search(seq::ExhaustiveSearch, q, res::AbstractKnnResult)
         st = push!(res, st, i, evaluate(seq.dist, seq[i], q))
     end
 
-    st, length(seq)
+    (res=res, st=st, cost=length(seq))
 end
 
 function Base.push!(seq::ExhaustiveSearch, u)
