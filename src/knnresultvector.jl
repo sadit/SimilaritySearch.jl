@@ -1,4 +1,13 @@
 # This file is a part of SimilaritySearch.jl
+using Intersections
+
+export AbstractKnnResult, KnnResultState, maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
+
+struct KnnResultState
+    pos::Int
+end
+
+abstract type AbstractKnnResult end
 
 export KnnResult
 
@@ -17,7 +26,10 @@ end
 
 function KnnResult(k::Integer)
     @assert k > 0
-    KnnResult(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    res = KnnResult(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    sizehint!(res.id, k)
+    sizehint!(res.dist, k)
+    res
 end
 
 function initialstate(::KnnResult)
@@ -94,6 +106,10 @@ Appends an item into the result set
     st
 end
 
+@inline Base.push!(res::AbstractKnnResult, st::KnnResultState, id::Integer, dist::Real) = push!(res, st, convert(Int32, id), convert(Float32, dist))
+@inline Base.push!(res::AbstractKnnResult, st::KnnResultState, p::Pair) = push!(res, st, p.first, p.second)
+
+
 function compact!(res::KnnResult, st::KnnResultState, resize_extra)
     shift = st.pos
     if shift > 0
@@ -160,6 +176,10 @@ Returns a result set and a new initial state; reuse the memory buffers
     @assert k > 0
     empty!(res.id)
     empty!(res.dist)
+    if k > res.k
+        sizehint!(res.id, k)
+        sizehint!(res.dist, k)
+    end
     KnnResult(res.id, res.dist, k)
 end
 
@@ -182,8 +202,17 @@ end
 @inline Base.minimum(res::KnnResult, st::KnnResultState) = res.dist[1+st.pos]
 @inline Base.argmax(res::KnnResult, st::KnnResultState) = last(res.id)
 @inline Base.argmin(res::KnnResult, st::KnnResultState) = res.id[1+st.pos]
+
+Base.maximum(res::KnnResult) = last(res.dist)
+Base.argmax(res::KnnResult) = last(res.id)
+Base.minimum(res::KnnResult) = res.dist[_find_start_position(res)]
+Base.argmin(res::KnnResult) = res.id[_find_start_position(res)]
+
 @inline idview(res::KnnResult, st::KnnResultState) = @view res.id[st.pos+1:end]
 @inline distview(res::KnnResult, st::KnnResultState) = @view res.dist[st.pos+1:end]
+
+@inline Base.eachindex(res::AbstractKnnResult, st::KnnResultState) = 1:length(res, st)
+Base.eltype(res::AbstractKnnResult) = Pair{Int32,Float32}
 
 ##### iterator interface
 ### KnnResult
@@ -192,16 +221,24 @@ end
 
 Support for iteration
 """
-
-
-function Base.iterate(res::KnnResult, i::Int=1)
-    n = length(res.id)
-    (n == 0 || i > n) && return nothing
-
-    while i < n && res.id[i] == 0
+@inline function _find_start_position(res::KnnResult)
+    i = 1
+    id = res.id
+    n = length(id)
+    @inbounds while i <= n && id[i] == 0
         i += 1
     end
     
+    i
+end
+
+function Base.iterate(res::KnnResult, i::Int=-1)
+    n = length(res.id)
+    n == 0 && return nothing
+    if i == -1
+        i = _find_start_position(res)
+    end
+
     i > n && return nothing
-    @inbounds res.id[i] => res.dist[i], i + 1
+    @inbounds res.id[i] => res.dist[i], i+1
 end

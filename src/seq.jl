@@ -31,7 +31,8 @@ Solves the query evaluating all items in the given query.
 function search(seq::ExhaustiveSearch, q, res::AbstractKnnResult)
     st = initialstate(res)
     @inbounds for i in eachindex(seq)
-        st = push!(res, st, i, evaluate(seq.dist, seq[i], q))
+        d = evaluate(seq.dist, seq[i], q)
+        st = push!(res, st, i, d)
     end
 
     (res=res, st=st, cost=length(seq))
