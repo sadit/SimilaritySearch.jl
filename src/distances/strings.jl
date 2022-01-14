@@ -28,7 +28,7 @@ The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. No
     icost::Int32 = 1 # insertion cost
     dcost::Int32 = 1 # deletion cost
     rcost::Int32 = 1 # replace cost
-    C::Vector{Int16} = Vector{Int16}(undef, 64)
+    Cpool::Vector{Vector{Int16}} = [Vector{Int16}(undef, 64) for i in 1:Threads.nthreads()]
 end
 
 """
@@ -87,7 +87,7 @@ function evaluate(lev::GenericLevenshteinDistance, a, b)
     alen == 0 && return blen
     blen == 0 && return alen
 
-    C = lev.C
+    C = lev.Cpool[Threads.threadid()]
     resize!(C, blen+1)
     @inbounds for i in 0:blen
         C[i+1] = i
