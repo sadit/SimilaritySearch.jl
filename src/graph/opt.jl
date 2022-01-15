@@ -3,8 +3,12 @@
 using SearchModels, Random
 using StatsBase
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize!, BeamSearchSpace
+export OptimizeParameters, optimize!, BeamSearchSpace, MinRecall, ParetoRecall, ParetoRadius
 
+abstract type ErrorFunction end
+struct MinRecall <: ErrorFunction end
+struct ParetoRecall <: ErrorFunction end
+struct ParetoRadius <: ErrorFunction end
 
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 8:8:64
@@ -31,12 +35,12 @@ function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
 end
 
 @with_kw mutable struct OptimizeParameters <: Callback
-    kind = :pareto_recall_searchtime # :pareto_distance_searchtime, :pareto_recall_searchtime, :minimum_recall_searchtime
+    kind::ErrorFunction = ParetoRecall()
     initialpopulation = 16
     params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
     ksearch::Int32 = 10
     numqueries::Int32 = 64
-    minrecall = 0.9  # used with :minimum_recall_searchtime
+    minrecall = 0.9  # used with MinRecall()
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
@@ -130,9 +134,8 @@ function optimize!(
         queries = SubDatabase(index.db, sample)
     end
 
-    recall_options = (:pareto_recall_searchtime, :minimum_recall_searchtime)
     knnlist = [KnnResult(opt.ksearch) for i in eachindex(queries)]
-    gold = if opt.kind in recall_options
+    gold = if opt.kind isa ParetoRecall || opt.kind isa MinRecall
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
         searchbatch(seq, queries, knnlist; parallel=true)
@@ -156,9 +159,9 @@ function optimize!(
 
     function geterr(p)
         cost = p.visited[2] / M[]
-        if opt.kind === :pareto_recall_searchtime    
+        if opt.kind isa ParetoRecall 
             cost^2 + (1.0 - p.recall)^2
-        elseif opt.kind === :minimum_recall_searchtime
+        elseif opt.kind isa MinRecall
             p.recall < opt.minrecall ? 3.0 - 2 * p.recall : cost
         else
             _kfun(cost) + _kfun(p.radius[2] / R[])
