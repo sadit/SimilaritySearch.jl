@@ -231,7 +231,7 @@ function search(index::SearchGraph, q, res; hints=index.hints, vstate=getvisited
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, vstate)
     else
-        (res=res, st=initialstate(res), cost=0)
+        (res=res, cost=0)
     end
 end
 

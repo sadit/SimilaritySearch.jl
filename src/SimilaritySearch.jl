@@ -9,7 +9,8 @@ import Distances: evaluate, SemiMetric
 export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch
 
 include("db.jl")
-include("knnresultvector.jl")
+include("knnresult.jl")
+include("knnresultshift.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
@@ -48,15 +49,14 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
     if parallel
         Threads.@threads for i in eachindex(Q)
             # @inbounds search(index, Q[i], KnnResultMatrix(I, D, i))
-            res, st, cost = search(index, Q[i], getknnresult(k))
+            res, cost = search(index, Q[i], getknnresult(k))
             I[:, i] .= res.id
             D[:, i] .= res.dist
         end
     else
-
         @inbounds for i in eachindex(Q)
             # search(index, Q[i], KnnResultMatrix(I, D, i))
-            res, st, cost = search(index, Q[i], getknnresult(k))
+            res, cost = search(index, Q[i], getknnresult(k))
             I[:, i] .= res.id
             D[:, i] .= res.dist
         end

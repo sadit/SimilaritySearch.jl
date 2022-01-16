@@ -24,18 +24,17 @@ end
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
 """
-    search(seq::ExhaustiveSearch, q, res::AbstractKnnResult)
+    search(seq::ExhaustiveSearch, q, res::KnnResult)
 
 Solves the query evaluating all items in the given query.
 """
-function search(seq::ExhaustiveSearch, q, res::AbstractKnnResult)
-    st = initialstate(res)
+function search(seq::ExhaustiveSearch, q, res::KnnResult)
     @inbounds for i in eachindex(seq)
         d = evaluate(seq.dist, seq[i], q)
-        st = push!(res, st, i, d)
+        push!(res, i, d)
     end
 
-    (res=res, st=st, cost=length(seq))
+    (res=res, cost=length(seq))
 end
 
 function Base.push!(seq::ExhaustiveSearch, u)

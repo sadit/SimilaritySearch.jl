@@ -50,14 +50,12 @@ function callback(opt::DisjointHints, index)
     empty!(index.hints)
     meansize = mean(length(index.links[i]) for i in 1:n)
     res = KnnResult(m)
-    st = initialstate(res)
     for i in 1:n
-        st = push!(res, st, i, abs(length(index.links[i]) - meansize))
+        push!(res, i, abs(length(index.links[i]) - meansize))
     end
 
     V = Set{Int}()
-
-    for i in idview(res, st)
+    for i in res.id
         i in V && continue
         push!(index.hints, i)
         push!(V, i)
