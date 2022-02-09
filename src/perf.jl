@@ -15,6 +15,12 @@ _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
 _convert_as_set(a::KnnResult) = Set(a.id)
 
+"""
+    macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
+
+Computes the macro recall score using goldI as gold standard and resI as predictions;
+it expects that matrices of integers (identifiers). If `k` is given, then the results are cut to first `k`.
+"""
 function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
     @assert size(goldI) == size(resI)
     n = size(goldI, 2)
@@ -28,6 +34,11 @@ function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 
     s / n
 end
 
+"""
+    macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
+
+Computes the macro recall score using sets of results (KnnResult objects or vectors of itegers).
+"""
 function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     @assert size(goldlist) == size(reslist)
     s = 0.0
@@ -43,6 +54,11 @@ function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     s / n
 end
 
+"""
+    timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
+
+Computes the K nearest neigbors of each object in `Q` and returns two matrices, and the average search time in seconds.
+"""
 function timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
     m = length(Q)
     I = zeros(Int32, ksearch, m)

@@ -48,14 +48,12 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
     k = size(I, 1)
     if parallel
         Threads.@threads for i in eachindex(Q)
-            # @inbounds search(index, Q[i], KnnResultMatrix(I, D, i))
             res, cost = search(index, Q[i], getknnresult(k))
             I[:, i] .= res.id
             D[:, i] .= res.dist
         end
     else
         @inbounds for i in eachindex(Q)
-            # search(index, Q[i], KnnResultMatrix(I, D, i))
             res, cost = search(index, Q[i], getknnresult(k))
             I[:, i] .= res.id
             D[:, i] .= res.dist

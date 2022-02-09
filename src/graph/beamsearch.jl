@@ -10,6 +10,7 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 
 - `bsize`: The size of the beam.
 - `Δ`: Soft margin for accepting elements into the beam
+- `maxvisits`: MAximum visits while searching, useful for early stopping without convergence
 """
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32 = 8  # size of the search beam
@@ -95,7 +96,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, vstate, bs
 end
 
 """
-    search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate)
+    search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
 
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
