@@ -1,32 +1,20 @@
 # This file is a part of SimilaritySearch.jl
 
 # Database interface
-using Random, StrideArrays
-export AbstractDatabase, MatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase, StrideDatabase
+using Random
+export AbstractDatabase, MatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase
 
 abstract type AbstractDatabase
 end
 
-#
-# Support for StrideArrays
-#
-struct StrideDatabase{DataType} <: AbstractDatabase
-    X::DataType
-end
-StrideDatabase(m::Matrix) = StrideDatabase(StrideArray(m))
+@inline Base.view(db::AbstractDatabase, map) = SubDatabase(db, map)
+@inline Base.size(db::AbstractDatabase) = (length(db),)
+@inline Random.rand(db::AbstractDatabase) = @inbounds db[rand(eachindex(db))]
+@inline Random.rand(db::AbstractDatabase, n::Integer) = SubDatabase(db, rand(1:length(db), n))
+@inline Base.firstindex(db::AbstractDatabase) = 1
+@inline Base.lastindex(db::AbstractDatabase) = length(db)
+@inline Base.eachindex(db::AbstractDatabase) = firstindex(db):lastindex(db)
 
-@inline function Base.getindex(db::StrideDatabase, i::Integer)
-    @view db.X[:, i]
-end
-@inline Base.setindex!(db::StrideDatabase, value, i) = @inbounds (db.data[i] .= value)
-
-@inline function Base.getindex(db::StrideDatabase, lst::Vector{<:Integer})
-    [db[i] for i in lst]
-end
-
-@inline Base.length(db::StrideDatabase) = size(db.X, 2)
-@inline Base.eachindex(db::StrideDatabase) = 1:length(db)
-@inline Base.eltype(db::StrideDatabase) = eltype(db.X)
 
 #
 # Matrix dataset, i.e., columns are objects. We store them as vector to support appending items
@@ -49,11 +37,11 @@ end
 end
 
 @inline Base.length(db::DynamicMatrixDatabase{DType,dim}) where {DType,dim} = length(db.data) ÷ dim
-@inline Base.eachindex(db::DynamicMatrixDatabase) = 1:length(db)
 @inline function Base.push!(db::DynamicMatrixDatabase{DType,dim}, v) where {DType,dim}
     append!(db.data, v)
     db
 end
+
 @inline Base.append!(a::DynamicMatrixDatabase{DType,dim}, b::DynamicMatrixDatabase{DType2,dim})  where {DType,dim,DType2} = append!(a.data, b.data)
 @inline function Base.append!(a::DynamicMatrixDatabase{DType,dim}, B) where {DType,dim}
     @assert all(b->length(b) == dim, B)
@@ -75,7 +63,6 @@ end
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::MatrixDatabase, value, i) = @inbounds (db.matrix[:, i] .= value)
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
-@inline Base.eachindex(db::MatrixDatabase) = 1:length(db)
 @inline Base.push!(db::MatrixDatabase, v) = error("Unsupported operation")
 @inline Base.append!(a::MatrixDatabase, b) = error("Unsupported operation")
 @inline Base.eltype(db::MatrixDatabase) = AbstractVector{eltype(db.matrix)}
@@ -103,7 +90,6 @@ Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
 @inline Base.getindex(db::VectorDatabase, i) = @inbounds db.data[i]
 @inline Base.setindex!(db::VectorDatabase, value, i) = @inbounds (db.data[i] = value)
 @inline Base.length(db::VectorDatabase) = length(db.data)
-@inline Base.eachindex(db::VectorDatabase) = eachindex(db.data)
 @inline function Base.push!(db::VectorDatabase, v)
     push!(db.data, v)
     db
@@ -127,7 +113,7 @@ end
     error("push! unsupported operation on SubDatabase")
 end
 @inline Base.eltype(sdb::SubDatabase) = eltype(sdb.db)
-
+@inline Random.rand(db::SubDatabase, n::Integer) = SubDatabase(db.db, rand(db.map, n))
 #
 # Generic functions
 #
@@ -139,8 +125,4 @@ function Base.iterate(db::AbstractDatabase, state::Int=1)
         @inbounds db[state], state + 1
     end
 end
-@inline Base.view(db::AbstractDatabase, map) = SubDatabase(db, map)
-@inline Base.size(db::AbstractDatabase) = (length(db),)
-@inline Random.rand(db::AbstractDatabase) = @inbounds db[rand(eachindex(db))]
-@inline Random.rand(db::AbstractDatabase, n::Integer) = SubDatabase(db, rand(1:length(db), n))
-@inline Random.rand(db::SubDatabase, n::Integer) = SubDatabase(db.db, rand(db.map, n))
+
