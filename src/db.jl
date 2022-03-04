@@ -14,7 +14,7 @@ end
 @inline Base.firstindex(db::AbstractDatabase) = 1
 @inline Base.lastindex(db::AbstractDatabase) = length(db)
 @inline Base.eachindex(db::AbstractDatabase) = firstindex(db):lastindex(db)
-
+@inline Base.getindex(db::AbstractDatabase, lst::Vector{<:Integer}) = SubDatabase(db, lst)
 
 #
 # Matrix dataset, i.e., columns are objects. We store them as vector to support appending items
@@ -31,10 +31,6 @@ end
     @inbounds @view db.data[(ep - dim + 1):ep]
 end
 @inline Base.setindex!(db::DynamicMatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
-
-@inline function Base.getindex(db::DynamicMatrixDatabase{DType,dim}, lst::Vector{<:Integer}) where {DType,dim}
-    [db[i] for i in lst]
-end
 
 @inline Base.length(db::DynamicMatrixDatabase{DType,dim}) where {DType,dim} = length(db.data) ÷ dim
 @inline function Base.push!(db::DynamicMatrixDatabase{DType,dim}, v) where {DType,dim}
@@ -61,7 +57,7 @@ struct MatrixDatabase{MType} <: AbstractDatabase
 end
 
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
-@inline Base.setindex!(db::MatrixDatabase, value, i) = @inbounds (db.matrix[:, i] .= value)
+@inline Base.setindex!(db::MatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
 @inline Base.push!(db::MatrixDatabase, v) = error("Unsupported operation")
 @inline Base.append!(a::MatrixDatabase, b) = error("Unsupported operation")
@@ -87,8 +83,8 @@ Base.convert(::Type{AbstractDatabase}, M::AbstractVector) = VectorDatabase(typeo
 Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where T = M.data
 Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
 
-@inline Base.getindex(db::VectorDatabase, i) = @inbounds db.data[i]
-@inline Base.setindex!(db::VectorDatabase, value, i) = @inbounds (db.data[i] = value)
+@inline Base.getindex(db::VectorDatabase, i::Integer) = @inbounds db.data[i]
+@inline Base.setindex!(db::VectorDatabase, value, i::Integer) = @inbounds (db.data[i] = value)
 @inline Base.length(db::VectorDatabase) = length(db.data)
 @inline function Base.push!(db::VectorDatabase, v)
     push!(db.data, v)
@@ -106,7 +102,7 @@ struct SubDatabase{DBType,RType} <: AbstractDatabase
     map::RType
 end
 
-@inline Base.getindex(sdb::SubDatabase, i) = @inbounds sdb.db[sdb.map[i]]
+@inline Base.getindex(sdb::SubDatabase, i::Integer) = @inbounds sdb.db[sdb.map[i]]
 @inline Base.length(sdb::SubDatabase) = length(sdb.map)
 @inline Base.eachindex(sdb::SubDatabase) = eachindex(sdb.map)
 @inline function Base.push!(sdb::SubDatabase, v)

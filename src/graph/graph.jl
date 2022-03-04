@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
-export LocalSearchAlgorithm, SearchGraph, SearchGraphOptions, VisitedVertices, NeighborhoodReduction, index!
+export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, VisitedVertices, NeighborhoodReduction, index!
 export Callback
 
 """
@@ -60,7 +60,7 @@ It supports callbacks to adjust parameters as insertions are made.
 
 - `hints`: Initial points for exploration (empty hints imply using random points)
 
-Note: Parallel insertions should be made through `append!` function with `parallel_block > 1`
+Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 
 """
 @with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
@@ -99,6 +99,37 @@ Base.copy(g::SearchGraph;
 
 ## search algorithms
 
+
+"""
+    SearchGraphPools(results=GlobalKnnResult, vstates=GlobalVisitedVertices, beams=GlobalBeamKnnResult)
+
+A set of pools to alleviate memory allocations in `SearchGraph` construction and searching. Relevant on multithreading scenarious where distance functions, `evaluate`
+can call other metric indexes that can use these shared resources (globally defined).
+
+Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
+"""
+struct SearchGraphPools{VisitedVerticesType}
+    results::Vector{KnnResult}
+    beams::Vector{KnnResultShift}
+    vstates::VisitedVerticesType
+end
+
+@inline function getknnresult(k::Integer, pools::SearchGraphPools)
+    res = @inbounds pools.results[Threads.threadid()]
+    reuse!(res, k)
+end
+
+@inline function getvstate(len, pools::SearchGraphPools)
+    @inbounds v = pools.vstates[Threads.threadid()]
+    _init_vv(v, len)
+end
+
+@inline function getbeam(bsize::Integer, pools::SearchGraphPools)
+    @inbounds reuse!(pools.beams[Threads.threadid()], bsize)
+end
+
+getpools(::SearchGraph; results=GlobalKnnResult, beams=GlobalBeamKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(results, beams, vstates)
+
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
 include("opt.jl")
@@ -117,11 +148,11 @@ In case of a parallel appending, then:
 
 Note: Parallel doesn't trigger callbacks inside blocks.
 """
-function Base.append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
+function Base.append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true, pools=getpools(index))
     db = convert(AbstractDatabase, db)
     n = length(index) + length(db)
     append!(index.db, db)
-    parallel_block == 1 && return _sequential_append_loop!(index)
+    parallel_block == 1 && return _sequential_append_loop!(index, pools)
 
     m = 0
     while length(index) < parallel_minimum_first_block
@@ -133,7 +164,7 @@ function Base.append!(index::SearchGraph, db; parallel_block=1, parallel_minimum
     sp > n && return index
 
     resize!(index.links, n)
-    _parallel_append_loop!(index, sp, n, parallel_block, apply_callbacks)
+    _parallel_append_loop!(index, pools, sp, n, parallel_block, apply_callbacks)
 end
 
 """
@@ -142,27 +173,27 @@ end
 Indexes the already initialized database (index.db)
 
 """
-function index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
+function index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true, pools=getpools(index))
     @assert length(index) == 0 && length(index.db) > 0
-    parallel_block == 1 && return _sequential_append_loop!(index)
+    parallel_block == 1 && return _sequential_append_loop!(index, pools)
 
     m = 0
     db = index.db
     n = length(db)
     while length(index) < parallel_minimum_first_block
         m += 1
-        push!(index, db[m]; push_item=false)
+        push!(index, db[m]; push_item=false, pools)
     end
 
     sp = length(index) + 1
     sp > n && return index
     resize!(index.links, n)
-    _parallel_append_loop!(index, sp, n, parallel_block, apply_callbacks)
+    _parallel_append_loop!(index, pools, sp, n, parallel_block, apply_callbacks)
 end
 
-function _sequential_append_loop!(index::SearchGraph)
+function _sequential_append_loop!(index::SearchGraph, pools::SearchGraphPools)
     for item in index.db
-        push!(index, item; push_item=false)
+        push!(index, item; push_item=false, pools)
     end
 
     index
@@ -182,7 +213,7 @@ function _connect_links(index, sp, ep)
     end
 end
 
-function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply_callbacks)
+function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp, n, parallel_block, apply_callbacks)
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
@@ -190,7 +221,7 @@ function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-            @inbounds index.links[i] = find_neighborhood(index, index.db[i])
+            @inbounds index.links[i] = find_neighborhood(index, index.db[i], pools)
         end
 
         # connecting neighbors
@@ -211,25 +242,24 @@ function _parallel_append_loop!(index::SearchGraph, sp, n, parallel_block, apply
 end
 
 """
-    push!(index::SearchGraph, item)
+push!(index::SearchGraph, item; push_item=true, pools=getpools(index))
 
 Appends `item` into the index.
 """
-function push!(index::SearchGraph, item; push_item=true)
-    neighbors = find_neighborhood(index, item)
+function push!(index::SearchGraph, item; push_item=true, pools=getpools(index))
+    neighbors = find_neighborhood(index, item, pools)
     push_neighborhood!(index, item, neighbors; push_item)
     neighbors
 end
 
-
 """
-    search(index::SearchGraph, q, res; hints=index.hints, vstate=nothing)
+    search(index::SearchGraph, q, res; hints=index.hints, pools=getpools(index))
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res; hints=index.hints, vstate=getvisitedvertices(index))
+function search(index::SearchGraph, q, res; hints=index.hints, pools=getpools(index))
     if length(index) > 0
-        search(index.search_algo, index, q, res, hints, vstate)
+        search(index.search_algo, index, q, res, hints, pools)
     else
         (res=res, cost=0)
     end

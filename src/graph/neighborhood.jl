@@ -12,16 +12,16 @@ function callback(opt::NeighborhoodSize, index)
 end
 
 """
-    find_neighborhood(index::SearchGraph{T}, item, hints=index.hints, check_self_link=0)
+    find_neighborhood(index::SearchGraph{T}, item, pools; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 `res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
 """
-function find_neighborhood(index::SearchGraph, item; hints=index.hints)
+function find_neighborhood(index::SearchGraph, item, pools::SearchGraphPools; hints=index.hints)
     n = length(index)
     if n > 0
-        vstate = getvisitedvertices(index)
-        res, visits_ = search(index.search_algo, index, item, getknnresult(index.neighborhood.ksearch), hints, vstate)
+        res = getknnresult(index.neighborhood.ksearch, pools)
+        search(index.search_algo, index, item, res, hints, pools)
         reduce_neighborhood(index.neighborhood.reduce, index, item, res)
     else
         Int32[]

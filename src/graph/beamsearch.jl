@@ -23,10 +23,6 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 
 const GlobalBeamKnnResult = [KnnResultShift(32)]  # see __init__ function
 
-@inline function getbeam(bsize::Integer)
-    @inbounds reuse!(GlobalBeamKnnResult[Threads.threadid()], bsize)
-end
-
 function __init__beamsearch()
     for i in 2:Threads.nthreads()
         push!(GlobalBeamKnnResult, KnnResultShift(32))
@@ -35,7 +31,8 @@ end
 
 ### local search algorithm
 
-function beamsearch_queue(index::SearchGraph, q, res, objID, vstate, visited_)
+function beamsearch_queue(index::SearchGraph, q, res, objID, vstate)
+    visited_ = 0
     @inbounds if !visited(vstate, objID)
         visit!(vstate, objID)
         visited_ += 1
@@ -50,22 +47,21 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res, hints, vsta
     visited_ = 0
 
     for objID in hints
-        isited_ = beamsearch_queue(index, q, res, objID, vstate, visited_)
+        visited_ += beamsearch_queue(index, q, res, objID, vstate)
     end
     
     if length(res) == 0
         _range = 1:length(index)
         for i in 1:bsize
            objID = rand(_range)
-           visited_ = beamsearch_queue(index, q, res, objID, vstate, visited_)
+           visited_ += beamsearch_queue(index, q, res, objID, vstate)
        end
     end
 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, vstate, bsize, Δ, maxvisits, visited_)
-    beam = getbeam(bsize)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, vstate, beam, Δ, maxvisits, visited_)
     beam_st = initialstate(beam)
     beam_st = push!(beam, beam_st, argmin(res), minimum(res))
     # @show res.id length(res, st) length(index) res st beam_st
@@ -96,7 +92,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, vstate, bs
 end
 
 """
-    search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+    search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
 
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
@@ -104,7 +100,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 - `hints`: Starting points for searching, randomly selected when it is an empty collection
-- `vstate`: A dictionary like object to store the visiting state of vertices
+- `pools`: A SearchGraphPools object with preallocated pools
 
 Optional arguments (defaults to values in `bs`)
 - `bsize`: Beam size
@@ -112,8 +108,10 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+function search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools::SearchGraphPools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
     # k is the number of neighbors in res
+    vstate = getvstate(length(index), pools)
     visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
-    beamsearch_inner(bs, index, q, res, vstate, bsize, Δ, maxvisits, visited_)
+    beam = getbeam(bsize, pools)
+    beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
 end

@@ -53,8 +53,9 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
     covradius = Vector{Float64}(undef, length(knnlist))
-
-    @info "--- setting $maxvisits for n=$n --"
+    verbose && println(stderr, "--- setting $maxvisits for n=$n --")
+    pools = getpools(index)
+    
     function lossfun(conf)
         vmin .= typemax(eltype(vmin))
         vmax .= typemin(eltype(vmax))
@@ -64,8 +65,7 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
             Threads.@threads for i in 1:length(queries)
             #    @info length(queries), opt.ksearch, length(knnlist)
                 #earchtime = @elapsed for i in eachindex(queries)    
-                vstate = getvisitedvertices(index)
-                res, v = search(conf, index, queries[i], reuse!(knnlist[i], opt.ksearch), index.hints, vstate; maxvisits)
+                _, v = search(conf, index, queries[i], reuse!(knnlist[i], opt.ksearch), index.hints, pools; maxvisits)
                 ti = Threads.threadid()
                 vmin[ti] = min(v, vmin[ti])
                 vmax[ti] = max(v, vmax[ti])
