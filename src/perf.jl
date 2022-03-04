@@ -59,10 +59,10 @@ end
 
 Computes the K nearest neigbors of each object in `Q` and returns two matrices, and the average search time in seconds.
 """
-function timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
+function timedsearchbatch(index, Q, ksearch::Integer; parallel=false, pools=getpools(index))
     m = length(Q)
     I = zeros(Int32, ksearch, m)
     D = Matrix{Float32}(undef, ksearch, m)
-    t = @elapsed (I, D = searchbatch(index, Q, I, D; parallel))
+    t = @elapsed (I, D = searchbatch(index, Q, I, D; parallel, pools))
     I, D, t/length(Q)
 end

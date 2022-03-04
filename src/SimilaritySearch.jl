@@ -96,11 +96,11 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
 function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, pools=getpools(index))
     if parallel
         Threads.@threads for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i])
+            @inbounds search(index, Q[i], KNN[i]; pools)
         end
     else
         @inbounds for i in eachindex(Q)
-            search(index, Q[i], KNN[i])
+            search(index, Q[i], KNN[i]; pools)
         end
     end
 
