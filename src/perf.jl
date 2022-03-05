@@ -46,8 +46,6 @@ function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     for i in 1:n
         g = goldlist[i]
         r = reslist[i]
-        #g = view(goldlist[i], 1:k)
-        #r = view(reslist[i], 1:k)
         s += recallscore(g, r)
     end
 
