@@ -108,9 +108,8 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools::SearchGraphPools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+function search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools::SearchGraphPools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits, vstate=getvstate(length(index), pools))
     # k is the number of neighbors in res
-    vstate = getvstate(length(index), pools)
     visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
     beam = getbeam(bsize, pools)
     beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)

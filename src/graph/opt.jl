@@ -6,7 +6,9 @@ import SearchModels: combine, mutate
 export OptimizeParameters, optimize!, BeamSearchSpace, MinRecall, ParetoRecall, ParetoRadius
 
 abstract type ErrorFunction end
-struct MinRecall <: ErrorFunction end
+@with_kw struct MinRecall <: ErrorFunction
+    minrecall = 0.9
+end
 struct ParetoRecall <: ErrorFunction end
 struct ParetoRadius <: ErrorFunction end
 
@@ -40,7 +42,6 @@ end
     params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
     ksearch::Int32 = 10
     numqueries::Int32 = 64
-    minrecall = 0.9  # used with MinRecall()
     space::BeamSearchSpace = BeamSearchSpace()
 end
 
@@ -95,11 +96,11 @@ function eval_beamsearch_config(index::SearchGraph, gold, knnlist::Vector{KnnRes
 end
 
 """
-    callback(opt::OptimizeParameters, index::SearchGraph)
+    execute_callback(opt::OptimizeParameters, index::SearchGraph)
 
 SearchGraph's callback for adjunting search parameters
 """
-function callback(opt::OptimizeParameters, index::SearchGraph)
+function execute_callback(opt::OptimizeParameters, index::SearchGraph)
     optimize!(index, opt; scalemaxvisits=2.0)
 end
 
@@ -162,7 +163,7 @@ function optimize!(
         if opt.kind isa ParetoRecall 
             cost^2 + (1.0 - p.recall)^2
         elseif opt.kind isa MinRecall
-            p.recall < opt.minrecall ? 3.0 - 2 * p.recall : cost
+            p.recall < opt.kind.minrecall ? 3.0 - 2 * p.recall : cost
         else
             _kfun(cost) + _kfun(p.radius[2] / R[])
         end
@@ -177,7 +178,7 @@ function optimize!(
         geterr=geterr)
     config, perf = bestlist[1]
     maxvisits = ceil(Int, scalemaxvisits * perf.visited[end])
-    verbose && println(stderr, "== finished opt. BeamSearch: search-params: $(opt.params), opt-config: $config, perf: $perf, maxvisits=$maxvisits")
+    verbose && println(stderr, "== finished opt. BeamSearch: search-params: $(opt.params), opt-config: $config, perf: $perf, maxvisits=$maxvisits, length=$(length(index))")
     index.search_algo.Δ = config.Δ
     index.search_algo.bsize = config.bsize
     index.search_algo.maxvisits = maxvisits

@@ -1,7 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
-export JaccardDistance, DiceDistance, IntersectionDissimilarity
+export JaccardDistance, DiceDistance, IntersectionDissimilarity, CosineDistanceSet
 import Distances: evaluate
+using Base.Order
 
 """
     JaccardDistance()
@@ -37,34 +38,38 @@ I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
 struct IntersectionDissimilarity <: SemiMetric end
 
 """
-    union_intersection(a::T, b::T)
+    intersectionsize(a, b, o=Forward)
 
-Computes both the size of the unions an the size the intersections of `a` and `b`;
-specified as ordered sequences.
+Computes the size the intersections of `a` and `b`, specified as ordered sequences.
 """
-function union_intersection(a::T, b::T) where {T <: AbstractVector}
+function intersectionsize(a, b, o=Forward)
     len_a::Int = length(a)
     len_b::Int = length(b)
-    ia::Int = 1
-    ib::Int = 1
+    ia::Int = ib::Int = 1
     intersection_size::Int = 0
-    c::Int = 0
     @inbounds while ia <= len_a && ib <= len_b
-        c = cmp(a[ia], b[ib])
-        if c == 0
+        if lt(o, a[ia], b[ib])
+            ia += 1
+        elseif lt(o, b[ib], a[ia])
+            ib += 1
+        else
             ia += 1
             ib += 1
             intersection_size += 1
-        elseif c < 0
-            ia += 1
-        else
-            ib += 1
         end
     end
 
-    len_a + len_b - intersection_size, intersection_size
+    intersection_size
 end
 
+"""
+    unionsize(a, b, isize)
+
+Computes the size of the union of `a` and `b` that have an intersection size `isize`
+"""
+function unionsize(a, b, isize)
+    length(a) + length(b) - isize
+end
 
 """
     evaluate(::JaccardDistance, a, b)
@@ -73,8 +78,8 @@ Computes the Jaccard's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
 function evaluate(::JaccardDistance, a, b)
-    u, i = union_intersection(a, b)
-    1.0 - i / u
+    isize = intersectionsize(a, b)
+    1.0 - isize / unionsize(a, b, isize)
 end
 
 """
@@ -84,7 +89,7 @@ Computes the Dice's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
 function evaluate(::DiceDistance, a, b)
-    u, i = union_intersection(a, b)
+    i = intersectionsize(a, b)
     1.0 - 2 * i / (length(a) + length(b))
 end
 
@@ -95,7 +100,16 @@ end
 Uses the intersection as a distance function (non-metric)
 """
 function evaluate(::IntersectionDissimilarity, a, b)
-    u, i = union_intersection(a, b)
-
+    i = intersectionsize(a, b)
     return 1.0 - i / max(length(a), length(b))
+end
+
+struct CosineDistanceSet <: SemiMetric end
+"""
+    evaluate(::CosineDistanceSet, a, b)
+
+Computes the cosine distance where `a` and `b` are sorted lists of integers (emulating binary sparse vectores)
+"""
+function evaluate(::CosineDistanceSet, U, V)
+    1 - intersectionsize(U, V) / (sqrt(length(U)) * sqrt(length(V)))
 end

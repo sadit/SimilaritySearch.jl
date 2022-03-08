@@ -11,11 +11,11 @@ Indicates that hints are a random sample of the dataset
 end
 
 """
-    callback(opt::RandomHints, index)
+    executed_callback(opt::RandomHints, index)
 
 SearchGraph's callback for selecting hints at random
 """
-function callback(opt::RandomHints, index)
+function execute_callback(opt::RandomHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -44,7 +44,7 @@ Indicates that hints are a small disjoint (untouched neighbors) subsample
     logbase::Float32 = 1.1
 end
 
-function callback(opt::DisjointHints, index)
+function execute_callback(opt::DisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -74,11 +74,11 @@ Indicates that hints are selected to have a disjoint neighborhood
 end
 
 """
-    callback(opt::KDisjointHints, index)
+    execute_callback(opt::KDisjointHints, index)
 
 SearchGraph's callback for selecting hints at random
 """
-function callback(opt::KDisjointHints, index)
+function execute_callback(opt::KDisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(1:n, opt.expansion * m))

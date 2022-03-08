@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
-export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, VisitedVertices, NeighborhoodReduction, index!
+export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, NeighborhoodReduction, index!
 export Callback
 
 """
@@ -43,7 +43,7 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     ksearch::Int32 = 2
     logbase::Float32 = 2
     minsize::Int32 = 2
-    reduce::NeighborhoodReduction = IdentityNeighborhood()
+    reduce::NeighborhoodReduction = SatNeighborhood()
 end
 
 Base.copy(N::Neighborhood; ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
@@ -71,13 +71,15 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     hints::Vector{Int32} = Int32[]
     search_algo::SType = BeamSearch()
     neighborhood::Neighborhood = Neighborhood()
-    callbacks::Vector{Callback} = [
-        DisjointHints(),
-        NeighborhoodSize()
-    ]
-    callback_logbase::Float32 = 1.5
-    callback_starting::Int32 = 8
     verbose::Bool = true
+end
+
+@with_kw struct SearchGraphCallbacks
+    hints::Union{Nothing,Callback} = DisjointHints()
+    neighborhood::Union{Nothing,Callback} = NeighborhoodSize()
+    hyperparameters::Union{Nothing,Callback} = OptimizeParameters(kind=ParetoRecall())
+    logbase::Float32 = 1.5
+    starting::Int32 = 8
 end
 
 @inline Base.length(g::SearchGraph) = length(g.locks)
@@ -91,11 +93,8 @@ Base.copy(g::SearchGraph;
         hints=g.hints,
         search_algo=copy(g.search_algo),
         neighborhood=copy(g.neighborhood),
-        callbacks=g.callbacks,
-        callback_logbase=g.callback_logbase,
-        callback_starting=g.callback_starting,
         verbose=true
-) = SearchGraph(; dist, db, links, locks, hints, search_algo, neighborhood, callbacks, callback_logbase, callback_starting, verbose)
+) = SearchGraph(; dist, db, links, locks, hints, search_algo, neighborhood, verbose)
 
 ## search algorithms
 
@@ -137,63 +136,95 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
+    append!(
+        index::SearchGraph,
+        db;
+        parallel_block=1,
+        parallel_minimum_first_block=parallel_block,
+        callbacks=SearchGraphCallbacks(),
+        pools=getpools(index)
+    )
 
 Appends all items in db to the index. It can be made in parallel or sequentially.
-In case of a parallel appending, then:
-- `parallel_block` must be bigger than 1 and describes the batch size to append in parallel (i.e., in the order of thousands,
-  depending on the size of the `db` and the number of available threads).
-- `parallel_minimum_first_block` indicates the minimum number of items inserted sequentially before going parallel, it can be 0 if the index is already
-  populated, defaults to `parallel_block`.
 
+Arguments:
+
+- `index`: the search graph index
+- `db`: the collection of objects to insert, an `AbstractDatabase` is the canonical input, but supports any iterable objects
+- `parallel_block`: The number of elements that the multithreading algorithm process at once,
+    it is important to be larger that the number of available threads but not so large since the quality of the search graph could degrade (a few times the number of threads is enough).
+    If `parallel_block=1` the algorithm becomes sequential.
+- `parallel_minimum_first_block`: The number of sequential appends before running parallel.
 Note: Parallel doesn't trigger callbacks inside blocks.
+- `callbacks`: A `SearchGraphCallbacks` object to be called after some insertions
+    (specified by the `callbacks` object). These callbacks are used to maintain the algorithm
+    in good shape after many insertions (adjust hyperparameters and the structure).
+- `pools`: The set of caches used for searching.
+
+Note 1: Callbacks are not executed inside parallel blocks
+Note 2: Callbacks will be ignored if `callbacks=nothing`
+
 """
-function Base.append!(index::SearchGraph, db; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true, pools=getpools(index))
+function Base.append!(
+        index::SearchGraph,
+        db;
+        parallel_block=1,
+        parallel_minimum_first_block=parallel_block,
+        callbacks=SearchGraphCallbacks(),
+        pools=getpools(index)
+    )
     db = convert(AbstractDatabase, db)
     n = length(index) + length(db)
     append!(index.db, db)
-    parallel_block == 1 && return _sequential_append_loop!(index, pools)
+    parallel_block == 1 && return _sequential_append_loop!(index, pools, callbacks)
 
     m = 0
     while length(index) < parallel_minimum_first_block
         m += 1
-        push!(index, db[m]; push_item=false)
+        push!(index, db[m]; push_item=false, pools, callbacks)
     end
 
     sp = length(index) + 1
     sp > n && return index
 
     resize!(index.links, n)
-    _parallel_append_loop!(index, pools, sp, n, parallel_block, apply_callbacks)
+    _parallel_append_loop!(index, pools, sp, n, parallel_block, callbacks)
 end
 
 """
-    index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true)
+    index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks())
 
-Indexes the already initialized database (index.db)
+Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
+The arguments are the same than `append!` function but using the internal `index.db` as input.
 
 """
-function index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, apply_callbacks=true, pools=getpools(index))
+function index!(
+        index::SearchGraph;
+        parallel_block=1,
+        parallel_minimum_first_block=parallel_block,
+        callbacks=SearchGraphCallbacks(),
+        pools=getpools(index)
+    )
     @assert length(index) == 0 && length(index.db) > 0
-    parallel_block == 1 && return _sequential_append_loop!(index, pools)
+    parallel_block == 1 && return _sequential_append_loop!(index, pools, callbacks)
 
     m = 0
     db = index.db
     n = length(db)
     while length(index) < parallel_minimum_first_block
         m += 1
-        push!(index, db[m]; push_item=false, pools)
+        push!(index, db[m]; push_item=false, pools, callbacks)
     end
 
     sp = length(index) + 1
     sp > n && return index
     resize!(index.links, n)
-    _parallel_append_loop!(index, pools, sp, n, parallel_block, apply_callbacks)
+    _parallel_append_loop!(index, pools, sp, n, parallel_block, callbacks)
 end
 
-function _sequential_append_loop!(index::SearchGraph, pools::SearchGraphPools)
+function _sequential_append_loop!(index::SearchGraph, pools::SearchGraphPools, callbacks)
     for item in index.db
-        push!(index, item; push_item=false, pools)
+        push!(index, item; push_item=false, pools, callbacks)
     end
 
     index
@@ -213,7 +244,7 @@ function _connect_links(index, sp, ep)
     end
 end
 
-function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp, n, parallel_block, apply_callbacks)
+function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp, n, parallel_block, callbacks)
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
@@ -234,7 +265,8 @@ function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp,
         end
         
         # apply callbacks
-        apply_callbacks && callbacks(index, sp, ep)
+
+        callbacks !== nothing && execute_callbacks(callbacks, index, sp, ep)
         sp = ep + 1
     end
 
@@ -242,13 +274,36 @@ function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp,
 end
 
 """
-push!(index::SearchGraph, item; push_item=true, pools=getpools(index))
+    push!(
+        index::SearchGraph,
+        item;
+        push_item=true,
+        callbacks=SearchGraphCallbacks(),
+        pools=getpools(index)
+    )
 
-Appends `item` into the index.
+Appends an object into the index
+
+Arguments:
+
+- `index`: The search graph index where the insertion is going to happen
+- `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
+- `push_item`: if `push_item=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
+- `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
+- `pools`: The set of caches used for searching.
+
+- Note: `callbacks=nothing` ignores the execution of any callback
 """
-function push!(index::SearchGraph, item; push_item=true, pools=getpools(index))
+function push!(
+        index::SearchGraph,
+        item;
+        push_item=true,
+        callbacks=SearchGraphCallbacks(),
+        pools=getpools(index)
+    )
     neighbors = find_neighborhood(index, item, pools)
-    push_neighborhood!(index, item, neighbors; push_item)
+    push_neighborhood!(index, item, neighbors, callbacks; push_item)
+
     neighbors
 end
 
@@ -266,15 +321,14 @@ function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, pools=
 end
 
 """
-    callbacks(index::SearchGraph, n=length(index), m=n+1)
+    execute_callbacks(index::SearchGraph, n=length(index), m=n+1)
 
 Process all registered callbacks
 """
-function callbacks(index::SearchGraph, n=length(index), m=n+1; force=false)
-    if force || (n >= index.callback_starting && ceil(Int, log(index.callback_logbase, n)) != ceil(Int, log(index.callback_logbase, m)))
-        for c in index.callbacks
-            index.verbose && println(stderr, "calling callback ", typeof(c), " at n=", length(index))
-            callback(c, index)
-        end
+function execute_callbacks(callbacks::SearchGraphCallbacks, index::SearchGraph, n=length(index), m=n+1; force=false)
+    if force || (n >= callbacks.starting && ceil(Int, log(callbacks.logbase, n)) != ceil(Int, log(callbacks.logbase, m)))
+        callbacks.hints !== nothing && execute_callback(callbacks.hints, index)
+        callbacks.neighborhood !== nothing && execute_callback(callbacks.neighborhood, index)
+        callbacks.hyperparameters !== nothing && execute_callback(callbacks.hyperparameters, index)
     end
 end

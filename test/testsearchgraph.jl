@@ -23,8 +23,8 @@ using Test
         search_algo = BeamSearch(; bsize)
         @info "=================== $search_algo"
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
-        # graph.neighborhood.reduce = SatNeighborhood()
-        append!(graph, db; parallel_block=8)
+        graph.neighborhood.reduce = IdentityNeighborhood()
+        append!(graph, db; parallel_block=8, callbacks=SearchGraphCallbacks(hyperparameters=nothing))
         I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
         #@info sort!(length.(graph.links), rev=true)
         @show goldD[:, 1]
@@ -40,8 +40,8 @@ using Test
 
     @info "--- Optimizing parameters ParetoRadius ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
-    graph.neighborhood.reduce = SatNeighborhood()
-    append!(graph, db)
+    graph.neighborhood.reduce = IdentityNeighborhood()
+    append!(graph, db; callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=ParetoRadius())))
     @info "---- starting ParetoRadius optimization ---"
     optimize!(graph, OptimizeParameters())
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
@@ -60,11 +60,8 @@ using Test
     @test recall >= 0.6
 
     @info "========================= Callback optimization ======================"
-    @info "--- Optimizing parameters ParetoRadius ---"
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
-    graph.neighborhood.reduce = SatNeighborhood()
-    push!(graph.callbacks, OptimizeParameters(kind=ParetoRadius()))
-    index!(graph)
+    index!(graph; callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=MinRecall(0.9))))
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "testing without additional optimizations: queries per second:", 1/searchtime, ", recall: ", recall
@@ -80,7 +77,6 @@ using Test
     goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
-    push!(graph.callbacks, OptimizeParameters(kind=ParetoRecall()))
     index!(graph)
     #optimize!(graph, OptimizeParameters(kind=MinRecall(), minrecall=0.7))
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)

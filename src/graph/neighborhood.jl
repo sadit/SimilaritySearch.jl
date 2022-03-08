@@ -2,11 +2,11 @@
 export IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, find_neighborhood, push_neighborhood!, NeighborhoodSize
 
 """
-    callback(opt::NeighborhoodSize, index)
+    execute_callback(opt::NeighborhoodSize, index)
 
 SearchGraph's callback for adjusting neighborhood strategy
 """
-function callback(opt::NeighborhoodSize, index)
+function execute_callback(opt::NeighborhoodSize, index)
     N = index.neighborhood
     N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
 end
@@ -29,12 +29,12 @@ function find_neighborhood(index::SearchGraph, item, pools::SearchGraphPools; hi
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true, apply_callbacks=true)
+    push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
 
 Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
 vertex created for ìtem` (internal function)
 """
-function push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true, apply_callbacks=true)
+function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
     push_item && push!(index.db, item)
     push!(index.links, neighbors)
     push!(index.locks, Threads.SpinLock())
@@ -46,7 +46,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors; push_item=true,
         # sat_should_push(index.links[id], index, item, n, -1.0) && push!(index.links[id], n)
     end
 
-    apply_callbacks && callbacks(index)
+    callbacks !== nothing && execute_callbacks(callbacks, index)
 
     if index.verbose && length(index) % 100_000 == 0
         println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(Dates.now())")

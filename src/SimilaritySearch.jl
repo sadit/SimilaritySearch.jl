@@ -107,13 +107,11 @@ function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, p
     KNN
 end
 
-
-
 function __init__()
     __init__visitedvertices()
     __init__beamsearch()
     __init__neighborhood()
-    for i in 2:Threads.nthreads()
+    for _ in 2:Threads.nthreads()
         push!(GlobalKnnResult, KnnResult(32))
     end
 end
