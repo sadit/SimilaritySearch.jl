@@ -6,7 +6,8 @@ abstract type AbstractSearchContext end
 
 using Parameters
 import Distances: evaluate, SemiMetric
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getpools
+import Base: push!, append!
+export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch
 
 include("db.jl")
 include("knnresult.jl")

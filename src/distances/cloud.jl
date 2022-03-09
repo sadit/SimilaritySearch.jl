@@ -1,14 +1,16 @@
 # This file is a part of SimilaritySearch.jl
 export HausdorffDistance, MinHausdorffDistance
 
-raw"""
+"""
     HausdorffDistance(dist::SemiMetric)
 
 Hausdorff distance is defined as the maximum of the minimum between two clouds of points.
 
-\[ Hausdorff(U, V) \max{ \max_{u \in U} nndist(u, V), \max{v \in V} nndist(v, U) } \]
+```math 
+Hausdorff(U, V) = \\max{\\max_{u \\in U} nndist(u, V), \\max{v \\in V} nndist(v, U) }
+```
 
-where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V``.
+where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V`` using the `dist` metric.
 """
 struct HausdorffDistance{Dtype<:SemiMetric} <: SemiMetric
     dist::Dtype
@@ -33,7 +35,14 @@ function _hausdorff1(dist::SemiMetric, u, v)
     s
 end
 
-function SimilaritySearch.evaluate(m::HausdorffDistance, u, v)
+"""
+    evaluate(m::HausdorffDistance, u, v)
+
+Computes the Hausdorff distance between two cloud of points.
+
+`u` and `v` are iterables where each object can be measured with the internal distance `dist`
+"""
+function evaluate(m::HausdorffDistance, u, v)
     if  length(u) == 1 || length(v) == 1
         _hausdorff1(m.dist, u, v)
     else
@@ -44,7 +53,7 @@ end
 """
     MinHausdorffDistance(dist::SemiMetric)
 
-Similar to Hausdorff distance but using minimum instead of maximum.
+Similar to [HausdorffDistance](@ref) but using minimum instead of maximum.
 """
 struct MinHausdorffDistance{Dtype<:SemiMetric} <: SemiMetric
     dist::Dtype
@@ -59,7 +68,12 @@ function _minhausdorff1(dist::SemiMetric, u, v)
     s
 end
 
-function SimilaritySearch.evaluate(m::MinHausdorffDistance, u, v)
+"""
+    evaluate(m::MinHausdorffDistance, u, v)
+
+Computes a variant of the Hausdorff distance that uses the minimum instead of the maximum. `u` and `v` are iterables where each object can be measured with the internal distance `dist`
+"""
+function evaluate(m::MinHausdorffDistance, u, v)
     if  length(u) == 1 || length(v) == 1
         _minhausdorff1(m.dist, u, v)
     else

@@ -40,11 +40,12 @@ You may install the package as follows
 ```julia
 ] add SimilaritySearch.jl
 ```
-also, you can run the set of tests as fol
+
+also, you can run the set of tests as follows
 ```julia
 ] test SimilaritySearch
 ```
 
 # Using the library
-Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Pluto's notebooks and scripts that exemplifies its usage.
+Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupuyter and Pluto notebooks, and some scripts that exemplifies its usage.
  

@@ -1,5 +1,4 @@
-using SimilaritySearch
-using Documenter
+using Documenter, SimilaritySearch
 
 makedocs(;
     modules=[SimilaritySearch],
@@ -7,22 +6,13 @@ makedocs(;
     repo="https://github.com/sadit/SimilaritySearch.jl/blob/{commit}{path}#L{line}",
     sitename="SimilaritySearch.jl",
     format=Documenter.HTML(;
-        prettyurls=get(ENV, "CI", "false") == "true",
+        prettyurls=get(ENV, "CI", nothing) == "true",
         canonical="https://sadit.github.io/SimilaritySearch.jl",
         assets=String[],
     ),
     pages=[
         "Home" => "index.md",
-        "Searching" => "searching.md",
-        "SearchGraph" => "searchgraph.md",
-        "API" => [
-            "Knn results" => "knnresult.md",
-            "Minkowski distances" => "distminkowski.md",
-            "Cosine and angle distances" => "distcos.md",
-            "String alignments" => "diststrings.md",
-            "Hamming distances" => "disthamming.md",
-            "Sets distances" => "distsets.md",
-        ]
+        "API" => "api.md"
     ],
 )
 

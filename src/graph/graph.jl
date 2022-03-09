@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
-export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, NeighborhoodReduction, index!
+export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, NeighborhoodReduction, index!, push_item!
 export Callback
 
 """
@@ -110,6 +110,7 @@ Each pool is a vector of `Threads.nthreads()` preallocated objects of the requir
 struct SearchGraphPools{VisitedVerticesType}
     results::Vector{KnnResult}
     beams::Vector{KnnResultShift}
+    satnears::Vector{KnnResult}
     vstates::VisitedVerticesType
 end
 
@@ -127,7 +128,11 @@ end
     @inbounds reuse!(pools.beams[Threads.threadid()], bsize)
 end
 
-getpools(::SearchGraph; results=GlobalKnnResult, beams=GlobalBeamKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(results, beams, vstates)
+@inline function getsatknnresult(pools::SearchGraphPools)
+    reuse!(pools.satnears[Threads.threadid()], 1)
+end
+
+getpools(::SearchGraph; results=GlobalKnnResult, beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(results, beams, satnears, vstates)
 
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
@@ -176,12 +181,12 @@ function Base.append!(
     db = convert(AbstractDatabase, db)
     n = length(index) + length(db)
     append!(index.db, db)
-    parallel_block == 1 && return _sequential_append_loop!(index, pools, callbacks)
+    parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
 
     m = 0
     while length(index) < parallel_minimum_first_block
         m += 1
-        push!(index, db[m]; push_item=false, pools, callbacks)
+        push_item!(index, db[m], false, callbacks, pools)
     end
 
     sp = length(index) + 1
@@ -206,14 +211,14 @@ function index!(
         pools=getpools(index)
     )
     @assert length(index) == 0 && length(index.db) > 0
-    parallel_block == 1 && return _sequential_append_loop!(index, pools, callbacks)
+    parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
 
     m = 0
     db = index.db
     n = length(db)
     while length(index) < parallel_minimum_first_block
         m += 1
-        push!(index, db[m]; push_item=false, pools, callbacks)
+        push_item!(index, db[m], false, callbacks, pools)
     end
 
     sp = length(index) + 1
@@ -222,9 +227,9 @@ function index!(
     _parallel_append_loop!(index, pools, sp, n, parallel_block, callbacks)
 end
 
-function _sequential_append_loop!(index::SearchGraph, pools::SearchGraphPools, callbacks)
+function _sequential_append_loop!(index::SearchGraph, callbacks, pools::SearchGraphPools)
     for item in index.db
-        push!(index, item; push_item=false, pools, callbacks)
+        push_item!(index, item, false, callbacks, pools)
     end
 
     index
@@ -282,7 +287,7 @@ end
         pools=getpools(index)
     )
 
-Appends an object into the index
+Appends an object into the index. It accepts the same arguments that `push!` but assuming some default values.
 
 Arguments:
 
@@ -301,6 +306,37 @@ function push!(
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
     )
+    push_item!(index, item, push_item, callbacks, pools)
+end
+
+"""
+push_item!(
+    index::SearchGraph,
+    item,
+    push_item,
+    callbacks,
+    pools
+)
+
+Appends an object into the index
+
+Arguments:
+
+- `index`: The search graph index where the insertion is going to happen
+- `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
+- `push_item`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
+- `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
+- `pools`: The set of caches used for searching.
+
+- Note: setting `callbacks` as `nothing` ignores the execution of any callback
+"""
+function push_item!(
+    index::SearchGraph,
+    item,
+    push_item,
+    callbacks,
+    pools
+)
     neighbors = find_neighborhood(index, item, pools)
     push_neighborhood!(index, item, neighbors, callbacks; push_item)
 

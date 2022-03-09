@@ -29,7 +29,7 @@ struct AngleDistance <: SemiMetric end
 """
     NormalizedCosineDistance()
 
-Similar to [`CosineDistance`](@ref) but suppose that input vectors are already normalized
+Similar to [`CosineDistance`](@ref) but suppose that input vectors are already normalized, and therefore, reduced to simply one minus the dot product.
 
 ```math
 1 - \\sum_i {u_i v_i}
@@ -67,7 +67,7 @@ end
 """
     evaluate(::NormalizedCosineDistance, a, b)
 
-Computes the cosine distance between two vectors, it expects normalized vectors (see [normalize!](@ref) method).
+Computes the cosine distance between two vectors, it expects normalized vectors.
 Please use NormalizedAngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
@@ -76,7 +76,7 @@ evaluate(::NormalizedCosineDistance, a, b) = one(eltype(a)) - dot(a, b)
 """
     evaluate(::AngleDistance, a, b)
 
-Computes the angle  between twovectors. It supposes that all vectors are normalized (see `normalize!` function)
+Computes the angle  between twovectors. It supposes that all vectors are normalized
 
 """
 evaluate(::NormalizedAngleDistance, a, b) = fastacos(dot(a, b))

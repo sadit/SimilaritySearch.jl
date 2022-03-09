@@ -22,7 +22,7 @@ function find_neighborhood(index::SearchGraph, item, pools::SearchGraphPools; hi
     if n > 0
         res = getknnresult(index.neighborhood.ksearch, pools)
         search(index.search_algo, index, item, res, hints, pools)
-        reduce_neighborhood(index.neighborhood.reduce, index, item, res)
+        reduce_neighborhood(index.neighborhood.reduce, index, item, res, pools)
     else
         Int32[]
     end
@@ -42,8 +42,7 @@ function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push
     n == 1 && return
     ## vstate = getvisitedvertices(index)
     @inbounds for id in neighbors
-        push!(index.links[id], n)
-        # sat_should_push(index.links[id], index, item, n, -1.0) && push!(index.links[id], n)
+        push!(index.links[id], n)  # sat push?
     end
 
     callbacks !== nothing && execute_callbacks(callbacks, index)
@@ -55,7 +54,7 @@ end
 
 const GlobalSatKnnResult = [KnnResult(1)]
 function __init__neighborhood()
-    for i in 2:Threads.nthreads()
+    for _ in 2:Threads.nthreads()
         push!(GlobalSatKnnResult, KnnResult(1))
     end
 end
@@ -87,18 +86,13 @@ struct IdentityNeighborhood <: NeighborhoodReduction end
 Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
-function push_neighbor!(::Union{DistalSatNeighborhood,SatNeighborhood}, N, index::SearchGraph, item, id::Integer, dist::AbstractFloat)
-    sat_should_push(N, index, item, id, dist) && push!(N, id)
-end
 
-function sat_should_push(N::T, index, item, id, dist) where T
-    near = reuse!(GlobalSatKnnResult[Threads.threadid()], 1)
-
+function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
     @inbounds obj = index[id]
     dist = dist < 0.0 ? evaluate(index.dist, item, obj) : dist
     push!(near, 0, dist)
 
-    @inbounds for linkID in N
+    @inbounds for linkID in sat_neighborhood
         d = evaluate(index.dist, index[linkID], obj)
         push!(near, linkID, d)
     end
@@ -106,31 +100,33 @@ function sat_should_push(N::T, index, item, id, dist) where T
     argmin(near) == 0
 end
 
-function push_neighbor!(::IdentityNeighborhood, N, index::SearchGraph, item, id::Integer, dist::AbstractFloat)
-    push!(N, id)
+function reduce_neighborhood(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+    copy(res.id)
 end
-
-
-function reduce_neighborhood(red::NeighborhoodReduction, index::SearchGraph, item, res, N=Int32[])
-    for i in 1:length(res)
-        id, dist = getpair(res, i)
-        push_neighbor!(red, N, index, item, id, dist)
-    end
-
-    N
-end
-
 
 """
-    reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, k, N=Int32[])
+    reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, pools)
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function reduce_neighborhood(sat::DistalSatNeighborhood, index::SearchGraph, item, res, N=Int32[])
+@inline function reduce_neighborhood(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+    N = Vector{Int32}(undef, 2)
+    resize!(N, 0)
     @inbounds for i in length(res):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
         id, dist = getpair(res, i)
-        push_neighbor!(sat, N, index, item, id, dist)
+        sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
     end
 
     N
 end
+
+@inline function reduce_neighborhood(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+    N = Vector{Int32}(undef, 2)
+    resize!(N, 0)
+    @inbounds for (id, dist) in res  # DistSat => works a little better but also produces a bit larger neighborhoods
+        sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
+    end
+
+    N
+end
+

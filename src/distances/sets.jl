@@ -38,6 +38,14 @@ I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
 struct IntersectionDissimilarity <: SemiMetric end
 
 """
+    CosineDistanceSet()
+
+The cosine distance for very sparse binary vectors represented as
+sorted lists of positive integers where ones occur.
+"""
+struct CosineDistanceSet <: SemiMetric end
+
+"""
     intersectionsize(a, b, o=Forward)
 
 Computes the size the intersections of `a` and `b`, specified as ordered sequences.
@@ -104,7 +112,6 @@ function evaluate(::IntersectionDissimilarity, a, b)
     return 1.0 - i / max(length(a), length(b))
 end
 
-struct CosineDistanceSet <: SemiMetric end
 """
     evaluate(::CosineDistanceSet, a, b)
 
