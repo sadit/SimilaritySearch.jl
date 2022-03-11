@@ -184,6 +184,8 @@ function Base.append!(
     parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
 
     m = 0
+
+    parallel_minimum_first_block = min(parallel_minimum_first_block, n)
     while length(index) < parallel_minimum_first_block
         m += 1
         push_item!(index, db[m], false, callbacks, pools)
@@ -216,6 +218,8 @@ function index!(
     m = 0
     db = index.db
     n = length(db)
+
+    parallel_minimum_first_block = min(parallel_minimum_first_block, n)
     while length(index) < parallel_minimum_first_block
         m += 1
         push_item!(index, db[m], false, callbacks, pools)
