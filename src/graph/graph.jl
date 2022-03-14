@@ -179,12 +179,11 @@ function Base.append!(
         pools=getpools(index)
     )
     db = convert(AbstractDatabase, db)
-    n = length(index) + length(db)
     append!(index.db, db)
 
-    @show n, typeof(db), typeof(index.db), length(db), length(index.db), parallel_block
     parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
 
+    n = length(index) + length(db)
     m = 0
 
     parallel_minimum_first_block = min(parallel_minimum_first_block, n)
