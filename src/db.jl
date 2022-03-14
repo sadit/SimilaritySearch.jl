@@ -40,7 +40,6 @@ end
 
 @inline Base.append!(a::DynamicMatrixDatabase{DType,dim}, b::DynamicMatrixDatabase{DType2,dim})  where {DType,dim,DType2} = append!(a.data, b.data)
 @inline function Base.append!(a::DynamicMatrixDatabase{DType,dim}, B) where {DType,dim}
-    @assert all(b->length(b) == dim, B)
     for b in B
         push!(a, b)
     end
@@ -90,8 +89,13 @@ Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
     push!(db.data, v)
     db
 end
-@inline Base.append!(a::VectorDatabase, b::VectorDatabase) = append!(a.data, b.data)
-@inline Base.append!(a::VectorDatabase, b) = append!(a.data, b)
+
+@inline function Base.append!(a::VectorDatabase, B::AbstractDatabase)
+    for b in B
+        push!(a, b)
+    end
+end
+
 @inline Base.eltype(db::VectorDatabase) = eltype(db.data)
 
 #
@@ -121,4 +125,3 @@ function Base.iterate(db::AbstractDatabase, state::Int=1)
         @inbounds db[state], state + 1
     end
 end
-

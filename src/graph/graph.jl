@@ -181,6 +181,8 @@ function Base.append!(
     db = convert(AbstractDatabase, db)
     n = length(index) + length(db)
     append!(index.db, db)
+
+    @show n, typeof(db), typeof(index.db), length(db), length(index.db), parallel_block
     parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
 
     m = 0
@@ -232,8 +234,11 @@ function index!(
 end
 
 function _sequential_append_loop!(index::SearchGraph, callbacks, pools::SearchGraphPools)
-    for item in index.db
-        push_item!(index, item, false, callbacks, pools)
+    i = length(index)
+    n = length(index.db)
+    while i < n
+        i += 1
+        push_item!(index, index.db[i], false, callbacks, pools)
     end
 
     index
@@ -274,7 +279,6 @@ function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp,
         end
         
         # apply callbacks
-
         callbacks !== nothing && execute_callbacks(callbacks, index, sp, ep)
         sp = ep + 1
     end

@@ -79,7 +79,7 @@ Computes the Manhattan's distance between `a` and `b`
 function evaluate(::L1Distance, a, b)
     d = zero(eltype(a))
 
-    @fastmath @inbounds @simd for i in eachindex(a)
+    @fastmath @inbounds @simd for i in eachindex(a, b)
 	    m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
     end
