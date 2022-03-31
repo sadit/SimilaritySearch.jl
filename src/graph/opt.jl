@@ -43,6 +43,7 @@ end
     ksearch::Int32 = 10
     numqueries::Int32 = 64
     space::BeamSearchSpace = BeamSearchSpace()
+    
 end
 
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)

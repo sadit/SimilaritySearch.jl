@@ -12,6 +12,7 @@ function create_sequence(dim, sort)
     s
 end
 
+include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
 include("testsearchgraph.jl")

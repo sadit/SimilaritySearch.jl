@@ -42,6 +42,10 @@ Internal function to share result sets for the same thread and avoid memory allo
     reuse!(res, k)
 end
 
+@inline function getknnresult(k::Integer, ::Nothing)
+    KnnResult(k)
+end
+
 getpools(index::ExhaustiveSearch; pool_knnresult=GlobalKnnResult) = pool_knnresult
 
 """
