@@ -89,7 +89,8 @@ An index iterator of `db`
 
 A subset of `db` (using a collection of indexes `lst`)
 """
-@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{<:Integer}) = SubDatabase(db, lst)
+@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector) = SubDatabase(db, lst)
+@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{Bool}) = SubDatabase(db, findall(p -> p > 0, lst))
 
 """
     struct DynamicMatrixDatabase{DType,Dim} <: AbstractDatabase
@@ -246,8 +247,8 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 """
 VectorDatabase(; type=Vector{Float32}) = VectorDatabase(type[])
 
-@inline Base.getindex(db::VectorDatabase, i::Integer) = @inbounds db.vecs[i]
-@inline Base.setindex!(db::VectorDatabase, value, i::Integer) = @inbounds (db.vecs[i] = value)
+@inline Base.getindex(db::VectorDatabase, i::Integer) = db.vecs[i]
+@inline Base.setindex!(db::VectorDatabase, value, i::Integer) = setindex!(db.vecs, value, i)
 @inline Base.length(db::VectorDatabase) = length(db.vecs)
 @inline Base.push!(db::VectorDatabase, v) = (push!(db.vecs, v); db)
 

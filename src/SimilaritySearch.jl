@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
 module SimilaritySearch
-abstract type Index end
 abstract type AbstractSearchContext end
 
 using Parameters
@@ -13,7 +12,7 @@ include("db.jl")
 include("knnresult.jl")
 include("knnresultshift.jl")
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
-@inline Base.getindex(searchctx::AbstractSearchContext, i) = searchctx.db[i]
+@inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
 
@@ -75,17 +74,20 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 """
 function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index))
     k = size(I, 1)
+    
     if parallel
         Threads.@threads for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools))
-            I[:, i] .= res.id
-            D[:, i] .= res.dist
+            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
+            k_ = length(res)
+            I[1:k_, i] .= res.id
+            D[1:k_, i] .= res.dist
         end
     else
         @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools))
-            I[:, i] .= res.id
-            D[:, i] .= res.dist
+            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
+            k_ = length(res)
+            I[1:k_, i] .= res.id
+            D[1:k_, i] .= res.dist
         end
     end
 

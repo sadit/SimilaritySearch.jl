@@ -98,7 +98,6 @@ Base.copy(g::SearchGraph;
 
 ## search algorithms
 
-
 """
     SearchGraphPools(results=GlobalKnnResult, vstates=GlobalVisitedVertices, beams=GlobalBeamKnnResult)
 
