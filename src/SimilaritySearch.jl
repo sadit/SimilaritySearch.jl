@@ -4,9 +4,10 @@ module SimilaritySearch
 abstract type AbstractSearchContext end
 
 using Parameters
-import Distances: evaluate, SemiMetric
+
 import Base: push!, append!
 export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getknnresult
+include("distances/Distances.jl")
 
 include("db.jl")
 include("knnresult.jl")
@@ -15,7 +16,6 @@ include("knnresultshift.jl")
 @inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
-include("distances/Distances.jl")
 include("perf.jl")
 include("seq.jl")
 include("opt.jl")
