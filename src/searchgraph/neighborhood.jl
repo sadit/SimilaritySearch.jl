@@ -1,5 +1,4 @@
 # This file is a part of SimilaritySearch.jl
-export IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, find_neighborhood, push_neighborhood!, NeighborhoodSize
 
 """
     execute_callback(opt::NeighborhoodSize, index)

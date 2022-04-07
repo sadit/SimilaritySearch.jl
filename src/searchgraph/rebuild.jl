@@ -1,7 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
 export rebuild
-
+export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, NeighborhoodReduction, index!, push_item!
+export Callback
 
 function rebuild(g::SearchGraph)
     n = length(g)

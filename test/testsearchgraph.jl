@@ -43,7 +43,7 @@ using Test
     graph.neighborhood.reduce = IdentityNeighborhood()
     append!(graph, db; callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=ParetoRadius())))
     @info "---- starting ParetoRadius optimization ---"
-    optimize!(graph, OptimizeParameters())
+    optimize!(graph, ParetoRadius())
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "ParetoRadius:> queries per second: ", 1/searchtime, ", recall:", recall
@@ -52,7 +52,7 @@ using Test
 
 
     @info "---- starting ParetoRecall optimization ---"
-    optimize!(graph, OptimizeParameters(kind=ParetoRecall()))
+    optimize!(graph, ParetoRecall())
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "ParetoRecall:> queries per second: ", 1/searchtime, ", recall:", recall
@@ -60,7 +60,7 @@ using Test
     @test recall >= 0.6
 
     @info "========================= Callback optimization ======================"
-    graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
+    graph = SearchGraph(; db, dist, verbose=false)
     index!(graph; callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=MinRecall(0.9))))
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
@@ -69,7 +69,7 @@ using Test
     @test recall >= 0.6
 
     @info "#############=========== Callback optimization 2 ==========###########"
-    @info "--- Optimizing parameters ParetoRadius L2 ---"
+    @info "--- Optimizing parameters SatNeighborhood (the default is LogSatNeighborhood) ---"
     dim = 4
     db = MatrixDatabase(ceil.(Int32, rand(Float32, dim, n) .* 100))
     queries = VectorDatabase(ceil.(Int32, rand(Float32, dim, m) .* 100))
@@ -78,7 +78,6 @@ using Test
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
     graph.neighborhood.reduce = SatNeighborhood()
     index!(graph)
-    #optimize!(graph, OptimizeParameters(kind=MinRecall(), minrecall=0.7))
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "testing without additional optimizations> queries per second:", 1/searchtime, ", recall: ", recall

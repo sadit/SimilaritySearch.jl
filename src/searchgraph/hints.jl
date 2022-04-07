@@ -1,6 +1,5 @@
 # This file is a part of SimilaritySearch.jl
 
-export KDisjointHints, DisjointHints, RandomHints
 """
     mutable struct RandomHints
 

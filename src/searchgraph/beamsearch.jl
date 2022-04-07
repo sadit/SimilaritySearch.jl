@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
 using Random
-export BeamSearch
 
 """
     BeamSearch(bsize::Integer=16, Δ::Float32)

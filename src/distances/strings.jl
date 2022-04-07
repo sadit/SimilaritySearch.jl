@@ -24,12 +24,16 @@ end
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
 The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
 """
-@with_kw struct GenericLevenshteinDistance <: SemiMetric
-    icost::Int32 = 1 # insertion cost
-    dcost::Int32 = 1 # deletion cost
-    rcost::Int32 = 1 # replace cost
-    Cpool::Vector{Vector{Int16}} = [Vector{Int16}(undef, 64) for i in 1:Threads.nthreads()]
+struct GenericLevenshteinDistance <: SemiMetric
+    icost::Int32 # insertion cost
+    dcost::Int32 # deletion cost
+    rcost::Int32 # replace cost
+
+    Cpool::Vector{Vector{Int16}}
 end
+
+GenericLevenshteinDistance(; icost=1, dcost=1, rcost=1) =
+    GenericLevenshteinDistance(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.nthreads()])
 
 """
     LevenshteinDistance()

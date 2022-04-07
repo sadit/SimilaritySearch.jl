@@ -15,17 +15,11 @@ include("knnresultshift.jl")
 @inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
-
-include("distances/bits.jl")
-include("distances/sets.jl")
-include("distances/strings.jl")
-include("distances/vectors.jl")
-include("distances/cos.jl")
-include("distances/cloud.jl")
+include("distances/Distances.jl")
 include("perf.jl")
 include("seq.jl")
-include("graph/graph.jl")
-include("graph/rebuild.jl")
+include("opt.jl")
+include("searchgraph/SearchGraph.jl")
 include("allknn.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
