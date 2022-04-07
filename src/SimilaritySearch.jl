@@ -6,7 +6,7 @@ abstract type AbstractSearchContext end
 using Parameters
 import Distances: evaluate, SemiMetric
 import Base: push!, append!
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch
+export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getknnresult
 
 include("db.jl")
 include("knnresult.jl")
@@ -30,22 +30,16 @@ include("allknn.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
-
 """
-    getknnresult(k::Integer, pools) -> KnnResult
+    getknnresult(k::Integer, pools=nothing) -> KnnResult
 
-Internal function to share result sets for the same thread and avoid memory allocations.
+Generic function to obtain a shared result set for the same thread and avoid memory allocations.
+This function should be specialized for indexes and pools that use shared results or threads in some special way.
 """
-@inline function getknnresult(k::Integer, pools::AbstractVector)
-    res = @inbounds pools[Threads.threadid()]
+@inline function getknnresult(k::Integer, pools=nothing)
+    res = @inbounds GlobalKnnResult[Threads.threadid()]
     reuse!(res, k)
 end
-
-@inline function getknnresult(k::Integer, ::Nothing)
-    KnnResult(k)
-end
-
-getpools(index::ExhaustiveSearch; pool_knnresult=GlobalKnnResult) = pool_knnresult
 
 """
     searchbatch(index, Q, k::Integer=10; parallel=false, pools=GlobalKnnResult) -> indices, distances
@@ -118,6 +112,7 @@ function __init__()
     __init__visitedvertices()
     __init__beamsearch()
     __init__neighborhood()
+
     for _ in 2:Threads.nthreads()
         push!(GlobalKnnResult, KnnResult(32))
     end

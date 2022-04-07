@@ -20,7 +20,7 @@ function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
 
-
+getpools(index::ExhaustiveSearch) = nothing
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
 """

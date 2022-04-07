@@ -107,15 +107,9 @@ can call other metric indexes that can use these shared resources (globally defi
 Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
 """
 struct SearchGraphPools{VisitedVerticesType}
-    results::Vector{KnnResult}
     beams::Vector{KnnResultShift}
     satnears::Vector{KnnResult}
     vstates::VisitedVerticesType
-end
-
-@inline function getknnresult(k::Integer, pools::SearchGraphPools)
-    res = @inbounds pools.results[Threads.threadid()]
-    reuse!(res, k)
 end
 
 @inline function getvstate(len, pools::SearchGraphPools)
@@ -131,7 +125,7 @@ end
     reuse!(pools.satnears[Threads.threadid()], 1)
 end
 
-getpools(::SearchGraph; results=GlobalKnnResult, beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(results, beams, satnears, vstates)
+getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
 
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
