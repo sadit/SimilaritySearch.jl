@@ -16,8 +16,6 @@ struct ParetoRadius <: ErrorFunction end
 function runconfig end
 function setconfig! end
 
-_kfun(x) = 1.0 - 1.0 / (1.0 + x)
-
 function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
     n = length(index)
     nt = Threads.nthreads()
