@@ -47,7 +47,8 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         v = minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)
        
         for i in eachindex(knnlist)
-            covradius[i] = maximum(knnlist[i])
+            res = knnlist[i]
+            covradius[i] = length(res) == 0 ? typemax(Float32) : maximum(res)
         end
 
         rmin, rmax = extrema(covradius)

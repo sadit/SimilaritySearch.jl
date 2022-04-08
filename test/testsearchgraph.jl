@@ -77,7 +77,6 @@ using Test
     seq = ExhaustiveSearch(dist, db)
     goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, search_algo=BeamSearch(bsize=2), verbose=false)
-    # graph.neighborhood.reduce = SatNeighborhood()
     index!(graph)
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
