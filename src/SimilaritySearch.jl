@@ -22,6 +22,7 @@ include("parallel-exhaustive.jl")
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
 include("allknn.jl")
+include("neardup.jl")
 
 const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 

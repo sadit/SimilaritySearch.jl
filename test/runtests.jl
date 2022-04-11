@@ -15,4 +15,6 @@ end
 include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
+include("testallknn.jl")
+include("testneardup.jl")
 include("testsearchgraph.jl")
