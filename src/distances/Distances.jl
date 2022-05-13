@@ -8,4 +8,5 @@
     include("vectors.jl")
     include("cos.jl")
     include("cloud.jl")
+    include("hacks.jl")
 #end

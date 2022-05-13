@@ -27,6 +27,12 @@ The operation of computing all knns in the index is computed as follows:
 allknn
 ```
 
+## Computing closest pair
+The operation of finding the closest pair of elements in the indexed dataset.
+```@docs
+closestpair
+```
+
 ## Indexing elements
 ```@docs
 push!(::SearchGraph, item)
