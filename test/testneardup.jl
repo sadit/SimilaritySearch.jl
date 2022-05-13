@@ -2,7 +2,7 @@
 
 using Test, SimilaritySearch, LinearAlgebra
 
-@testset "allknn" begin
+@testset "neardup" begin
     dist = CosineDistance()
     X = rand(Float32, 4, 1000)
     db = VectorDatabase(Vector{Float32}[])
