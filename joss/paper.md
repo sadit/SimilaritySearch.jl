@@ -50,7 +50,7 @@ The core method, the `SearchGraph` struct is an approximate method that is desig
 The package provides the following indexes:
 
 - `ParallelExhaustiveSearch`: A brute force search index where each query is solved using all available threads.
-- `ExhaustiveSearch`: A brute force search index, each query is solved using a single thread.
+- `ExhaustiveSearch`: A brute force search index, each query is solved in a single thread.
 - `SearchGraph`: An approximate search index with parallel and online autotuned construction.
 
 The main set of functions are:
@@ -61,9 +61,7 @@ The main set of functions are:
 - `closestpair`: Computes the closest pair in a metric dataset.
 - `neardup`: Removes a near duplicates from a metric dataset.
 
-The precise definitions of these functions and the full set of functions and structures can be found in is documentation.[^1]
-
-[^1]: [https://sadit.github.io/SimilaritySearch.jl/](https://sadit.github.io/SimilaritySearch.jl/).
+The precise definitions of these functions and the full set of functions and structures can be found in is documentation.^[ [https://sadit.github.io/SimilaritySearch.jl/](https://sadit.github.io/SimilaritySearch.jl/) ]
 
 
 # Installation and usage
@@ -80,7 +78,7 @@ Example:
 ```
 
 
-You can find several examples and notebooks (Pluto and Jupyter) in ^[[https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos)].
+You can find several examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
 
 
 # Acknowledgements
