@@ -37,7 +37,7 @@ also, you can run the set of tests as follows
 ```
 
 # Using the library
-Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupuyter and Pluto notebooks, and some scripts that exemplifies its usage.
+Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupyter and Pluto notebooks, and some scripts that exemplifies its usage.
  
 # Contribute
 Contributions are welcome. Please fill a pull request for documentating and implementation contributions. For issues, please fill an issue with the necessary information (see below.) If you already have a solution please also provide a pull request.
