@@ -40,11 +40,13 @@ Similarity search algorithms are fundamental tools for many computer science and
 Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, 
 the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$. Elements in $U$ are typically vectors but can have any data representation as long as the metric distance support it.
 
-The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high \cite{rub}. In these cases, it is necessary to create a data structure that preprocess the dataset and reduce the cost of solving queries, it is often called an \textit{index}. 
+The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high \cite{rub}. In these cases, it is necessary to create a data structure that preprocess the dataset and reduce the cost of solving queries; this structure is known as an \textit{index}. 
+
+[@ruiz2015finding; @malkov2018efficient; @malkov2014approximate; @nndescent11; @scan2020]
 
 # Main features of `SimilaritySearch`
 
-The core method, the `SearchGraph` struct is an approximate method that is designed to trade effectively between speed and quality, it has an integrated auto-tuning feature that free users of almost any setup and manual model selection. More detailed, in a single construction, the incremental construction adjusts the index parameters to achieve the desired performance. The current version (v0.8) of the search structure was introduced and benchmarked in [@tellez2021scalable] which uses the `SimilaritySearch.jl` package as implementation. Older versions of the package are benchmarked in [@ruiz2015finding].
+The `SearchGraph` struct is an approximate method that is designed to trade effectively between speed and quality, it has an integrated auto-tuning feature that almost free users of any setup and manual model selection. More detailed, in a single construction, the incremental construction adjusts the index parameters to achieve the desired performance which can be a be bi-objetive (Pareto optimal for search speed and quality) or a minimum quality. This search structure is described in [@simsearch2022] which uses the `SimilaritySearch.jl` package as implementation (0.8 version series). Older versions of the package are benchmarked in [@tellez2021scalable].
 
 The package provides the following indexes:
 
@@ -74,7 +76,7 @@ Pkg.add("SimilaritySearch")
 Example:
 
 ```julia
-# run julia using -t auto in a multithreading system
+# run julia using `-t auto` in a multithreading system
 using SimilaritySearch, MLDatasets
 
 function example(k=15, dist=SqL2Distance())
@@ -84,7 +86,7 @@ function example(k=15, dist=SqL2Distance())
 	queries = MatrixDatabase(reshape(test.features, w * h, m))
 
 	G = SearchGraph(; dist, db)
-	index!(G; parallel_block=256)
+	index!(G; parallel_block=256) # build the index
 	id, dist = searchbatch(G, queries, k; parallel=true)
   # do something with id and dist
 	point1, point2, mindist = closestpair(G; parallel=true)
