@@ -42,7 +42,7 @@ the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that m
 
 The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high \cite{rub}. In these cases, it is necessary to create a data structure that preprocess the dataset and reduce the cost of solving queries; this structure is known as an \textit{index}. 
 
-[@ruiz2015finding; @malkov2018efficient; @malkov2014approximate; @nndescent11; @scan2020]
+[@ruiz2015finding; @malkov2018efficient; @malkov2014approximate; @nndescent11; @scann2020]
 
 # Main features of `SimilaritySearch`
 
@@ -100,22 +100,22 @@ example()
 
 The running times of this example are:
 
--------------------------------------------------------------------------------------
-                        `ExhaustiveSearch`  `SearchGraph`     `SearchGraph` with
- Operation      units                                         `MinRecall(0.95)`
---------------   -----   -----------------   --------------   ----------------------- 
- construction      s                  0.00             5.67                     idem
+----------------------------------------------------------------------------------------
+                           `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
+ Operation       units                                                 `MinRecall(0.95)`
+--------------   ------   -------------------   --------------   ----------------------- 
+ construction      $s$                  0.00             5.67                     idem
 
- optimization      s                  0.00             0.00                     0.82
+ optimization      $s$                  0.00             0.00                     0.82
 
- `searchbatch`    q/s              2689.68         36340.06                 23807.14
+ `searchbatch`    $q/s$              2689.68         36340.06                 23807.14
 
- `closestpair`     s                 22.76             0.31                     1.57
+ `closestpair`     $s$                 22.76             0.31                     1.57
 
- `allknn`          s                 21.69             0.37                     2.79
- 
- recall            s                   1.0             0.81                     0.96
--------------------------------------------------------------------------------------
+ `allknn`          $s$                 21.69             0.37                     2.79
+
+ recall            $s$                   1.0             0.81                     0.96
+--------------------------------------------------------------------------------------
 
 Table: Performance comparisong of running several similarity search operations on MNIST dataset in our 32-core workstation.
 
