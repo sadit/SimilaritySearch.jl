@@ -28,7 +28,7 @@ function main_mnist(dist=SqL2Distance(), k=15)
 
 	@show Threads.nthreads()
 
-	@info (; Ebuildtime, Equeriespersecond, Eclosestpairtime, Eallknntime)
+	@info (; Equeriespersecond, Eclosestpairtime, Eallknntime)
 	@info (; Gbuildtime, Gopttime, Gqueriespersecond, Gclosestpairtime, Gallknntime)
 end
 
