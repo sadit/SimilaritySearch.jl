@@ -40,12 +40,11 @@ Similarity search algorithms are fundamental tools for many computer science and
 Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, 
 the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$. Elements in $U$ are typically vectors but can have any data representation as long as the metric distance support it.
 
-
-The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high \cite{rub}. In these cases, it is necessary to create a data structure that preprocess the dataset and reduce the cost of solving queries, it is often called an \textit{index}. More even, sometimes we can loose the ability of retrieving the exact solution to gain speed, clearly, the approximation quality becomes a major concern and these approximate methods require a lot of knowledge to trade speed retrieval process also kept high the solution's quality. Additionally, the amount of memory used by the index and the construction time are also concerns whenever $n$ is big.
+The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high \cite{rub}. In these cases, it is necessary to create a data structure that preprocess the dataset and reduce the cost of solving queries, it is often called an \textit{index}. 
 
 # Main features of `SimilaritySearch`
 
-The core method, the `SearchGraph` struct is an approximate method that is designed to trade effectively between speed and quality, it has an integrated auto-tuning feature that free users of almost any setup and manual model selection. More detailed, in a single construction, the incremental construction adjusts the index parameters to achieve the desired performance. @tellez2021scalable
+The core method, the `SearchGraph` struct is an approximate method that is designed to trade effectively between speed and quality, it has an integrated auto-tuning feature that free users of almost any setup and manual model selection. More detailed, in a single construction, the incremental construction adjusts the index parameters to achieve the desired performance. The current version (v0.8) of the search structure was introduced and benchmarked in [@tellez2021scalable] which uses the `SimilaritySearch.jl` package as implementation. Older versions of the package are benchmarked in [@ruiz2015finding].
 
 The package provides the following indexes:
 
@@ -63,6 +62,7 @@ The main set of functions are:
 
 The precise definitions of these functions and the full set of functions and structures can be found in is documentation.^[ [https://sadit.github.io/SimilaritySearch.jl/](https://sadit.github.io/SimilaritySearch.jl/) ]
 
+Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
 
 # Installation and usage
 The package is registered in the general Julia registry and it is available via its integrated package manager:
@@ -74,11 +74,35 @@ Pkg.add("SimilaritySearch")
 Example:
 
 ```julia
-...
+# run julia using -t auto in a multithreading system
+using SimilaritySearch, MLDatasets
+
+function example(k=15, dist=SqL2Distance())
+	train, test = MNIST(split=:train), MNIST(split=:test)
+	(w, h, n), m = size(train.features), size(test.features, 3)
+	db = MatrixDatabase(reshape(train.features, w * h, n))
+	queries = MatrixDatabase(reshape(test.features, w * h, m))
+
+	G = SearchGraph(; dist, db)
+	index!(G; parallel_block=256)
+	id, dist = searchbatch(G, queries, k; parallel=true)
+  # do something with id and dist
+	point1, point2, mindist = closestpair(G; parallel=true)
+  # do something with point1, point2, mindist
+	idall, distall = allknn(G, k; parallel=true)
+  # do something with idall and distall
+end
+
+example()
 ```
 
+[ Info: (Equeriespersecond = 2689.6805908599517, Eclosestpairtime = 22.75641164, Eallknntime = 21.692815437)
+[ Info: (Gbuildtime = 5.669455889, Gqueriespersecond = 36340.05602808086, Gclosestpairtime = 0.308268196, Gallknntime = 0.36543524, recall = 0.809486666666741)                                                                                                                                                              
+[ Info: (Gbuildtime = 5.669455889, _Gopttime = 0.821557, _Gqueriespersecond = 23807.142811824262, _Gclosestpairtime = 1.527092289, _Gallknntime = 2.794439335, recall = 0.9612066666667805)        
 
-You can find several examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
+
+
+You can find more examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
 
 
 # Acknowledgements
