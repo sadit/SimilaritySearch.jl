@@ -34,7 +34,7 @@ bibliography: paper.bib
 This manuscript describes the `SimilaritySearch.jl` Julia's package that provides algorithms to retrieve efficiently $k$ nearest neighbors from a metric dataset and other related problems. Its algorithms are designed to work in main memory and take advantage of multithreading systems in most of its main operations.
 
 # Statement of need
-Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@sparse-dense-text-retrieval]; they allow performing fast clustering analysis on large datasets [@pmlr-v157-weng21a; jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speedup the constructions of all $k$ nearest neighbor graphs, that are the basic input of non-linear dimensional reduction methods that it is a popular way to visualize complex data [@umap2018; @trimap2019; van2008visualizing; @lee2007nonlinear;], among other uses. The number of potential applications is also increasing as the number of new representations and problems being solved by deep learning.
+Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@sparse-dense-text-retrieval]; they allow performing fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speedup the constructions of all $k$ nearest neighbor graphs, that are the basic input of non-linear dimensional reduction methods that it is a popular way to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear;], among other uses. The number of potential applications is also increasing as the number of new representations and problems being solved by deep learning.
 
 ## The $k$ nearest neighbor problem
 Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, 
@@ -91,18 +91,28 @@ function example(k=15, dist=SqL2Distance())
   # do something with id and dist
 	point1, point2, mindist = closestpair(G; parallel=true)
   # do something with point1, point2, mindist
-	idall, distall = allknn(G, k; parallel=true)
-  # do something with idall and distall
+	idAll, distAll = allknn(G, k; parallel=true)
+  # do something with idAll and distAll
 end
 
 example()
 ```
 
-[ Info: (Equeriespersecond = 2689.6805908599517, Eclosestpairtime = 22.75641164, Eallknntime = 21.692815437)
-[ Info: (Gbuildtime = 5.669455889, Gqueriespersecond = 36340.05602808086, Gclosestpairtime = 0.308268196, Gallknntime = 0.36543524, recall = 0.809486666666741)                                                                                                                                                              
-[ Info: (Gbuildtime = 5.669455889, _Gopttime = 0.821557, _Gqueriespersecond = 23807.142811824262, _Gclosestpairtime = 1.527092289, _Gallknntime = 2.794439335, recall = 0.9612066666667805)        
+The running times of this example are:
 
+-----------------------------------------------------------------------------------
+                        `ExhaustiveSearch`  `SearchGraph`     `SearchGraph` opt. 
+ Operation      units                                        with `MinRecall(0.95)`
+-------------   -----   -----------------   --------------   ---------------------- 
+construction      s                  0.00             5.67                     idem
+optimization      s                  0.00             0.00                     0.82
+`searchbatch`    q/s              2689.68         36340.06                 23807.14
+`closestpair`     s                 22.76             0.31                     1.57
+`allknn`          s                 21.69             0.37                     2.79
+recall            s                   1.0             0.81                     0.96
+-----------------------------------------------------------------------------------
 
+Table: Performance comparisong of running several similarity search operations on MNIST dataset in our 32-core workstation.
 
 You can find more examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
 
