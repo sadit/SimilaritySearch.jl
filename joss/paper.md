@@ -100,17 +100,17 @@ example()
 
 The running times of this example are:
 
------------------------------------------------------------------------------------
-                        `ExhaustiveSearch`  `SearchGraph`     `SearchGraph` opt. 
- Operation      units                                        with `MinRecall(0.95)`
--------------   -----   -----------------   --------------   ---------------------- 
-construction      s                  0.00             5.67                     idem
-optimization      s                  0.00             0.00                     0.82
-`searchbatch`    q/s              2689.68         36340.06                 23807.14
-`closestpair`     s                 22.76             0.31                     1.57
-`allknn`          s                 21.69             0.37                     2.79
-recall            s                   1.0             0.81                     0.96
------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------
+                        `ExhaustiveSearch`  `SearchGraph`     `SearchGraph` with
+ Operation      units                                         `MinRecall(0.95)`
+--------------   -----   -----------------   --------------   ------------.---------- 
+ construction      s                  0.00             5.67                     idem
+ optimization      s                  0.00             0.00                     0.82
+ `searchbatch`    q/s              2689.68         36340.06                 23807.14
+ `closestpair`     s                 22.76             0.31                     1.57
+ `allknn`          s                 21.69             0.37                     2.79
+ recall            s                   1.0             0.81                     0.96
+-------------------------------------------------------------------------------------
 
 Table: Performance comparisong of running several similarity search operations on MNIST dataset in our 32-core workstation.
 
