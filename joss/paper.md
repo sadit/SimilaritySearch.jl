@@ -14,11 +14,11 @@ authors:
   - name: Guillermo Ruiz^[Co-first author] # note this makes a footnote saying 'Co-first author'
     affiliation: "1, 3"
 affiliations:
- - name: Consejo Nacional de Ciencia y Tecnología, México
+ - name: Consejo Nacional de Ciencia y Tecnología, México.
    index: 1
- - name: INFOTEC Centro de Investigación e Innovación en Tecnologías de la Información y Comunicación, México
+ - name: INFOTEC Centro de Investigación e Innovación en Tecnologías de la Información y Comunicación, México.
    index: 2
- - name: CentroGEO Centro de Investigación en Ciencias de Información Geoespacial, México
+ - name: CentroGEO Centro de Investigación en Ciencias de Información Geoespacial, México.
    index: 3
 date: 20 May 2022
 bibliography: paper.bib
@@ -62,7 +62,7 @@ The package provides the following indexes:
 The main set of functions are:
 
 - `search`: Solves a single query.
-- `searchbatch`: Solves a set of queries, 
+- `searchbatch`: Solves a set of queries.
 - `allknn`: Computes the $k$ nearest neighbors for all elements in an index.
 - `closestpair`: Computes the closest pair in a metric dataset.
 - `neardup`: Removes near-duplicates from a metric dataset.
@@ -79,7 +79,6 @@ Pkg.add("SimilaritySearch")
 The package exports several functions and indexes for solving similarity search queries, as mentioned above. For instance, the set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used to exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
 
 ~~~~ {#example .julia .numberLines startFrom="1"}
-# run julia using `-t auto` in a multithreading system
 using SimilaritySearch, MLDatasets 
 
 function load_data()
@@ -93,7 +92,7 @@ end
 function example(k=15, dist=SqL2Distance())
   db, queries = load_data()
   G = SearchGraph(; dist, db)
-  index!(G; parallel_block=256) # build the index
+  index!(G; parallel_block=256)
   id, dist = searchbatch(G, queries, k; parallel=true)
   point1, point2, mindist = closestpair(G; parallel=true)
   idAll, distAll = allknn(G, k; parallel=true)
@@ -102,10 +101,10 @@ end
 example()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The function `example` loads the data (line 13), create the index (line 15) and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 16). The same index is used to compute the closest pair of points in the train partition (line 17) and finally compute all $k$ nearest neighbors on the train partition (line 18). All these operations use all the available threads to the `julia` process.
+The function `example` loads the data (line 12), create the index (line 14) and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and finally compute all $k$ nearest neighbors on the train partition (line 17). All these operations use all the available threads to the `julia` process.
 
 
-We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 14-15 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
+We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
 
 ----------------------------------------------------------------------------------------------
                                  `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
@@ -115,19 +114,18 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
 
  `optimize!`              $s$                  0.00             0.00                     0.82
 
- `searchbatch`          $q/s$              2689.68          36340.06                 23807.14
+ `searchbatch`          $q/s$               2689.68         36340.06                 23807.14
 
  `closestpair`            $s$                 22.76             0.31                     1.57 
 
  `allknn`                 $s$                 21.69             0.37                     2.79
-
- `allknn`                 $s$                   1.0             0.81                     0.96
- recall score 
----------------------------------------------------------------------------------------------
+---
+ recall score             -                     1.0             0.81                     0.96  
+----------------------------------------------------------------------------------------------
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. \label{tab/performance}
 
-The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `aYoullknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$ where the set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
+The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$ where the set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
 
 
 Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
