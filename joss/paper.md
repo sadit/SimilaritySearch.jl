@@ -31,7 +31,7 @@ bibliography: paper.bib
 
 # Summary
 
-This manuscript describes the `SimilaritySearch.jl` Julia's package that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems. Its algorithms are designed to work in main memory and take advantage of multithreading systems in most of its primary operations.
+This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT licensed) that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems with no knowledge of the underlying algorithms since our main structure, the `SearchGraph,` has autotuning capabilities. Its algorithms are designed to work in main memory and take advantage of multithreading systems in most of its primary operations.
 
 # Statement of need
 Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [witten1999managing,@sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods. It is a popular way to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear;], among other use cases. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., most deep learning representations are direct input for searching methods.
@@ -127,7 +127,6 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Operations taking with small-time costs is desirable, while higher throughput $q/s$ and high recall scores (close to 1) are also desirable. \label{tab/performance}
 
 The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$. The set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared, and it takes values between 0 and 1. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
-
 
 Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
 More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
