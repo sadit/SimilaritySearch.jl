@@ -45,7 +45,7 @@ The problem can be solved easily with an exhaustive evaluation of all possible r
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic and small node degrees based on Spatial Access Trees [@navarro2002searching]. The details are studied in [@ruiz2015finding; @tellez2021scalable], and its auto-tuned capabilities in [@simsearch2022].
 
 ## Alternatives
-@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss].@nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind fast computation of UMAP non-linear low dimensional projection [<https://github.com/lmcinnes/umap>].
+@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss].@nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
 Recently, @scann2020 introduces the _scann_ index for inner product based metrics; it is fast and accurate implemented in a well maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
 
 # Main features of `SimilaritySearch`
@@ -128,13 +128,13 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. \label{tab/performance}
 
-The reported recall score is the macro averaged recall of `allknn` operation. The individual recall is computed as $\frac{\# \text{ of real } k \text{ nearest neighbors retrieved}}{k}$ where the set of real $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared.
+The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as $\frac{\# \text{ of real } k \text{ nearest neighbors retrieved}}{k}$ where the set of real $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
 
 
 Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
-You can find more examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
-
+You can find more examples and notebooks (Pluto and Jupyter) in <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
+This research uses some of the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México.
 
 # References
