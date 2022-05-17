@@ -79,7 +79,7 @@ After this, you can ran unit testing calling `Pkg.test("SimilaritySearch")`. The
 
 The set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used for exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
 
-~~~~ {#mycode .julia .numberLines startFrom="1"}
+~~~~ {#example .julia .numberLines startFrom="1"}
 # run julia using `-t auto` in a multithreading system
 using SimilaritySearch, MLDatasets 
 
@@ -103,10 +103,10 @@ end
 example()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The function `example` loads the data (line 15), creates the index (line 16) and then it finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 17). The same index is used to compute the closest pair of points in the train partition (line 18), and finally computes the all $k$ nearest neighbors on the train partition (line 19).
+The function `example` loads the data (line 13), creates the index (line 15) and then it finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 16). The same index is used to compute the closest pair of points in the train partition (line 17), and finally computes the all $k$ nearest neighbors on the train partition (line 18). All these operations are called using all the available threads to the `julia` process.
 
 
-This example ran in running times of this example are
+We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table [#tab/performance] compares the running times with those achieved with the brute force algorithm (replacing lines 14-15 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
 
 ----------------------------------------------------------------------------------------------
                                  `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
@@ -122,10 +122,14 @@ This example ran in running times of this example are
 
  `allknn`                 $s$                 21.69             0.37                     2.79
 
- recall score            $s$                   1.0              0.81                     0.96
+ `allknn`                 $s$                   1.0             0.81                     0.96
+ recall score 
 ---------------------------------------------------------------------------------------------
 
-Table: Performance comparisong of running several similarity search operations on MNIST dataset in our 32-core workstation.
+[#tab/performance]: Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation.
+
+The reported recall score is the macro averaged recall of `allknn` operation. The individual recall is computed as $\frac{\# \text{ of real } k \text{ nearest neighbors retrieved}}{k}$ where the set of real $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors retrieved by the brute force method and the index being computed.
+
 
 Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
 You can find more examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
