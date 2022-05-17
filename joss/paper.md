@@ -45,8 +45,8 @@ The problem can be solved easily with an exhaustive evaluation of all possible r
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic and small node degrees based on Spatial Access Trees [@navarro2002searching]. The details are studied in [@ruiz2015finding; @tellez2021scalable], and its auto-tuned capabilities in [@simsearch2022].
 
 ## Alternatives
-@malkov2014approximate [@malkov2014approximate] add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search index. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss]. @nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[https://github.com/lmcinnes/pynndescent], which is behind fast computation of UMAP non-linear low dimensional projections.^[umap]
-Recently, @scann2020 introduces the scann index for inner product based metrics; it is fast and accurate implemented in a well maintained library.^[scann]
+@malkov2014approximate [@malkov2014approximate] add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search index. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss]. @nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[https://github.com/lmcinnes/pynndescent], which is behind fast computation of UMAP non-linear low dimensional projection [umap].
+Recently, @scann2020 introduces the scann index for inner product based metrics; it is fast and accurate implemented in a well maintained library.[scann]
 
 [umap]: <https://github.com/lmcinnes/umap> UMAP repository
 [scann]: <https://github.com/google-research/google-research/tree/master/scann> ScaNN repository
@@ -68,7 +68,7 @@ The main set of functions are:
 - `closestpair`: Computes the closest pair in a metric dataset.
 - `neardup`: Removes a near duplicates from a metric dataset.
 
-The precise definitions of these functions and the full set of functions and structures can be found in is documentation.^[ [https://sadit.github.io/SimilaritySearch.jl/](https://sadit.github.io/SimilaritySearch.jl/) ]
+The precise definitions of these functions and the full set of functions and structures can be found in is documentation.^[<https://sadit.github.io/SimilaritySearch.jl/>]
 
 Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
 
