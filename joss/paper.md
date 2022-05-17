@@ -43,7 +43,7 @@ the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that m
 
 The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, the expected number of queries is high, or the intrinsic dimension of the dataset is also high. It is possible to overcome some of the difficulties preprocessing the dataset to create a data structure known as an \textit{index}. 
 
-Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic and small node degrees based on Spatial Access Trees [@navarro2002searching]. The details are studied in [@ruiz2015finding; @tellez2021scalable] and its auto-tuned capabilities in [@simsearch2022].
+Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and auto-tuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding]. The package solves other related problems using these indexes as internal machinery.
 
 ## Alternatives
 @malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of popular libraries^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss] and has a significant acceptance in the community. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
@@ -76,9 +76,7 @@ using Pkg
 Pkg.add("SimilaritySearch")
 ```
 
-After this, you can ran unit testing calling `Pkg.test("SimilaritySearch")`. The package exports several functions and indexes for solving similarity search queries.
-
-The set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used to exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
+The package exports several functions and indexes for solving similarity search queries, as mentioned above. For instance, the set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used to exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
 
 ~~~~ {#example .julia .numberLines startFrom="1"}
 # run julia using `-t auto` in a multithreading system
