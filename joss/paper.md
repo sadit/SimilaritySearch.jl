@@ -42,7 +42,11 @@ the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that m
 
 The problem can be solved easily with an exhaustive evaluation of all possible results $d(u_1, q), \cdots, d(u_n, q)$ (that is, for all $u_i \in S$) and then select those $k$ items $\{u_i\}$ with the least distance to $q$. This solution is impractical when $n$ is large, or the expected number of queries is high, or the intrinsic dimension of the dataset is also high. It is possible to overcome some of the difficulties preprocessing the dataset to create a data structure known as an \textit{index}. 
 
-[@ruiz2015finding; @malkov2018efficient; @malkov2014approximate; @nndescent11; @scann2020]
+Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic and small node degrees based on Spatial Access Trees [@navarro2002searching]. The details are studied in [@ruiz2015finding; @tellez2021scalable], and its auto-tuned capabilities in [@simsearch2022].
+
+## Alternatives
+@malkov2014approximate [@malkov2014approximate] add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search index. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss]. @nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[https://github.com/lmcinnes/pynndescent], which is behind fast computation of UMAP non-linear low dimensional projections.^[https://github.com/lmcinnes/umap]
+Recently, @scann introduces the scann index for inner product based metrics; it is fast and accurate implemented in a well maintained library.^[https://github.com/google-research/google-research/tree/master/scann]
 
 # Main features of `SimilaritySearch`
 
@@ -79,12 +83,17 @@ Example:
 # run julia using `-t auto` in a multithreading system
 using SimilaritySearch, MLDatasets
 
-function example(k=15, dist=SqL2Distance())
+function load_data()
 	train, test = MNIST(split=:train), MNIST(split=:test)
 	(w, h, n), m = size(train.features), size(test.features, 3)
+  # 28x28 images, 60k and 10k entries for train and test
 	db = MatrixDatabase(reshape(train.features, w * h, n))
 	queries = MatrixDatabase(reshape(test.features, w * h, m))
+  db, queries
+end
 
+function example(k=15, dist=SqL2Distance())
+  db, queries = load_data()
 	G = SearchGraph(; dist, db)
 	index!(G; parallel_block=256) # build the index
 	id, dist = searchbatch(G, queries, k; parallel=true)
