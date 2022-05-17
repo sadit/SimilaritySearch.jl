@@ -79,14 +79,13 @@ After this, you can ran unit testing calling `Pkg.test("SimilaritySearch")`. The
 
 The set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used for exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
 
-```{julia, attr.source='.numberLines'}
+~~~~ {#mycode .julia .numberLines startFrom="1"}
 # run julia using `-t auto` in a multithreading system
 using SimilaritySearch, MLDatasets 
 
 function load_data()
   train, test = MNIST(split=:train), MNIST(split=:test)
   (w, h, n), m = size(train.features), size(test.features, 3)
-  # 28x28 images, 60k and 10k entries for train and test, respectively
   db = MatrixDatabase(reshape(train.features, w * h, n))
   queries = MatrixDatabase(reshape(test.features, w * h, m))
   db, queries
@@ -102,10 +101,12 @@ function example(k=15, dist=SqL2Distance())
 end
 
 example()
-```
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The function `example` loads the data, creates the index and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line ). Then, it computes the closest pair of points in the train partition, and also computes the all $k$ nearest neighbors on the same partition.
-The running times of this example are:
+The function `example` loads the data (line 15), creates the index (line 16) and then it finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 17). The same index is used to compute the closest pair of points in the train partition (line 18), and finally computes the all $k$ nearest neighbors on the train partition (line 19).
+
+
+This example ran in running times of this example are
 
 ----------------------------------------------------------------------------------------------
                                  `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
