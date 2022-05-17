@@ -119,7 +119,8 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
  `closestpair`            $s$                 22.76             0.31                     1.57 
 
  `allknn`                 $s$                 21.69             0.37                     2.79
----
+
+\hline
  recall score             -                     1.0             0.81                     0.96  
 ----------------------------------------------------------------------------------------------
 
