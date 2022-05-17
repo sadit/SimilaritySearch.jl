@@ -106,7 +106,7 @@ example()
 The function `example` loads the data (line 13), creates the index (line 15) and then it finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 16). The same index is used to compute the closest pair of points in the train partition (line 17), and finally computes the all $k$ nearest neighbors on the train partition (line 18). All these operations are called using all the available threads to the `julia` process.
 
 
-We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table @tabperformance compares the running times with those achieved with the brute force algorithm (replacing lines 14-15 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
+We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 14-15 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
 
 ----------------------------------------------------------------------------------------------
                                  `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
@@ -126,7 +126,7 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
  recall score 
 ---------------------------------------------------------------------------------------------
 
-Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. {#tabperformance}
+Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. \label{tab/performance}
 
 The reported recall score is the macro averaged recall of `allknn` operation. The individual recall is computed as $\frac{\# \text{ of real } k \text{ nearest neighbors retrieved}}{k}$ where the set of real $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared.
 
