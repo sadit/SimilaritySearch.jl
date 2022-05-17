@@ -45,11 +45,9 @@ The problem can be solved easily with an exhaustive evaluation of all possible r
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic and small node degrees based on Spatial Access Trees [@navarro2002searching]. The details are studied in [@ruiz2015finding; @tellez2021scalable], and its auto-tuned capabilities in [@simsearch2022].
 
 ## Alternatives
-@malkov2014approximate [@malkov2014approximate] add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search index. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss]. @nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[https://github.com/lmcinnes/pynndescent], which is behind fast computation of UMAP non-linear low dimensional projection [umap].
-Recently, @scann2020 introduces the scann index for inner product based metrics; it is fast and accurate implemented in a well maintained library.[scann]
+@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a main component of popular libraries ^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss].@nndescent11 introduce NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind fast computation of UMAP non-linear low dimensional projection [<https://github.com/lmcinnes/umap>].
+Recently, @scann2020 introduces the _scann_ index for inner product based metrics; it is fast and accurate implemented in a well maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
 
-[umap]: <https://github.com/lmcinnes/umap> UMAP repository
-[scann]: <https://github.com/google-research/google-research/tree/master/scann> ScaNN repository
 # Main features of `SimilaritySearch`
 
 The `SearchGraph` struct is an approximate method that is designed to trade effectively between speed and quality, it has an integrated auto-tuning feature that almost free users of any setup and manual model selection. More detailed, in a single construction, the incremental construction adjusts the index parameters to achieve the desired performance which can be a be bi-objetive (Pareto optimal for search speed and quality) or a minimum quality. This search structure is described in [@simsearch2022] which uses the `SimilaritySearch.jl` package as implementation (0.8 version series). Older versions of the package are benchmarked in [@tellez2021scalable].
@@ -68,9 +66,7 @@ The main set of functions are:
 - `closestpair`: Computes the closest pair in a metric dataset.
 - `neardup`: Removes a near duplicates from a metric dataset.
 
-The precise definitions of these functions and the full set of functions and structures can be found in is documentation.^[<https://sadit.github.io/SimilaritySearch.jl/>]
-
-Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
+The full set of functions and structures are detailed in the documentation.^[<https://sadit.github.io/SimilaritySearch.jl/>]
 
 # Installation and usage
 The package is registered in the general Julia registry and it is available via its integrated package manager:
@@ -79,16 +75,18 @@ using Pkg
 Pkg.add("SimilaritySearch")
 ```
 
-Example:
+After this, you can ran unit testing calling `Pkg.test("SimilaritySearch")`. The package exports a number of functions and indexes for solving similarity search queries.
 
-```julia
+The set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used for exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
+
+```{julia, attr.source='.numberLines'}
 # run julia using `-t auto` in a multithreading system
-using SimilaritySearch, MLDatasets
+using SimilaritySearch, MLDatasets 
 
 function load_data()
   train, test = MNIST(split=:train), MNIST(split=:test)
   (w, h, n), m = size(train.features), size(test.features, 3)
-  # 28x28 images, 60k and 10k entries for train and test
+  # 28x28 images, 60k and 10k entries for train and test, respectively
   db = MatrixDatabase(reshape(train.features, w * h, n))
   queries = MatrixDatabase(reshape(test.features, w * h, m))
   db, queries
@@ -99,16 +97,14 @@ function example(k=15, dist=SqL2Distance())
   G = SearchGraph(; dist, db)
   index!(G; parallel_block=256) # build the index
   id, dist = searchbatch(G, queries, k; parallel=true)
-  # do something with id and dist
   point1, point2, mindist = closestpair(G; parallel=true)
-  # do something with point1, point2, mindist
   idAll, distAll = allknn(G, k; parallel=true)
-  # do something with idAll and distAll
 end
 
 example()
 ```
 
+The function `example` loads the data, creates the index and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line ). Then, it computes the closest pair of points in the train partition, and also computes the all $k$ nearest neighbors on the same partition.
 The running times of this example are:
 
 ----------------------------------------------------------------------------------------------
@@ -130,6 +126,7 @@ The running times of this example are:
 
 Table: Performance comparisong of running several similarity search operations on MNIST dataset in our 32-core workstation.
 
+Please note that exact indexes produce exact results when these functions are applied while approximate indexes can produce approximate results.
 You can find more examples and notebooks (Pluto and Jupyter) in ^[ [https://github.com/sadit/SimilaritySearchDemos)(https://github.com/sadit/SimilaritySearchDemos) ].
 
 
