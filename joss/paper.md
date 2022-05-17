@@ -124,9 +124,9 @@ We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation
  recall score             -                     1.0             0.81                     0.96  
 ----------------------------------------------------------------------------------------------
 
-Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. \label{tab/performance}
+Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Operations taking with small-time costs is desirable, while higher throughput $q/s$ and high recall scores (close to 1) are also desirable. \label{tab/performance}
 
-The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$ where the set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
+The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$. The set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared, and it takes values between 0 and 1. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
 
 
 Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
