@@ -112,7 +112,7 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
   >{\centering\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.15}}
   >{\centering\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.10}}
   >{\raggedleft\arraybackslash}p{(\columnwidth - 8\tabcolsep) * \real{0.10}}@{}}
-\caption{a e i o u.\label{tab/performance}}\tabularnewline
+\caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}}\tabularnewline
 \toprule
 method & build time &  opt. time & \texttt{searchbatch} time & \texttt{closestpair} time & \texttt{allknn} time & mem. (MB) & \texttt{allknn} recall \\
 \midrule
@@ -129,8 +129,6 @@ MinRecall 0.6    &   -    & 0.12 &   0.06      &   0.22      &  0.26  &    -   &
 H.MinRecall 0.9  &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
 \bottomrule
 \end{longtable}
-
-Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}
 
 As reference, we indexed and search for all $k$ nearest neighbors using the default values for the HNSW (FAISS), PyNNDescent, and scaNN library for nearest neighbor search. All these operations were computed using all available threads.
 
