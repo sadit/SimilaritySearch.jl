@@ -104,23 +104,16 @@ The function `example` loads the data (line 12), create the index (line 14) and 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
 
--------------------------------------------------------------------------------------------------------------
-                 method     build    opt.     `searchbatch`   `closestpair`   `allknn`    mem.      `allknn`
-                            time     time         time        time             time       (MB)       recall
---––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ----––––––––––   -–––––––   ––––––––  --––––––-
-        ExhaustiveSearch      0.0      0.0          3.5612          22.1781    21.6492   179.4434     1.0000
-        
-\hline      ParetoRecall   1.5959      0.0          0.1352           0.2709     0.6423   181.5502     0.8204
 
-          MinRecall(0.9)    -       0.2572          0.1796           0.3527     0.9209      -         0.8912
-
-         MinRecall(0.95)    -       0.4125          0.4708           0.8333     2.6709      -         0.9635
-
-          MinRecall(0.6)    -       0.1190          0.0588           0.2207     0.2618      -         0.5914
-
-\hline
-  Hamming MinRecall(0.9)   1.1323   0.0729          0.0438           0.2855     0.2175     8.4332     0.7053
--------------------------------------------------------------------------------------------------------------
+|  method         |  build | opt. | searchbatch | closestpair | allknn | mem.   |  allknn |
+|      x          |  time  | time |  time       |  time       |  time  |  (MB)  |  recall |       
+|--–––––––––––––––|--------|--––––|-------------|-------------|--------|––--–––-|---–––---|
+|ExhaustiveSearch |   0.0  | 0.0  |   3.56      |  22.18      | 21.65  | 179.44 |  1.00   |
+|ParetoRecall     |  1.60  | 0.0  |   0.14      |   0.27      |  0.64  | 181.55 |  0.82   |
+|MinRecall 0.9    |   -    | 0.26 |   0.18      |   0.35      |  0.92  |    -   |  0.89   |
+|MinRecall 0.95   |   -    | 0.41 |   0.47      |   0.83      |  2.67  |    -   |  0.96   |
+|MinRecall 0.6    |   -    | 0.12 |   0.06      |   0.22      |  0.26  |    -   |  0.59   |
+|H.MinRecall 0.9  |  1.13  | 0.07 |   0.04      |   0.29      |  0.22  |  8.43  |  0.71   |
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}
 
@@ -129,15 +122,15 @@ As reference, we indexed and search for all $k$ nearest neighbors using the defa
 --------------------------------------------------------------
   method         build     `allknn`       mem.      `allknn`
                  time       time          (MB)       recall
-----------     --------   ---------   -------------  --------
-scaNN           25.1101    2.1374          ?          1.0000
+----------     --------   ---------   -----------  --------
+scaNN           25.11      2.14        unknown      1.00
   
-HNSW             1.9119     1.9939       195.0184     0.9944
+HNSW             1.91      1.99         195.02      0.99
 
-PyNNDescent     45.0907     9.9443       430.4228     0.9949
---------------------------------------------------------------------
+PyNNDescent     45.09      9.94         430.42      0.99
+---------------------------------------------------------------
 
-Table: \label{tab/alt-performance}
+Table: a e i o u.\label{tab/alt-performance}
 
 Note that optimizing its parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Along with the flexibility on data types and that user defined functions will run at full speed since they are compiled by the julia programing language, the simplicity obtained by our online autotuning feature are among main advantages of our `SimilaritySearch.jl`.
 
