@@ -1,9 +1,10 @@
 # This file is a part of SimilaritySearch.jl
 
-export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, NeighborhoodReduction, index!, push_item!
+export LocalSearchAlgorithm, SearchGraph, SearchGraphPools, SearchGraphCallbacks, VisitedVertices, index!, push_item!
+export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood
+export find_neighborhood, push_neighborhood!
 export BeamSearch, Callback
 export KDisjointHints, DisjointHints, RandomHints
-export IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, find_neighborhood, push_neighborhood!, NeighborhoodSize
 
 include("graph.jl")
 include("rebuild.jl")

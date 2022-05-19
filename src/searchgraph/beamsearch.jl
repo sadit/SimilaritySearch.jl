@@ -23,26 +23,21 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 const GlobalBeamKnnResult = [KnnResultShift(32)]  # see __init__ function
 
 function __init__beamsearch()
-    for i in 2:Threads.nthreads()
+    for _ in 2:Threads.nthreads()
         push!(GlobalBeamKnnResult, KnnResultShift(32))
     end
 end
 
 ### local search algorithm
 
-function beamsearch_queue(index::SearchGraph, q, res, objID, vstate)
-    visited_ = 0
-    @inbounds if !visited(vstate, objID)
-        visit!(vstate, objID)
-        visited_ += 1
-        d = evaluate(index.dist, q, index[objID])
-        push!(res, objID, d)
-    end
-
-    visited_
+@inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
+    visited(vstate, objID) && return 0
+    visit!(vstate, objID)
+    @inbounds push!(res, objID, evaluate(index.dist, q, index[objID]))
+    1
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res, hints, vstate, bsize)
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
     visited_ = 0
 
     for objID in hints
@@ -51,7 +46,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res, hints, vsta
     
     if length(res) == 0
         _range = 1:length(index)
-        for i in 1:bsize
+        for _ in 1:bsize
            objID = rand(_range)
            visited_ += beamsearch_queue(index, q, res, objID, vstate)
        end
@@ -63,25 +58,21 @@ end
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res, vstate, beam, Δ, maxvisits, visited_)
     beam_st = initialstate(beam)
     beam_st = push!(beam, beam_st, argmin(res), minimum(res))
-    # @show res.id length(res, st) length(index) res st beam_st
+
     while length(beam, beam_st) > 0
         p, beam_st = popfirst!(beam, beam_st)
         prev_id = p.first
 
         @inbounds for childID in index.links[prev_id]
-            if !visited(vstate, childID)
-                visit!(vstate, childID)
-                d = evaluate(index.dist, q, index[childID])
-                push!(res, childID, d)
-                visited_ += 1
-                visited_ > maxvisits && @goto finish_search
-                if d <= Δ * maximum(res)
-                    #if length(index.links[childID]) > 1
-                    beam_st = push!(beam, beam_st, childID, d)
-                    # length(beam) == maxlength(beam) && continue
-                    # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
-                    #end
-                end
+            visited(vstate, childID) && continue
+            visit!(vstate, childID)
+            d = evaluate(index.dist, q, index[childID])
+            push!(res, childID, d)
+            visited_ += 1
+            visited_ > maxvisits && @goto finish_search
+            if d <= Δ * maximum(res)
+                beam_st = push!(beam, beam_st, childID, d)
+                # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
             end
         end
     end

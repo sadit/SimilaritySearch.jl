@@ -25,31 +25,6 @@ abstract type Callback end
 ### Basic operations on the index
 
 """
-    @with_kw mutable struct Neighborhood
-    
-Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
-The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.
-- The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
-for \$out\$  elements in the current index.
-- The \$in\$ size is unbounded.
-- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the reduced result set.
-
-Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
-
-"""
-@with_kw mutable struct Neighborhood
-    ksearch::Int32 = 2
-    logbase::Float32 = 2
-    minsize::Int32 = 2
-    reduce::NeighborhoodReduction = SatNeighborhood()
-end
-
-Base.copy(N::Neighborhood; ksearch=N.ksearch, logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
-    Neighborhood(; ksearch, logbase, minsize, reduce)
-
-struct NeighborhoodSize <: Callback end
-
-"""
     struct SearchGraph <: AbstractSearchContext
 
 SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
@@ -68,13 +43,11 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
     hints::Vector{Int32} = Int32[]
     search_algo::SType = BeamSearch()
-    neighborhood::Neighborhood = Neighborhood()
     verbose::Bool = true
 end
 
 @with_kw struct SearchGraphCallbacks
     hints::Union{Nothing,Callback} = DisjointHints()
-    neighborhood::Union{Nothing,Callback} = NeighborhoodSize()
     hyperparameters::Union{Nothing,Callback} = OptimizeParameters(kind=ParetoRecall())
     logbase::Float32 = 1.5
     starting::Int32 = 8
@@ -90,9 +63,8 @@ Base.copy(g::SearchGraph;
         locks=g.locks,
         hints=g.hints,
         search_algo=copy(g.search_algo),
-        neighborhood=copy(g.neighborhood),
         verbose=true
-) = SearchGraph(; dist, db, links, locks, hints, search_algo, neighborhood, verbose)
+) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
 
 ## search algorithms
 
@@ -152,7 +124,6 @@ Process all registered callbacks
 function execute_callbacks(callbacks::SearchGraphCallbacks, index::SearchGraph, n=length(index), m=n+1; force=false)
     if force || (n >= callbacks.starting && ceil(Int, log(callbacks.logbase, n)) != ceil(Int, log(callbacks.logbase, m)))
         callbacks.hints !== nothing && execute_callback(callbacks.hints, index)
-        callbacks.neighborhood !== nothing && execute_callback(callbacks.neighborhood, index)
         callbacks.hyperparameters !== nothing && execute_callback(callbacks.hyperparameters, index)
     end
 end

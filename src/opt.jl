@@ -34,16 +34,14 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         searchtime = @elapsed begin
             Threads.@threads for i in 1:length(queries)
                 knnlist[i] = reuse!(knnlist[i], ksearch)
-                _, v = runconfig(conf, index, queries[i], knnlist[i], pools)
+                _, v_ = runconfig(conf, index, queries[i], knnlist[i], pools)
                 ti = Threads.threadid()
-                vmin[ti] = min(v, vmin[ti])
-                vmax[ti] = max(v, vmax[ti])
-                vacc[ti] += v
+                vmin[ti] = min(v_, vmin[ti])
+                vmax[ti] = max(v_, vmax[ti])
+                vacc[ti] += v_
             end
         end
 
-        v = minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)
-       
         for i in eachindex(knnlist)
             res = knnlist[i]
             covradius[i] = length(res) == 0 ? typemax(Float32) : maximum(res)
@@ -64,7 +62,12 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         end
 
         verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index))")
-        (visited=v, radius=(rmin, ravg, rmax), recall=recall, searchtime=searchtime/length(knnlist))
+        (;
+            visited=(minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)),
+            radius=(rmin, ravg, rmax),
+            recall=recall,
+            searchtime=searchtime/length(knnlist)
+        )
     end
 end
 
@@ -107,6 +110,7 @@ function optimize!(
             ksearch=10,
             numqueries=64,
             initialpopulation=16,
+            parallel=true,
             verbose=false,
             params=SearchParams(; maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16, verbose)
     )
@@ -121,7 +125,7 @@ function optimize!(
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
-        searchbatch(seq, queries, knnlist; parallel=true)
+        searchbatch(seq, queries, knnlist; parallel)
         gold = [Set(res.id) for res in knnlist]
     end
 
@@ -160,5 +164,5 @@ function optimize!(
     config, perf = bestlist[1]
     verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
     setconfig!(config, index, perf)
-    bestlist
+        bestlist
 end

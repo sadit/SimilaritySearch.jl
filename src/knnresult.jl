@@ -38,7 +38,7 @@ function _shifted_fixorder!(res, shift=0)
     pos = N = lastindex(res.id)
     id = res.id
     dist = res.dist
-    id_, dist_ = res.id[end], res.dist[end]
+   @inbounds id_, dist_ = res.id[end], res.dist[end]
     
     #pos = doublingsearch(dist, dist_, sp, N)
     #pos = binarysearch(dist, dist_, sp, N)

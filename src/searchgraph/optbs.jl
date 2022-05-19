@@ -31,7 +31,7 @@ end
     initialpopulation = 16
     params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
     ksearch::Int32 = 10
-    numqueries::Int32 = 64
+    numqueries::Int32 = 16
     space::BeamSearchSpace = BeamSearchSpace()    
 end
 
@@ -40,11 +40,11 @@ optimization_space(index::SearchGraph) = BeamSearchSpace()
 function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     index.search_algo.bsize = bs.bsize
     index.search_algo.Δ = bs.Δ
-    index.search_algo.maxvisits = ceil(Int, perf.visited[end])
+    index.search_algo.maxvisits = ceil(Int, 2perf.visited[end])
 end
 
 function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, pools)
-    search(bs, index, q, res, index.hints, pools; maxvisits = 2index.search_algo.maxvisits)
+    search(bs, index, q, res, index.hints, pools; maxvisits = 4index.search_algo.maxvisits)
     # search(bs, index, q, res, index.hints, pools)
 end
 
