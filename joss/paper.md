@@ -104,16 +104,15 @@ The function `example` loads the data (line 12), create the index (line 14) and 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
 
-
-|  method         |  build | opt. | searchbatch | closestpair | allknn | mem.   |  allknn |
-|      x          |  time  | time |  time       |  time       |  time  |  (MB)  |  recall |       
-|--–––––––––––––––|--------|--––––|-------------|-------------|--------|––--–––-|---–––---|
-|ExhaustiveSearch |   0.0  | 0.0  |   3.56      |  22.18      | 21.65  | 179.44 |  1.00   |
-|ParetoRecall     |  1.60  | 0.0  |   0.14      |   0.27      |  0.64  | 181.55 |  0.82   |
-|MinRecall 0.9    |   -    | 0.26 |   0.18      |   0.35      |  0.92  |    -   |  0.89   |
-|MinRecall 0.95   |   -    | 0.41 |   0.47      |   0.83      |  2.67  |    -   |  0.96   |
-|MinRecall 0.6    |   -    | 0.12 |   0.06      |   0.22      |  0.26  |    -   |  0.59   |
-|H.MinRecall 0.9  |  1.13  | 0.07 |   0.04      |   0.29      |  0.22  |  8.43  |  0.71   |
+\begin{tabular}{cccc cccc}
+  method         &  build time & opt. time & searchbatch time & closestpair time & allknn time & mem. (MB)   &  allknn \\
+ExhaustiveSearch &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\
+ParetoRecall     &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
+MinRecall 0.9    &   -    & 0.26 &   0.18      &   0.35      &  0.92  &    -   &  0.89   \\
+MinRecall 0.95   &   -    & 0.41 &   0.47      &   0.83      &  2.67  &    -   &  0.96   \\
+MinRecall 0.6    &   -    & 0.12 &   0.06      &   0.22      &  0.26  &    -   &  0.59   \\
+H.MinRecall 0.9  &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
+\end{tabular}
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}
 
