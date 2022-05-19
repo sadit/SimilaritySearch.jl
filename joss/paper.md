@@ -109,7 +109,8 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 \resizebox{\textwidth}{!}{
 \begin{tabular}{cccc cccc}
 \toprule
-method & build time &  opt. time & \texttt{searchbatch} time & \texttt{closestpair} time & \texttt{allknn} time & mem. (MB) & \texttt{allknn} recall \\
+method & build  &  opt.  & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
+ &  cost (s) &  cost (s) &  cost (s) & cost (s) & cost (s) & (MB) &  recall \\
 \midrule
 ExhaustiveSearch &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\
 ParetoRecall     &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
