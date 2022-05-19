@@ -104,16 +104,12 @@ The function `example` loads the data (line 12), create the index (line 14) and 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
 
-\begin{longtable}{cccc cccc}
-\caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}} \\
+\begin{table}
+\begin{tabular}{cccc cccc}
+\caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}}
 \toprule
 method & build time &  opt. time & \texttt{searchbatch} time & \texttt{closestpair} time & \texttt{allknn} time & mem. (MB) & \texttt{allknn} recall \\
 \midrule
-\endfirsthead
-\toprule
-method & build time &  opt. time & \texttt{searchbatch} time & \texttt{closestpair} time & \texttt{allknn} time & mem. (MB) & \texttt{allknn} recall \\
-\midrule
-\endhead
 ExhaustiveSearch &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\
 ParetoRecall     &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
 MinRecall 0.9    &   -    & 0.26 &   0.18      &   0.35      &  0.92  &    -   &  0.89   \\
@@ -121,7 +117,8 @@ MinRecall 0.95   &   -    & 0.41 &   0.47      &   0.83      &  2.67  &    -   &
 MinRecall 0.6    &   -    & 0.12 &   0.06      &   0.22      &  0.26  &    -   &  0.59   \\
 H.MinRecall 0.9  &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
 \bottomrule
-\end{longtable}
+\end{tabular}
+\end{table}
 
 As reference, we indexed and search for all $k$ nearest neighbors using the default values for the HNSW (FAISS), PyNNDescent, and scaNN library for nearest neighbor search. All these operations were computed using all available threads.
 
