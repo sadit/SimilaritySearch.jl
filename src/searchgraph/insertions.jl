@@ -4,6 +4,7 @@
     append!(
         index::SearchGraph,
         db;
+        neighborhood=Neighborhood(),
         parallel_block=1,
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
@@ -15,6 +16,7 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 Arguments:
 
 - `index`: the search graph index
+- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
 - `db`: the collection of objects to insert, an `AbstractDatabase` is the canonical input, but supports any iterable objects
 - `parallel_block`: The number of elements that the multithreading algorithm process at once,
     it is important to be larger that the number of available threads but not so large since the quality of the search graph could degrade (a few times the number of threads is enough).
@@ -33,6 +35,7 @@ Note 2: Callbacks will be ignored if `callbacks=nothing`
 function Base.append!(
         index::SearchGraph,
         db;
+        neighborhood=Neighborhood(),
         parallel_block=1,
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
@@ -41,22 +44,22 @@ function Base.append!(
     db = convert(AbstractDatabase, db)
     append!(index.db, db)
 
-    parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
+    parallel_block == 1 && return _sequential_append_loop!(index, neighborhood, callbacks, pools)
 
     n = length(index) + length(db)
     m = 0
 
     parallel_minimum_first_block = min(parallel_minimum_first_block, n)
-    while length(index) < parallel_minimum_first_block
+    @inbounds while length(index) < parallel_minimum_first_block
         m += 1
-        push_item!(index, db[m], false, callbacks, pools)
+        push_item!(index, db[m], neighborhood, false, callbacks, pools)
     end
 
     sp = length(index) + 1
     sp > n && return index
 
     resize!(index.links, n)
-    _parallel_append_loop!(index, pools, sp, n, parallel_block, callbacks)
+    _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
 """
@@ -68,36 +71,37 @@ The arguments are the same than `append!` function but using the internal `index
 """
 function index!(
         index::SearchGraph;
+        neighborhood=Neighborhood(),
         parallel_block=1,
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
     )
     @assert length(index) == 0 && length(index.db) > 0
-    parallel_block == 1 && return _sequential_append_loop!(index, callbacks, pools)
+    parallel_block == 1 && return _sequential_append_loop!(index, neighborhood, callbacks, pools)
 
     m = 0
     db = index.db
     n = length(db)
 
     parallel_minimum_first_block = min(parallel_minimum_first_block, n)
-    while length(index) < parallel_minimum_first_block
+    @inbounds while length(index) < parallel_minimum_first_block
         m += 1
-        push_item!(index, db[m], false, callbacks, pools)
+        push_item!(index, db[m], neighborhood, false, callbacks, pools)
     end
 
     sp = length(index) + 1
     sp > n && return index
     resize!(index.links, n)
-    _parallel_append_loop!(index, pools, sp, n, parallel_block, callbacks)
+    _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
-function _sequential_append_loop!(index::SearchGraph, callbacks, pools::SearchGraphPools)
+function _sequential_append_loop!(index::SearchGraph, neighborhood::Neighborhood, callbacks, pools::SearchGraphPools)
     i = length(index)
     n = length(index.db)
-    while i < n
+    @inbounds while i < n
         i += 1
-        push_item!(index, index.db[i], false, callbacks, pools)
+        push_item!(index, index.db[i], neighborhood, false, callbacks, pools)
     end
 
     index
@@ -117,7 +121,7 @@ function _connect_links(index, sp, ep)
     end
 end
 
-function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp, n, parallel_block, callbacks)
+function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block, callbacks)
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
@@ -125,7 +129,7 @@ function _parallel_append_loop!(index::SearchGraph, pools::SearchGraphPools, sp,
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
         Threads.@threads for i in sp:ep
-            @inbounds index.links[i] = find_neighborhood(index, index.db[i], pools)
+            @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)
         end
 
         # connecting neighbors
@@ -149,6 +153,7 @@ end
     push!(
         index::SearchGraph,
         item;
+        neighborhood=Neighborhood(),
         push_item=true,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
@@ -160,26 +165,30 @@ Arguments:
 
 - `index`: The search graph index where the insertion is going to happen
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
+- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
 - `push_item`: if `push_item=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
 - `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
 - Note: `callbacks=nothing` ignores the execution of any callback
 """
-function push!(
+@inline function push!(
         index::SearchGraph,
         item;
+        neighborhood=Neighborhood(),
         push_item=true,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
     )
-    push_item!(index, item, push_item, callbacks, pools)
+
+    push_item!(index, item, neighborhood, push_item, callbacks, pools)
 end
 
 """
     push_item!(
         index::SearchGraph,
         item,
+        neighborhood,
         push_item,
         callbacks,
         pools
@@ -189,22 +198,24 @@ Appends an object into the index
 
 Arguments:
 
-- `index`: The search graph index where the insertion is going to happen
+- `index`: The search graph index where the insertion is going to happen.
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
-- `push_item`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
+- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
+- `push_item`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
 - `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
 - Note: setting `callbacks` as `nothing` ignores the execution of any callback
 """
-function push_item!(
+@inline function push_item!(
     index::SearchGraph,
     item,
-    push_item,
-    callbacks,
-    pools
+    neighborhood::Neighborhood,
+    push_item::Bool,
+    callbacks::SearchGraphCallbacks,
+    pools::SearchGraphPools
 )
-    neighbors = find_neighborhood(index, item, pools)
+    neighbors = find_neighborhood(index, item, neighborhood, pools)
     push_neighborhood!(index, item, neighbors, callbacks; push_item)
 
     neighbors

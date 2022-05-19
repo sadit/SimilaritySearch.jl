@@ -1,27 +1,49 @@
 # This file is a part of SimilaritySearch.jl
 
 """
-    execute_callback(opt::NeighborhoodSize, index)
+    @with_kw mutable struct Neighborhood
+    
+Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
+The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.
+- The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
+for \$out\$  elements in the current index.
+- The \$in\$ size is unbounded.
+- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the reduced result set.
 
-SearchGraph's callback for adjusting neighborhood strategy
+Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
+
 """
-function execute_callback(opt::NeighborhoodSize, index)
-    N = index.neighborhood
-    N.ksearch = ceil(Int, N.minsize + log(N.logbase, length(index)))
+@with_kw struct Neighborhood{Reduction<:NeighborhoodReduction}
+    logbase::Float32 = 2
+    minsize::Int32 = 2
+    reduce::Reduction = SatNeighborhood()
 end
 
+Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
+    Neighborhood(; logbase, minsize, reduce)
+
+neighborhoodsize(N::Neighborhood, index::SearchGraph) = 8 # ceil(Int, N.minsize + log(N.logbase, length(index)))
+
 """
-    find_neighborhood(index::SearchGraph{T}, item, pools; hints=index.hints)
+    find_neighborhood(index::SearchGraph{T}, item, neighborhood, pools; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 `res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
+
+# Arguments
+- `index`: The search index.
+- `item`: The item to be inserted.
+- `neighborhood`: A [`Neighborhood`](@ref) object that describes how to compute item's neighborhood.
+- `pools`: Cache pools to be used
+- `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, item, pools::SearchGraphPools; hints=index.hints)
+function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
     n = length(index)
     if n > 0
-        res = getknnresult(index.neighborhood.ksearch, pools)
+        ksearch = neighborhoodsize(neighborhood, index)
+        res = getknnresult(ksearch, pools)
         search(index.search_algo, index, item, res, hints, pools)
-        reduce_neighborhood(index.neighborhood.reduce, index, item, res, pools)
+        neighborhoodreduce(neighborhood.reduce, index, item, res, pools)
     else
         Int32[]
     end
@@ -30,8 +52,15 @@ end
 """
     push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
 
-Inserts the object `item` into the index, i.e., creates an edge from items listed in L and the
-vertex created for ìtem` (internal function)
+Inserts the object `item` into the index, i.e., creates an edge for each item in `neighbors` (internal function)
+
+# Arguments
+
+- `index`: The search index to be modified.
+- `item`: The item that will be inserted.
+- `neighbors`: An array of indices that will be connected to the new vertex.
+- `callbacks`: A [`SearchGraphCallbacks`] object (callback list) that will be called after some insertions
+- `push_item`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
 """
 function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
     push_item && push!(index.db, item)
@@ -99,7 +128,7 @@ function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnRe
     argmin(near) == 0
 end
 
-function reduce_neighborhood(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
     copy(res.id)
 end
 
@@ -108,7 +137,7 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function reduce_neighborhood(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
     N = Vector{Int32}(undef, 2)
     resize!(N, 0)
     @inbounds for i in length(res):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
@@ -119,7 +148,7 @@ Reduces `res` using the DistSAT strategy.
     N
 end
 
-@inline function reduce_neighborhood(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
     N = Vector{Int32}(undef, 2)
     resize!(N, 0)
     @inbounds for (id, dist) in res  # DistSat => works a little better but also produces a bit larger neighborhoods

@@ -41,11 +41,13 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     end
 
     # again for the same issue
-    for j in 1:2k
-        h = rand(1:length(g))
-        visited(vstate, h) && continue
-        @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
-        length(res) == k && break
+    if length(res) < k
+        for j in 1:2k
+            h = rand(1:length(g))
+            visited(vstate, h) && continue
+            @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
+            length(res) == k && break
+        end
     end
 
     _allknn_inner_loop(res, i, knns, dists)

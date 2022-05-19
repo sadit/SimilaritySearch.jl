@@ -1,6 +1,10 @@
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
 SimilaritySearch = "053f045d-5466-53fd-b400-a066f88fe02a"
+StrideArrays = "d1fa6d79-ef01-42a6-86c9-f7c551f8593b"
+UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [compat]
 MLDatasets = "0.6.0"
