@@ -8,10 +8,10 @@ tags:
   - Near duplicates detection
   - Closest pair queries
 authors:
-  - name: Eric S. Tellez^[Co-first author] # note this makes a footnote saying 'Co-first author'
+  - name: Eric S. Tellez
     orcid: 0000-0001-5804-9868
     affiliation: "1, 2" # (Multiple affiliations must be quoted)
-  - name: Guillermo Ruiz^[Co-first author] # note this makes a footnote saying 'Co-first author'
+  - name: Guillermo Ruiz
     affiliation: "1, 3"
 affiliations:
  - name: Consejo Nacional de Ciencia y Tecnología, México.
@@ -31,7 +31,7 @@ bibliography: paper.bib
 
 # Summary
 
-This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT licensed) that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems with no knowledge of the underlying algorithms since our main structure, the `SearchGraph,` has autotuning capabilities. Its algorithms are designed to work in main memory and take advantage of multithreading systems in most of its primary operations.
+This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT licensed) that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems with no knowledge of the underlying algorithms since our main structure, the `SearchGraph,` has autotuning capabilities. The package is designed to work in main memory and take advantage of multithreading systems in most of its primary operations.
 
 # Statement of need
 Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@witten1999managing,@sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods. It is a popular way to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear;], among other use cases. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., many deep learning internal representations are direct input for similarity search.
@@ -44,8 +44,8 @@ The problem can be solved easily with an exhaustive evaluation, but this solutio
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and auto-tuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding]. The package solves other related problems using these indexes as internal machinery.
 
 ## Alternatives
-@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of popular libraries^[https://github.com/nmslib/hnswlib; https://github.com/nmslib/nmslib; https://github.com/facebookresearch/faiss] and has a significant acceptance in the community. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
-@scann2020 introduced the _scann_ index for inner product-based metrics; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
+@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of popular libraries^[<https://github.com/nmslib/hnswlib>; <https://github.com/nmslib/nmslib>; <https://github.com/facebookresearch/faiss>] and has a significant acceptance in the community. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
+@scann2020 introduced the _scaNN_ index for inner product-based metrics; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
 
 # Main features of `SimilaritySearch`
 
@@ -110,8 +110,7 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 --––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ----––––––––––   -–––––––   ––––––––  --––––––-
         ExhaustiveSearch      0.0      0.0          3.5612          22.1781    21.6492   179.4434     1.0000
         
-\hline
-            ParetoRecall   1.5959      0.0          0.1352           0.2709     0.6423   181.5502     0.8204
+\hline      ParetoRecall   1.5959      0.0          0.1352           0.2709     0.6423   181.5502     0.8204
 
           MinRecall(0.9)    -       0.2572          0.1796           0.3527     0.9209      -         0.8912
 
@@ -125,8 +124,10 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tabperformance}
 
-Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
-More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
+As reference, we indexed and search for all $k$ nearest neighbors for the HNSW (FAISS), PyNNDescent, and scaNN library for nearest neighbor search.
+
+
+Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
 This research uses some of the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México.
