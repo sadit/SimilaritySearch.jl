@@ -108,11 +108,18 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
                  method     build    opt.     `searchbatch`   `closestpair`   `allknn`    mem.      `allknn`
                             time     time         time        time             time       (MB)       recall
 --––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ----––––––––––   -–––––––   ––––––––  --––––––-
-        ExhaustiveSearch      0.0      0.0          3.5612          22.1781    21.6492   179.4434     1.0000 \hline
+        ExhaustiveSearch      0.0      0.0          3.5612          22.1781    21.6492   179.4434     1.0000
+        
+\hline
             ParetoRecall   1.5959      0.0          0.1352           0.2709     0.6423   181.5502     0.8204
+
           MinRecall(0.9)    -       0.2572          0.1796           0.3527     0.9209      -         0.8912
+
          MinRecall(0.95)    -       0.4125          0.4708           0.8333     2.6709      -         0.9635
-          MinRecall(0.6)    -       0.1190          0.0588           0.2207     0.2618      -         0.5914 \hline
+
+          MinRecall(0.6)    -       0.1190          0.0588           0.2207     0.2618      -         0.5914
+
+\hline
   Hamming MinRecall(0.9)   1.1323   0.0729          0.0438           0.2855     0.2175     8.4332     0.7053
 -------------------------------------------------------------------------------------------------------------
 
