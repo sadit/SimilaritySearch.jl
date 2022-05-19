@@ -104,7 +104,7 @@ function main_mnist(k=32)
 	serialize("H.bin", H)
 	mem = filesize("H.bin") / 2^20
 
-	test_searchgraph(H; method="Bin-Hamming", queries, k, buildtime, mem, opttime, Eid, df)
+	test_searchgraph(H; method="Hamming MinRecall(0.9)", queries, k, buildtime, mem, opttime, Eid, df)
 	@show Threads.nthreads()
 	df
 end

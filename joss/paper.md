@@ -75,7 +75,7 @@ using Pkg
 Pkg.add("SimilaritySearch")
 ```
 
-The package exports several functions and indexes for solving similarity search queries, as mentioned above. For instance, the set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used to exemplify the use of the `SimilaritySearch.jl` (v0.8.17) Julia package.
+The package exports several functions and indexes for solving similarity search queries, as mentioned above. For instance, the set of 60k-10k train set partition of hand-written digits MNIST dataset [@lecun1998gradient], using the `MLDatasets` (v0.6.0) package for this matter, is used to exemplify the use of the `SimilaritySearch.jl` (v0.8.18) Julia package.
 
 ~~~~ {#example .julia .numberLines startFrom="1"}
 using SimilaritySearch, MLDatasets 
@@ -103,25 +103,17 @@ example()
 The function `example` loads the data (line 12), create the index (line 14) and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and finally compute all $k$ nearest neighbors on the train partition (line 17). All these operations use all the available threads to the `julia` process.
 
 
-We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.17 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
-
-----------------------------------------------------------------------------------------------
-                                 `ExhaustiveSearch`     `SearchGraph`       `SearchGraph` with
- Operation             units                                                 `MinRecall(0.95)`
---------------         ------   -------------------   --------------   ----------------------- 
- construction             $s$                  0.00             5.67                     -
-
- `optimize!`              $s$                  0.00             0.00                     0.82
-
- `searchbatch`          $q/s$               2689.68         36340.06                 23807.14
-
- `closestpair`            $s$                 22.76             0.31                     1.57 
-
- `allknn`                 $s$                 21.69             0.37                     2.79
-
-\hline
- recall score             -                     1.0             0.81                     0.96  
-----------------------------------------------------------------------------------------------
+We ran this example in an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We also compared an optimized version of our index resulting from calling `optimize!(G, MinRecall(0.95))` after the `index!` function call.
+----------------------------------------------------------------------------------------
+                 method    build    opt.         search   closestpair    allknn       mem.   recall
+ -––––––––––––––––––––––   ––––––   ––––––   ––––––––––   –––––––––––   –––––––   ––––––––   ––––––
+        ExhaustiveSearch      0.0      0.0       3.5612       22.1781   21.6492   179.4434   1.0000 \hline
+            ParetoRecall   1.5959      0.0       0.1352        0.2709    0.6423   181.5502   0.8204
+          MinRecall(0.9)    -       0.2572       0.1796        0.3527    0.9209      -       0.8912
+         MinRecall(0.95)    -       0.4125       0.4708        0.8333    2.6709      -       0.9635
+          MinRecall(0.6)    -       0.1190       0.0588        0.2207    0.2618      -       0.5914 \hline
+  Hamming MinRecall(0.9)   1.1323   0.0729       0.0438        0.2855    0.2175     8.4332   0.7053
+----------------------------------------------------------------------------------------
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Operations taking with small-time costs is desirable, while higher throughput $q/s$ and high recall scores (close to 1) are also desirable. \label{tab/performance}
 
