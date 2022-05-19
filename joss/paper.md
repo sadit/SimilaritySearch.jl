@@ -36,11 +36,10 @@ This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT license
 # Statement of need
 Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@witten1999managing,@sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods. It is a popular way to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear;], among other use cases. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., many deep learning internal representations are direct input for similarity search.
 
-
 ## The $k$ nearest neighbor problem
 Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, 
 the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$. 
-The problem can be solved easily with an exhaustive evaluation, but this solution is impractical when the number of expected queries is large or for high-dimensional datasets. When the dataset can be preprocessed, it is possible to overcome these difficulties by creating an \textit{index}, i.e., a data structure to solve similarity queries efficiently.
+The problem can be solved easily with an exhaustive evaluation, but this solution is impractical when the number of expected queries is large or for high-dimensional datasets. When the dataset can be preprocessed, it is possible to overcome these difficulties by creating an \textit{index}, i.e., a data structure to solve similarity queries efficiently. Depending on the dimensionality and size of the dataset, it could be necessary to trade between speed and quality,^[The quality is often measured as the `recall,` which is as a proportion of how many relevant results were found in a search; our package contains a function `macrorecall` that computes the average of this score for a set of query results.] traditional methods left this optimization to the user. Our approach has automated functions that simplify this task.
 
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and auto-tuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding]. The package solves other related problems using these indexes as internal machinery.
 
@@ -105,21 +104,19 @@ The function `example` loads the data (line 12), create the index (line 14) and 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tabperformance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
 
------------------------------------------------------------------------------------------------------
-                 method    build    opt.         search   closestpair    allknn       mem.   recall
-                           time     time         time     time           time         (MB)
- -––––––––––––––––––––––   ––––––   ––––––   ––––––––––   –––––––––––   –––––––   ––––––––   ––––––
-        ExhaustiveSearch      0.0      0.0       3.5612       22.1781   21.6492   179.4434   1.0000 \hline
-            ParetoRecall   1.5959      0.0       0.1352        0.2709    0.6423   181.5502   0.8204
-          MinRecall(0.9)    -       0.2572       0.1796        0.3527    0.9209      -       0.8912
-         MinRecall(0.95)    -       0.4125       0.4708        0.8333    2.6709      -       0.9635
-          MinRecall(0.6)    -       0.1190       0.0588        0.2207    0.2618      -       0.5914 \hline
-  Hamming MinRecall(0.9)   1.1323   0.0729       0.0438        0.2855    0.2175     8.4332   0.7053
+-----------------------------------------------------------------------------------------------------------
+                 method    build    opt.     `searchbatch`   `closestpair`   `allknn`       mem.   `allknn`
+                           time     time              time      time             time       (MB)     recall
+--––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ---––––––––––   -–––––––   ––––––––  --––––––-
+        ExhaustiveSearch      0.0      0.0          3.5612         22.1781    21.6492   179.4434     1.0000 \hline
+            ParetoRecall   1.5959      0.0          0.1352          0.2709     0.6423   181.5502     0.8204
+          MinRecall(0.9)    -       0.2572          0.1796          0.3527     0.9209      -         0.8912
+         MinRecall(0.95)    -       0.4125          0.4708          0.8333     2.6709      -         0.9635
+          MinRecall(0.6)    -       0.1190          0.0588          0.2207     0.2618      -         0.5914 \hline
+  Hamming MinRecall(0.9)   1.1323   0.0729          0.0438          0.2855     0.2175     8.4332     0.7053
 -----------------------------------------------------------------------------------------------------
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tabperformance}
-
-The reported recall score is the macro averaged recall of the 60k $k$ nearest neighbors sets computed by the `allknn` operation. The individual recall is computed as ${\# \text{ of actual } k \text{ nearest neighbors retrieved}}/{k}$. The set of actual $k$ nearest neighbors is the intersection of the set of $k$ nearest neighbors computed by the brute force method and the index being compared, and it takes values between 0 and 1. This score is computed easily with the `macrorecall` function also implemented in `SimilaritySearch.jl`.
 
 Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
 More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
