@@ -104,17 +104,17 @@ The function `example` loads the data (line 12), create the index (line 14) and 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tabperformance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
 
------------------------------------------------------------------------------------------------------------
-                 method    build    opt.     `searchbatch`   `closestpair`   `allknn`       mem.   `allknn`
-                           time     time              time      time             time       (MB)     recall
---––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ---––––––––––   -–––––––   ––––––––  --––––––-
-        ExhaustiveSearch      0.0      0.0          3.5612         22.1781    21.6492   179.4434     1.0000 \hline
-            ParetoRecall   1.5959      0.0          0.1352          0.2709     0.6423   181.5502     0.8204
-          MinRecall(0.9)    -       0.2572          0.1796          0.3527     0.9209      -         0.8912
-         MinRecall(0.95)    -       0.4125          0.4708          0.8333     2.6709      -         0.9635
-          MinRecall(0.6)    -       0.1190          0.0588          0.2207     0.2618      -         0.5914 \hline
-  Hamming MinRecall(0.9)   1.1323   0.0729          0.0438          0.2855     0.2175     8.4332     0.7053
------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------
+                 method     build    opt.     `searchbatch`   `closestpair`   `allknn`    mem.      `allknn`
+                            time     time         time        time             time       (MB)       recall
+--––––––––––––––––––––––   ––––––   ––––––   --––––––––––-   ----––––––––––   -–––––––   ––––––––  --––––––-
+        ExhaustiveSearch      0.0      0.0          3.5612          22.1781    21.6492   179.4434     1.0000 \hline
+            ParetoRecall   1.5959      0.0          0.1352           0.2709     0.6423   181.5502     0.8204
+          MinRecall(0.9)    -       0.2572          0.1796           0.3527     0.9209      -         0.8912
+         MinRecall(0.95)    -       0.4125          0.4708           0.8333     2.6709      -         0.9635
+          MinRecall(0.6)    -       0.1190          0.0588           0.2207     0.2618      -         0.5914 \hline
+  Hamming MinRecall(0.9)   1.1323   0.0729          0.0438           0.2855     0.2175     8.4332     0.7053
+-------------------------------------------------------------------------------------------------------------
 
 Table: Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tabperformance}
 
