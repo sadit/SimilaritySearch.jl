@@ -31,8 +31,8 @@ end
     initialpopulation = 16
     params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
     ksearch::Int32 = 10
-    numqueries::Int32 = 16
-    space::BeamSearchSpace = BeamSearchSpace()    
+    numqueries::Int32 = 64
+    space::BeamSearchSpace = BeamSearchSpace()
 end
 
 optimization_space(index::SearchGraph) = BeamSearchSpace()
@@ -69,3 +69,4 @@ function optimize!(
 )
     optimize!(index, opt.kind, opt.space; queries, ksearch, numqueries, initialpopulation, verbose, params)
 end
+

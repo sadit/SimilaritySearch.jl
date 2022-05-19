@@ -6,9 +6,48 @@
 # SimilaritySearch.jl
 
 
-SimilaritySearch.jl is a library for nearest neighbor search. In particular, it contains the implementation for `SearchGraph`, a fast and flexible search index.
+SimilaritySearch.jl is a library for nearest neighbor search. In particular, it contains the implementation for `SearchGraph`, a fast and flexible search index using any metric function. It is designed to support multithreading in most of its main functions and structures.
 
-The following manuscript describes and benchmarks version `0.6`:
+The package provides the following indexes:
+
+- `ParallelExhaustiveSearch`: An brute force search index where each query is solved using all available threads.
+- `ExhaustiveSearch`: A brute force search index, each query is solved using a single thread.
+- `SearchGraph`: An approximate search index with parallel construction.
+
+The main set of functions are:
+
+- `search`: Solves a single query.
+- `searchbatch`: Solves a set of queries.
+- `allknn`: Computes the $k$ nearest neighbors for all elements in an index.
+- `neardup`: Removes a near duplicates from a metric dataset.
+- `closestpair`: Computes the closest pair in a metric dataset.
+
+The precise definitions of these functions and the full set of functions and structures can be found in the [documentation](https://sadit.github.io/SimilaritySearch.jl/dev).
+
+# Installing SimilaritySearch
+
+You may install the package as follows
+```julia
+] add SimilaritySearch.jl
+```
+
+also, you can run the set of tests as follows
+```julia
+] test SimilaritySearch
+```
+
+# Using the library
+Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupyter and Pluto notebooks, and some scripts that exemplifies its usage.
+ 
+# Contribute
+Contributions are welcome. Please fill a pull request for documentating and implementation contributions. For issues, please fill an issue with the necessary information (see below.) If you already have a solution please also provide a pull request.
+
+# Issues
+Report issues in the package providing a minimal reproducible example. If the issue is data dependant, please don't forget to provide the necessary data to reproduce it.
+
+
+# About the structures and algorithms
+The following manuscript describes and benchmarks the `SearchGraph` index (package version `0.6`):
 
 ```
 @article{tellezscalable,
@@ -33,19 +72,4 @@ The current algorithm (version `0.8`) is described and benchmarked in the follow
       primaryClass={cs.IR}
 }
 ```
-# Installing SimilaritySearch
 
-
-You may install the package as follows
-```julia
-] add SimilaritySearch.jl
-```
-
-also, you can run the set of tests as follows
-```julia
-] test SimilaritySearch
-```
-
-# Using the library
-Please see [examples](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupuyter and Pluto notebooks, and some scripts that exemplifies its usage.
- 

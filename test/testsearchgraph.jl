@@ -41,7 +41,7 @@ using Test
     @info "--- Optimizing parameters ParetoRadius ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
     neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
-    append!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=ParetoRadius())))
+    append!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
     @info "---- starting ParetoRadius optimization ---"
     optimize!(graph, ParetoRadius())
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
@@ -62,7 +62,8 @@ using Test
     @info "========================= Callback optimization ======================"
     graph = SearchGraph(; db, dist, verbose=false)
     neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
-    index!(graph; neighborhood, callbacks=SearchGraphCallbacks(hyperparameters=OptimizeParameters(kind=MinRecall(0.9)))) 
+    index!(graph; neighborhood, callbacks=SearchGraphCallbacks(MinRecall(0.9)))
+    optimize!(graph, MinRecall(0.9))
     I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "testing without additional optimizations: queries per second:", 1/searchtime, ", recall: ", recall

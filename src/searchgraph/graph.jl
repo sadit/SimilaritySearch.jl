@@ -46,25 +46,8 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     verbose::Bool = true
 end
 
-@with_kw struct SearchGraphCallbacks
-    hints::Union{Nothing,Callback} = DisjointHints()
-    hyperparameters::Union{Nothing,Callback} = OptimizeParameters(kind=ParetoRecall())
-    logbase::Float32 = 1.5
-    starting::Int32 = 8
-end
-
 @inline Base.length(g::SearchGraph) = length(g.locks)
 include("visitedvertices.jl")
-
-Base.copy(g::SearchGraph;
-        dist=g.dist,
-        db=g.db,
-        links=g.links,
-        locks=g.locks,
-        hints=g.hints,
-        search_algo=copy(g.search_algo),
-        verbose=true
-) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
 
 ## search algorithms
 
@@ -113,17 +96,5 @@ function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, pools=
         search(index.search_algo, index, q, res, hints, pools)
     else
         (res=res, cost=0)
-    end
-end
-
-"""
-    execute_callbacks(index::SearchGraph, n=length(index), m=n+1)
-
-Process all registered callbacks
-"""
-function execute_callbacks(callbacks::SearchGraphCallbacks, index::SearchGraph, n=length(index), m=n+1; force=false)
-    if force || (n >= callbacks.starting && ceil(Int, log(callbacks.logbase, n)) != ceil(Int, log(callbacks.logbase, m)))
-        callbacks.hints !== nothing && execute_callback(callbacks.hints, index)
-        callbacks.hyperparameters !== nothing && execute_callback(callbacks.hyperparameters, index)
     end
 end
