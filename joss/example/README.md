@@ -23,6 +23,6 @@ python scann_index_allknn_mnist.py
 These scripts will produce a set of result files. To get the recalls go to the results/mnist directory and run 
 
 ```bash 
-julia ../../recall.jl
+JULIA_PROJECT=../.. julia ../../recall.jl
 ```
 
