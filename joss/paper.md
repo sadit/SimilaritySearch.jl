@@ -108,7 +108,7 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 
 \caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better.}
 \label{tab/performance}
-
+\resizebox{\textwidth}{!}{
 \begin{tabular}{cccc cccc}
 \hline
 method & build     &  opt.     & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
@@ -123,6 +123,7 @@ HNSW (FAISS)                &  1.91  &  -   &     -       &     -       &  1.99 
 PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
 \hline
 \end{tabular}
+}
 \end{table}
 
 As a reference, we indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
