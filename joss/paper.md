@@ -45,17 +45,11 @@ Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malk
 
 ## Alternatives
 @malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of popular libraries^[<https://github.com/nmslib/hnswlib>; <https://github.com/nmslib/nmslib>; <https://github.com/facebookresearch/faiss>] and has a significant acceptance in the community. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
-@scann2020 introduced the _SCANN_ index for inner product-based metrics; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
+@scann2020 introduced the _SCANN_ index for inner product-based metrics and Euclidean distance; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
 
 # Main features of `SimilaritySearch`
 
-The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, whether bi-objective (Pareto optimal for search speed and quality) or a minimum quality. This search structure is described in [@simsearch2022], which uses the `SimilaritySearch.jl` package as implementation (0.8 version series). Older versions of the package are benchmarked in [@tellez2021scalable].
-
-The package provides the following indexes:
-
-- `ParallelExhaustiveSearch`: A brute force search index where each query is solved using all available threads.
-- `ExhaustiveSearch`: A brute force search index, each query is solved in a single thread.
-- `SearchGraph`: An approximate search index with parallel and online autotuned construction.
+The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, whether bi-objective (Pareto optimal for search speed and quality) or a minimum quality. This search structure is described in [@simsearch2022], which uses the `SimilaritySearch.jl` package as implementation (0.8 version series). Previous versions of the package are benchmarked in [@tellez2021scalable].
 
 The main set of functions are:
 
@@ -65,16 +59,18 @@ The main set of functions are:
 - `closestpair`: Computes the closest pair in a metric dataset.
 - `neardup`: Removes near-duplicates from a metric dataset.
 
-`SimilaritySearch.jl` can be used with any semi metric defined as described in package `Distances.jl`^[<https://github.com/JuliaStats/Distances.jl>]. However, a number of distance functions for vectors, strings, and sets are also available in our package.
+Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used.
+`SimilaritySearch.jl` can be used with any semi-metric, as defined in package `Distances.jl`^[<https://github.com/JuliaStats/Distances.jl>]. However, a number of distance functions for vectors, strings, and sets are also available in our package.
 The complete set of functions and structures are detailed in the documentation.^[<https://sadit.github.io/SimilaritySearch.jl/>]
 
-# Installation and usage
+# Installation
 The package is registered in the general Julia registry, and it is available via its integrated package manager:
 ```julia
 using Pkg
 Pkg.add("SimilaritySearch")
 ```
 
+# Examples and comparison
 As mentioned above, the package exports several functions and indexes for solving similarity search queries. For instance, we used the set of 70k hand-written digits MNIST dataset [@lecun1998gradient] (using the traditional partition scheme of 60k objects for indexing and 10k as queries). We use the `MLDatasets` (v0.6.0) package for this matter, and each 28x28 image is loaded as a 784-dimensional vector using 32-bit floating-point numbers. We select the squared Euclidean distance as the metric.
 
 ~~~~ {#example .julia .numberLines startFrom="1"}
@@ -126,12 +122,14 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 }
 \end{table}
 
+## Comparison with alternatives
 We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. 
 Our `SearchGraph` (SG) method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed; this 
 also works for larger and high-dimensional datasets as benchmarked in @simsearch2022. 
 Finally, short-living tasks like computing all $k$ nearest neighbors for non-linear for dimensional reductions (e.g., data visualization) also require low build costs; therefore, a complete model selection is prohibitive, especially for large datasets.
 
-Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
+# Final notes
+More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
 This research uses some of the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México.
