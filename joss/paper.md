@@ -127,25 +127,27 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 \end{table}
 
 ---------------------------------------------------------------------------------------------------------------------
-method                  build        opt.       `searchbatch`     `closestpair`     `allknn`     mem.        `allknn` 
-                        cost (s)     cost (s)    cost (s)         cost (s)          cost (s)     (MB)         recall 
---------------------   ----------  -----------  --------------  ----------------  ------------  ---------   ----------
-ExhaustiveSearch          0.0       0.0           3.56             22.18            21.65        179.44       1.00   
-
-SG ParetoRecall          1.60       0.0           0.14              0.27             0.64        181.55       0.82   
-
-SG `MinRecall(0.6)`      ''         0.12          0.06              0.22             0.26         ''          0.59   
-
-SG `MinRecall(0.9)`      ''         0.26          0.18              0.35             0.92         ''          0.89   
-
-SG `MinRecall(0.95)`     ''         0.41          0.47              0.83             2.67         ''          0.96  
-
-SCANN                   25.11        -              -                -              2.14        unk.         1.00   
-
-HNSW (FAISS)             1.91        -              -                -              1.99        195.02       0.99   
-
-PyNNDescent             45.09        -              -                -              9.94        430.42       0.99   
+                  method     build        opt.       `searchbatch`     `closestpair`     `allknn`     mem.        `allknn` 
+                            cost (s)     cost (s)    cost (s)         cost (s)          cost (s)     (MB)         recall 
+------------------------   ----------  -----------  --------------  ----------------  ------------  ---------   ----------
+ExhaustiveSearch              0.0       0.0           3.56             22.18            21.65        179.44       1.00   
+    
+SG ParetoRecall              1.60       0.0           0.14              0.27             0.64        181.55       0.82   
+    
+SG `MinRecall(0.6)`          ''         0.12          0.06              0.22             0.26         ''          0.59   
+    
+SG `MinRecall(0.9)`          ''         0.26          0.18              0.35             0.92         ''          0.89   
+    
+SG `MinRecall(0.95)`         ''         0.41          0.47              0.83             2.67         ''          0.96  
+    
+SCANN                       25.11        -              -                -              2.14        unk.         1.00   
+    
+HNSW (FAISS)                 1.91        -              -                -              1.99        195.02       0.99   
+    
+PyNNDescent                 45.09        -              -                -              9.94        430.42       0.99   
 --------------------------------------------------------------------------------------------------------------------
+
+Table: Performance comparison of running several similarity methods on the MNIST dataset. Smaller time costs and memory are desirable while high recall scores (close to 1) are better.
 
 ## Comparison with alternatives
 We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. 
