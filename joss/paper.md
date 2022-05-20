@@ -126,8 +126,10 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 }
 \end{table}
 
-As a reference, we also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
-Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Additionally, short-living procedures like non-linear dimensional also require low construction times; therefore, a complete model selection and solving all `allknn` is prohibitive. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed.
+We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. 
+Our `SearchGraph` (SG) method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed; this 
+also works for larger and high-dimensional datasets as benchmarked in @simsearch2022. 
+Finally, short-living procedures like computing all $k$ nearest neighbors non-linear for dimensional reductions also require low build costs; therefore, a complete model selection is prohibitive, especially for large datasets.
 
 Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
