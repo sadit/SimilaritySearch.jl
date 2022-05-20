@@ -118,8 +118,6 @@ SG ParetoRecall             &  1.60  & 0.0  &   0.14      &   0.27      &  0.64 
 SG \texttt{MinRecall(0.6)}  &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
 SG \texttt{MinRecall(0.9)}  &  ''    & 0.26 &   0.18      &   0.35      &  0.92  &  ''    &  0.89   \\
 SG \texttt{MinRecall(0.95)} &  ''    & 0.41 &   0.47      &   0.83      &  2.67  &  ''    &  0.96   \\ \hline
-SG Bin. Hamming             &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
-\texttt{MinRecall(0.9)}     &        &      &             &             &        &        &         \\ \hline
 SCANN                       & 25.11  &  -   &     -       &     -       &  2.14  & unk.   &  1.00   \\
 HNSW (FAISS)                &  1.91  &  -   &     -       &     -       &  1.99  & 195.02 &  0.99   \\
 PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
@@ -128,7 +126,7 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 \end{table}
 
 As a reference, we indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
-Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Additionally, short-living procedures like non-linear dimensional also require low construction times; therefore, a complete model selection and solving all `allknn` is prohibitive. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit corresponds to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise, here we used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`. We can observe that this simple transformation improves search times and memory dramatically; note that our package's methods are flexible enough to support this kind of data with minor changes.
+Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Additionally, short-living procedures like non-linear dimensional also require low construction times; therefore, a complete model selection and solving all `allknn` is prohibitive. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed.
 
 Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
