@@ -1,5 +1,6 @@
 [deps]
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 Latexify = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
 LoopVectorization = "bdcacae8-1622-11e9-2a5c-532679323890"
 MLDatasets = "eb30cadb-4394-5ae3-aed4-317e484a6458"
@@ -9,4 +10,5 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [compat]
 MLDatasets = "0.6.0"
-SimilaritySearch = "0.8.17"
+SimilaritySearch = "0.8.18"
+JSON = "0.21"

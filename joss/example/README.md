@@ -1,14 +1,16 @@
 Our example can be run as follows:
 
 ```bash
+JULIA_PROJECT=. julia -e 'using Pkg; Pkg.activate()'   # only the first time, it installs package's dependencies
 JULIA_PROJECT=. julia -t auto -L ex.jl
 ```
-inside the Julia REPL call the main function
+
+This command will launch the Julia REPL, then call the example function
 ```julia
 main_mnist()
 ```
 
-To run the scripts use 
+The rest of the scripts will produce our comparison results.
 
 ```bash
 python flatL2_allknn_mnist.py
@@ -20,7 +22,7 @@ python nndescent_allknn_mnist.py
 python scann_index_allknn_mnist.py
 ```
 
-These scripts will produce a set of result files. To get the recalls go to the results/mnist directory and run 
+These scripts produce a set of result files. To get the recalls go to the results/mnist directory and run 
 
 ```bash 
 JULIA_PROJECT=../.. julia ../../recall.jl
