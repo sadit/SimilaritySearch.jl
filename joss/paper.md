@@ -1,5 +1,5 @@
 ---
-title: '`SimilaritySearch.jl`: Fast nearest neighbor searches in Julia'
+title: '`SimilaritySearch.jl`: Autotuned nearest neighbor indexes for Julia'
 tags:
   - Autotuned similarity search indexes
   - K nearest neighbor search
@@ -112,7 +112,7 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 \begin{tabular}{cccc cccc}
 \hline
 method & build     &  opt.     & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
-       &  cost (s) &  cost (s) &  cost (s)             & cost (s)              & cost (s)         & (MB) &  recall \\ \hline
+         &  cost (s) &  cost (s) &  cost (s)             & cost (s)              & cost (s)         & (MB) &  recall \\ \hline
 ExhaustiveSearch            &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\ \hline
 SG ParetoRecall             &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
 SG \texttt{MinRecall(0.6)}  &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
