@@ -129,7 +129,7 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. 
 Our `SearchGraph` (SG) method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed; this 
 also works for larger and high-dimensional datasets as benchmarked in @simsearch2022. 
-Finally, short-living procedures like computing all $k$ nearest neighbors non-linear for dimensional reductions also require low build costs; therefore, a complete model selection is prohibitive, especially for large datasets.
+Finally, short-living tasks like computing all $k$ nearest neighbors for non-linear for dimensional reductions (e.g., data visualization) also require low build costs; therefore, a complete model selection is prohibitive, especially for large datasets.
 
 Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
