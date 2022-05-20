@@ -38,17 +38,11 @@ function _shifted_fixorder!(res, shift=0)
     pos = N = lastindex(res.id)
     id = res.id
     dist = res.dist
-   @inbounds id_, dist_ = res.id[end], res.dist[end]
+    @inbounds id_, dist_ = res.id[end], res.dist[end]
     
-    #pos = doublingsearch(dist, dist_, sp, N)
-    #pos = binarysearch(dist, dist_, sp, N)
-    #if N > 16
-    #    pos = doublingsearchrev(dist, dist_, sp, N)::Int
-    #else
-        @inbounds while pos > sp && dist_ < dist[pos-1]
-            pos -= 1
-        end
-    #end
+    @inbounds while pos > sp && dist_ < dist[pos-1]
+        pos -= 1
+    end
 
     @inbounds if pos < N
         while N > pos
