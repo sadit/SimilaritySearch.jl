@@ -45,7 +45,7 @@ Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malk
 
 ## Alternatives
 @malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of popular libraries^[<https://github.com/nmslib/hnswlib>; <https://github.com/nmslib/nmslib>; <https://github.com/facebookresearch/faiss>] and has a significant acceptance in the community. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind PyNNDescent^[<https://github.com/lmcinnes/pynndescent>], which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>]
-@scann2020 introduced the _scaNN_ index for inner product-based metrics; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
+@scann2020 introduced the _SCANN_ index for inner product-based metrics; it is fast and accurate and implemented in a well-maintained library.^[<https://github.com/google-research/google-research/tree/master/scann>]
 
 # Main features of `SimilaritySearch`
 
@@ -112,36 +112,25 @@ For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstatio
 method & build  &  opt.  & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
  &  cost (s) &  cost (s) &  cost (s) & cost (s) & cost (s) & (MB) &  recall \\
 \midrule
-ExhaustiveSearch &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\
-ParetoRecall     &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
-MinRecall(0.6)    &   -    & 0.12 &   0.06      &   0.22      &  0.26  &    -   &  0.59   \\
-MinRecall(0.9)    &   -    & 0.26 &   0.18      &   0.35      &  0.92  &    -   &  0.89   \\
-MinRecall(0.95)   &   -    & 0.41 &   0.47      &   0.83      &  2.67  &    -   &  0.96   \\
-Bin. Hamming      &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
-MinRecall(0.9)    &        &      &             &             &        &        &         \\
+ExhaustiveSearch     &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\ \midrule
+SG ParetoRecall      &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
+SG MinRecall(0.6)    &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
+SG MinRecall(0.9)    &  ''    & 0.26 &   0.18      &   0.35      &  0.92  &  ''    &  0.89   \\
+SG MinRecall(0.95)   &  ''    & 0.41 &   0.47      &   0.83      &  2.67  &  ''    &  0.96   \\ \midrule
+SG Bin. Hamming      &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
+MinRecall(0.9)       &        &      &             &             &        &        &         \\ \midrule
+SCANN                & 25.11  &  -   &     -       &     -       &  2.14  & unk.   &  1.00   \\
+HNSW (FAISS)         &  1.91  &  -   &     -       &     -       &  1.99  & 195.02 &  0.99   \\
+PyNNDescent          & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
 \bottomrule
 \end{tabular}
 }
 \end{table}
 
-As reference, we indexed and search for all $k$ nearest neighbors using the default values for the HNSW (FAISS), PyNNDescent, and scaNN library for nearest neighbor search. All these operations were computed using all available threads.
+As reference, we indexed and search for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
+Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user.
 
---------------------------------------------------------------
-  method         build     `allknn`       mem.      `allknn`
-                 time       time          (MB)       recall
-----------     --------   ---------   -----------  --------
-scaNN           25.11      2.14        unknown      1.00
-  
-HNSW             1.91      1.99         195.02      0.99
-
-PyNNDescent     45.09      9.94         430.42      0.99
----------------------------------------------------------------
-
-Table: a e i o u.\label{tab/alt-performance}
-
-Note that optimizing its parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Along with the flexibility on data types and that user defined functions will run at full speed since they are compiled by the julia programing language, the simplicity obtained by our online autotuning feature are among main advantages of our `SimilaritySearch.jl`.
-
-Our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
+Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
 This research uses some of the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México.
