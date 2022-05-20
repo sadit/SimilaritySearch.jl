@@ -1,7 +1,6 @@
 ---
 title: '`SimilaritySearch.jl`: Fast nearest neighbor searches in Julia'
 tags:
-  - Julia
   - Autotuned similarity search indexes
   - K nearest neighbor search
   - All KNN queries
