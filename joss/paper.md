@@ -105,8 +105,9 @@ The function `example` loads the data (line 12), create the index (line 14), and
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values.
 
 \begin{table}[!h]
-\caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}}
-\resizebox{\textwidth}{!}{
+\caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better.}
+\label{tab/performance}
+
 \begin{tabular}{cccc cccc}
 \toprule
 method & build  &  opt.  & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
@@ -124,7 +125,7 @@ HNSW (FAISS)         &  1.91  &  -   &     -       &     -       &  1.99  & 195.
 PyNNDescent          & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
 \bottomrule
 \end{tabular}
-}
+
 \end{table}
 
 As a reference, we indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
