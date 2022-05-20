@@ -128,6 +128,7 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 \end{table}
 
 --!>
+
 -----------------------------------------------------------------------------------------------------------------------------
 method                          build        opt.       `searchbatch`     `closestpair`     `allknn`     mem.        `allknn` 
                                cost (s)     cost (s)    cost (s)         cost (s)          cost (s)      (MB)         recall 
