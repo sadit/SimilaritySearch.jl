@@ -1,7 +1,7 @@
 Our example can be run as follows:
 
 ```bash
-JULIA_PROJECT=. julia -e 'using Pkg; Pkg.activate()'   # only the first time, it installs package's dependencies
+JULIA_PROJECT=. julia -e 'using Pkg; Pkg.instantiate()'   # only the first time, it installs package's dependencies
 JULIA_PROJECT=. julia -t auto -L ex.jl
 ```
 
