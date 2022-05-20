@@ -100,7 +100,7 @@ end
 example()
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The function `example` loads the data (line 12), create the index (line 14), and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$. 
+The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$. 
 
 For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads). We used `SimilaritySearch.jl` v0.8.18 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with parallel a brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
 
