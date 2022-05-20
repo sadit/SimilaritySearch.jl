@@ -102,7 +102,7 @@ example()
 
 The function `example` loads the data (line 12), create the index (line 14) and then finds all $k$ nearest neighbors of the test partition in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and finally compute all $k$ nearest neighbors on the train partition (line 17), for $k=32$. All these operations use all the available threads to the `julia` process.
 
-For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values. Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise. We used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`.
+For this matter, we use an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores with hyperthreading activated (64 threads). We used the v0.8.18 version of our package and julia 1.7.2. Table \ref{tab/performance} compares the running times with those achieved with the brute force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`). We used our index with additional autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different $r$ values.
 
 \begin{table}[!h]
 \caption{Performance comparison of running several similarity search operations on MNIST dataset in our 32-core workstation. Smaller time costs and memory are desirable while high recall scores (close to 1) are better. \label{tab/performance}}
@@ -114,11 +114,11 @@ method & build  &  opt.  & \texttt{searchbatch}  & \texttt{closestpair}  & \text
 \midrule
 ExhaustiveSearch     &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\ \midrule
 SG ParetoRecall      &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
-SG MinRecall(0.6)    &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
-SG MinRecall(0.9)    &  ''    & 0.26 &   0.18      &   0.35      &  0.92  &  ''    &  0.89   \\
-SG MinRecall(0.95)   &  ''    & 0.41 &   0.47      &   0.83      &  2.67  &  ''    &  0.96   \\ \midrule
+SG \texttt{MinRecall(0.6)}    &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
+SG \texttt{MinRecall(0.9)}    &  ''    & 0.26 &   0.18      &   0.35      &  0.92  &  ''    &  0.89   \\
+SG \texttt{MinRecall(0.95)}   &  ''    & 0.41 &   0.47      &   0.83      &  2.67  &  ''    &  0.96   \\ \midrule
 SG Bin. Hamming      &  1.13  & 0.07 &   0.04      &   0.29      &  0.22  &  8.43  &  0.71   \\
-MinRecall(0.9)       &        &      &             &             &        &        &         \\ \midrule
+\texttt{MinRecall(0.9)}       &        &      &             &             &        &        &         \\ \midrule
 SCANN                & 25.11  &  -   &     -       &     -       &  2.14  & unk.   &  1.00   \\
 HNSW (FAISS)         &  1.91  &  -   &     -       &     -       &  1.99  & 195.02 &  0.99   \\
 PyNNDescent          & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
@@ -128,7 +128,7 @@ PyNNDescent          & 45.09  &  -   &     -       &     -       &  9.94  & 430.
 \end{table}
 
 As reference, we indexed and search for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads.
-Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user.
+Note that optimizing parameters imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. Additionally, short-living procedures like non-linear dimensional also require low construction times, and therefore, a full model selection and solving all `allknn` is prohibitive. Our `SearchGraph` method performs this procedure in a single pass and without extra effort by the user.  Note that we run several optimizations that basically use the same index and spends a small amount of time trading between quality and speed effectively.  Finally, we also included a bit-based representation of the dataset, i.e., binary matrices where each bit correspond to some pixel; a pixel that surpasses the $0.5$ is encoded as $1$ and $0$ otherwise, here we used the `BinaryHammingDistance` as distance function instead of `SqL2Distance`, both defined in `SimilaritySearch.jl`. We can observe that this simple transformation improves search times and memory dramatically; note that our package's methods are flexible enough to support this kind of data with minor changes.
 
 Note that our implementations produce complete results when _exact_ indexes are used and will produce approximate results when approximate indexes are used. More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
