@@ -30,6 +30,36 @@ function initialstate(::KnnResultShift)
     KnnResultState(0)
 end
 
+function _shifted_fixorder!(res::KnnResultShift, shift)
+    sp = shift + 1
+    ep = lastindex(res.id)
+    id, dist = res.id, res.dist
+    @inbounds i, d = id[end], dist[end]
+    pos = _find_inspos(dist, sp, ep, d)
+    _shift_vector(id, pos, ep, i)
+    _shift_vector(dist, pos, ep, d)
+
+    nothing
+end
+
+@inline function _find_inspos(dist::Vector, sp, ep, d)
+    @inbounds while ep > sp && d < dist[ep-1]
+        ep -= 1
+    end
+
+    ep
+end
+
+@inline function _shift_vector(arr::Vector, sp, ep, val)
+    @inbounds while ep > sp
+        arr[ep] = arr[ep-1]
+        ep -= 1
+    end
+
+    arr[ep] = val
+end
+
+
 """
     push!(res::KnnResultShift, item::Pair)
     push!(res::KnnResultShift, id::Integer, dist::Real)

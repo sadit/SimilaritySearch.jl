@@ -25,21 +25,8 @@ include("allknn.jl")
 include("neardup.jl")
 include("closestpair.jl")
 
-const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
-
 """
-    getknnresult(k::Integer, pools=nothing) -> KnnResult
-
-Generic function to obtain a shared result set for the same thread and avoid memory allocations.
-This function should be specialized for indexes and pools that use shared results or threads in some special way.
-"""
-@inline function getknnresult(k::Integer, pools=nothing)
-    res = @inbounds GlobalKnnResult[Threads.threadid()]
-    reuse!(res, k)
-end
-
-"""
-    searchbatch(index, Q, k::Integer=10; parallel=false, pools=GlobalKnnResult) -> indices, distances
+    searchbatch(index, Q, k::Integer; parallel=false, pools=getpolls(index)) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
@@ -50,69 +37,37 @@ Searches a batch of queries in the given index (searches for k neighbors).
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index, Q, k::Integer=10; parallel=false, pools=getpools(index))
+function searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index))
     m = length(Q)
-    I = zeros(Int32, k, m)
-    D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, Q, I, D; parallel, pools)
+    R = KnnResultSet(k, m)
+    searchbatch(index, Q, R; parallel, pools)
+    R.id, R.dist
 end
 
 """
-    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index)) -> indices, distances
+    searchbatch(index, Q, R::KnnResultSet; parallel=false, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 
 """
-function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index))
-    k = size(I, 1)
-    
+function searchbatch(index, Q, R::KnnResultSet; parallel=false, pools=getpools(index))    
     if parallel
         Threads.@threads for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+            search(index, Q[i], KnnResult(R, i); pools)
         end
     else
-        @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+        for i in eachindex(Q)
+            search(index, Q[i], KnnResult(R, i); pools)
         end
     end
 
-    I, D
-end
-
-"""
-    searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, pools=getpools(index)) -> indices, distances
-
-Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
-
-"""
-function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, pools=getpools(index))
-    if parallel
-        Threads.@threads for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i]; pools)
-        end
-    else
-        @inbounds for i in eachindex(Q)
-            search(index, Q[i], KNN[i]; pools)
-        end
-    end
-
-    KNN
+    R
 end
 
 function __init__()
     __init__visitedvertices()
     __init__beamsearch()
     __init__neighborhood()
-
-    for _ in 2:Threads.nthreads()
-        push!(GlobalKnnResult, KnnResult(32))
-    end
 end
 
 # precompile as the final step of the module definition:

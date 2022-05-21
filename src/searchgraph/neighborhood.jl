@@ -1,5 +1,15 @@
 # This file is a part of SimilaritySearch.jl
 
+
+"""
+    abstract type NeighborhoodReduction end
+    
+Overrides `Base.reduce(::NeighborhoodReduction, res::KnnResult, index::SearchGraph)` to postprocess `res` using some criteria.
+Called from `find_neighborhood`, and returns a new KnnResult struct (perhaps a copy of res) since `push_neighborhood` captures
+the reference of its output.
+"""
+abstract type NeighborhoodReduction end
+
 """
     @with_kw mutable struct Neighborhood
     
@@ -22,7 +32,7 @@ end
 Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
     Neighborhood(; logbase, minsize, reduce)
 
-neighborhoodsize(N::Neighborhood, index::SearchGraph) = 8 # ceil(Int, N.minsize + log(N.logbase, length(index)))
+neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
 
 """
     find_neighborhood(index::SearchGraph{T}, item, neighborhood, pools; hints=index.hints)
@@ -32,12 +42,13 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 
 # Arguments
 - `index`: The search index.
+- `res`: `KnnResult` object.
 - `item`: The item to be inserted.
 - `neighborhood`: A [`Neighborhood`](@ref) object that describes how to compute item's neighborhood.
 - `pools`: Cache pools to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
+function find_neighborhood(index::SearchGraph, res::KnnResult, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
     n = length(index)
     if n > 0
         ksearch = neighborhoodsize(neighborhood, index)
@@ -50,7 +61,7 @@ function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood,
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
+    push_neighborhood!(index::SearchGraph, res, item, neighbors, callbacks; push_item=true)
 
 Inserts the object `item` into the index, i.e., creates an edge for each item in `neighbors` (internal function)
 

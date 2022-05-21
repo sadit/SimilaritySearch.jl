@@ -63,20 +63,21 @@ Convenient constructor function to create `SearchGraphCallbacks` structs. See [`
 - `space`: The cofiguration search space
 """
 function SearchGraphCallbacks(kind::ErrorFunction;
-    hints=DisjointHints(),
-    logbase=1.5,
-    starting=8,
-    initialpopulation=16,
-    maxiters=12,
-    bsize=4,
-    tol=-1.0,
-    params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters),
-    ksearch=10,
-    numqueries=32,
-    space::BeamSearchSpace=BeamSearchSpace()
-)
-hyperparameters = OptimizeParameters(; kind, initialpopulation, params, ksearch, numqueries, space)
-SearchGraphCallbacks(; hints, hyperparameters, logbase, starting)
+        hints=DisjointHints(),
+        logbase=1.5,
+        starting=8,
+        initialpopulation=16,
+        maxiters=12,
+        bsize=4,
+        tol=-1.0,
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters),
+        ksearch=10,
+        numqueries=32,
+        space::BeamSearchSpace=BeamSearchSpace()
+    )
+
+    hyperparameters = OptimizeParameters(; kind, initialpopulation, params, ksearch, numqueries, space)
+    SearchGraphCallbacks(; hints, hyperparameters, logbase, starting)
 end
 
 """

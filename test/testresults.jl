@@ -16,26 +16,26 @@ function testsorted(res, Vsorted)
 
     @show res
     
-    @test res.id == first.(Vsorted)
-    @test res.dist == last.(Vsorted)
+    @test idview(res) == first.(Vsorted)
+    @test distview(res) == last.(Vsorted)
 
     pop!(Vsorted)
     pop!(res)
-    @test res.id == first.(Vsorted)
-    @test res.dist == last.(Vsorted)
+    @test idview(res) == first.(Vsorted)
+    @test distview(res) == last.(Vsorted)
     @test collect(res) == Vsorted
 
     popfirst!(Vsorted)
     popfirst!(res)
 
-    @info "b   collect id:" => res.id
-    @info "b collect dist:" => res.dist
+    @info "b   collect id:" => idview(res)
+    @info "b collect dist:" => distview(res)
     @info "b ========" => first.(Vsorted)
     @info "b ========" => last.(Vsorted)
-    @show res.id
-    @show res.dist    
-    @test res.id == first.(Vsorted)
-    @test res.dist == last.(Vsorted)
+    @show idview(res)
+    @show distview(res) 
+    @test idview(res) == first.(Vsorted)
+    @test distview(res) == last.(Vsorted)
     @test collect(res) == Vsorted
 
 end

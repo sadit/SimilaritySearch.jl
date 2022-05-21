@@ -2,14 +2,6 @@
 
 using Dates
 
-"""
-    abstract type NeighborhoodReduction end
-    
-Overrides `Base.reduce(::NeighborhoodReduction, res::KnnResult, index::SearchGraph)` to postprocess `res` using some criteria.
-Called from `find_neighborhood`, and returns a new KnnResult struct (perhaps a copy of res) since `push_neighborhood` captures
-the reference of its output.
-"""
-abstract type NeighborhoodReduction end
 abstract type LocalSearchAlgorithm end
 
 """
