@@ -22,7 +22,7 @@ end
 Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
     Neighborhood(; logbase, minsize, reduce)
 
-neighborhoodsize(N::Neighborhood, index::SearchGraph) = 8 # ceil(Int, N.minsize + log(N.logbase, length(index)))
+neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
 
 """
     find_neighborhood(index::SearchGraph{T}, item, neighborhood, pools; hints=index.hints)
