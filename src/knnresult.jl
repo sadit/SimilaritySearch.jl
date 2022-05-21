@@ -27,37 +27,40 @@ function KnnResult(k::Integer)
 end
 
 """
-    _shifted_fixorder!(res, shift=0)
+    _shifted_fixorder!(res, shift)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function _shifted_fixorder!(res, shift=0)
+function _shifted_fixorder!(res, shift)
     sp = shift + 1
-    pos = N = lastindex(res.id)
-    id = res.id
-    dist = res.dist
-    @inbounds id_, dist_ = res.id[end], res.dist[end]
-    
-    @inbounds while pos > sp && dist_ < dist[pos-1]
-        pos -= 1
-    end
-
-    @inbounds if pos < N
-        while N > pos
-            id[N] = id[N-1]
-            dist[N] = dist[N-1]
-            N -= 1
-        end
-
-        dist[N] = dist_
-        id[N] = id_
-    end
+    ep = lastindex(res.id)
+    id, dist = res.id, res.dist
+    @inbounds i, d = id[end], dist[end]
+    pos = _find_inspos(dist, sp, ep, d)
+    _shift_vector(id, pos, ep, i)
+    _shift_vector(dist, pos, ep, d)
 
     nothing
 end
 
+@inline function _find_inspos(dist, sp, ep, d)
+    @inbounds while ep > sp && d < dist[ep-1]
+        ep -= 1
+    end
+
+    ep
+end
+
+@inline function _shift_vector(arr, sp, ep, val)
+    @inbounds while ep > sp
+        arr[ep] = arr[ep-1]
+        ep -= 1
+    end
+
+    arr[ep] = val
+end
 
 """
     push!(res::KnnResult, item::Pair)
@@ -71,15 +74,14 @@ Appends an item into the result set
         push!(res.id, id)
         push!(res.dist, dist)
     
-        _shifted_fixorder!(res)
+        _shifted_fixorder!(res, 0)
         return true
     end
 
     dist >= last(res.dist) && return false
 
     @inbounds res.id[end], res.dist[end] = id, dist
-    _shifted_fixorder!(res)
-    #_shifted_fixorder!(res.shift, res.id, res.dist)
+    _shifted_fixorder!(res, 0)
     true
 end
 
