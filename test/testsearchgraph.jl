@@ -78,9 +78,9 @@ using Test
     goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, verbose=false)
     index!(graph)
-    I, D, searchtime = timedsearchbatch(graph, queries, ksearch)
+    searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
-    @info "testing without additional optimizations> queries per second:", 1/searchtime, ", recall: ", recall
+    @info "testing without additional optimizations> queries per second:", m/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7
 end
