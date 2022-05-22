@@ -9,7 +9,7 @@ export ExhaustiveSearch, search
 
 Solves queries evaluating `dist` for the query and all elements in the dataset
 """
-struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchContext
+struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
 end
@@ -24,11 +24,11 @@ getpools(index::ExhaustiveSearch) = nothing
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
 """
-    search(seq::ExhaustiveSearch, q, res::KnnResult)
+    search(seq::ExhaustiveSearch, q, res::AbstractKnnResult)
 
 Solves the query evaluating all items in the given query.
 """
-function search(seq::ExhaustiveSearch, q, res::KnnResult; pools=nothing)
+function search(seq::ExhaustiveSearch, q, res::AbstractKnnResult; pools=nothing)
     @inbounds for i in eachindex(seq)
         d = evaluate(seq.dist, seq[i], q)
         push!(res, i, d)

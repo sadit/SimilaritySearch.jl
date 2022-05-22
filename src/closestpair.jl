@@ -3,7 +3,7 @@
 export closestpair
 
 """
-    closestpair(idx::AbstractSearchContext; parallel=false, pools=getpools(idx))
+    closestpair(idx::AbstractSearchIndex; parallel=false, pools=getpools(idx))
 
 Finds the closest pair among all elements in `idx`. If the index `idx` is approximate then pair of points could be also an approximation.
 
@@ -14,11 +14,11 @@ Finds the closest pair among all elements in `idx`. If the index `idx` is approx
 - `parallel`: If true then the algorithm uses all available threads to compute the closest pair
 - `pools`: The pools needed for the index. Only used for special cases, default values should work in most cases. See [`getpools`](@ref) for more information.
 """
-function closestpair(idx::AbstractSearchContext; parallel=false, pools=getpools(idx))
+function closestpair(idx::AbstractSearchIndex; parallel=false, pools=getpools(idx))
     parallel ? parallel_closestpair(idx, Threads.nthreads(), pools) : sequential_closestpair(idx, pools)
 end
 
-function search_hint(idx::AbstractSearchContext, i::Integer, pools)
+function search_hint(idx::AbstractSearchIndex, i::Integer, pools)
     res = getknnresult(2)
     search(idx, idx[i], res; pools)
     argmin(res) == i ? (argmax(res), maximum(res)) : (argmin(res), minimum(res))
@@ -30,7 +30,7 @@ function search_hint(G::SearchGraph, i::Integer, pools)
     argmin(res) == i ? (argmax(res), maximum(res)) : (argmin(res), minimum(res))
 end
 
-function parallel_closestpair(idx::AbstractSearchContext, parallel_block, pools)
+function parallel_closestpair(idx::AbstractSearchIndex, parallel_block, pools)
     n = length(idx)
     parallel_block = min(n, parallel_block)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:parallel_block]
@@ -49,7 +49,7 @@ function parallel_closestpair(idx::AbstractSearchContext, parallel_block, pools)
     B[i]
 end
 
-function sequential_closestpair(idx::AbstractSearchContext, pools)
+function sequential_closestpair(idx::AbstractSearchIndex, pools)
     mindist = typemax(Float32)
     I = J = zero(Int32)
 

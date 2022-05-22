@@ -1,7 +1,9 @@
 # This file is a part of SimilaritySearch.jl
 
-export maxlength, maxlength, getdist, getid, idview, distview
-export KnnResult, KnnResultSet
+export maxlength, maxlength, getdist, getid, idview, distview, reuse!
+export AbstractKnnResult, KnnResultSet
+
+abstract type AbstractKnnResult end
 
 struct KnnResultSet
     id::Matrix{Int32}
@@ -15,34 +17,41 @@ function KnnResultSet(k::Integer, m::Integer)
     KnnResultSet(
         Matrix{Int32}(undef, k, m),
         Matrix{Float32}(undef, k, m),
-        zeros(Int32, m)
+        Vector{Int32}(undef, m)
     )
 end
 
+Base.size(knns::KnnResultSet) = size(knns.id)
+Base.size(knns::KnnResultSet, dim) = size(knns.id, dim)
+
 """
-    KnnResult(ksearch::Integer)
+    KnnResultView(ksearch::Integer)
 
 Creates a priority queue with fixed capacity (`ksearch`) representing a knn result set.
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-struct KnnResult # <: AbstractVector{Tuple{IdType,DistType}}
+struct KnnResultView <: AbstractKnnResult # <: AbstractVector{Tuple{IdType,DistType}}
     parent::KnnResultSet
     i::Int
+
+    function KnnResultView(parent::KnnResultSet, i::Integer) 
+        parent.len[i] = 0
+        new(parent, i)
+    end
 end
 
-function KnnResult(k::Integer)
+function KnnResultView(k::Integer)
     knns = KnnResultSet(k, 1)
-    KnnResult(knns, 1)
+    KnnResultView(knns, 1)
 end
-
 
 """
-    empty!(res::KnnResult)
+    reuse!(res::KnnResultView)
 
 Resets `res` to an empty state
 """
-@inline function empty!(res::KnnResult)
+@inline function reuse!(res::KnnResultView)
     res.parent.len[res.i] = 0
     res
 end
@@ -54,7 +63,7 @@ Sorts the result in place; the possible element out of order is on the last entr
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function _shifted_fixorder!(res::KnnResult)
+function _shifted_fixorder!(res::KnnResultView)
     k = length(res)
     @inbounds i, d = res[k]
     pos = _find_inspos(res.parent.dist, res.i, 1, k, d)
@@ -84,12 +93,12 @@ end
 ### push functions
 
 """
-    push!(res::KnnResult, item::Pair)
-    push!(res::KnnResult, id::Integer, dist::Real)
+    push!(res::KnnResultView, item::Pair)
+    push!(res::KnnResultView, id::Integer, dist::Real)
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
+@inline function Base.push!(res::KnnResultView, id::Integer, dist::Real)
     k = length(res)
 
     @inbounds if k < maxlength(res)
@@ -109,17 +118,17 @@ Appends an item into the result set
     true
 end
 
-#@inline Base.push!(res::KnnResult, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
-@inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
+#@inline Base.push!(res::KnnResultView, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
+@inline Base.push!(res::KnnResultView, p::Pair) = push!(res, p.first, p.second)
 
 ### pop functions
 
 """
-    popfirst!(p::KnnResult)
+    popfirst!(p::KnnResultView)
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)
+@inline function Base.popfirst!(res::KnnResultView)
     @inbounds begin
         n = res.parent.len[res.i]
         res.parent.len[res.i] = n - 1
@@ -139,11 +148,11 @@ end
 end
 
 """
-    pop!(res::KnnResult)
+    pop!(res::KnnResultView)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function Base.pop!(res::KnnResult)
+@inline function Base.pop!(res::KnnResultView)
     @inbounds begin
         n = res.parent.len[res.i]
         res.parent.len[res.i] = n - 1
@@ -153,48 +162,48 @@ end
 
 ##### access functions #######
 
-@inline getid(res::KnnResult, i) = @inbounds res.parent.id[i, res.i] 
-@inline getdist(res::KnnResult, i) = @inbounds res.parent.dist[i, res.i] 
+@inline getid(res::KnnResultView, i) = @inbounds res.parent.id[i, res.i] 
+@inline getdist(res::KnnResultView, i) = @inbounds res.parent.dist[i, res.i] 
 
 """
-    getindex(res::KnnResult, i)
+    getindex(res::KnnResultView, i)
 
 Access the i-th item in `res`
 """
-@inline function Base.getindex(res::KnnResult, i::Integer)
+@inline function Base.getindex(res::KnnResultView, i::Integer)
     @inbounds getid(res, i) => getdist(res, i)
 end
 
 """
-    maxlength(res::KnnResult)
+    maxlength(res::KnnResultView)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult) = size(res.parent.id, 1)
-@inline Base.length(res::KnnResult) = @inbounds res.parent.len[res.i]
+@inline maxlength(res::KnnResultView) = size(res.parent.id, 1)
+@inline Base.length(res::KnnResultView) = @inbounds res.parent.len[res.i]
 
-@inline Base.last(res::KnnResult) = argmax(res) => maximum(res)
-@inline Base.first(res::KnnResult) = argmin(res) => minimum(res)
-@inline Base.maximum(res::KnnResult) = @inbounds getdist(res, length(res))
-@inline Base.minimum(res::KnnResult) = @inbounds getdist(res, 1)
-@inline Base.argmax(res::KnnResult) = @inbounds getid(res, length(res))
-@inline Base.argmin(res::KnnResult) = @inbounds getid(res, 1)
+@inline Base.last(res::KnnResultView) = argmax(res) => maximum(res)
+@inline Base.first(res::KnnResultView) = argmin(res) => minimum(res)
+@inline Base.maximum(res::KnnResultView) = @inbounds getdist(res, length(res))
+@inline Base.minimum(res::KnnResultView) = @inbounds getdist(res, 1)
+@inline Base.argmax(res::KnnResultView) = @inbounds getid(res, length(res))
+@inline Base.argmin(res::KnnResultView) = @inbounds getid(res, 1)
 
-@inline idview(res::KnnResult) = @view res.parent.id[1:length(res), res.i]
-@inline distview(res::KnnResult) = @view res.parent.dist[1:length(res), res.i]
+@inline idview(res::KnnResultView) = @view res.parent.id[1:length(res), res.i]
+@inline distview(res::KnnResultView) = @view res.parent.dist[1:length(res), res.i]
 
-@inline Base.eachindex(res::KnnResult) = 1:length(res)
-Base.eltype(::KnnResult) = Pair{Int32,Float32}
+@inline Base.eachindex(res::KnnResultView) = 1:length(res)
+Base.eltype(::KnnResultView) = Pair{Int32,Float32}
 
 ##### iterator interface
-### KnnResult
+### KnnResultView
 
 """
-    Base.iterate(res::KnnResult, state::Int=1)
+    Base.iterate(res::KnnResultView, state::Int=1)
 
 Support for iteration
 """
-function Base.iterate(res::KnnResult, i::Int=1)
+function Base.iterate(res::KnnResultView, i::Int=1)
     n = length(res)
     (n == 0 || i > n) && return nothing
     @inbounds res[i], i+1

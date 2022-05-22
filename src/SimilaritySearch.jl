@@ -1,21 +1,21 @@
 # This file is a part of SimilaritySearch.jl
 
 module SimilaritySearch
-abstract type AbstractSearchContext end
+abstract type AbstractSearchIndex end
 
 using Parameters
 
 import Base: push!, append!
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getknnresult
+export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
 include("distances/Distances.jl")
 
 include("db.jl")
 include("knnresult.jl")
-include("knnresultshift.jl")
-@inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
-@inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
-@inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
-@inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
+include("knnresultvector.jl")
+@inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
+@inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
+@inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
+@inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 include("perf.jl")
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
@@ -25,13 +25,25 @@ include("allknn.jl")
 include("neardup.jl")
 include("closestpair.jl")
 
+const GlobalKnnResult = [KnnResultSingle(32)]   # see __init__ function at the end of this file
+
+"""
+    getknnresult(k::Integer, pools=nothing) -> KnnResultSingle
+Generic function to obtain a shared result set for the same thread and avoid memory allocations.
+This function should be specialized for indexes and pools that use shared results or threads in some special way.
+"""
+@inline function getknnresult(k::Integer, pools=nothing)
+    res = @inbounds GlobalKnnResult[Threads.threadid()]
+    reuse!(res, k)
+end
+
 """
     searchbatch(index, Q, k::Integer; parallel=false, pools=getpolls(index)) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
 - `parallel` specifies if the query should be solved in parallel at object level (each query is sequentially solved but many queries solved in different threads).
-- `pool` relevant if `parallel=true`. If it is explicitly given it should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
+- `pool` relevant if `parallel=true`. If it is explicitly given it should be an array of `Threads.nthreads()` preallocated `KnnResultSingle` objects used to reduce memory allocations.
     In most case uses the default is enought, but different pools should be used when indexes use internal indexes to solve queries (e.g., using index's proxies or database objects defined as indexes).
 
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
@@ -53,11 +65,11 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 function searchbatch(index, Q, R::KnnResultSet; parallel=false, pools=getpools(index))    
     if parallel
         Threads.@threads for i in eachindex(Q)
-            search(index, Q[i], KnnResult(R, i); pools)
+            search(index, Q[i], KnnResultView(R, i); pools)
         end
     else
         for i in eachindex(Q)
-            search(index, Q[i], KnnResult(R, i); pools)
+            search(index, Q[i], KnnResultView(R, i); pools)
         end
     end
 

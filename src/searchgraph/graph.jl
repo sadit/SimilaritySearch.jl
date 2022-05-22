@@ -17,7 +17,7 @@ abstract type Callback end
 ### Basic operations on the index
 
 """
-    struct SearchGraph <: AbstractSearchContext
+    struct SearchGraph <: AbstractSearchIndex
 
 SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
 The performance is determined by the search algorithm `search_algo` and the neighborhood policy.
@@ -28,7 +28,7 @@ It supports callbacks to adjust parameters as insertions are made.
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 
 """
-@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
+@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
     links::Vector{Vector{Int32}} = Vector{Int32}[]
@@ -52,8 +52,8 @@ can call other metric indexes that can use these shared resources (globally defi
 Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
 """
 struct SearchGraphPools{VisitedVerticesType}
-    beams::Vector{KnnResultShift}
-    satnears::Vector{KnnResult}
+    beams::Vector{KnnResultSingle}
+    satnears::KnnResultSet
     vstates::VisitedVerticesType
 end
 
@@ -66,11 +66,16 @@ end
     @inbounds reuse!(pools.beams[Threads.threadid()], bsize)
 end
 
-@inline function getsatknnresult(pools::SearchGraphPools)
-    reuse!(pools.satnears[Threads.threadid()], 1)
+getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult[1], vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
+
+const GlobalSatKnnResult = [KnnResultSet(1, 1)]
+function __init__neighborhood()
+    GlobalSatKnnResult[1] = KnnResultSet(1, Threads.nthreads())
 end
 
-getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
+@inline function getsatknnresult(pools::SearchGraphPools)
+    KnnResultView(pools.satnears, Threads.threadid())
+end
 
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions
@@ -83,7 +88,7 @@ include("hints.jl")
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, pools=getpools(index))
+function search(index::SearchGraph, q, res::AbstractKnnResult; hints=index.hints, pools=getpools(index))
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, pools)
     else

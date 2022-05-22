@@ -43,7 +43,7 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     index.search_algo.maxvisits = ceil(Int, 2perf.visited[end])
 end
 
-function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, pools)
+function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResultView, pools)
     search(bs, index, q, res, index.hints, pools; maxvisits = 4index.search_algo.maxvisits)
     # search(bs, index, q, res, index.hints, pools)
 end

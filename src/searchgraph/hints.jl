@@ -48,7 +48,7 @@ function execute_callback(opt::DisjointHints, index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
     meansize = mean(length(index.links[i]) for i in 1:n)
-    res = KnnResult(m)
+    res = KnnResultSingle(m)
     for i in 1:n
         push!(res, i, abs(length(index.links[i]) - meansize))
     end

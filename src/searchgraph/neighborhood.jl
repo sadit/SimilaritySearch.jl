@@ -1,6 +1,5 @@
 # This file is a part of SimilaritySearch.jl
 
-
 """
     abstract type NeighborhoodReduction end
     
@@ -32,6 +31,8 @@ end
 Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
     Neighborhood(; logbase, minsize, reduce)
 
+
+
 neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
 
 """
@@ -42,13 +43,12 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 
 # Arguments
 - `index`: The search index.
-- `res`: `KnnResult` object.
 - `item`: The item to be inserted.
 - `neighborhood`: A [`Neighborhood`](@ref) object that describes how to compute item's neighborhood.
 - `pools`: Cache pools to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, res::KnnResult, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
+function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
     n = length(index)
     if n > 0
         ksearch = neighborhoodsize(neighborhood, index)
@@ -91,13 +91,6 @@ function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push
     end
 end
 
-const GlobalSatKnnResult = [KnnResult(1)]
-function __init__neighborhood()
-    for _ in 2:Threads.nthreads()
-        push!(GlobalSatKnnResult, KnnResult(1))
-    end
-end
-
 """
     SatNeighborhood()
 
@@ -126,7 +119,7 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
+function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResultView) where T
     @inbounds obj = index[id]
     dist = dist < 0.0 ? evaluate(index.dist, item, obj) : dist
     push!(near, 0, dist)
@@ -152,7 +145,7 @@ Reduces `res` using the DistSAT strategy.
     N = Vector{Int32}(undef, 2)
     resize!(N, 0)
     @inbounds for i in length(res):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
-        id, dist = getpair(res, i)
+        id, dist = res[i]
         sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
     end
 

@@ -16,15 +16,14 @@ struct ParetoRadius <: ErrorFunction end
 function runconfig end
 function setconfig! end
 
-function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
-    n = length(index)
+function create_error_function(index::AbstractSearchIndex, gold, knns::KnnResultSet, queries, ksearch, verbose)
     nt = Threads.nthreads()
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
-    covradius = Vector{Float64}(undef, length(knnlist))
+    numqueries = size(knns, 2)
+    covradius = Vector{Float64}(undef, numqueries)
     pools = getpools(index)
-    R = [Set{Int32}() for _ in knnlist]
 
     function lossfun(conf)
         vmin .= typemax(eltype(vmin))
@@ -33,40 +32,33 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         
         searchtime = @elapsed begin
             Threads.@threads for i in 1:length(queries)
-                knnlist[i] = reuse!(knnlist[i], ksearch)
-                _, v_ = runconfig(conf, index, queries[i], knnlist[i], pools)
+                _, c = runconfig(conf, index, queries[i], KnnResultView(knns, i), pools)
                 ti = Threads.threadid()
-                vmin[ti] = min(v_, vmin[ti])
-                vmax[ti] = max(v_, vmax[ti])
-                vacc[ti] += v_
+                vmin[ti] = min(c, vmin[ti])
+                vmax[ti] = max(c, vmax[ti])
+                vacc[ti] += c
             end
         end
 
-        for i in eachindex(knnlist)
-            res = knnlist[i]
-            covradius[i] = length(res) == 0 ? typemax(Float32) : maximum(res)
+        for (i, l) in enumerate(knns.len)
+            covradius[i] = l == 0 ? typemax(Float32) : knns.dist[l, i]
         end
 
         rmin, rmax = extrema(covradius)
         ravg = mean(covradius)
 
         recall = if gold !== nothing
-            for (i, res) in enumerate(knnlist)
-                empty!(R[i])
-                union!(R[i], res.id)
-            end
-
-            macrorecall(gold, R)
+            macrorecall(gold, knns.id)
         else
             nothing
         end
 
         verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index))")
         (;
-            visited=(minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)),
+            visited=(minimum(vmin), sum(vacc)/numqueries, maximum(vmax)),
             radius=(rmin, ravg, rmax),
             recall=recall,
-            searchtime=searchtime/length(knnlist)
+            searchtime=searchtime/numqueries
         )
     end
 end
@@ -75,7 +67,7 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
 """
     optimize!(
-        index::AbstractSearchContext,
+        index::AbstractSearchIndex,
         kind::ErrorFunction=ParetoRecall(),
         space::AbstractSolutionSpace=optimization_space(index);
         queries=nothing,
@@ -103,7 +95,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `verbose`: controls if the procedure is verbose or not
 """
 function optimize!(
-            index::AbstractSearchContext,
+            index::AbstractSearchIndex,
             kind::ErrorFunction=ParetoRecall(),
             space::AbstractSolutionSpace=optimization_space(index);
             queries=nothing,
@@ -120,13 +112,13 @@ function optimize!(
         queries = SubDatabase(index.db, sample)
     end
 
-    knnlist = [KnnResult(ksearch) for i in eachindex(queries)]
+    knns = KnnResultSet(ksearch, length(queries))
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
-        searchbatch(seq, queries, knnlist; parallel)
-        gold = [Set(res.id) for res in knnlist]
+        searchbatch(seq, queries, knns; parallel)
+        gold = copy(knns.id)
     end
 
     M = Ref(0.0)
@@ -138,9 +130,10 @@ function optimize!(
                 R[] = max(p.radius[end], R[])
             end
         end
+
     end
 
-    errorfun = create_error_function(index, gold, knnlist, queries, ksearch, verbose)
+    errorfun = create_error_function(index, gold, knns, queries, ksearch, verbose)
 
     function geterr(p)
         cost = p.visited[2] / M[]

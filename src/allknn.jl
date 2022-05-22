@@ -3,7 +3,7 @@
 export allknn
 
 """
-    allknn(g::AbstractSearchContext, k::Integer; parallel=false, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchIndex, k::Integer; parallel=false, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
@@ -22,15 +22,15 @@ Returns:
     Zero values in `knns` should be ignored in `dists`
 
 """
-function allknn(g::AbstractSearchContext, k::Integer; parallel=false, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, k::Integer; parallel=false, pools=getpools(g))
     n = length(g)
-    knns = zeros(Int32, k, n)
-    dists = Matrix{Float32}(undef, k, n)
-    allknn(g, knns, dists; parallel, pools)
+    R = KnnResultSet(k, n)
+    knns = allknn(g, R; parallel, pools)
+    knns.id, knns.dist
 end
 
-function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
-    k = size(knns, 1) + 1
+function _allknn_loop(g::SearchGraph, k, i, pools)
+    k += 1
     res = getknnresult(k, pools)
     vstate = getvstate(length(g), pools)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
@@ -42,7 +42,7 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
 
     # again for the same issue
     if length(res) < k
-        for j in 1:2k
+        for j in 1:k
             h = rand(1:length(g))
             visited(vstate, h) && continue
             @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
@@ -50,36 +50,40 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
         end
     end
 
-    _allknn_inner_loop(res, i, knns, dists)
+    res
 end
 
-function _allknn_loop(g, i, knns, dists, pools)
-    k = size(knns, 1) + 1
+function _allknn_loop(g::AbstractSearchIndex, k, i, pools)
+    k += 1
     res = getknnresult(k, pools)
     @inbounds search(g, g[i], res)
-    _allknn_inner_loop(res, i, knns, dists)
+    res
 end
 
-@inline function _allknn_inner_loop(res, i,  knns, dists)
+@inline function _allknn_inner_loop(knns::KnnResultSet, id, res::KnnResultSingle)
+    i = 1
     j = 0
-    @inbounds for (id, dist) in res
-        i == id && continue
+    k = size(knns, 1)
+    
+    @inbounds while j < k
+        id_, dist_ = res[i]
+        i += 1
+        id == id_ && continue
         j += 1
-        knns[j, i] = id
-        dists[j, i] = dist
+        knns.id[j, id] = id_
+        knns.dist[j, id] = dist_
     end
 end
 
 """
-allknn(g, knns, dists; parallel=false, pools=getpools(g)) -> knns, dists
+allknn(g, knns; parallel=false, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
 Arguments:
 
 - `g`: the index
-- `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
-- `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
+- `knns`: a knn result set of size ``(k, numqueries)``
 - `parallel`: If true, the construction will use all threads available threads
 - `pools`: A pools object, dependent of `g`
 
@@ -87,19 +91,22 @@ Results:
 
 - `knns` and `dists` are returned. Note that the index can retrieve less than `k` objects, and these are represented as zeros at the end of each column (can happen)
 """
-function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; parallel=false, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, knns::KnnResultSet; parallel=false, pools=getpools(g))
     n = length(g)
+    k = size(knns, 1)
     @assert n > 0
 
     if parallel
         Threads.@threads for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+            res = _allknn_loop(g, k, i, pools)
+            _allknn_inner_loop(knns, i, res)
         end
     else
         for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+            res = _allknn_loop(g, k, i, pools)
+            _allknn_inner_loop(knns, i, res)
         end
     end
     
-    knns, dists
+    knns
 end
