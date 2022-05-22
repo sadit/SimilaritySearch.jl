@@ -141,7 +141,7 @@ Reduces `res` using the DistSAT strategy.
     N = Vector{Int32}(undef, 2)
     resize!(N, 0)
     @inbounds for i in length(res):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
-        id, dist = getpair(res, i)
+        id, dist = res[i]
         sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
     end
 

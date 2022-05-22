@@ -11,7 +11,6 @@ include("distances/Distances.jl")
 
 include("db.jl")
 include("knnresult.jl")
-include("knnresultshift.jl")
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)

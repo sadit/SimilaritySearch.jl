@@ -1,9 +1,6 @@
 # This file is a part of SimilaritySearch.jl
-using Intersections
-
-export maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
-
 export KnnResult
+export maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
 
 """
     KnnResult(ksearch::Integer)
@@ -27,17 +24,15 @@ function KnnResult(k::Integer)
 end
 
 """
-    _shifted_fixorder!(res, shift)
+    _shifted_fixorder!(res::KnnResult, sp, ep)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function _shifted_fixorder!(res, shift)
-    sp = shift + 1
-    ep = lastindex(res.id)
+function _shifted_fixorder!(res::KnnResult, sp, ep)
     id, dist = res.id, res.dist
-    @inbounds i, d = id[end], dist[end]
+    @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)
     _shift_vector(id, pos, ep, i)
     _shift_vector(dist, pos, ep, d)
@@ -45,7 +40,7 @@ function _shifted_fixorder!(res, shift)
     nothing
 end
 
-@inline function _find_inspos(dist, sp, ep, d)
+@inline function _find_inspos(dist::Vector, sp, ep, d)
     @inbounds while ep > sp && d < dist[ep-1]
         ep -= 1
     end
@@ -53,13 +48,13 @@ end
     ep
 end
 
-@inline function _shift_vector(arr, sp, ep, val)
+@inline function _shift_vector(arr::Vector, sp, ep, val)
     @inbounds while ep > sp
         arr[ep] = arr[ep-1]
         ep -= 1
     end
 
-    arr[ep] = val
+    @inbounds arr[ep] = val
 end
 
 """
@@ -68,20 +63,21 @@ end
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResult, id::Integer, dist::Real)
-    if length(res) < maxlength(res)
-        k = res.k
+@inline function Base.push!(res::KnnResult, id::Integer, dist::Real; sp=1, k=maxlength(res))
+    len = length(res)
+
+    if len < k
         push!(res.id, id)
         push!(res.dist, dist)
     
-        _shifted_fixorder!(res, 0)
+        _shifted_fixorder!(res, sp, len+1)
         return true
     end
 
     dist >= last(res.dist) && return false
 
     @inbounds res.id[end], res.dist[end] = id, dist
-    _shifted_fixorder!(res, 0)
+    _shifted_fixorder!(res, sp, len)
     true
 end
 
@@ -128,6 +124,7 @@ Returns a result set and a new initial state; reuse the memory buffers
         sizehint!(res.id, k)
         sizehint!(res.dist, k)
     end
+
     KnnResult(res.id, res.dist, k)
 end
 
@@ -136,7 +133,7 @@ end
 
 Access the i-th item in `res`
 """
-@inline function getpair(res::KnnResult, i)
+@inline function Base.getindex(res::KnnResult, i)
     @inbounds res.id[i] => res.dist[i]
 end
 
@@ -166,5 +163,5 @@ Support for iteration
 function Base.iterate(res::KnnResult, i::Int=1)
     n = length(res)
     (n == 0 || i > n) && return nothing
-    @inbounds res.id[i] => res.dist[i], i+1
+    @inbounds res[i], i+1
 end
