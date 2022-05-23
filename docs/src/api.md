@@ -10,7 +10,7 @@ end
 
 ```@docs
 ExhaustiveSearch
-ParellelExhaustiveSearch
+ParallelExhaustiveSearch
 SearchGraph
 ```
 
