@@ -78,6 +78,11 @@ end
     reuse!(pools.satnears[Threads.threadid()], 1)
 end
 
+"""
+    getpools(index::SearchGraph)
+
+Creates or retrieve caches for the search graph.
+"""
 getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
 
 include("beamsearch.jl")

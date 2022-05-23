@@ -23,6 +23,7 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
+
 getpools(index::ParallelExhaustiveSearch) = nothing
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
