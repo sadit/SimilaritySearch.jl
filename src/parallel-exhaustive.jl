@@ -28,11 +28,11 @@ getpools(index::ParallelExhaustiveSearch) = nothing
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(ex::ParallelExhaustiveSearch, q, res::KnnResult; pools=nothing)
+    search(ex::ParallelExhaustiveSearch, q, res::AbstractKnnResult; pools=nothing)
 
 Solves the query evaluating all items in the given query.
 """
-function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; pools=nothing)
+function search(ex::ParallelExhaustiveSearch, q, res::AbstractKnnResult; pools=nothing)
     dist = ex.dist
     elock = ex.lock
     Threads.@threads for i in eachindex(ex)

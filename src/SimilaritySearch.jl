@@ -51,39 +51,29 @@ Note: The i-th column in indices and distances correspond to the i-th query in `
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
 function searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index))
-    m = length(Q)
-    KnnResultSet(k, m)
-    I = zeros(Int32, k, m)
-    D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, Q, I, D; parallel, pools)
+    R = KnnResultSet(k, length(Q))
+    searchbatch(index, Q, R; parallel, pools)
 end
 
 """
-    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index)) -> indices, distances
+    searchbatch(index, Q, R::KnnResultSet; parallel=false, pools=getpools(index)) -> indices, distances
 
-Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
+Searches a batch of queries in the given index using the given `KnnResultSet` as output (it also describes the number of neighbors to retrieve).
+The output are the `R` internal buffers
 
 """
-function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index))
-    k = size(I, 1)
-    
+function searchbatch(index, Q, R::KnnResultSet; parallel=false, pools=getpools(index))  
     if parallel
         Threads.@threads for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            @inbounds I[1:k_, i] .= res.id
-            @inbounds D[1:k_, i] .= res.dist
+            @inbounds search(index, Q[i], KnnResultView(R, i); pools)
         end
     else
         @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+            @inbounds search(index, Q[i], KnnResultView(R, i); pools)
         end
     end
 
-    I, D
+    R.id, R.dist
 end
 
 """

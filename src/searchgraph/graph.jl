@@ -96,7 +96,7 @@ include("hints.jl")
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, pools=getpools(index))
+function search(index::SearchGraph, q, res::AbstractKnnResult; hints=index.hints, pools=getpools(index))
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, pools)
     else

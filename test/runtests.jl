@@ -15,8 +15,6 @@ end
 include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
-
-exit(0)
 include("testallknn.jl")
 include("testneardup.jl")
 include("testclosestpair.jl")

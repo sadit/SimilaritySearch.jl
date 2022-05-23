@@ -30,14 +30,14 @@ end
 
 ### local search algorithm
 
-@inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
+@inline function beamsearch_queue(index::SearchGraph, q, res::AbstractKnnResult, objID, vstate)
     visited(vstate, objID) && return 0
     visit!(vstate, objID)
     @inbounds push!(res, objID, evaluate(index.dist, q, index[objID]))
     1
 end
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::AbstractKnnResult, hints, vstate, bsize)
     visited_ = 0
 
     for objID in hints
@@ -55,7 +55,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ, maxvisits, visited_)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::AbstractKnnResult, vstate, beam, Δ, maxvisits, visited_)
     push!(beam, argmin(res), minimum(res))
 
     bsize = maxlength(beam)
