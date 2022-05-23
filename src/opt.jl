@@ -120,7 +120,7 @@ function optimize!(
         queries = SubDatabase(index.db, sample)
     end
 
-    knnlist = [KnnResult(ksearch) for i in eachindex(queries)]
+    knnlist = [KnnResult(ksearch) for _ in eachindex(queries)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view index.db[1:length(index)]
