@@ -38,7 +38,7 @@ This function should be specialized for indexes and pools that use shared result
 end
 
 """
-    searchbatch(index, Q, k::Integer=10; parallel=false, pools=GlobalKnnResult) -> indices, distances
+    searchbatch(index, Q, k::Integer; parallel=false, pools=GlobalKnnResult) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
@@ -49,7 +49,7 @@ Searches a batch of queries in the given index (searches for k neighbors).
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index, Q, k::Integer=10; parallel=false, pools=getpools(index))
+function searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index))
     m = length(Q)
     I = zeros(Int32, k, m)
     D = Matrix{Float32}(undef, k, m)
@@ -69,8 +69,8 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
         Threads.@threads for i in eachindex(Q)
             res, _ = search(index, Q[i], getknnresult(k, pools); pools)
             k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+            @inbounds I[1:k_, i] .= res.id
+            @inbounds D[1:k_, i] .= res.dist
         end
     else
         @inbounds for i in eachindex(Q)
