@@ -103,7 +103,7 @@ example()
 
 The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$. 
 
-For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads). We used `SimilaritySearch.jl` v0.8.18 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
+For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads). We used `SimilaritySearch.jl` v0.8.20 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
 
 \begin{table}[!ht]
 
@@ -115,10 +115,10 @@ For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstati
 method & build     &  opt.     & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
          &  cost (s) &  cost (s) &  cost (s)             & cost (s)              & cost (s)         & (MB) &  recall \\ \hline
 ExhaustiveSearch            &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\ \hline
-SG ParetoRecall             &  1.60  & 0.0  &   0.14      &   0.27      &  0.64  & 181.55 &  0.82   \\
-SG \texttt{MinRecall(0.6)}  &  ''    & 0.12 &   0.06      &   0.22      &  0.26  &  ''    &  0.59   \\
-SG \texttt{MinRecall(0.9)}  &  ''    & 0.26 &   0.18      &   0.35      &  0.92  &  ''    &  0.89   \\
-SG \texttt{MinRecall(0.95)} &  ''    & 0.41 &   0.47      &   0.83      &  2.67  &  ''    &  0.96   \\ \hline
+SG ParetoRecall             &  1.76  & 0.0  &   0.14      &   0.31      &  0.70  & 182.19 &  0.84   \\
+SG \texttt{MinRecall(0.6)}  &  ''    & 0.12 &   0.05      &   0.37      &  0.23  &  ''    &  0.62   \\
+SG \texttt{MinRecall(0.9)}  &  ''    & 0.14 &   0.14      &   0.31      &  0.74  &  ''    &  0.88   \\
+SG \texttt{MinRecall(0.95)} &  ''    & 0.15 &   0.25      &   0.55      &  1.38  &  ''    &  0.96   \\ \hline
 SCANN                       & 25.11  &  -   &     -       &     -       &  2.14  & 201.95 &  1.00   \\
 HNSW (FAISS)                &  1.91  &  -   &     -       &     -       &  1.99  & 195.02 &  0.99   \\
 PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     

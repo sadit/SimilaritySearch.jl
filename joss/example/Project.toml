@@ -10,5 +10,5 @@ UnicodePlots = "b8865327-cd53-5732-bb35-84acbb429228"
 
 [compat]
 MLDatasets = "0.6.0"
-SimilaritySearch = "0.8.18"
+SimilaritySearch = "0.8.20"
 JSON = "0.21"
