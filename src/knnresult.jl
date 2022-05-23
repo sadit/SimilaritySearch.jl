@@ -1,6 +1,8 @@
 # This file is a part of SimilaritySearch.jl
-export KnnResult
-export maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
+export AbstractKnnResult, KnnResult
+export maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
+
+abstract type AbstractKnnResult end
 
 """
     KnnResult(ksearch::Integer)
@@ -9,7 +11,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-struct KnnResult # <: AbstractVector{Tuple{IdType,DistType}}
+struct KnnResult <: AbstractKnnResult
     id::Vector{Int32}
     dist::Vector{Float32}
     k::Int  # number of neighbors
@@ -24,13 +26,13 @@ function KnnResult(k::Integer)
 end
 
 """
-    _shifted_fixorder!(res::KnnResult, sp, ep)
+    _shifted_fixorder!(res::AbstractKnnResult, sp, ep)
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
+function _shifted_fixorder!(res::AbstractKnnResult, sp::Int, ep::Int)
     id, dist = res.id, res.dist
     @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)

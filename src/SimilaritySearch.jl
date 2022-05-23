@@ -11,6 +11,7 @@ include("distances/Distances.jl")
 
 include("db.jl")
 include("knnresult.jl")
+include("knnresultset.jl")
 @inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
@@ -51,6 +52,7 @@ Note: The final indices at each column can be `0` if the search process was unab
 """
 function searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index))
     m = length(Q)
+    KnnResultSet(k, m)
     I = zeros(Int32, k, m)
     D = Matrix{Float32}(undef, k, m)
     searchbatch(index, Q, I, D; parallel, pools)
