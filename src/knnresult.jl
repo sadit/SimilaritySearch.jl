@@ -38,7 +38,6 @@ struct KnnResultView <: AbstractKnnResult # <: AbstractVector{Tuple{IdType,DistT
     dist::Vector{Float32}
 
     function KnnResultView(parent::KnnResultSet, i::Integer)
-        parent.len[i]
         k = size(parent, 1)
         p = 1 + (i-1)*k
         
@@ -50,6 +49,7 @@ end
 
 """
     reuse!(res::KnnResultView)
+    reuse!(knns::KnnResultSet, i::Integer)
 
 Resets `res` to an empty state
 """
@@ -58,6 +58,10 @@ Resets `res` to an empty state
     res
 end
 
+@inline function reuse!(knns::KnnResultSet, i::Integer)
+    knns.len[i] = 0
+    KnnResultView(knns, i)
+end
 """
     _shifted_fixorder!(res)
 

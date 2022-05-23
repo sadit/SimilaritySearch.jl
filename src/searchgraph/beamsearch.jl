@@ -57,9 +57,9 @@ end
 
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::AbstractKnnResult, vstate, beam, Δ, maxvisits, visited_)
     push!(beam, argmin(res), minimum(res))
-
     bsize = maxlength(beam)
     sp = 1
+
     @inbounds while sp <= length(beam)
         prev_id = beam[sp].first
         sp += 1
@@ -79,6 +79,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::AbstractKn
         end
     end
 
+    @show sp, length(beam), bsize, visited_
     #=
     while 0 < length(beam)
         p = popfirst!(beam)

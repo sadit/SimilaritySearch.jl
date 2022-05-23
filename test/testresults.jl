@@ -48,14 +48,16 @@ end
 
 @testset "shifted vector-based result set" begin
     k = 10
-    res = KnnResultSingle(k)
-    res2 = KnnResultView(KnnResultSet(k, 1), 1)
-    V, Vsorted = create_random_array(50, k)
-    for i in eachindex(V)
-        push!(res, i, V[i])
-        push!(res2, i, V[i])
+    for _ in 1:100
+        res = KnnResultSingle(k)
+        res2 = KnnResultView(KnnResultSet(k, 1), 1)
+        V, Vsorted = create_random_array(50, k)
+        for i in eachindex(V)
+            push!(res, i, V[i])
+            push!(res2, i, V[i])
+        end
+        
+        testsorted(res, copy(Vsorted))
+        testsorted(res2, copy(Vsorted))
     end
-    
-    testsorted(res, copy(Vsorted))
-    testsorted(res2, copy(Vsorted))
 end

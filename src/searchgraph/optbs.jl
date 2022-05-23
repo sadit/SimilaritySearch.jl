@@ -40,11 +40,11 @@ optimization_space(index::SearchGraph) = BeamSearchSpace()
 function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     index.search_algo.bsize = bs.bsize
     index.search_algo.Δ = bs.Δ
-    index.search_algo.maxvisits = ceil(Int, 2perf.visited[end])
+    index.search_algo.maxvisits = ceil(Int, perf.visited[end])
 end
 
 function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResultView, pools)
-    search(bs, index, q, res, index.hints, pools; maxvisits = 4index.search_algo.maxvisits)
+    search(bs, index, q, res, index.hints, pools; maxvisits = 2index.search_algo.maxvisits)
     # search(bs, index, q, res, index.hints, pools)
 end
 

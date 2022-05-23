@@ -38,7 +38,7 @@ This function should be specialized for indexes and pools that use shared result
 end
 
 """
-    searchbatch(index, Q, k::Integer; parallel=false, pools=getpolls(index)) -> indices, distances
+    searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 

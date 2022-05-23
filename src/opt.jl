@@ -32,7 +32,7 @@ function create_error_function(index::AbstractSearchIndex, gold, knns::KnnResult
         
         searchtime = @elapsed begin
             Threads.@threads for i in 1:length(queries)
-                _, c = runconfig(conf, index, queries[i], KnnResultView(knns, i), pools)
+                _, c = runconfig(conf, index, queries[i], reuse!(knns, i), pools)
                 ti = Threads.threadid()
                 vmin[ti] = min(c, vmin[ti])
                 vmax[ti] = max(c, vmax[ti])
