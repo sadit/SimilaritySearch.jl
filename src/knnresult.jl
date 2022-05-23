@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 export maxlength, maxlength, getdist, getid, idview, distview, reuse!
-export AbstractKnnResult, KnnResultSet
+export AbstractKnnResult, KnnResultSet, KnnResultView
 
 abstract type AbstractKnnResult end
 
@@ -17,7 +17,7 @@ function KnnResultSet(k::Integer, m::Integer)
     KnnResultSet(
         Matrix{Int32}(undef, k, m),
         Matrix{Float32}(undef, k, m),
-        Vector{Int32}(undef, m)
+        zeros(Int32, m)
     )
 end
 
@@ -34,16 +34,18 @@ size is reached. After this only the smallest items based on distance are preser
 struct KnnResultView <: AbstractKnnResult # <: AbstractVector{Tuple{IdType,DistType}}
     parent::KnnResultSet
     i::Int
+    id::Vector{Int32}
+    dist::Vector{Float32}
 
-    function KnnResultView(parent::KnnResultSet, i::Integer) 
-        parent.len[i] = 0
-        new(parent, i)
+    function KnnResultView(parent::KnnResultSet, i::Integer)
+        parent.len[i]
+        k = size(parent, 1)
+        p = 1 + (i-1)*k
+        
+        new(parent, i,
+            unsafe_wrap(Vector{Int32}, pointer(parent.id, p), k),
+            unsafe_wrap(Vector{Float32}, pointer(parent.dist, p), k))
     end
-end
-
-function KnnResultView(k::Integer)
-    knns = KnnResultSet(k, 1)
-    KnnResultView(knns, 1)
 end
 
 """
@@ -66,28 +68,28 @@ distribution of the items being inserted (it is expected just a few elements sma
 function _shifted_fixorder!(res::KnnResultView)
     k = length(res)
     @inbounds i, d = res[k]
-    pos = _find_inspos(res.parent.dist, res.i, 1, k, d)
-    _shift_vector(res.parent.id, res.i, pos, k, i)
-    _shift_vector(res.parent.dist, res.i, pos, k, d)
+    pos = _find_inspos(res.dist, 1, k, d)
+    _shift_vector(res.id, pos, k, i)
+    _shift_vector(res.dist, pos, k, d)
 
     nothing
 end
 
-@inline function _find_inspos(dist::Matrix, col, sp, ep, d)
-    @inbounds while ep > sp && d < dist[ep-1, col]
+@inline function _find_inspos(dist::Vector, sp, ep, d)
+    @inbounds while ep > sp && d < dist[ep-1]
         ep -= 1
     end
 
     ep
 end
 
-@inline function _shift_vector(M::Matrix, col, sp, ep, val)
+@inline function _shift_vector(M::Vector, sp, ep, val)
     @inbounds while ep > sp
-        M[ep, col] = M[ep-1, col]
+        M[ep] = M[ep-1]
         ep -= 1
     end
 
-    M[ep, col] = val
+    M[ep] = val
 end
 
 ### push functions
@@ -103,8 +105,8 @@ Appends an item into the result set
 
     @inbounds if k < maxlength(res)
         k += 1
-        res.parent.id[k, res.i] = id
-        res.parent.dist[k, res.i] = dist
+        res.id[k] = id
+        res.dist[k] = dist
         res.parent.len[res.i] = k
     
         _shifted_fixorder!(res)
@@ -113,7 +115,7 @@ Appends an item into the result set
 
     dist >= maximum(res) && return false
 
-    @inbounds res.parent.id[k, res.i], res.parent.dist[k, res.i] = id, dist
+    @inbounds res.id[k], res.dist[k] = id, dist
     _shifted_fixorder!(res)
     true
 end
@@ -132,15 +134,15 @@ Removes and returns the nearest neeighboor pair from the pool, an O(length(p.poo
     @inbounds begin
         n = res.parent.len[res.i]
         res.parent.len[res.i] = n - 1
-        _popfirst!(res.parent.id, res.i, n) =>  _popfirst!(res.parent.dist, res.i, n)
+        _popfirst!(res.id, n) =>  _popfirst!(res.dist, n)
     end
 end
 
-@inline function _popfirst!(M::Matrix, col::Integer, len::Integer)
+@inline function _popfirst!(M::Vector, len::Integer)
     @inbounds begin
-        s = M[1, col]
+        s = M[1]
         for i in 1:len-1
-            M[i, col] = M[i+1, col]
+            M[i] = M[i+1]
         end
 
         s
@@ -156,14 +158,14 @@ Removes and returns the last item in the pool, it is an O(1) operation
     @inbounds begin
         n = res.parent.len[res.i]
         res.parent.len[res.i] = n - 1
-        getid(res, n) => getdist(res, n)
+        res[n]
     end
 end
 
 ##### access functions #######
 
-@inline getid(res::KnnResultView, i) = @inbounds res.parent.id[i, res.i] 
-@inline getdist(res::KnnResultView, i) = @inbounds res.parent.dist[i, res.i] 
+@inline getid(res::KnnResultView, i) = @inbounds res.id[i] 
+@inline getdist(res::KnnResultView, i) = @inbounds res.dist[i]
 
 """
     getindex(res::KnnResultView, i)
@@ -189,8 +191,8 @@ The maximum allowed cardinality (the k of knn)
 @inline Base.argmax(res::KnnResultView) = @inbounds getid(res, length(res))
 @inline Base.argmin(res::KnnResultView) = @inbounds getid(res, 1)
 
-@inline idview(res::KnnResultView) = @view res.parent.id[1:length(res), res.i]
-@inline distview(res::KnnResultView) = @view res.parent.dist[1:length(res), res.i]
+@inline idview(res::KnnResultView) = @view res.id[eachindex(res)]
+@inline distview(res::KnnResultView) = @view res.dist[eachindex(res)]
 
 @inline Base.eachindex(res::KnnResultView) = 1:length(res)
 Base.eltype(::KnnResultView) = Pair{Int32,Float32}

@@ -32,14 +32,14 @@ distribution of the items being inserted (it is expected just a few elements sma
 function _shifted_fixorder!(res::KnnResultSingle, sp, ep)
     id, dist = res.id, res.dist
     @inbounds i, d = id[ep], dist[ep]
-    pos = _find_inspos(dist, sp, ep, d)
-    _shift_vector(id, pos, ep, i)
-    _shift_vector(dist, pos, ep, d)
+    pos = _find_inspos_(dist, sp, ep, d)
+    _shift_vector_(id, pos, ep, i)
+    _shift_vector_(dist, pos, ep, d)
 
     nothing
 end
 
-@inline function _find_inspos(dist::Vector, sp, ep, d)
+@inline function _find_inspos_(dist::Vector, sp, ep, d)
     @inbounds while ep > sp && d < dist[ep-1]
         ep -= 1
     end
@@ -47,7 +47,7 @@ end
     ep
 end
 
-@inline function _shift_vector(arr::Vector, sp, ep, val)
+@inline function _shift_vector_(arr::Vector, sp, ep, val)
     @inbounds while ep > sp
         arr[ep] = arr[ep-1]
         ep -= 1
