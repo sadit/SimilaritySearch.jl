@@ -59,18 +59,25 @@ using Test
     @info graph.search_algo
     @test recall >= 0.6
 
-    @info "========================= Callback optimization ======================"
+    @info "========================= REBUILD TEST ======================"
     graph = SearchGraph(; db, dist, verbose=false)
-    neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
-    index!(graph; neighborhood, callbacks=SearchGraphCallbacks(MinRecall(0.9)))
-    optimize!(graph, MinRecall(0.9))
+    index!(graph; callbacks=SearchGraphCallbacks(MinRecall(0.9)))
+    optimize!(graph, MinRecall(0.9); queries)
     searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "testing without additional optimizations: queries per second:", m/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.6
 
-    @info "#############=========== Default parameters ==========###########"
+    @info "========================= rebuild process =========================="
+    graph = rebuild(graph)
+    optimize!(graph, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
+    searchtime_ = @elapsed I, D = searchbatch(graph, queries, ksearch)
+    recall_ = macrorecall(goldI, I)
+
+    @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
+
+    @info "#############=========== Default parameters (useful as fast benchmark) ==========###########"
     dim = 4
     db = MatrixDatabase(randn(Float32, dim, n))
     queries = MatrixDatabase(randn(Float32, dim, m))

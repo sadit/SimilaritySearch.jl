@@ -30,7 +30,7 @@ Sorts the result in place; the possible element out of order is on the last entr
 It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
-function _shifted_fixorder!(res::KnnResult, sp, ep)
+function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
     id, dist = res.id, res.dist
     @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)
@@ -40,15 +40,16 @@ function _shifted_fixorder!(res::KnnResult, sp, ep)
     nothing
 end
 
-@inline function _find_inspos(dist::Vector, sp, ep, d)
-    @inbounds while ep > sp && d < dist[ep-1]
+@inline function _find_inspos(dist::Vector{Float32}, sp::Int, ep::Int, d::Float32)
+    @inbounds while ep > sp
         ep -= 1
+        d < dist[ep] || return ep + 1
     end
 
     ep
 end
 
-@inline function _shift_vector(arr::Vector, sp, ep, val)
+@inline function _shift_vector(arr::Vector, sp::Int, ep::Int, val)
     @inbounds while ep > sp
         arr[ep] = arr[ep-1]
         ep -= 1
@@ -120,10 +121,6 @@ Returns a result set and a new initial state; reuse the memory buffers
     @assert k > 0
     empty!(res.id)
     empty!(res.dist)
-    if k > res.k
-        sizehint!(res.id, k)
-        sizehint!(res.dist, k)
-    end
 
     KnnResult(res.id, res.dist, k)
 end
@@ -141,16 +138,18 @@ end
 @inline getdist(res::KnnResult, i) = @inbounds res.dist[i]
 
 @inline Base.last(res::KnnResult) = last(res.id) => last(res.dist)
-@inline Base.first(res::KnnResult) = @inbounds res.id[1] => res.dist[1]
+@inline Base.first(res::KnnResult) = @inbounds first(res.id) => first(res.dist)
 @inline Base.maximum(res::KnnResult) = last(res.dist)
 @inline Base.minimum(res::KnnResult) = @inbounds res.dist[1]
 @inline Base.argmax(res::KnnResult) = last(res.id)
 @inline Base.argmin(res::KnnResult) = @inbounds res.id[1]
+@inline Base.firstindex(res::KnnResult) = 1
+@inline Base.lastindex(res::KnnResult) = length(res)
 
 @inline idview(res::KnnResult) = res.id
 @inline distview(res::KnnResult) = res.dist
 
-@inline Base.eachindex(res::KnnResult) = 1:length(res)
+@inline Base.eachindex(res::KnnResult) = firstindex(res):lastindex(res)
 Base.eltype(res::KnnResult) = Pair{Int32,Float32}
 
 ##### iterator interface
