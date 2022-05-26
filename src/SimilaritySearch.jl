@@ -118,7 +118,7 @@ end
 
 
 if ccall(:jl_generating_output, Cint, ()) == 1   # if we're precompiling the package
-    #@info "precompiling common combinations of indexes, distances, and databases"
+    @info "precompiling common combinations of indexes, distances, and databases"
     let
         # Note: something happens that the warming stage is not removed
         #=
