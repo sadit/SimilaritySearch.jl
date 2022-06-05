@@ -1,9 +1,9 @@
 # This file is a part of SimilaritySearch.jl
 
 export allknn
-
+using Polyester
 """
-    allknn(g::AbstractSearchContext, k::Integer; parallel=false, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchContext, k::Integer; parallel_block=32, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
@@ -22,42 +22,41 @@ Returns:
     Zero values in `knns` should be ignored in `dists`
 
 """
-function allknn(g::AbstractSearchContext, k::Integer; parallel=false, pools=getpools(g))
-    n = length(g)
-    knns = zeros(Int32, k, n)
-    dists = Matrix{Float32}(undef, k, n)
-    allknn(g, knns, dists; parallel, pools)
+function allknn(g::AbstractSearchContext, k::Integer; parallel_block=32, pools=getpools(g))
+    allknn(g, KnnResultSet(k, length(g)); parallel_block, pools)
 end
 
-function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
-    k = size(knns, 1) + 1
-    res = getknnresult(k, pools)
+function _allknn_loop(g::SearchGraph, i, R, pools)
+    k = size(R, 1)
+    res = reuse!(R, i)
     vstate = getvstate(length(g), pools)
+    visit!(vstate, i)
+    c = g[i]
+    #@inbounds search(g.search_algo, g, g[i], res, g.links[i], pools; vstate)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     for h in g.links[i] # hints
         visited(vstate, h) && continue
-        @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
+        search(g.search_algo, g, c, res, h, pools; vstate)
         length(res) == k && break
     end
 
     # again for the same issue
     if length(res) < k
-        for j in 1:2k
+        for _ in 1:k
             h = rand(1:length(g))
             visited(vstate, h) && continue
-            @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
+            @inbounds search(g.search_algo, g, c, res, h, pools; vstate)
             length(res) == k && break
         end
     end
-
-    _allknn_inner_loop(res, i, knns, dists)
+    R
 end
 
-function _allknn_loop(g, i, knns, dists, pools)
-    k = size(knns, 1) + 1
+function _allknn_loop(g, i, R, pools)
+    k = size(R, 1) + 1
     res = getknnresult(k, pools)
     @inbounds search(g, g[i], res)
-    _allknn_inner_loop(res, i, knns, dists)
+    _allknn_inner_loop(res, i, R.id, R.dist)
 end
 
 @inline function _allknn_inner_loop(res, i,  knns, dists)
@@ -71,7 +70,7 @@ end
 end
 
 """
-allknn(g, knns, dists; parallel=false, pools=getpools(g)) -> knns, dists
+allknn(g, knns, dists; parallel_block=32, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
@@ -87,19 +86,19 @@ Results:
 
 - `knns` and `dists` are returned. Note that the index can retrieve less than `k` objects, and these are represented as zeros at the end of each column (can happen)
 """
-function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; parallel=false, pools=getpools(g))
+function allknn(g::AbstractSearchContext, R; parallel_block=32, pools=getpools(g))
     n = length(g)
     @assert n > 0
 
-    if parallel
-        Threads.@threads for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+    if parallel_block > 1
+        @batch minbatch=512 per=thread for i in 1:n
+            _allknn_loop(g, i, R, pools)
         end
     else
         for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+            _allknn_loop(g, i, R, pools)
         end
     end
     
-    knns, dists
+    R.id, R.dist
 end

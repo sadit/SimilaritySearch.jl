@@ -16,4 +16,4 @@ end
 @info "warming"
 @info size(main(100, 10, 3))
 @info "large benchmark"
-@info size(main(100_000, 1000, 3))
+@info size(main(1000_000, 1000, 3))

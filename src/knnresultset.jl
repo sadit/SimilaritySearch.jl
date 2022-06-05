@@ -2,7 +2,6 @@
 
 export KnnResultSet, KnnResultView
 
-
 struct KnnResultSet
     id::Matrix{Int32}
     dist::Matrix{Float32}
@@ -32,16 +31,13 @@ size is reached. After this only the smallest items based on distance are preser
 struct KnnResultView <: AbstractKnnResult
     parent::KnnResultSet
     i::Int
-    id::Vector{Int32}
-    dist::Vector{Float32}
+    id::Ptr{Int32}
+    dist::Ptr{Float32}
 
     function KnnResultView(parent::KnnResultSet, i::Integer)
         k = size(parent, 1)
         p = 1 + (i-1)*k
-        
-        new(parent, i,
-            unsafe_wrap(Vector{Int32}, pointer(parent.id, p), k),
-            unsafe_wrap(Vector{Float32}, pointer(parent.dist, p), k))
+        new(parent, i, pointer(parent.id, p), pointer(parent.dist, p))
     end
 end
 
@@ -72,11 +68,11 @@ Appends an item into the result set
 @inline function Base.push!(res::KnnResultView, id::Integer, dist::Real)
     k = length(res)
 
-    @inbounds if k < maxlength(res)
+    if k < maxlength(res)
         k += 1
-        res.id[k] = id
-        res.dist[k] = dist
-        res.parent.len[res.i] = k
+        unsafe_store!(res.id, id, k)
+        unsafe_store!(res.dist, dist, k)
+        @inbounds res.parent.len[res.i] = k
     
         _shifted_fixorder!(res, 1, k)
         return true
@@ -84,9 +80,45 @@ Appends an item into the result set
 
     dist >= maximum(res) && return false
 
-    @inbounds res.id[k], res.dist[k] = id, dist
+    unsafe_store!(res.id, id, k)
+    unsafe_store!(res.dist, dist, k)
     _shifted_fixorder!(res, 1, k)
     true
+end
+
+"""
+    _shifted_fixorder!(res::KnnResultView, sp, ep)
+
+Sorts the result in place; the possible element out of order is on the last entry always.
+It implements a kind of insertion sort that it is efficient due to the expected
+distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
+"""
+function _shifted_fixorder!(res::KnnResultView, sp::Int, ep::Int)
+    id, dist = res.id, res.dist
+    @inbounds i, d = unsafe_load(id, ep), unsafe_load(dist, ep)
+    pos = _find_inspos(dist, sp, ep, d)
+    _shift_vector(id, pos, ep, i)
+    _shift_vector(dist, pos, ep, d)
+
+    nothing
+end
+
+@inline function _find_inspos(dist::Ptr{Float32}, sp::Int, ep::Int, d::Float32)
+    @inbounds while ep > sp
+        ep -= 1
+        d < unsafe_load(dist, ep) || return ep + 1
+    end
+
+    ep
+end
+
+@inline function _shift_vector(arr::Ptr, sp::Int, ep::Int, val)
+    while ep > sp
+        unsafe_store!(arr, unsafe_load(arr, ep-1), ep)
+        ep -= 1
+    end
+
+    unsafe_store!(arr, val, ep)
 end
 
 #@inline Base.push!(res::KnnResultView, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
@@ -107,11 +139,11 @@ Removes and returns the nearest neeighboor pair from the pool, an O(length(p.poo
     end
 end
 
-@inline function _popfirst!(M::Vector, len::Integer)
+@inline function _popfirst!(M::Ptr, len::Integer)
     @inbounds begin
-        s = M[1]
+        s = unsafe_load(M, 1)
         for i in 1:len-1
-            M[i] = M[i+1]
+            unsafe_store!(M, unsafe_load(M, i+1), i)
         end
 
         s
@@ -133,8 +165,8 @@ end
 
 ##### access functions #######
 
-@inline getid(res::KnnResultView, i) = @inbounds res.id[i] 
-@inline getdist(res::KnnResultView, i) = @inbounds res.dist[i]
+@inline getid(res::KnnResultView, i) = unsafe_load(res.id, i)
+@inline getdist(res::KnnResultView, i) = unsafe_load(res.dist, i)
 
 """
     getindex(res::KnnResultView, i)
@@ -160,8 +192,8 @@ The maximum allowed cardinality (the k of knn)
 @inline Base.argmax(res::KnnResultView) = @inbounds getid(res, length(res))
 @inline Base.argmin(res::KnnResultView) = @inbounds getid(res, 1)
 
-@inline idview(res::KnnResultView) = @view res.id[eachindex(res)]
-@inline distview(res::KnnResultView) = @view res.dist[eachindex(res)]
+@inline idview(res::KnnResultView) = @view res.parent.id[eachindex(res), res.i]
+@inline distview(res::KnnResultView) = @view res.parent.dist[eachindex(res), res.i]
 
 @inline Base.eachindex(res::KnnResultView) = 1:length(res)
 Base.eltype(::KnnResultView) = Pair{Int32,Float32}
