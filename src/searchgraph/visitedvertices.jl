@@ -20,7 +20,7 @@ end
 
 const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
-#const GlobalVisitedVertices = [Set{Int32}()]  # initialized at __init__ function
+# const GlobalVisitedVertices = [Set{Int32}()]  # initialized at __init__ function
 
 function __init__visitedvertices()
     for i in 2:Threads.nthreads()

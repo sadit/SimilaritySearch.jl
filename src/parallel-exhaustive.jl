@@ -23,19 +23,28 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-
 getpools(index::ParallelExhaustiveSearch) = nothing
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(ex::ParallelExhaustiveSearch, q, res::KnnResult; pools=nothing)
+    search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
 
 Solves the query evaluating all items in the given query.
+
+# Arguments
+- `ex`: the search structure
+- `q`: the query to solve
+- `res`: the result set
+
+# Keyword arguments
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminibatch`](@ref)
+- `pools`: The set of caches (nothing for this index)
 """
-function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; pools=nothing)
+function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
     dist = ex.dist
     elock = ex.lock
-    Threads.@threads for i in eachindex(ex)
+    minbatch = getminibatch(minbatch, length(ex))
+    @batch minbatch=minbatch for i in eachindex(ex)
         d = evaluate(dist, ex[i], q)
         try
             lock(elock)

@@ -18,6 +18,7 @@ function setconfig! end
 
 function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
     n = length(index)
+    m = length(queries)
     nt = Threads.nthreads()
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
@@ -32,7 +33,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         vacc .= 0.0
         
         searchtime = @elapsed begin
-            Threads.@threads for i in 1:length(queries)
+            @batch minbatch=getminibatch(0, m) for i in 1:m
                 knnlist[i] = reuse!(knnlist[i], ksearch)
                 _, v_ = runconfig(conf, index, queries[i], knnlist[i], pools)
                 ti = Threads.threadid()
@@ -82,6 +83,7 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         ksearch=10,
         numqueries=64,
         initialpopulation=8,
+        minbatch=0,
         verbose=false,
         params=SearchParams(; maxpopulation=8, bsize=4, mutbsize=8, crossbsize=2, tol=-1.0, maxiters=8, verbose)
     )
@@ -98,6 +100,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `queries_ksearch`: the number of neighbors to retrieve for `queries`
 - `queries_size`: if `queries===nothing` then a sample of the already indexed database is used, `queries_size` is the size of the sample.
 - `initialpopulation`: the initial sample for the optimization procedure
+- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `space`: defines the search space
 - `params`: the parameters of the solver, see [`search_models` function from `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
 - `verbose`: controls if the procedure is verbose or not
@@ -110,7 +113,7 @@ function optimize!(
             ksearch=10,
             numqueries=64,
             initialpopulation=16,
-            parallel=true,
+            minbatch=0,
             verbose=false,
             params=SearchParams(; maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16, verbose)
     )
@@ -125,7 +128,7 @@ function optimize!(
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
-        searchbatch(seq, queries, knnlist; parallel)
+        searchbatch(seq, queries, knnlist; minbatch)
         gold = [Set(res.id) for res in knnlist]
     end
 
