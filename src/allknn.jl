@@ -3,7 +3,7 @@
 export allknn
 
 """
-    allknn(g::AbstractSearchContext, k::Integer; parallel_block=512, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
@@ -11,7 +11,7 @@ Parameters:
 
 - `g`: the index
 - `k`: the number of neighbors to retrieve
-- `parallel_block`: Number of elements to handle in parallel (it should be set as a small number of times the number of available threads). Set `parallel_block=1` to avoid parallel execution.
+- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `pools`: A pools object, dependent of `g`
 
 Returns:
@@ -22,11 +22,11 @@ Returns:
     Zero values in `knns` should be ignored in `dists`
 
 """
-function allknn(g::AbstractSearchContext, k::Integer; parallel_block=512, pools=getpools(g))
+function allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g))
     n = length(g)
     knns = zeros(Int32, k, n)
     dists = Matrix{Float32}(undef, k, n)
-    allknn(g, knns, dists; parallel_block, pools)
+    allknn(g, knns, dists; minbatch, pools)
 end
 
 function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
@@ -88,21 +88,34 @@ Arguments:
 - `g`: the index
 - `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
 - `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
-- `parallel_block`: Block of elements that will be handled in parallel at a time
+- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `pools`: A pools object, dependent of `g`
 
 Results:
 
 - `knns` and `dists` are returned. Note that the index can retrieve less than `k` objects, and these are represented as zeros at the end of each column (can happen)
 """
-function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; parallel_block=512, pools=getpools(g))
+function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
+    minbatch = getminibatch(minbatch, n)
 
-    if parallel_block > 1
-        @batch minbatch=parallel_block per=thread for i in 1:n
+    if minbatch > 0
+        @batch minbatch=minbatch per=thread for i in 1:n
             _allknn_loop(g, i, knns, dists, pools)
         end
+        #=B = floor(Int, n / minbatch)
+        Threads.@threads for b in 1:B
+            ep = b * minbatch
+            sp = ep - minbatch + 1
+            ep = min(ep, n)
+
+            for i in sp:ep
+            
+                _allknn_loop(g, i, knns, dists, pools)
+            end
+        end
+        =#
     else
         for i in 1:n
             _allknn_loop(g, i, knns, dists, pools)

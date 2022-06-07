@@ -24,7 +24,7 @@ function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGr
     reverse = Vector{Vector{Int32}}(undef, n)
     minbatch = minbatch < 0 ? n : getminibatch(minbatch, n)
 
-    @batch minbatch=minbatch for i in 1:n
+    @batch minbatch=minbatch per=thread for i in 1:n
         @inbounds direct[i] = find_neighborhood(g, g[i], neighborhood, pools, hints=g.links[i][1])
         reverse[i] = Vector{Int32}(undef, 0)
     end
@@ -36,7 +36,7 @@ function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGr
 end
 
 function _connect_reverse_links_neg(direct, reverse, locks, sp, ep, minbatch)
-    @batch minbatch=minbatch for i in sp:ep
+    @batch minbatch=minbatch per=thread for i in sp:ep
         j = 0
         D = direct[i]
         @inbounds while j < length(D)
@@ -58,7 +58,7 @@ function _connect_reverse_links_neg(direct, reverse, locks, sp, ep, minbatch)
         end
     end
 
-    @batch minbatch=minbatch for i in sp:ep
+    @batch minbatch=minbatch per=thread for i in sp:ep
         @inbounds begin
             if length(direct[i]) >= length(reverse[i])
                 append!(direct[i], reverse[i])

@@ -223,7 +223,7 @@ function prune!(r::RandomPruning, index::SearchGraph; minbatch=0, pools=getpools
     n = length(index)
     minbatch = getminbatch(minbatch, n)
 
-    @batch minbatch=minbatch for i in 1:n
+    @batch minbatch=minbatch per=thread for i in 1:n
         @inbounds L = index.links[i]
         if length(L) > r.k
             shuffle!(L)

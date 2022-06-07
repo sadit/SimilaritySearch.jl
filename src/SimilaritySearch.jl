@@ -67,7 +67,7 @@ function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
 end
 
 """
-    getminibatch(minbatch)
+    getminibatch(minbatch, n)
 
 Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
 the thread is used (in minibatches). 
@@ -79,7 +79,9 @@ the thread is used (in minibatches).
   - Set `minbatch=-1` to avoid parallelism.
 
 """
-getminibatch(minbatch, n) = minbatch == 0 ? ceil(Int, 0.5 * n / Threads.nthreads()) : ceil(Int, minbatch)
+function getminibatch(minbatch, n)
+    minbatch == 0 ? min(4, ceil(Int, 1/16 * n / Threads.nthreads())) : ceil(Int, minbatch)
+end
 
 """
     searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index)) -> indices, distances
@@ -103,8 +105,8 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
     minbatch = getminibatch(minbatch, length(Q))
 
     if minbatch > 0
-        @batch minbatch=minbatch for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
             k_ = length(res)
             @inbounds I[1:k_, i] .= res.id
             @inbounds D[1:k_, i] .= res.dist
@@ -137,8 +139,8 @@ function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools
     minbatch = getminibatch(minbatch, length(Q))
 
     if minbatch > 0
-        @batch minbatch=minbatch for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i]; pools)
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            @inbounds search(index, Q[i], KNN[i]; pools=pools)
         end
     else
         @inbounds for i in eachindex(Q)

@@ -44,7 +44,7 @@ function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, poo
     dist = ex.dist
     elock = ex.lock
     minbatch = getminibatch(minbatch, length(ex))
-    @batch minbatch=minbatch for i in eachindex(ex)
+    @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, ex[i], q)
         try
             lock(elock)
