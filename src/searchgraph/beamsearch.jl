@@ -60,11 +60,11 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::AbstractKn
 
     bsize = maxlength(beam)
     sp = 1
+
     @inbounds while sp <= length(beam)
         prev_id = beam[sp].first
         sp += 1
-        
-        for childID in index.links[prev_id]
+        for (i, childID) in enumerate(index.links[prev_id])
             visited(vstate, childID) && continue
             visit!(vstate, childID)
             d = evaluate(index.dist, q, index[childID])
@@ -73,6 +73,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::AbstractKn
             visited_ > maxvisits && @goto finish_search
             if d <= Δ * maximum(res)
                 push!(beam, childID, d; sp, k=bsize+sp)
+                # rand() < 1 / (sp-1) && continue
                 # @assert length(beam) <= bsize+sp "$sp, $bsize, $(sp+bsize), $(length(beam))"
                 # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
             end

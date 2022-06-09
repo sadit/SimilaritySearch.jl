@@ -121,9 +121,8 @@ Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::KnnResult, k::Integer=res.k)
     @assert k > 0
-    empty!(res.id)
-    empty!(res.dist)
-
+    empty!(res.id); empty!(res.dist)
+    # sizehint!(res.id, k), sizehint!(res.dist, k)
     KnnResult(res.id, res.dist, k)
 end
 

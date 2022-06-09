@@ -27,9 +27,16 @@ end
 ksearch = 10
 n = 1000
 res = KnnResultView(KnnResultSet(ksearch, 1), 1)
-
+@timev main(res, n)
+res = KnnResult(ksearch)
 @timev main(res, n)
 
+@info "======================== REAL BENCHMARK ====================="
+@info "=== KnnResultSet"
 n = 30_000_000
 res = KnnResultView(KnnResultSet(ksearch, 1), 1)
+@timev main(res, n)
+
+@info "=== KnnResult"
+res = KnnResult(ksearch)
 @timev main(res, n)

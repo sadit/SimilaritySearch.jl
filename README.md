@@ -45,6 +45,13 @@ Contributions are welcome. Please fill a pull request for documentating and impl
 # Issues
 Report issues in the package providing a minimal reproducible example. If the issue is data dependant, please don't forget to provide the necessary data to reproduce it.
 
+## Limitations of `SearchGraph`
+The main search structucture, the `SearchGraph` is a graph with several characteristics, many of them, induced by the dataset being indexed. Some of its known limitations are related with these characteristics. For instance:
+
+- Metric distances are known to work well, in the other hand, semi-metric should work but routing capabilities are not yet characterized.
+- Even when it performs pretty well as compared with alternatives, discrete metrics like Levenshtein distance and others that take few possible values may also get low performances.
+- Something similar will happen when there exists a lot of near duplicates (elements that are **pretty** close). In this case, it is necessary to remove near duplicates and put them in _bags_ associated to some of its near object.
+- Very high dimensional datasets will produce _long-tail_ distributions of the number of edges per vertex. In extreme cases, you must prune large neighborhoods and enrich single-edge paths.
 
 # About the structures and algorithms
 The following manuscript describes and benchmarks the `SearchGraph` index (package version `0.6`):
@@ -58,7 +65,7 @@ The following manuscript describes and benchmarks the `SearchGraph` index (packa
   publisher={Springer}
 }
 
-``` 
+```
 
 The current algorithm (version `0.8`) is described and benchmarked in the following manuscript:
 ```
@@ -72,4 +79,3 @@ The current algorithm (version `0.8`) is described and benchmarked in the follow
       primaryClass={cs.IR}
 }
 ```
-
