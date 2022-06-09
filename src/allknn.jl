@@ -39,7 +39,7 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     ##prev = typemax(Float32)
     for h in g.links[i] # hints
         visited(vstate, h) && continue
-        @inbounds search(g.search_algo, g, c, res, h, pools; vstate)
+        search(g.search_algo, g, c, res, h, pools; vstate)
         ## curr = maximum(res)
         length(res) == k && break
         ##curr == prev && break
@@ -51,14 +51,15 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
         for _ in 1:k
             h = rand(1:length(g))
             visited(vstate, h) && continue
-            
-            @inbounds search(g.search_algo, g, g[i], res, h, pools; vstate)
+            search(g.search_algo, g, c, res, h, pools; vstate)
             length(res) == k && break
-            
         end
     end
 
     _allknn_inner_loop(res, i, knns, dists)
+    #=_k = length(res)
+    knns[1:_k, i] .= res.id
+    dists[1:_k, i] .= res.dist=#
 end
 
 function _allknn_loop(g, i, knns, dists, pools)
@@ -104,18 +105,6 @@ function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::Ab
         @batch minbatch=minbatch per=thread for i in 1:n
             _allknn_loop(g, i, knns, dists, pools)
         end
-        #=B = floor(Int, n / minbatch)
-        Threads.@threads for b in 1:B
-            ep = b * minbatch
-            sp = ep - minbatch + 1
-            ep = min(ep, n)
-
-            for i in sp:ep
-            
-                _allknn_loop(g, i, knns, dists, pools)
-            end
-        end
-        =#
     else
         for i in 1:n
             _allknn_loop(g, i, knns, dists, pools)

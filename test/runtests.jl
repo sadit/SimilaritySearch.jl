@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
+using SimilaritySearch, LinearAlgebra
 
-using LinearAlgebra
 
 function create_sequence(dim, sort)
     s = rand(1:10, dim)
