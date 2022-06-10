@@ -31,6 +31,7 @@ It implements a kind of insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
 """
 function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
+    ep == sp && return
     id, dist = res.id, res.dist
     @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)
@@ -41,6 +42,12 @@ function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
 end
 
 @inline function _find_inspos(dist::Vector{Float32}, sp::Int, ep::Int, d::Float32)
+    @inbounds while (mid = ep-sp) > 16
+        mid = sp + (mid >> 1)
+        d < dist[mid] || break
+        ep = mid
+    end
+    
     @inbounds while ep > sp
         ep -= 1
         d < dist[ep] || return ep + 1
@@ -50,12 +57,9 @@ end
 end
 
 @inline function _shift_vector(arr::Vector, sp::Int, ep::Int, val)
-    @inbounds while ep > sp
-        arr[ep] = arr[ep-1]
-        ep -= 1
-    end
-
-    @inbounds arr[ep] = val
+    #=@inbounds while ep > sp;  arr[ep] = arr[ep-1]; ep -= 1; end=#
+    unsafe_copyto!(arr, sp+1, arr, sp, ep-sp)
+    @inbounds arr[sp] = val
 end
 
 """

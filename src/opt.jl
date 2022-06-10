@@ -33,7 +33,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         vacc .= 0.0
         
         searchtime = @elapsed begin
-            @batch minbatch=getminibatch(0, m) per=thread for i in 1:m
+            @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
                 knnlist[i] = reuse!(knnlist[i], ksearch)
                 _, v_ = runconfig(conf, index, queries[i], knnlist[i], pools)
                 ti = Threads.threadid()

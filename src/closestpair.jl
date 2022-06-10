@@ -40,7 +40,7 @@ function parallel_closestpair(idx::AbstractSearchContext, pools, minbatch)::Tupl
     n = length(idx)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.nthreads()]
 
-    minbatch = getminibatch(minbatch, n)
+    minbatch = getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for objID in 1:n
         id_, d_ = search_hint(idx, objID, pools)

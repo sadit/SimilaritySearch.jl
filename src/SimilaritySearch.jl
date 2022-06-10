@@ -67,7 +67,7 @@ function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
 end
 
 """
-    getminibatch(minbatch, n)
+    getminbatch(minbatch, n)
 
 Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
 the thread is used (in minibatches). 
@@ -79,7 +79,7 @@ the thread is used (in minibatches).
   - Set `minbatch=-1` to avoid parallelism.
 
 """
-function getminibatch(minbatch, n)
+function getminbatch(minbatch, n)
     minbatch == 0 ? min(4, ceil(Int, 1/16 * n / Threads.nthreads())) : ceil(Int, minbatch)
 end
 
@@ -94,7 +94,7 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 - `k`: The number of neighbors to retrieve
 
 # Keyword arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminibatch`](@ref)
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
 - `pools`: relevant for special datasets or distance functions. 
     In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
@@ -102,7 +102,7 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 """
 function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
     k = size(I, 1)
-    minbatch = getminibatch(minbatch, length(Q))
+    minbatch = getminbatch(minbatch, length(Q))
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
@@ -129,14 +129,14 @@ end
 Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
 
 # Arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminibatch`](@ref)
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
 - `pools`: relevant for special datasets or distance functions. 
     In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
 """
 function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
-    minbatch = getminibatch(minbatch, length(Q))
+    minbatch = getminbatch(minbatch, length(Q))
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in eachindex(Q)

@@ -37,13 +37,13 @@ Solves the query evaluating all items in the given query.
 - `res`: the result set
 
 # Keyword arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminibatch`](@ref)
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
 - `pools`: The set of caches (nothing for this index)
 """
 function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
     dist = ex.dist
     elock = ex.lock
-    minbatch = getminibatch(minbatch, length(ex))
+    minbatch = getminbatch(minbatch, length(ex))
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, ex[i], q)
         try

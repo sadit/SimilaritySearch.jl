@@ -108,7 +108,7 @@ function _sequential_append_loop!(index::SearchGraph, neighborhood::Neighborhood
 end
 
 function _connect_links(index, sp, ep)
-    minbatch = getminibatch(0, ep-sp+1)
+    minbatch = getminbatch(0, ep-sp+1)
     @batch minbatch=minbatch per=thread for i in sp:ep
         @inbounds for id in index.links[i]
             lock(index.locks[id])
@@ -129,7 +129,7 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
 
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
-        @batch minbatch=getminibatch(0, ep-sp+1) per=thread for i in sp:ep
+        @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
             @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)
         end
 

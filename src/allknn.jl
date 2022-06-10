@@ -99,7 +99,7 @@ Results:
 function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
-    minbatch = getminibatch(minbatch, n)
+    minbatch = getminbatch(minbatch, n)
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in 1:n
