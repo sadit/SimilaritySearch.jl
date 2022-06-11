@@ -5,7 +5,7 @@
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=(Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()),
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
@@ -36,7 +36,7 @@ function Base.append!(
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=(Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()),
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)
@@ -63,7 +63,7 @@ function Base.append!(
 end
 
 """
-    index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks())
+    index!(index::SearchGraph; parallel_block=(Threads.nthreads() == 1 ? 1 : 8 Threads.nthreads(), parallel_minimum_first_block=parallel_block, callbacks=Sear* chGraphCallbacks()))
 
 Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
 The arguments are the same than `append!` function but using the internal `index.db` as input.
@@ -72,7 +72,7 @@ The arguments are the same than `append!` function but using the internal `index
 function index!(
         index::SearchGraph;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=(Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()),
         parallel_minimum_first_block=parallel_block,
         callbacks=SearchGraphCallbacks(),
         pools=getpools(index)

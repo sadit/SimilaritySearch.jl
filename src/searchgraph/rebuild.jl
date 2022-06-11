@@ -22,7 +22,7 @@ function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGr
     @assert n > 0
     direct = Vector{Vector{Int32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     reverse = Vector{Vector{Int32}}(undef, n)
-    minbatch = minbatch < 0 ? n : getminibatch(minbatch, n)
+    minbatch = minbatch < 0 ? n : getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
         @inbounds direct[i] = find_neighborhood(g, g[i], neighborhood, pools, hints=g.links[i][1])
