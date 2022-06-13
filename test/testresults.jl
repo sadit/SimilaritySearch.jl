@@ -60,7 +60,7 @@ end
 @testset "shifted vector-based result set" begin
     k = 10
     S = KnnResultSet(k, 1)
-    res = reuse!(S, 1)
+    res = KnnResult(S, 1)
     V, Vsorted = create_random_array(50, k)
     for i in eachindex(V)
         push!(res, i, V[i])
@@ -69,4 +69,3 @@ end
     testsorted(res, copy(Vsorted))
 end
 
-exit(0)

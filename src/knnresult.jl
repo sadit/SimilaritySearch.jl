@@ -4,7 +4,9 @@ export maxlength, getdist, getid, idview, distview, reuse!
 
 ###### KnnResult backends
 ### array implementation, can grow efficiently
-struct IdDistArray
+
+abstract type AbstractIdDist end
+struct IdDistArray <: AbstractIdDist
     id::Vector{Int32}
     dist::Vector{Float32}
     k::Int  # number of neighbors
@@ -110,12 +112,6 @@ function KnnResultSet(k::Integer, m::Integer)
     )
 end
 
-function reuse!(s::KnnResultSet, i::Integer)
-    k = size(s.id, 1)
-    sp = (i - 1) * k + 1
-    KnnResult(IdDistViews(s, i, pointer(s.id, sp), pointer(s.dist, sp)))
-end
-
 """
     IdDistViews(ksearch::Integer)
 
@@ -123,7 +119,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-struct IdDistViews
+struct IdDistViews <: AbstractIdDist
     parent::KnnResultSet
     i::Int
     id::Ptr{Int32}
@@ -204,7 +200,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-struct KnnResult{IdDistArray_} # <: AbstractVector{Tuple{IdType,DistType}}
+struct KnnResult{IdDistArray_<:AbstractIdDist}
     items::IdDistArray_
 end
 
@@ -215,8 +211,11 @@ function KnnResult(k::Integer)
     KnnResult(items)
 end
 
-KnnResult(s::KnnResultSet, i) = reuse!(s, i)
-
+function KnnResult(s::KnnResultSet, i::Integer)
+    k = size(s.id, 1)
+    sp = (i - 1) * k + 1
+    KnnResult(IdDistViews(s, i, pointer(s.id, sp), pointer(s.dist, sp)))
+end
 
 """
     push!(res::KnnResult, item::Pair)
