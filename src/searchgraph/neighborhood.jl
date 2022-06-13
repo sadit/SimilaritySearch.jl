@@ -136,7 +136,7 @@ function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnRe
 end
 
 function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
-    copy(res.id)
+    copy(idview(res))
 end
 
 """

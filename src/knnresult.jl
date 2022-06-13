@@ -2,10 +2,54 @@
 export KnnResult
 export maxlength, maxlength, getdist, getid, idview, distview, reuse!
 
-
 struct IdDistArray
     id::Vector{Int32}
     dist::Vector{Float32}
+    k::Int  # number of neighbors
+end
+
+@inline idview(a::IdDistArray) = a.id
+@inline distview(a::IdDistArray) = a.dist
+@inline getid(a::IdDistArray, i::Integer) = @inbounds a.id[i]
+@inline getdist(a::IdDistArray, i::Integer) = @inbounds a.dist[i]
+@inline maxlength(a::IdDistArray) = a.k
+@inline Base.maximum(a::IdDistArray) = last(a.dist)
+@inline Base.argmax(a::IdDistArray) = last(a.id)
+@inline Base.minimum(a::IdDistArray) = first(a.dist)
+@inline Base.argmin(a::IdDistArray) = first(a.id)
+@inline Base.length(a::IdDistArray) = length(a.id)
+@inline Base.firstindex(a::IdDistArray) = 1
+@inline Base.lastindex(a::IdDistArray) = length(a)
+@inline Base.first(a::IdDistArray) = @inbounds a[begin]
+@inline Base.last(a::IdDistArray) = @inbounds a[end]
+@inline Base.eachindex(a::IdDistArray) = eachindex(a.id)
+@inline Base.popfirst!(a::IdDistArray) = popfirst!(a.id) => popfirst!(a.dist)
+@inline Base.pop!(a::IdDistArray) = pop!(a.id) => pop!(a.dist)
+@inline Base.getindex(a::IdDistArray, i::Integer) = @inbounds (a.id[i] => a.dist[i])
+
+@inline function Base.push!(a::IdDistArray, p::Pair)
+    push!(a.id, p.first)
+    push!(a.dist, p.second)
+    a
+end
+
+@inline function Base.setindex!(a::IdDistArray, p::Pair, i::Integer)
+    @inbounds a.id[i] = p.first
+    @inbounds a.dist[i] = p.second
+end
+
+@inline function Base.sizehint!(a::IdDistArray, sz::Integer)
+    sizehint!(a.id, sz)
+    sizehint!(a.dist, sz)
+    a
+end
+
+function reuse!(a::IdDistArray, k::Integer)
+    @assert k > 0
+    empty!(a.id)
+    empty!(a.dist)
+    sizehint!(a, k)
+    IdDistArray(a.id, a.dist, k)
 end
 
 """
@@ -17,15 +61,13 @@ size is reached. After this only the smallest items based on distance are preser
 """
 struct KnnResult{IdDistArray_} # <: AbstractVector{Tuple{IdType,DistType}}
     items::IdDistArray_
-    k::Int  # number of neighbors
 end
 
 function KnnResult(k::Integer)
     @assert k > 0
-    res = KnnResult(IdDistArray(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0)), k)
-    sizehint!(res.items.id, k)
-    sizehint!(res.items.dist, k)
-    res
+    items = IdDistArray(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    sizehint!(items, k)
+    KnnResult(items)
 end
 
 """
@@ -37,12 +79,11 @@ distribution of the items being inserted (it is expected just a few elements sma
 """
 function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
     ep == sp && return
-    id, dist = res.id, res.dist
+    id, dist = res.items.id, res.items.dist
     @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)
     _shift_vector(id, pos, ep, i)
     _shift_vector(dist, pos, ep, d)
-
     nothing
 end
 
@@ -77,16 +118,14 @@ Appends an item into the result set
     len = length(res)
 
     if len < k
-        push!(res.id, id)
-        push!(res.dist, dist)
-    
+        push!(res.items, id => dist)
         _shifted_fixorder!(res, sp, len+1)
         return true
     end
 
-    dist >= last(res.dist) && return false
+    dist >= maximum(res) && return false
 
-    @inbounds res.id[end], res.dist[end] = id, dist
+    @inbounds res.items[end] = id => dist
     _shifted_fixorder!(res, sp, len)
     true
 end
@@ -99,26 +138,22 @@ end
 
 Removes and returns the nearest neeighboor pair from the pool, an O(length(p.pool)) operation
 """
-@inline function Base.popfirst!(res::KnnResult)
-    popfirst!(res.id) => popfirst!(res.dist)
-end
+@inline Base.popfirst!(res::KnnResult) = popfirst!(res.items)
 
 """
     pop!(res::KnnResult)
 
 Removes and returns the last item in the pool, it is an O(1) operation
 """
-@inline function Base.pop!(res::KnnResult)
-    pop!(res.id) => pop!(res.dist)
-end
+@inline Base.pop!(res::KnnResult) = pop!(res.items)
 
 """
     maxlength(res::KnnResult)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::KnnResult) = res.k
-@inline Base.length(res::KnnResult) = length(res.id)
+@inline maxlength(res::KnnResult) = maxlength(res.items)
+@inline Base.length(res::KnnResult) = length(res.items)
 
 """
     reuse!(res::KnnResult)
@@ -126,38 +161,31 @@ The maximum allowed cardinality (the k of knn)
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::KnnResult, k::Integer=res.k)
-    @assert k > 0
-    empty!(res.id); empty!(res.dist)
-    sizehint!(res.id, k), sizehint!(res.dist, k)
-    KnnResult(res.id, res.dist, k)
-end
+@inline reuse!(res::KnnResult, k::Integer=maxlength(res)) = KnnResult(reuse!(res.items, k))
 
 """
     getindex(res::KnnResult, i)
 
 Access the i-th item in `res`
 """
-@inline function Base.getindex(res::KnnResult, i)
-    @inbounds res.id[i] => res.dist[i]
-end
+@inline Base.getindex(res::KnnResult, i::Integer) = @inbounds res.items[i]
 
-@inline getid(res::KnnResult, i) = @inbounds res.id[i]
-@inline getdist(res::KnnResult, i) = @inbounds res.dist[i]
+@inline getid(res::KnnResult, i::Integer) = getid(res.items, i)
+@inline getdist(res::KnnResult, i::Integer) = getdist(res.items, i)
 
-@inline Base.last(res::KnnResult) = last(res.id) => last(res.dist)
-@inline Base.first(res::KnnResult) = @inbounds first(res.id) => first(res.dist)
-@inline Base.maximum(res::KnnResult) = last(res.dist)
-@inline Base.minimum(res::KnnResult) = @inbounds res.dist[1]
-@inline Base.argmax(res::KnnResult) = last(res.id)
-@inline Base.argmin(res::KnnResult) = @inbounds res.id[1]
-@inline Base.firstindex(res::KnnResult) = 1
-@inline Base.lastindex(res::KnnResult) = length(res)
+@inline Base.last(res::KnnResult) = last(res.items)
+@inline Base.first(res::KnnResult) = first(res.items)
+@inline Base.maximum(res::KnnResult) = maximum(res.items)
+@inline Base.minimum(res::KnnResult) = minimum(res.items)
+@inline Base.argmax(res::KnnResult) = argmax(res.items)
+@inline Base.argmin(res::KnnResult) = argmin(res.items)
+@inline Base.firstindex(res::KnnResult) = firstindex(res.items)
+@inline Base.lastindex(res::KnnResult) = lastindex(res.items)
 
-@inline idview(res::KnnResult) = res.id
-@inline distview(res::KnnResult) = res.dist
+@inline idview(res::KnnResult) = idview(res.items)
+@inline distview(res::KnnResult) = distview(res.items)
 
-@inline Base.eachindex(res::KnnResult) = firstindex(res):lastindex(res)
+@inline Base.eachindex(res::KnnResult) = eachindex(res.items)
 Base.eltype(res::KnnResult) = Pair{Int32,Float32}
 
 ##### iterator interface

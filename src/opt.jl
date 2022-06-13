@@ -16,7 +16,7 @@ struct ParetoRadius <: ErrorFunction end
 function runconfig end
 function setconfig! end
 
-function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{<:KnnResult}, queries, ksearch, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -54,7 +54,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-                union!(R[i], res.id)
+                union!(R[i], idview(res))
             end
 
             macrorecall(gold, R)
@@ -129,7 +129,7 @@ function optimize!(
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
         searchbatch(seq, queries, knnlist; minbatch)
-        gold = [Set(res.id) for res in knnlist]
+        gold = [Set(idview(res)) for res in knnlist]
     end
 
     M = Ref(0.0)

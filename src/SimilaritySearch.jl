@@ -108,8 +108,8 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
             res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
             k_ = length(res)
-            @inbounds I[1:k_, i] .= res.id
-            @inbounds D[1:k_, i] .= res.dist
+            @inbounds I[1:k_, i] .= idview(res)
+            @inbounds D[1:k_, i] .= distview(res)
         end
     else
         @inbounds for i in eachindex(Q)
@@ -135,7 +135,7 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
 """
-function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
+function searchbatch(index, Q, KNN::AbstractVector{<:KnnResult}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
 
     if minbatch > 0

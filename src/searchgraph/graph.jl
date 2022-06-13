@@ -59,9 +59,9 @@ can call other metric indexes that can use these shared resources (globally defi
 
 Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
 """
-struct SearchGraphPools{VisitedVerticesType}
-    beams::Vector{KnnResult}
-    satnears::Vector{KnnResult}
+struct SearchGraphPools{VisitedVerticesType,BeamKnnResult,SatKnnResult}
+    beams::Vector{BeamKnnResult}
+    satnears::Vector{SatKnnResult}
     vstates::VisitedVerticesType
 end
 
