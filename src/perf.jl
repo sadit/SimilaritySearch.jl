@@ -13,7 +13,7 @@ end
 
 _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
-_convert_as_set(a::KnnResult) = Set(a.id)
+_convert_as_set(a::KnnResult) = Set(idview(a))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64

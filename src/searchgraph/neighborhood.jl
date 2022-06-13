@@ -87,11 +87,13 @@ function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push
     end
 end
 
-const GlobalSatKnnResult = [KnnResult(1)]
+const GlobalSatKnnResult = [KnnResultSet(1, 1)]
 function __init__neighborhood()
-    for _ in 2:Threads.nthreads()
-        push!(GlobalSatKnnResult, KnnResult(1))
-    end
+    GlobalSatKnnResult[1] = KnnResultSet(1, Threads.nthreads())
+end
+
+@inline function getsatknnresult(pools::SearchGraphPools)
+    reuse!(KnnResult(pools.satnears, Threads.threadid()), 1)
 end
 
 """

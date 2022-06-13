@@ -40,6 +40,8 @@ end
 
 """
     searchbatch(index, Q, k::Integer; minbatch=0, pools=GlobalKnnResult) -> indices, distances
+    searchbatch(index, Q, knns::Matrix{Int32}, dists::Matrix{Float32}; minbatch=0, pools=getpools(index))
+    searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
@@ -47,6 +49,13 @@ Searches a batch of queries in the given index (searches for k neighbors).
 - `index`: The search structure
 - `Q`: The set of queries
 - `k`: The number of neighbors to retrieve
+- `knns`: Identifier matrix
+- `dists`: Distance matrix
+- `S`: A `KnnResultSet` object that wraps `knns`, `dists`.
+
+Note that for some datasets and queries, that algorithm may not retrieve the full set of requested items.
+These are represented as zeros at the end of each column in `knns`. 
+If `S` is given, then you can access to the number of retrieved elements per query in its `len` property.
 
 # Keyword arguments
 - `minbatch` specifies how many queries are solved per thread.
@@ -61,7 +70,11 @@ Note: The final indices at each column can be `0` if the search process was unab
 """
 function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
     m = length(Q)
-    S = KnnResultSet(zeros(Int32, k, m), Matrix{Float32}(undef, k, m))
+    searchbatch(index, Q, zeros(Int32, k, m), Matrix{Float32}(undef, k, m); minbatch, pools)
+end
+
+function searchbatch(index, Q, knns::Matrix{Int32}, dists::Matrix{Float32}; minbatch=0, pools=getpools(index))
+    S = KnnResultSet(knns, dists)
     searchbatch(index, Q, S; minbatch, pools)
 end
 
@@ -82,23 +95,6 @@ function getminbatch(minbatch, n)
     minbatch == 0 ? min(4, ceil(Int, 1/16 * n / Threads.nthreads())) : ceil(Int, minbatch)
 end
 
-"""
-    searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index)) -> indices, distances
-
-Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
-
-# Arguments
-- `index`: The search structure
-- `Q`: The set of queries
-- `k`: The number of neighbors to retrieve
-
-# Keyword arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: relevant for special datasets or distance functions. 
-    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
-    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
-
-"""
 function searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
 

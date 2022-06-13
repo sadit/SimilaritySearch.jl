@@ -59,9 +59,9 @@ can call other metric indexes that can use these shared resources (globally defi
 
 Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
 """
-struct SearchGraphPools{VisitedVerticesType,BeamKnnResult,SatKnnResult}
-    beams::Vector{BeamKnnResult}
-    satnears::Vector{SatKnnResult}
+struct SearchGraphPools{VisitedVerticesType,BeamKnnResultType,SatKnnResultType}
+    beams::Vector{BeamKnnResultType}
+    satnears::SatKnnResultType
     vstates::VisitedVerticesType
 end
 
@@ -74,16 +74,12 @@ end
     @inbounds reuse!(pools.beams[Threads.threadid()], bsize)
 end
 
-@inline function getsatknnresult(pools::SearchGraphPools)
-    reuse!(pools.satnears[Threads.threadid()], 1)
-end
-
 """
     getpools(index::SearchGraph)
 
 Creates or retrieve caches for the search graph.
 """
-getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
+getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult[1], vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
 
 include("beamsearch.jl")
 ## parameter optimization and neighborhood definitions

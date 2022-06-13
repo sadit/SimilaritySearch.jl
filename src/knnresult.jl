@@ -179,12 +179,6 @@ end
     a
 end
 
-function reuse!(a::IdDistViews, k::Integer)
-    @assert k == maxlength(a) "IdDistViews can't change its size"
-    a.parent.len[a.i] = 0
-    a
-end
-
 @inline function _shift_vector(ptr::Ptr{T}, sp::Int, ep::Int, val) where T
     sp_ = sizeof(T) * (sp - 1)
     unsafe_copyto!(ptr + sp_ + sizeof(T), ptr + sp_, ep-sp)
@@ -268,7 +262,12 @@ The maximum allowed cardinality (the k of knn)
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline reuse!(res::KnnResult, k::Integer=maxlength(res)) = KnnResult(reuse!(res.items, k))
+@inline reuse!(res::KnnResult{IdDistArray}, k::Integer=maxlength(res)) = KnnResult(reuse!(res.items, k))
+@inline function reuse!(res::KnnResult{IdDistViews}, k::Integer=0)
+    @assert k == 0 || k == maxlength(res)
+    res.items.parent.len[res.items.i] = 0
+    res
+end
 
 """
     getindex(res::KnnResult, i)
