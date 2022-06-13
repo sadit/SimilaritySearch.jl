@@ -36,6 +36,7 @@ function main()
     @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
     @info "searchgraph:" (; n, searchtime, qps=n / searchtime)
     @info "recall:" macrorecall(gI, hI)
+    H
 end
 
 #GC.enable(false)

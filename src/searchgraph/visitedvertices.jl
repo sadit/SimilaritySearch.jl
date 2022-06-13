@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-@inline visited(vstate::BitVector, i)::Bool = @inbounds vstate[i]
+@inline visited(vstate::BitVector, i) = @inbounds vstate[i]
 
 @inline function visit!(vstate::BitVector, i)
     @inbounds vstate[i] = true

@@ -69,13 +69,36 @@ function _allknn_loop(g, i, knns, dists, pools)
     _allknn_inner_loop(res, i, knns, dists)
 end
 
-@inline function _allknn_inner_loop(res, i, knns, dists)
-    j = 0
-    @inbounds for (id, dist) in res
-        i == id && continue
-        j += 1
-        knns[j, i] = id
-        dists[j, i] = dist
+@inline function _allknn_inner_loop(res, objID, knns, dists)
+    pos = 0
+
+    @inbounds for (i, id) in enumerate(idview(res))
+        if id == objID
+            pos = i
+            break
+        end
+    end
+    #sp = (objID - 1) * size(knns, 1) + 1    
+    #_allknn_inner_loop_copy!(pointer(knns, sp), idview(res), objID, pos)
+    _allknn_inner_loop_copy!(knns, idview(res), objID, pos)
+    _allknn_inner_loop_copy!(dists, distview(res), objID, pos)
+end
+
+function _allknn_inner_loop_copy!(dst, src, objID, pos)
+    ep = length(src)
+    if pos == 0  # copying k - 1 elements
+        ep -= 1
+        @inbounds for i in 1:ep
+            dst[i, objID] = src[i]
+        end
+    else
+        @inbounds for i in 1:pos-1
+            dst[i, objID] = src[i]
+        end
+
+        @inbounds for i in pos+1:ep
+            dst[i-1, objID] = src[i]
+        end
     end
 end
 

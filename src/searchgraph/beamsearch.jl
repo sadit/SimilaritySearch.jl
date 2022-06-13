@@ -55,14 +55,15 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ, maxvisits, visited_)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int, visited_::Int)
     push!(beam, argmin(res), minimum(res))
 
     bsize = maxlength(beam)
     sp = 1
 
     @inbounds while sp <= length(beam)
-        prev_id = beam[sp].first
+        prev_id, prev_dist = beam[sp]
+        prev_dist > maximum(res) && break
         sp += 1
         for (i, childID) in enumerate(index.links[prev_id])
             visited(vstate, childID) && continue
