@@ -96,6 +96,13 @@ end
 ############
 ## Matrix based: uses preallocated matrices of identifiers and distances, can't grow. IdDistViews should not be stored (instead save the original KnnResultSet)
 
+"""
+    KnnResultSet(k::Integer, m::Integer)
+    KnnResultSet(id::Matrix{Int32}, dist::Matrix{Float32})
+    struct KnnResultSet
+
+Creates a matrix backend for a list of `KnnResult`s. See [`KnnResult`](@ref)
+"""
 struct KnnResultSet
     id::Matrix{Int32}
     dist::Matrix{Float32}
@@ -110,6 +117,12 @@ end
 function KnnResultSet(id::Matrix{Int32}, dist::Matrix{Float32})
     KnnResultSet(id, dist, zeros(Int, size(id, 2)))
 end
+
+Base.size(s::KnnResultSet) = size(s.id)
+Base.size(s::KnnResultSet, dim::Integer) = size(s.id, dim)
+Base.length(s::KnnResultSet) = size(s, 2)
+Base.getindex(s::KnnResultSet, i::Integer) = KnnResult(s, i)
+Base.eachindex(s::KnnResultSet) = 1:length(s)
 
 """
     IdDistViews(ksearch::Integer)
