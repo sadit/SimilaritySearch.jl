@@ -104,12 +104,11 @@ end
 
 function KnnResultSet(k::Integer, m::Integer)
     @assert k > 0 && m > 0
+    KnnResultSet(Matrix{Int32}(undef, k, m), Matrix{Float32}(undef, k, m))
+end
 
-    KnnResultSet(
-        Matrix{Int32}(undef, k, m),
-        Matrix{Float32}(undef, k, m),
-        zeros(Int, m)
-    )
+function KnnResultSet(id::Matrix{Int32}, dist::Matrix{Float32})
+    KnnResultSet(id, dist, zeros(Int, size(id, 2)))
 end
 
 """

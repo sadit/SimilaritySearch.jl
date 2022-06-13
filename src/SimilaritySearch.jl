@@ -61,9 +61,8 @@ Note: The final indices at each column can be `0` if the search process was unab
 """
 function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
     m = length(Q)
-    I = zeros(Int32, k, m)
-    D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, Q, I, D; minbatch, pools)
+    S = KnnResultSet(zeros(Int32, k, m), Matrix{Float32}(undef, k, m))
+    searchbatch(index, Q, S; minbatch, pools)
 end
 
 """
@@ -84,7 +83,7 @@ function getminbatch(minbatch, n)
 end
 
 """
-    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index)) -> indices, distances
+    searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 
@@ -100,27 +99,20 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
 """
-function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
-    k = size(I, 1)
+function searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
-            k_ = length(res)
-            @inbounds I[1:k_, i] .= idview(res)
-            @inbounds D[1:k_, i] .= distview(res)
+            search(index, Q[i], KnnResult(S, i); pools=pools)
         end
     else
         @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+            search(index, Q[i], KnnResult(S, i); pools=pools)
         end
     end
 
-    I, D
+    S.id, S.dist
 end
 
 """
