@@ -16,7 +16,7 @@ function benchmark(res, n)
             popfirst_ += 1
         end
 
-        push!(res, i, rand())
+        push!(res, i, 3 * maximum(res) * rand())
     end
 
     #@info "finished", pop_, popfirst_

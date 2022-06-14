@@ -1,23 +1,23 @@
 # This file is a part of SimilaritySearch.jl
 
 
-@inline function _bitindices(i::Integer)
-    i = UInt64(i) - one(UInt64)
+@inline function _bitindices(i_::Integer)
+    i = convert(UInt64, i_) - one(UInt64)
     (i >>> 6) + 1, (i & 63)
 end
 
-@inline function visited(vstate::Vector{UInt64}, i::Integer)
-    b, i = _bitindices(i)
+@inline function visited(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
     @inbounds ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
 end
 
-@inline function visit!(vstate::Vector{UInt64}, i::Integer)
-    b, i = _bitindices(i)
+@inline function visit!(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
     @inbounds vstate[b] |= (one(UInt64) << i)
 end
 
-@inline function check_visited_and_visit!(vstate::Vector{UInt64}, i::Integer)
-    b, i = _bitindices(i)
+@inline function check_visited_and_visit!(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
     v = ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
     !v && ( @inbounds vstate[b] |= (one(UInt64) << i) )
     v
@@ -55,10 +55,10 @@ end
 
 #### 
 
-const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
+#const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Set{Int32}()]  # initialized at __init__ function
-# const GlobalVisitedVertices = [Vector{UInt64}(undef, 32)]
+const GlobalVisitedVertices = [Vector{UInt64}(undef, 32)]
 
 function __init__visitedvertices()
     for i in 2:Threads.nthreads()
@@ -89,7 +89,7 @@ end
 
 @inline function _init_vv(v::Vector{UInt64}, n)
     n64 = 1 + ((n-1) >>> 6)
-    n64 != length(v) && resize!(v, n64)
+    n64 > length(v) && resize!(v, n64)
     fill!(v, 0)
     v
 end
