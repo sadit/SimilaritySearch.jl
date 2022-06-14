@@ -7,7 +7,7 @@ end
 function SimilaritySearch.evaluate(::NormalizedCosineDistanceLV{Dim}, u::AbstractVector{T}, v::AbstractVector{T}) where {Dim,T}
     d = zero(T)
     @turbo inline=true unroll=2 thread=1 for i in 1:Dim
-        d = fma(u[i], v[i], d)
+        d = muladd(u[i], v[i], d)
     end
 
     one(T) - d
