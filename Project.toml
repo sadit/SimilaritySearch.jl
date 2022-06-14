@@ -18,6 +18,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 [compat]
 Distances = "0.10"
 Intersections = "0.2.8"
+PProf = "2"
 Parameters = "0.12"
 Polyester = "0.6"
 SearchModels = "0.3"
