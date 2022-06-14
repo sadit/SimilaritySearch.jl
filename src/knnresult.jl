@@ -14,6 +14,8 @@ end
 
 @inline idview(a::IdDistArray) = a.id
 @inline distview(a::IdDistArray) = a.dist
+@inline rawidview(a::IdDistArray) = a.id
+@inline rawdistview(a::IdDistArray) = a.dist
 @inline getid(a::IdDistArray, i::Integer) = @inbounds a.id[i]
 @inline getdist(a::IdDistArray, i::Integer) = @inbounds a.dist[i]
 @inline maxlength(a::IdDistArray) = a.k
@@ -140,6 +142,8 @@ end
 
 @inline idview(a::IdDistViews) = @view a.parent.id[eachindex(a), a.i]
 @inline distview(a::IdDistViews) = @view a.parent.dist[eachindex(a), a.i]
+@inline rawidview(a::IdDistViews) = @view a.parent.id[1:maxlength(a), a.i]
+@inline rawdistview(a::IdDistViews) = @view a.parent.dist[1:maxlength(a), a.i]
 
 @inline getid(a::IdDistViews, i::Integer) = unsafe_load(a.id, i)
 @inline getdist(a::IdDistViews, i::Integer) = unsafe_load(a.dist, i)
@@ -303,6 +307,8 @@ Access the i-th item in `res`
 
 @inline idview(res::KnnResult) = idview(res.items)
 @inline distview(res::KnnResult) = distview(res.items)
+@inline rawidview(res::KnnResult) = rawidview(res.items)
+@inline rawdistview(res::KnnResult) = rawdistview(res.items)
 
 @inline Base.eachindex(res::KnnResult) = eachindex(res.items)
 Base.eltype(res::KnnResult) = Pair{Int32,Float32}

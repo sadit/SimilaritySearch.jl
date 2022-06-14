@@ -28,7 +28,7 @@ function main()
     goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), k)
     @info "----- computing search graph"
     H = SearchGraph(; db, dist, verbose=false)
-    index!(H; parallel_block=128)
+    index!(H; parallel_block=256)
     optimize!(H, MinRecall(0.9), ksearch=k)
     # prune!(RandomPruning(12), H)
     searchtime = @elapsed hI, hD = allknn(H, k; minbatch=32)

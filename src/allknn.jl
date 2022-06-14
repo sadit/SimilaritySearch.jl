@@ -24,82 +24,39 @@ Returns:
 """
 function allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g))
     n = length(g)
-    knns = zeros(Int32, k, n)
-    dists = Matrix{Float32}(undef, k, n)
-    allknn(g, knns, dists; minbatch, pools)
+    R = KnnResultSet(k, n)
+    allknn(g, R; minbatch, pools)
 end
 
-function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
-    k = size(knns, 1) + 1
-    res = getknnresult(k, pools)
+function _allknn_loop(g::SearchGraph, i::Integer, res::KnnResult, pools)
     vstate = getvstate(length(g), pools)
-    c = g[i]
     # visit!(vstate, i)
+    @inbounds _allknn_loop_barrier(g, i, g[i], res, g.links[i], pools, vstate)
+end
+
+function _allknn_loop_barrier(g::SearchGraph, i, c, res, hints, pools, vstate)
+    k = maxlength(res)
+
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
-    ##prev = typemax(Float32)
-    for h in g.links[i] # hints
+    for h in hints # hints
         visited(vstate, h) && continue
         search(g.search_algo, g, c, res, h, pools; vstate)
-        ## curr = maximum(res)
         length(res) == k && break
-        ##curr == prev && break
-        ## prev = curr
     end
+    # search(g.search_algo, g, c, res, hints, pools; vstate)
 
-    # again for the same issue
-    if length(res) < k
+    #=if length(res) < k
         for _ in 1:k
             h = rand(1:length(g))
             visited(vstate, h) && continue
             search(g.search_algo, g, c, res, h, pools; vstate)
             length(res) == k && break
         end
-    end
-
-    _allknn_inner_loop(res, i, knns, dists)
-    #=_k = length(res)
-    knns[1:_k, i] .= res.id
-    dists[1:_k, i] .= res.dist=#
+    end=#
 end
 
-function _allknn_loop(g, i, knns, dists, pools)
-    k = size(knns, 1) + 1
-    res = getknnresult(k, pools)
-    @inbounds search(g, g[i], res)
-    _allknn_inner_loop(res, i, knns, dists)
-end
-
-@inline function _allknn_inner_loop(res, objID, knns, dists)
-    pos = 0
-
-    @inbounds for (i, id) in enumerate(idview(res))
-        if id == objID
-            pos = i
-            break
-        end
-    end
-    #sp = (objID - 1) * size(knns, 1) + 1    
-    #_allknn_inner_loop_copy!(pointer(knns, sp), idview(res), objID, pos)
-    _allknn_inner_loop_copy!(knns, idview(res), objID, pos)
-    _allknn_inner_loop_copy!(dists, distview(res), objID, pos)
-end
-
-function _allknn_inner_loop_copy!(dst, src, objID, pos)
-    ep = length(src)
-    if pos == 0  # copying k - 1 elements
-        ep -= 1
-        @inbounds for i in 1:ep
-            dst[i, objID] = src[i]
-        end
-    else
-        @inbounds for i in 1:pos-1
-            dst[i, objID] = src[i]
-        end
-
-        @inbounds for i in pos+1:ep
-            dst[i-1, objID] = src[i]
-        end
-    end
+function _allknn_loop(index, i::Integer, dst::KnnResult, pools)
+    @inbounds search(index, index[i], dst; pools)
 end
 
 """
@@ -119,20 +76,20 @@ Results:
 
 - `knns` and `dists` are returned. Note that the index can retrieve less than `k` objects, and these are represented as zeros at the end of each column (can happen)
 """
-function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchContext, R::KnnResultSet; minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
     minbatch = getminbatch(minbatch, n)
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+            _allknn_loop(g, i, R[i], pools)
         end
     else
         for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+            _allknn_loop(g, i, R[i], pools)
         end
     end
     
-    knns, dists
+    R.id, R.dist
 end
