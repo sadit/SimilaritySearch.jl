@@ -97,10 +97,11 @@ Near duplicates and floating point arithmetic could make that self references go
 """
 function _allknn_fix_self(selfID::Integer, res::KnnResult)
     selfID = convert(Int32, selfID)
+    items = res.items
     @inbounds for (i, objID) in enumerate(idview(res))
         if selfID === objID
             if i > 1
-                res[1], res[i] = res[i], res[1]
+                items[1], items[i] = items[i], items[1]
             end
 
             return
