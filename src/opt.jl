@@ -23,7 +23,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
-    covradius = Vector{Float64}(undef, length(knnlist))
+    covradius = Vector{Float64}(undef, m)
     pools = getpools(index)
     R = [Set{Int32}() for _ in knnlist]
 
@@ -34,8 +34,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                knnlist[i] = reuse!(knnlist[i], ksearch)
-                _, v_ = runconfig(conf, index, queries[i], knnlist[i], pools)
+                _, v_ = runconfig(conf, index, queries[i], reuse!(knnlist[i], ksearch), pools)
                 ti = Threads.threadid()
                 vmin[ti] = min(v_, vmin[ti])
                 vmax[ti] = max(v_, vmax[ti])
@@ -54,7 +53,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-                union!(R[i], res.id)
+                union!(R[i], idview(res))
             end
 
             macrorecall(gold, R)
@@ -64,10 +63,10 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::Vect
 
         verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index))")
         (;
-            visited=(minimum(vmin), sum(vacc)/length(knnlist), maximum(vmax)),
+            visited=(minimum(vmin), sum(vacc)/m, maximum(vmax)),
             radius=(rmin, ravg, rmax),
             recall=recall,
-            searchtime=searchtime/length(knnlist)
+            searchtime=searchtime/m
         )
     end
 end
@@ -129,7 +128,7 @@ function optimize!(
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
         searchbatch(seq, queries, knnlist; minbatch)
-        gold = [Set(res.id) for res in knnlist]
+        gold = [Set(idview(res)) for res in knnlist]
     end
 
     M = Ref(0.0)

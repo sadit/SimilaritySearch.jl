@@ -108,6 +108,9 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
             res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
             k_ = length(res)
+            #=sp = (i-1) * k + 1
+            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
             @inbounds I[1:k_, i] .= res.id
             @inbounds D[1:k_, i] .= res.dist
         end
@@ -115,6 +118,9 @@ function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float
         @inbounds for i in eachindex(Q)
             res, _ = search(index, Q[i], getknnresult(k, pools); pools)
             k_ = length(res)
+            #=sp = (i-1) * k + 1
+            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
             I[1:k_, i] .= res.id
             D[1:k_, i] .= res.dist
         end

@@ -5,7 +5,7 @@ function main(n, m, dim)
     queries = MatrixDatabase(rand(Float32, dim, m))
     seq = ExhaustiveSearch(; db)
     k = 10
-    @time searchbatch(seq, queries, k; parallel=Threads.nthreads() > 1)
+    @time searchbatch(seq, queries, k)
 end
 
 @info "warming"

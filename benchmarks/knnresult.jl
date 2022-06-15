@@ -1,6 +1,6 @@
 using SimilaritySearch, Random
 
-function main(res, n)
+function benchmark(res, n)
     # @info "===========", typeof(res), n
     push!(res, 1, rand())
 
@@ -16,19 +16,24 @@ function main(res, n)
             popfirst_ += 1
         end
 
-        push!(res, i, rand())
+        # push!(res, i, rand())
+        push!(res, i, 3 * maximum(res) * rand())
     end
 
     #@info "finished", pop_, popfirst_
     res
 end
 
-ksearch = 10
-n = 1000
-res = KnnResult(ksearch)
+function main()
+    ksearch = 10
+    n = 1000
+    res = KnnResult(ksearch)
 
-@timev main(res, n)
+    @timev benchmark(res, n)
 
-n = 30_000_000
-res = KnnResult(ksearch)
-@timev main(res, n)
+    n = 30_000_000
+    res = KnnResult(ksearch)
+    @timev benchmark(res, n)
+end
+
+main()

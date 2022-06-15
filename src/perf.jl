@@ -13,7 +13,7 @@ end
 
 _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
-_convert_as_set(a::KnnResult) = Set(a.id)
+_convert_as_set(a::KnnResult) = Set(idview(a))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
@@ -50,17 +50,4 @@ function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     end
 
     s / n
-end
-
-"""
-    timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
-
-Computes the K nearest neigbors of each object in `Q` and returns two matrices, and the average search time in seconds.
-"""
-function timedsearchbatch(index, Q, ksearch::Integer; parallel=false, pools=getpools(index))
-    m = length(Q)
-    I = zeros(Int32, ksearch, m)
-    D = Matrix{Float32}(undef, ksearch, m)
-    t = @elapsed (I, D = searchbatch(index, Q, I, D; parallel, pools))
-    I, D, t/length(Q)
 end
