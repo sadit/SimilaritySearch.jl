@@ -46,7 +46,7 @@ function create_random_array(n, k)
     V, Vsorted
 end
 
-@testset "vector-based result set" begin
+@testset "shifted vector-based result set" begin
     k = 10
     res = KnnResult(k)
     V, Vsorted = create_random_array(50, k)

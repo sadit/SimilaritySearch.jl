@@ -16,7 +16,7 @@ struct ParetoRadius <: ErrorFunction end
 function runconfig end
 function setconfig! end
 
-function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnResultSet, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -25,7 +25,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
     vacc = Vector{Float64}(undef, nt)
     covradius = Vector{Float64}(undef, m)
     pools = getpools(index)
-    R = [Set{Int32}() for _ in 1:m]
+    R = [Set{Int32}() for _ in knnlist]
 
     function lossfun(conf)
         vmin .= typemax(eltype(vmin))
@@ -34,12 +34,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-<<<<<<< HEAD
-                res = reuse!(knnlist[i], ksearch)
-                _, v_ = runconfig(conf, index, queries[i], res, pools)
-=======
                 _, v_ = runconfig(conf, index, queries[i], reuse!(knnlist[i], ksearch), pools)
->>>>>>> copying-knnresult-again
                 ti = Threads.threadid()
                 vmin[ti] = min(v_, vmin[ti])
                 vmax[ti] = max(v_, vmax[ti])
@@ -47,7 +42,7 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
             end
         end
 
-        for i in 1:m
+        for i in eachindex(knnlist)
             res = knnlist[i]
             covradius[i] = length(res) == 0 ? typemax(Float32) : maximum(res)
         end
@@ -56,13 +51,9 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
         ravg = mean(covradius)
 
         recall = if gold !== nothing
-            for i in 1:m
+            for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-<<<<<<< HEAD
-                union!(R[i], idview(knnlist[i]))
-=======
                 union!(R[i], idview(res))
->>>>>>> copying-knnresult-again
             end
 
             macrorecall(gold, R)
@@ -131,7 +122,7 @@ function optimize!(
         queries = SubDatabase(index.db, sample)
     end
 
-    knnlist = KnnResultSet(ksearch, length(queries))
+    knnlist = [KnnResult(ksearch) for _ in eachindex(queries)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view index.db[1:length(index)]

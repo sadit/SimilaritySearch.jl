@@ -15,6 +15,7 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
    - `k`: the number of neighbors to retrieve
    - `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
    - `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
+   - `R`: an uninitialized `KnnResultSet` (contains `knns` and `dists` internally, along with the lenghts of the results)
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `pools`: A pools object, dependent of `g`
 
@@ -33,25 +34,11 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
 This function was introduced in `v0.8` series, and removes self references automatically.
 In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.    
 """
-allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g)) = allknn(g, KnnResultSet(k, length(g)); minbatch, pools)
-allknn(g::AbstractSearchContext, knns::Matrix{Int32}, dists::Matrix{Float32}; minbatch=0, pools=getpools(g)) = allknn(g, KnnResultSet(knns, dists); minbatch, pools)
-
-function allknn(g::AbstractSearchContext, R::KnnResultSet; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g))
     n = length(g)
-    @assert n > 0
-    minbatch = getminbatch(minbatch, n)
-
-    if minbatch > 0
-        @batch minbatch=minbatch per=thread for i in 1:n
-            _allknn_loop(g, i, R[i], pools)
-        end
-    else
-        for i in 1:n
-            _allknn_loop(g, i, R[i], pools)
-        end
-    end
-    
-    R.id, R.dist
+    knns = zeros(Int32, k, n)
+    dists = Matrix{Float32}(undef, k, n)
+    allknn(g, knns, dists; minbatch, pools)
 end
 
 function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
@@ -77,13 +64,8 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     k = size(knns, 1)
     res = getknnresult(k, pools)
     vstate = getvstate(length(g), pools)
-    @inbounds _allknn_loop_barrier(g, g[i], res, g.links[i], pools, vstate)
-    # _allknn_fix_self(i, res)
-end
-
-function _allknn_loop_barrier(g::SearchGraph, c, res, hints, pools, vstate)
-    k = maxlength(res)
-
+    c = g[i]
+    # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     for h in g.links[i] # hints
         visited(vstate, h) && continue
@@ -91,9 +73,7 @@ function _allknn_loop_barrier(g::SearchGraph, c, res, hints, pools, vstate)
         length(res) == k && break
     end
 
-    # search(g.search_algo, g, c, res, rand(hints), pools; vstate)
-    # search(g.search_algo, g, c, res, hints, pools; vstate)
-
+    # again for the same issue
     if length(res) < k
         for _ in 1:k
             h = rand(1:length(g))

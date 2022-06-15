@@ -1,5 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
+
 @inline function _bitindices(i_::Integer)
     i = convert(UInt64, i_) - one(UInt64)
     (i >>> 6) + 1, (i & 63)
@@ -32,33 +33,7 @@ end
 
 @inline visited(vstate::BitVector, i::Integer)::Bool = @inbounds vstate[i]
 
-@inline function _bitindices(i_::Integer)
-    i = convert(UInt64, i_) - one(UInt64)
-    (i >>> 6) + 1, (i & 63)
-end
-
-@inline function visited(vstate::Vector{UInt64}, i_::Integer)
-    b, i = _bitindices(i_)
-    @inbounds ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
-end
-
-@inline function visit!(vstate::Vector{UInt64}, i_::Integer)
-    b, i = _bitindices(i_)
-    @inbounds vstate[b] |= (one(UInt64) << i)
-end
-
-@inline function check_visited_and_visit!(vstate::Vector{UInt64}, i_::Integer)
-    b, i = _bitindices(i_)
-    v = ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
-    !v && ( @inbounds vstate[b] |= (one(UInt64) << i) )
-    v
-end
-
-#### VisitedVertices with BitVector
-
-@inline visited(vstate::BitVector, i::Integer) = @inbounds vstate[i]
-
-@inline function visit!(vstate::BitVector, i::Integer)
+@inline function visit!(vstate::BitVector, i)
     @inbounds vstate[i] = true
 end
 
@@ -66,9 +41,7 @@ end
 
 @inline visited(vstate::Vector{UInt8}, i::Integer)::Bool = @inbounds vstate[i] == 1
 
-@inline visited(vstate::Vector{UInt8}, i::Integer)::Bool = @inbounds (vstate[i] == 1)
-
-@inline function visit!(vstate::Vector{UInt8}, i::Integer)
+@inline function visit!(vstate::Vector{UInt8}, i, state)
     @inbounds vstate[i] = 1
 end
 
@@ -76,7 +49,7 @@ end
 
 @inline visited(vstate::Set{Int32}, i::Integer)::Bool = i ∈ vstate
 
-@inline function visit!(vstate::Set{Int32}, i::Integer)
+@inline function visit!(vstate::Set{Int32}, i)
     @inbounds push!(vstate, i)
 end
 
@@ -96,12 +69,14 @@ function __init__visitedvertices()
 end
 
 @inline function _init_vv(v::AbstractVector, n)
+    # length(v) < n &&
     resize!(v, n)
     fill!(v, 0)
     v
 end
 
 @inline function _init_vv(v::BitVector, n)
+    # length(v) < n &&
     resize!(v, n)
     fill!(v.chunks, 0)
     v

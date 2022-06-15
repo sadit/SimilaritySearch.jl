@@ -71,7 +71,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
             visited_ += 1
             visited_ > maxvisits && @goto finish_search
             if d <= Δ * maximum(res)
-                push!(beam, p; sp, k=bsize+sp)
+                push!(beam, childID, d; sp, k=bsize+sp)
                 # rand() < 1 / (sp-1) && continue
                 # @assert length(beam) <= bsize+sp "$sp, $bsize, $(sp+bsize), $(length(beam))"
                 # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
