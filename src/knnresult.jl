@@ -2,12 +2,6 @@
 export KnnResult
 export maxlength, maxlength, getdist, getid, idview, distview, reuse!
 
-
-struct IdDistArray
-    id::Vector{Int32}
-    dist::Vector{Float32}
-end
-
 """
     KnnResult(ksearch::Integer)
 
@@ -15,16 +9,17 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-struct KnnResult{IdDistArray_} # <: AbstractVector{Tuple{IdType,DistType}}
-    items::IdDistArray_
+struct KnnResult # <: AbstractVector{Tuple{IdType,DistType}}
+    id::Vector{Int32}
+    dist::Vector{Float32}
     k::Int  # number of neighbors
 end
 
 function KnnResult(k::Integer)
     @assert k > 0
-    res = KnnResult(IdDistArray(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0)), k)
-    sizehint!(res.items.id, k)
-    sizehint!(res.items.dist, k)
+    res = KnnResult(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    sizehint!(res.id, k)
+    sizehint!(res.dist, k)
     res
 end
 
