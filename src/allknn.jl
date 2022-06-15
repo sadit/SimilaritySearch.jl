@@ -31,8 +31,7 @@ These are the same buffers passed as arguments in some of the function methods.
 
 # Note:
 This function was introduced in `v0.8` series, and removes self references automatically.
-In `v0.9` the self reference is kept since removing from the algorithm introduces unreasonable overhead for some case of use; however,
-it ensures that the self-reference is in the first entry of the result set.
+In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.
 """
 allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g)) = allknn(g, KnnResultSet(k, length(g)); minbatch, pools)
 allknn(g::AbstractSearchContext, knns::Matrix{Int32}, dists::Matrix{Float32}; minbatch=0, pools=getpools(g)) = allknn(g, KnnResultSet(knns, dists); minbatch, pools)
@@ -58,20 +57,20 @@ end
 function _allknn_loop(g::SearchGraph, i::Integer, res::KnnResult, pools)
     vstate = getvstate(length(g), pools)
     @inbounds _allknn_loop_barrier(g, g[i], res, g.links[i], pools, vstate)
-    _allknn_fix_self(i, res)
+    # _allknn_fix_self(i, res)
 end
 
 function _allknn_loop_barrier(g::SearchGraph, c, res, hints, pools, vstate)
     k = maxlength(res)
 
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
-    #=for h in hints # hints
+    for h in hints # hints
         visited(vstate, h) && continue
         search(g.search_algo, g, c, res, h, pools; vstate)
         length(res) == k && break
-    end=#
+    end
 
-    search(g.search_algo, g, c, res, rand(hints), pools; vstate)
+    # search(g.search_algo, g, c, res, rand(hints), pools; vstate)
     # search(g.search_algo, g, c, res, hints, pools; vstate)
 
     if length(res) < k
@@ -86,7 +85,7 @@ end
 
 function _allknn_loop(index, i::Integer, res::KnnResult, pools)
     @inbounds search(index, index[i], res; pools)
-    _allknn_fix_self(i, res)
+    # _allknn_fix_self(i, res)
 end
 
 """
@@ -97,11 +96,12 @@ Near duplicates and floating point arithmetic could make that self references go
 """
 function _allknn_fix_self(selfID::Integer, res::KnnResult)
     selfID = convert(Int32, selfID)
-    items = res.items
-    @inbounds for (i, objID) in enumerate(idview(res))
+    I = idview(res)
+    @assert length(I) == length(Set(I))
+    @inbounds for (i, objID) in enumerate(I)
         if selfID === objID
             if i > 1
-                items[1], items[i] = items[i], items[1]
+                I[1], I[i] = I[i], I[1]
             end
 
             return
