@@ -34,8 +34,12 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
+<<<<<<< HEAD
                 res = reuse!(knnlist[i], ksearch)
                 _, v_ = runconfig(conf, index, queries[i], res, pools)
+=======
+                _, v_ = runconfig(conf, index, queries[i], reuse!(knnlist[i], ksearch), pools)
+>>>>>>> copying-knnresult-again
                 ti = Threads.threadid()
                 vmin[ti] = min(v_, vmin[ti])
                 vmax[ti] = max(v_, vmax[ti])
@@ -54,7 +58,11 @@ function create_error_function(index::AbstractSearchContext, gold, knnlist::KnnR
         recall = if gold !== nothing
             for i in 1:m
                 empty!(R[i])
+<<<<<<< HEAD
                 union!(R[i], idview(knnlist[i]))
+=======
+                union!(R[i], idview(res))
+>>>>>>> copying-knnresult-again
             end
 
             macrorecall(gold, R)
@@ -129,7 +137,7 @@ function optimize!(
         db = @view index.db[1:length(index)]
         seq = ExhaustiveSearch(index.dist, db)
         searchbatch(seq, queries, knnlist; minbatch)
-        gold = [Set(c) for c in eachcol(knnlist.id)]
+        gold = [Set(idview(res)) for res in knnlist]
     end
 
     M = Ref(0.0)

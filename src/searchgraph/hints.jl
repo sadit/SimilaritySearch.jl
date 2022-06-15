@@ -61,6 +61,7 @@ function execute_callback(opt::DisjointHints, index)
         union!(V, index.links[i])
     end
 end
+
 """
     struct KDisjointHints
 

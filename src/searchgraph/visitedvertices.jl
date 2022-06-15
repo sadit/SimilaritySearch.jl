@@ -1,5 +1,36 @@
 # This file is a part of SimilaritySearch.jl
 
+@inline function _bitindices(i_::Integer)
+    i = convert(UInt64, i_) - one(UInt64)
+    (i >>> 6) + 1, (i & 63)
+end
+
+@inline function visited(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
+    @inbounds ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
+end
+
+@inline function visit!(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
+    @inbounds vstate[b] |= (one(UInt64) << i)
+end
+
+@inline function check_visited_and_visit!(vstate::Vector{UInt64}, i_::Integer)
+    b, i = _bitindices(i_)
+    v = ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
+    !v && ( @inbounds vstate[b] |= (one(UInt64) << i) )
+    v
+end
+
+@inline function check_visited_and_visit!(vstate, i::Integer)
+    v = visited(vstate, i)
+    !v && visit!(vstate, i)
+    v
+end
+
+#### VisitedVertices with BitVector
+
+@inline visited(vstate::BitVector, i::Integer)::Bool = @inbounds vstate[i]
 
 @inline function _bitindices(i_::Integer)
     i = convert(UInt64, i_) - one(UInt64)
@@ -31,13 +62,9 @@ end
     @inbounds vstate[i] = true
 end
 
-@inline function check_visited_and_visit!(vstate, i::Integer)
-    v = visited(vstate, i)
-    !v && visit!(vstate, i)
-    v
-end
+#### VisitedVertices with byte arrays
 
-##### VisitedVertices with UInt8 vector
+@inline visited(vstate::Vector{UInt8}, i::Integer)::Bool = @inbounds vstate[i] == 1
 
 @inline visited(vstate::Vector{UInt8}, i::Integer)::Bool = @inbounds (vstate[i] == 1)
 
@@ -45,7 +72,7 @@ end
     @inbounds vstate[i] = 1
 end
 
-##### VisitedVertices with Set
+#### VisitedVertices with int sets
 
 @inline visited(vstate::Set{Int32}, i::Integer)::Bool = i ∈ vstate
 
@@ -53,9 +80,7 @@ end
     @inbounds push!(vstate, i)
 end
 
-#### 
-
-#const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
+# const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Set{Int32}()]  # initialized at __init__ function
 const GlobalVisitedVertices = [Vector{UInt64}(undef, 32)]

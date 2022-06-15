@@ -100,11 +100,23 @@ function searchbatch(index, Q, S::KnnResultSet; minbatch=0, pools=getpools(index
 
     if minbatch > 0
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            search(index, Q[i], KnnResult(S, i); pools=pools)
+            res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
+            k_ = length(res)
+            #=sp = (i-1) * k + 1
+            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
+            @inbounds I[1:k_, i] .= res.id
+            @inbounds D[1:k_, i] .= res.dist
         end
     else
         @inbounds for i in eachindex(Q)
-            search(index, Q[i], KnnResult(S, i); pools=pools)
+            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
+            k_ = length(res)
+            #=sp = (i-1) * k + 1
+            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
+            I[1:k_, i] .= res.id
+            D[1:k_, i] .= res.dist
         end
     end
 

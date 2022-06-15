@@ -1,16 +1,6 @@
 # This file is a part of SimilaritySearch.jl
-export KnnResult, KnnResultSet
+export KnnResult
 export maxlength, getdist, getid, idview, distview, reuse!
-
-###### KnnResult backends
-### array implementation, can grow efficiently
-
-abstract type AbstractIdDist end
-struct IdDistArray <: AbstractIdDist
-    id::Vector{Int32}
-    dist::Vector{Float32}
-    k::Int  # number of neighbors
-end
 
 @inline idview(a::IdDistArray) = a.id
 @inline distview(a::IdDistArray) = a.dist
@@ -37,9 +27,14 @@ end
     a
 end
 
-@inline function Base.setindex!(a::IdDistArray, p::Pair, i::Integer)
-    @inbounds a.id[i] = p.first
-    @inbounds a.dist[i] = p.second
+Creates a priority queue with fixed capacity (`ksearch`) representing a knn result set.
+It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls until `ksearch`
+size is reached. After this only the smallest items based on distance are preserved.
+"""
+struct KnnResult # <: AbstractVector{Tuple{IdType,DistType}}
+    id::Vector{Int32}
+    dist::Vector{Float32}
+    k::Int  # number of neighbors
 end
 
 @inline function Base.sizehint!(a::IdDistArray, sz::Integer)
@@ -50,10 +45,10 @@ end
 
 function reuse!(a::IdDistArray, k::Integer)
     @assert k > 0
-    empty!(a.id)
-    empty!(a.dist)
-    sizehint!(a, k)
-    IdDistArray(a.id, a.dist, k)
+    res = KnnResult(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    sizehint!(res.id, k)
+    sizehint!(res.dist, k)
+    res
 end
 
 """
@@ -275,11 +270,11 @@ The maximum allowed cardinality (the k of knn)
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline reuse!(res::KnnResult{IdDistArray}, k::Integer=maxlength(res)) = KnnResult(reuse!(res.items, k))
-@inline function reuse!(res::KnnResult{IdDistViews}, k::Integer=0)
-    @assert k == 0 || k == maxlength(res)
-    res.items.parent.len[res.items.i] = 0
-    res
+@inline function reuse!(res::KnnResult, k::Integer=res.k)
+    @assert k > 0
+    empty!(res.id); empty!(res.dist)
+    sizehint!(res.id, k); sizehint!(res.dist, k)
+    KnnResult(res.id, res.dist, k)
 end
 
 """

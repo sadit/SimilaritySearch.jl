@@ -16,6 +16,10 @@ function benchmark(res, n)
             popfirst_ += 1
         end
 
+<<<<<<< HEAD
+=======
+        # push!(res, i, rand())
+>>>>>>> copying-knnresult-again
         push!(res, i, 3 * maximum(res) * rand())
     end
 
@@ -23,6 +27,7 @@ function benchmark(res, n)
     res
 end
 
+<<<<<<< HEAD
 function main(k, n)
     res = KnnResult(k)
     @info k n typeof(res)
@@ -40,3 +45,18 @@ main(10, 1000)
 @info "==== running benchmark"
 main(10, 30_000_000)
 
+=======
+function main()
+    ksearch = 10
+    n = 1000
+    res = KnnResult(ksearch)
+
+    @timev benchmark(res, n)
+
+    n = 30_000_000
+    res = KnnResult(ksearch)
+    @timev benchmark(res, n)
+end
+
+main()
+>>>>>>> copying-knnresult-again

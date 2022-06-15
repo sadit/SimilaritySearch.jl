@@ -56,34 +56,3 @@ end
     
     testsorted(res, copy(Vsorted))
 end
-
-@testset "set of knn results" begin
-    k = 10
-    S = KnnResultSet(k, 1)
-    res = KnnResult(S, 1)
-    V, Vsorted = create_random_array(50, k)
-    for i in eachindex(V)
-        push!(res, i, V[i])
-    end
-    
-    testsorted(res, copy(Vsorted))
-end
-
-@testset "equality" begin
-    k = 10
-    m = 1000
-    n = 10_000
-    S = KnnResultSet(k, m)
-    R = KnnResult(k)
-    for i in 1:m
-        test = rand(n)
-        V = KnnResult(S, i)
-        R = reuse!(R)
-        for (j, d) in enumerate(test)
-            push!(R, j, d)
-            push!(V, j, d)
-        end
-        
-        @test idview(V) == idview(R)
-    end
-end
