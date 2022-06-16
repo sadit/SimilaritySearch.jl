@@ -15,7 +15,7 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
    - `k`: the number of neighbors to retrieve
    - `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
    - `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
-   - `R`: an uninitialized `KnnResultSet` (contains `knns` and `dists` internally, along with the lenghts of the results)
+
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `pools`: A pools object, dependent of `g`
 
@@ -58,7 +58,6 @@ function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::Ab
     
     knns, dists
 end
-
 
 function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     k = size(knns, 1)

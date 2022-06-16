@@ -80,3 +80,16 @@ The current algorithm (version `0.8`) is described and benchmarked in the follow
 }
 ```
 
+## About v0.9.X series
+
+The algorithms of this version are the same of v0.8 but with several that break the API compatibility:
+
+- Now it uses `Polyester` package to handle multithreading instead of Threads.@threads
+- Multithreading methods are enabled by default if the processes is started with several threads, in v0.8 was the contrary
+- `allknn` now preserves self-references to simplify algorithms and improve efficiency (`allknn` in v0.8 removes self-references automatically)
+
+Others:
+
+- Adds function docs and benchmarks
+- Adds `SearchGraph` graph pruning methods
+- Removes the `timedsearchbatch` function
