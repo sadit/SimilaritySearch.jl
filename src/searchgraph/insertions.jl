@@ -16,7 +16,7 @@ get_parallel_block() = Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()
         neighborhood=Neighborhood(),
         parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 
@@ -47,7 +47,7 @@ function Base.append!(
         neighborhood=Neighborhood(),
         parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
     db = convert(AbstractDatabase, db)
@@ -72,7 +72,7 @@ function Base.append!(
 end
 
 """
-    index!(index::SearchGraph; parallel_block=get_parallel_block(), parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks())
+    index!(index::SearchGraph; parallel_block=get_parallel_block(), parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks(verbose=index.verbose))
 
 Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
 The arguments are the same than `append!` function but using the internal `index.db` as input.
@@ -83,7 +83,7 @@ function index!(
         neighborhood=Neighborhood(),
         parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
     @assert length(index) == 0 && length(index.db) > 0
@@ -165,7 +165,7 @@ end
         item;
         neighborhood=Neighborhood(),
         push_item=true,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 
@@ -187,7 +187,7 @@ Arguments:
         item;
         neighborhood=Neighborhood(),
         push_item=true,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 

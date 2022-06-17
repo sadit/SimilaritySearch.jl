@@ -24,7 +24,7 @@ using Test
         @info "=================== $search_algo"
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
         neighborhood = Neighborhood(reduce=IdentityNeighborhood())
-        append!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(hyperparameters=nothing))
+        append!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
         searchtime = @elapsed I, D= searchbatch(graph, queries, ksearch)
         #@info sort!(length.(graph.links), rev=true)
         @show goldD[:, 1]

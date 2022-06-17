@@ -2,19 +2,19 @@
 
 """
 struct SearchGraphCallbacks
-    hints::Union{Nothing,Callback} = DisjointHints()
-    hyperparameters::Union{Nothing,Callback} = OptimizeParameters(kind=ParetoRecall())
-    logbase::Float32 = 1.5
-    starting::Int32 = 8
+    hints::Union{Nothing,Callback}
+    hyperparameters::Union{Nothing,Callback}
+    logbase::Float32
+    starting::Int32
 end
 
 Call insertions and indexing methods with `SearchGraphCallbacks` objects to control how the index structure is adjusted (callbacks are called when ``n > starting`` and ``\\lceil(\\log(logbase, n)\\rceil != \\lceil\\log(logbase, n+1)\\rceil``)
 """
-@with_kw struct SearchGraphCallbacks
-    hints::Union{Nothing,Callback} = DisjointHints()
-    hyperparameters::Union{Nothing,Callback} = OptimizeParameters(kind=ParetoRecall())
-    logbase::Float32 = 1.5
-    starting::Int32 = 8
+struct SearchGraphCallbacks
+    hints::Union{Nothing,Callback}
+    hyperparameters::Union{Nothing,Callback}
+    logbase::Float32
+    starting::Int32
 end
 
 Base.copy(g::SearchGraph;
@@ -28,7 +28,7 @@ Base.copy(g::SearchGraph;
 ) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
 
 """
-    SearchGraphCallbacks(kind::ErrorFunction;
+    SearchGraphCallbacks(kind::ErrorFunction=ParetoRecall();
         hints=DisjointHints(),
         logbase=1.5,
         starting=8,
@@ -62,21 +62,24 @@ Convenient constructor function to create `SearchGraphCallbacks` structs. See [`
 - `numqueries`: The number of queries to be performed during the optimization process.
 - `space`: The cofiguration search space
 """
-function SearchGraphCallbacks(kind::ErrorFunction;
-    hints=DisjointHints(),
-    logbase=1.5,
-    starting=8,
-    initialpopulation=16,
-    maxiters=12,
-    bsize=4,
-    tol=-1.0,
-    params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters),
-    ksearch=10,
-    numqueries=32,
-    space::BeamSearchSpace=BeamSearchSpace()
-)
-hyperparameters = OptimizeParameters(; kind, initialpopulation, params, ksearch, numqueries, space)
-SearchGraphCallbacks(; hints, hyperparameters, logbase, starting)
+function SearchGraphCallbacks(kind=ParetoRecall();
+        hints=DisjointHints(),
+        logbase=1.5,
+        starting=8,
+        initialpopulation=16,
+        maxiters=12,
+        bsize=4,
+        tol=-1.0,
+        ksearch=10,
+        numqueries=32,
+        verbose=false,
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters, verbose),
+        space::BeamSearchSpace=BeamSearchSpace()
+    )
+    hyperparameters = kind === nothing ? nothing :
+        OptimizeParameters(kind, initialpopulation, params, ksearch, numqueries, space)
+    
+    SearchGraphCallbacks(hints, hyperparameters, logbase, starting)
 end
 
 """

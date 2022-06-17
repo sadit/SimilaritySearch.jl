@@ -3,7 +3,7 @@
 export rebuild
 
 """
-    rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGraphCallbacks(), minbatch=0, pools=getpools(index))
+    rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGraphCallbacks(verbose=g.verbose), minbatch=0, pools=getpools(index))
 
 Rebuilds the `SearchGraph` index but seeing the whole dataset for the incremental construction, i.e.,
 it can connect the i-th vertex to its knn in the 1..n possible vertices instead of its knn among 1..(i-1) as in the original algorithm.
@@ -17,7 +17,7 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 - `pools`: The set of caches for the indexes
 
 """
-function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGraphCallbacks(), minbatch=0, pools=getpools(g))
+function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGraphCallbacks(verbose=g.verbose), minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
     direct = Vector{Vector{Int32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
