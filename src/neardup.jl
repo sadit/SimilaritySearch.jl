@@ -3,7 +3,7 @@
 export neardup
 
 """
-    neardup(idx::AbstractSearchContext, X::AbstractVector, ϵ)
+    neardup(idx::AbstractSearchIndex, X::AbstractVector, ϵ)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -23,7 +23,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - The index `idx` must support incremental construction with `push!`
 - You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `idx.db` or where `nn[i] == i`
 """
-function neardup(idx::AbstractSearchContext, X::AbstractDatabase, ϵ::Real)
+function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real)
     res = KnnResult(3)  # should be 1, but index's setups work better on larger `k` values
     L = zeros(Int32, length(X))
     D = zeros(Float32, length(X))

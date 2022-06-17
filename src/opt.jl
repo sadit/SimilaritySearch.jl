@@ -16,7 +16,7 @@ struct ParetoRadius <: ErrorFunction end
 function runconfig end
 function setconfig! end
 
-function create_error_function(index::AbstractSearchContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -75,7 +75,7 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
 """
     optimize!(
-        index::AbstractSearchContext,
+        index::AbstractSearchIndex,
         kind::ErrorFunction=ParetoRecall(),
         space::AbstractSolutionSpace=optimization_space(index);
         queries=nothing,
@@ -105,7 +105,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `verbose`: controls if the procedure is verbose or not
 """
 function optimize!(
-            index::AbstractSearchContext,
+            index::AbstractSearchIndex,
             kind::ErrorFunction=ParetoRecall(),
             space::AbstractSolutionSpace=optimization_space(index);
             queries=nothing,

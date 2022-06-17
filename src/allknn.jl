@@ -3,7 +3,7 @@
 export allknn
 
 """
-    allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
     allknn(g, knns, dists; minbatch=0, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
@@ -34,14 +34,14 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
 This function was introduced in `v0.8` series, and removes self references automatically.
 In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.    
 """
-function allknn(g::AbstractSearchContext, k::Integer; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g))
     n = length(g)
     knns = zeros(Int32, k, n)
     dists = Matrix{Float32}(undef, k, n)
     allknn(g, knns, dists; minbatch, pools)
 end
 
-function allknn(g::AbstractSearchContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
     minbatch = getminbatch(minbatch, n)

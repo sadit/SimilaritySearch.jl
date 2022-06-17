@@ -9,7 +9,7 @@ export ExhaustiveSearch, search
 
 Solves queries evaluating `dist` for the query and all elements in the dataset
 """
-struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchContext
+struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
 end

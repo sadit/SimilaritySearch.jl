@@ -1,21 +1,21 @@
 # This file is a part of SimilaritySearch.jl
 
 module SimilaritySearch
-abstract type AbstractSearchContext end
+abstract type AbstractSearchIndex end
 
 using Parameters
 using Polyester
 
 import Base: push!, append!
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getknnresult
+export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
 include("distances/Distances.jl")
 
 include("db.jl")
 include("knnresult.jl")
-@inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
-@inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
-@inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
-@inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
+@inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
+@inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
+@inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
+@inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 include("perf.jl")
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")

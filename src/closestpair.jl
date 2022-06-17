@@ -3,7 +3,7 @@
 export closestpair
 
 """
-    closestpair(idx::AbstractSearchContext; minbatch=0, pools=getpools(idx))
+    closestpair(idx::AbstractSearchIndex; minbatch=0, pools=getpools(idx))
 
 Finds the closest pair among all elements in `idx`. If the index `idx` is approximate then pair of points could be also an approximation.
 
@@ -14,7 +14,7 @@ Finds the closest pair among all elements in `idx`. If the index `idx` is approx
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `pools`: The pools needed for the index. Only used for special cases, default values should work in most cases. See [`getpools`](@ref) for more information.
 """
-function closestpair(idx::AbstractSearchContext; minbatch=0, pools=getpools(idx))
+function closestpair(idx::AbstractSearchIndex; minbatch=0, pools=getpools(idx))
     if Threads.nthreads() == 1 || minbatch < 0 
         sequential_closestpair(idx, pools)
     else
@@ -22,7 +22,7 @@ function closestpair(idx::AbstractSearchContext; minbatch=0, pools=getpools(idx)
     end
 end
 
-function search_hint(idx::AbstractSearchContext, i::Integer, pools)
+function search_hint(idx::AbstractSearchIndex, i::Integer, pools)
     res = getknnresult(2, pools)
     search(idx, idx[i], res; pools)
     argmin(res) == i ? (argmax(res), maximum(res)) : (argmin(res), minimum(res))
@@ -36,7 +36,7 @@ function search_hint(G::SearchGraph, i::Integer, pools)
     argmin(res), minimum(res)
 end
 
-function parallel_closestpair(idx::AbstractSearchContext, pools, minbatch)::Tuple{Int32,Int32,Float32}
+function parallel_closestpair(idx::AbstractSearchIndex, pools, minbatch)::Tuple{Int32,Int32,Float32}
     n = length(idx)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.nthreads()]
 
@@ -54,7 +54,7 @@ function parallel_closestpair(idx::AbstractSearchContext, pools, minbatch)::Tupl
     B[i]
 end
 
-function sequential_closestpair(idx::AbstractSearchContext, pools)::Tuple{Int32,Int32,Float32}
+function sequential_closestpair(idx::AbstractSearchIndex, pools)::Tuple{Int32,Int32,Float32}
     mindist = typemax(Float32)
     I = J = zero(Int32)
 

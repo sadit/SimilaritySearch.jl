@@ -4,7 +4,7 @@ import Base: push!
 export ParallelExhaustiveSearch, search
 
 
-struct ParallelExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchContext
+struct ParallelExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
     lock::Threads.SpinLock
