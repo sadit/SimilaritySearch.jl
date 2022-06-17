@@ -84,9 +84,10 @@ using Test
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, verbose=false)
-    index!(graph)
+    buildtime = @elapsed index!(graph)
     searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
+    @info "buildtime", buildtime
     @info "testing without additional optimizations> queries per second:", m/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7

@@ -41,7 +41,7 @@ end
 
 @inline visited(vstate::Vector{UInt8}, i::Integer)::Bool = @inbounds vstate[i] == 1
 
-@inline function visit!(vstate::Vector{UInt8}, i, state)
+@inline function visit!(vstate::Vector{UInt8}, i::Integer)
     @inbounds vstate[i] = 1
 end
 
@@ -49,7 +49,7 @@ end
 
 @inline visited(vstate::Set{Int32}, i::Integer)::Bool = i ∈ vstate
 
-@inline function visit!(vstate::Set{Int32}, i)
+@inline function visit!(vstate::Set{Int32}, i::Integer)
     @inbounds push!(vstate, i)
 end
 
@@ -90,6 +90,8 @@ end
 @inline function _init_vv(v::Vector{UInt64}, n)
     n64 = 1 + ((n-1) >>> 6)
     n64 > length(v) && resize!(v, n64)
-    fill!(v, 0)
+    @inbounds for i in 1:n64
+        v[i] = 0
+    end
     v
 end
