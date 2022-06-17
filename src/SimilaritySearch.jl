@@ -75,12 +75,22 @@ the thread is used (in minibatches).
 # Arguments
 - `minbatch`
   - Integers ``1 ≤ minbatch ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
-  - Defaults to 0 which computes a default number based on the number of available cores.
+  - Defaults to 0 which computes a default number based on the number of available cores and `n`.
   - Set `minbatch=-1` to avoid parallelism.
 
 """
 function getminbatch(minbatch, n)
-    minbatch == 0 ? min(4, ceil(Int, 1/16 * n / Threads.nthreads())) : ceil(Int, minbatch)
+    nt = Threads.nthreads()
+    if minbatch == 0
+        # it seems to work for several workloads
+        n <= 2nt && return 1
+        n <= 4nt && return 2
+        n <= 8nt && return 4
+        return 8
+        # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
+    else
+        return ceil(Int, minbatch)
+    end
 end
 
 """
@@ -101,33 +111,34 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 
 """
 function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
-    k = size(I, 1)
     minbatch = getminbatch(minbatch, length(Q))
-
-    if minbatch > 0
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools=pools)
-            k_ = length(res)
-            #=sp = (i-1) * k + 1
-            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
-            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
-            @inbounds I[1:k_, i] .= res.id
-            @inbounds D[1:k_, i] .= res.dist
+    
+    if minbatch < 0
+        for i in eachindex(Q)
+            _solve_single_query(index, Q, i, I, D, pools)
         end
     else
-        @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            #=sp = (i-1) * k + 1
-            unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
-            unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            _solve_single_query(index, Q, i, I, D, pools)
         end
     end
 
     I, D
 end
+
+function _solve_single_query(index, Q, i, I, D, pools)
+    k = size(I, 1)
+    q = @inbounds Q[i]
+    res = getknnresult(k, pools)
+    search(index, q, res; pools=pools)
+    k_ = length(res)
+    @inbounds I[1:k_, i] .= res.id
+    @inbounds D[1:k_, i] .= res.dist
+    #=sp = (i-1) * k + 1
+    unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+    unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
+end
+
 
 """
     searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index)) -> indices, distances
@@ -144,13 +155,13 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
 function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
 
-    if minbatch > 0
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i]; pools=pools)
-        end
-    else
+    if minbatch < 0
         @inbounds for i in eachindex(Q)
             search(index, Q[i], KNN[i]; pools)
+        end
+    else
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            @inbounds search(index, Q[i], KNN[i]; pools=pools)
         end
     end
 

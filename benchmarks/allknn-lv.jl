@@ -46,6 +46,4 @@ function main()
     H
 end
 
-#GC.enable(false)
 main()
-#GC.enable(true)
