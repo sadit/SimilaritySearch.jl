@@ -137,6 +137,7 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
 
         # searching neighbors
         # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
+        
 	    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
             # parallel_block values are pretty small, better to use @threads directly instead of @batch
             @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)
