@@ -80,6 +80,7 @@ the thread is used (in minibatches).
 
 """
 function getminbatch(minbatch, n)
+    minbatch < 0 && return n
     nt = Threads.nthreads()
     if minbatch == 0
         # it seems to work for several workloads
