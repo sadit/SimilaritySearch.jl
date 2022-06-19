@@ -40,7 +40,7 @@ end
 Computes the macro recall score using sets of results (KnnResult objects or vectors of itegers).
 """
 function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
-    @assert size(goldlist) == size(reslist)
+    @assert length(goldlist) == length(reslist) "$(length(goldlist)) == $(length(reslist))"
     s = 0.0
     n = length(goldlist)
     for i in 1:n
