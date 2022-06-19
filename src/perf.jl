@@ -22,7 +22,7 @@ Computes the macro recall score using goldI as gold standard and resI as predict
 it expects that matrices of integers (identifiers). If `k` is given, then the results are cut to first `k`.
 """
 function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
-    @assert size(goldI) == size(resI)
+    @assert size(goldI) == size(resI) == "$(size(goldI)) == $(size(resI))"
     n = size(goldI, 2)
     s = 0.0
     for i in 1:n
