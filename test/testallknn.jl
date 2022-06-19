@@ -9,10 +9,12 @@ using Test, SimilaritySearch
     X = MatrixDatabase(rand(Float32, 4, n))
     G = SearchGraph(; db=X, dist)
     index!(G)
+    @test length(G) == n
     optimize!(G, MinRecall(0.95))
+    @test length(G) == n
     gI, gD = allknn(G, k)
-
     @test size(gI) == size(gD) == (k, n)
+
     E = ExhaustiveSearch(; db=X, dist)
     eI, eD = allknn(E, k)
     @test size(eI) == size(eD) == (k, n)
