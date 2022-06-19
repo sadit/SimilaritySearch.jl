@@ -18,11 +18,12 @@ using Test
     dist = SqL2Distance()
     seq = ExhaustiveSearch(dist, db)
     goldtime = @elapsed goldI, goldD = searchbatch(seq, queries, ksearch)
+    verbose = false
 
     for bsize in [2, 12]
         search_algo = BeamSearch(; bsize)
         @info "=================== $search_algo"
-        graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
+        graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo, verbose)
         neighborhood = Neighborhood(reduce=IdentityNeighborhood())
         append!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
         @test n == length(db) == length(graph)
@@ -41,7 +42,7 @@ using Test
     end
 
     @info "--- Optimizing parameters ParetoRadius ---"
-    graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
+    graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose)
     neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
     append!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
     @test n == length(db) == length(graph)
@@ -65,7 +66,7 @@ using Test
     @test recall >= 0.6
 
     @info "========================= REBUILD TEST ======================"
-    graph = SearchGraph(; db, dist, verbose=false)
+    graph = SearchGraph(; db, dist, verbose)
     index!(graph; callbacks=SearchGraphCallbacks(MinRecall(0.9)))
     @test n == length(db) == length(graph)
     optimize!(graph, MinRecall(0.9); queries)
@@ -92,7 +93,7 @@ using Test
     queries = MatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, queries, ksearch)
-    graph = SearchGraph(; db, dist, verbose=false)
+    graph = SearchGraph(; db, dist, verbose)
     buildtime = @elapsed index!(graph)
     @test n == length(db) == length(graph)
     searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
