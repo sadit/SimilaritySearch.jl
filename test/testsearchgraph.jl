@@ -25,7 +25,9 @@ using Test
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
         neighborhood = Neighborhood(reduce=IdentityNeighborhood())
         append!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
-        searchtime = @elapsed I, D= searchbatch(graph, queries, ksearch)
+        @test n == length(db) == length(graph)
+        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        @test size(I) == size(D) == (ksearch, m)
         #@info sort!(length.(graph.links), rev=true)
         @show goldD[:, 1]
         @show D[:, 1]
@@ -42,9 +44,11 @@ using Test
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose=false)
     neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
     append!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
+    @test n == length(db) == length(graph)
     @info "---- starting ParetoRadius optimization ---"
     optimize!(graph, ParetoRadius())
     searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+    @test size(I) == size(D) == (ksearch, m)
     recall = macrorecall(goldI, I)
     @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
     @info graph.search_algo
