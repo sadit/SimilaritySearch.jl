@@ -76,7 +76,7 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     if length(res) < k
         for _ in 1:k
             h = rand(1:length(g))
-            visited(vstate, h) && continue
+            visited(vstate, convert(UInt64, h)) && continue
             search(g.search_algo, g, c, res, h, pools; vstate)
             length(res) == k && break
         end

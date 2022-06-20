@@ -67,7 +67,6 @@ function Base.append!(
     sp = length(index) + 1
     sp > n && return index
 
-    resize!(index.links, n)
     _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
@@ -101,7 +100,7 @@ function index!(
 
     sp = length(index) + 1
     sp > n && return index
-    resize!(index.links, n)
+
     _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
@@ -131,13 +130,12 @@ function _connect_links(index, sp, ep)
 end
 
 function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block::Integer, callbacks)
+    resize!(index.links, n)
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
 
-        # searching neighbors
-        # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
-        
+        # searching neighbors      
 	    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
             # parallel_block values are pretty small, better to use @threads directly instead of @batch
             @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)

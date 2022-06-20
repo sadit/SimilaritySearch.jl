@@ -31,7 +31,7 @@ end
 ### local search algorithm
 
 @inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    check_visited_and_visit!(vstate, objID) && return 0
+    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
     @inbounds push!(res, objID, evaluate(index.dist, q, index[objID]))
     1
 end
@@ -65,7 +65,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
         #prev_dist > maximum(res) && break
         sp += 1
         for childID in index.links[prev_id]
-            check_visited_and_visit!(vstate, childID) && continue
+            check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(index.dist, q, index[childID])
             push!(res, childID, d)
             visited_ += 1

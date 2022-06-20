@@ -66,8 +66,7 @@ struct SearchGraphPools{VisitedVerticesType}
 end
 
 @inline function getvstate(len, pools::SearchGraphPools)
-    @inbounds v = pools.vstates[Threads.threadid()]
-    _init_vv(v, len)
+    @inbounds reuse!(pools.vstates[Threads.threadid()], len)
 end
 
 @inline function getbeam(bsize::Integer, pools::SearchGraphPools)

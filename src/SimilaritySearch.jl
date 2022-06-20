@@ -61,7 +61,7 @@ Note: The final indices at each column can be `0` if the search process was unab
 """
 function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
     m = length(Q)
-    I = zeros(Int32, k, m)
+    I = Matrix{Int32}(undef, k, m)
     D = Matrix{Float32}(undef, k, m)
     searchbatch(index, Q, I, D; minbatch, pools)
 end

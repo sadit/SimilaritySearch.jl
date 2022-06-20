@@ -124,15 +124,15 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
     @inbounds obj = index[id]
-    dist = dist < 0.0 ? evaluate(index.dist, item, obj) : dist
-    push!(near, 0, dist)
+    dist = dist < 0f0 ? evaluate(index.dist, item, obj) : dist
+    push!(near, zero(Int32), dist)
 
     @inbounds for linkID in sat_neighborhood
         d = evaluate(index.dist, index[linkID], obj)
         push!(near, linkID, d)
     end
 
-    argmin(near) == 0
+    argmin(near) == zero(Int32)
 end
 
 function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)

@@ -1,28 +1,50 @@
 # This file is a part of SimilaritySearch.jl
 
-
-@inline function _bitindices(i_::Integer)
-    i = convert(UInt64, i_) - one(UInt64)
+@inline function _bitindices(i_::UInt64)
+    # i = convert(UInt64, i_) - one(UInt64)
+    i = i_ - one(UInt64)
     (i >>> 6) + 1, (i & 63)
 end
 
-@inline function visited(vstate::Vector{UInt64}, i_::Integer)
-    b, i = _bitindices(i_)
-    @inbounds ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
+struct VisitedVerticesBits
+    B::Vector{UInt64}
 end
 
-@inline function visit!(vstate::Vector{UInt64}, i_::Integer)
-    b, i = _bitindices(i_)
-    @inbounds vstate[b] |= (one(UInt64) << i)
+VisitedVerticesBits(n::Integer) = VisitedVerticesBits(Vector{UInt64}(undef, n))
+
+Base.copy(v::VisitedVerticesBits) = VisitedVerticesBits(copy(v.B))
+
+function reuse!(v::VisitedVerticesBits, n::Integer)
+    let n = convert(UInt64, n)
+        n64 = 1 + ((n-1) >>> 6)
+        B = v.B
+        n64 > length(B) && resize!(B, n64)
+        z = zero(UInt64)
+        @inbounds for i in 1:n64
+            B[i] !== z && (B[i] = z)
+        end
+        v
+    end
 end
 
-@inline function check_visited_and_visit!(vstate::Vector{UInt64}, i_::Integer)
+@inline function visited(vstate::VisitedVerticesBits, i_::UInt64)
     b, i = _bitindices(i_)
-    v = ((vstate[b] >>> i) & one(UInt64)) == one(UInt64)
-    !v && ( @inbounds vstate[b] |= (one(UInt64) << i) )
+    @inbounds ((vstate.B[b] >>> i) & one(UInt64)) == one(UInt64)
+end
+
+@inline function visit!(vstate::VisitedVerticesBits, i_::UInt64)
+    b, i = _bitindices(i_)
+    @inbounds vstate.B[b] |= (one(UInt64) << i)
+end
+
+@inline function check_visited_and_visit!(vstate::VisitedVerticesBits, i_::Integer)
+    b, i = _bitindices(i_)
+    v = ((vstate.B[b] >>> i) & one(UInt64)) == one(UInt64)
+    !v && ( @inbounds vstate.B[b] |= (one(UInt64) << i) )
     v
 end
 
+#=
 @inline function check_visited_and_visit!(vstate, i::Integer)
     v = visited(vstate, i)
     !v && visit!(vstate, i)
@@ -30,6 +52,7 @@ end
 end
 
 #### VisitedVertices with BitVector
+
 
 @inline visited(vstate::BitVector, i::Integer)::Bool = @inbounds vstate[i]
 
@@ -52,22 +75,20 @@ end
 @inline function visit!(vstate::Set{Int32}, i::Integer)
     @inbounds push!(vstate, i)
 end
-
+=#
 # const GlobalVisitedVertices = [BitArray(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Vector{UInt8}(undef, 1)]  # initialized at __init__ function
 # const GlobalVisitedVertices = [Set{Int32}()]  # initialized at __init__ function
-const GlobalVisitedVertices = [Vector{UInt64}(undef, 32)]
+const GlobalVisitedVertices = [VisitedVerticesBits(32)]
+
 
 function __init__visitedvertices()
     for i in 2:Threads.nthreads()
         push!(GlobalVisitedVertices, copy(GlobalVisitedVertices[1]))
     end
-
-    #=for i in eachindex(GlobalVisitedVertices)
-        sizehint!(GlobalVisitedVertices[i], 128)
-    end=#
 end
 
+#=
 @inline function _init_vv(v::AbstractVector, n)
     # length(v) < n &&
     resize!(v, n)
@@ -86,12 +107,4 @@ end
     empty!(v)
     v
 end
-
-@inline function _init_vv(v::Vector{UInt64}, n)
-    n64 = 1 + ((n-1) >>> 6)
-    n64 > length(v) && resize!(v, n64)
-    @inbounds for i in 1:n64
-        v[i] = 0
-    end
-    v
-end
+=#

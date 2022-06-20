@@ -28,7 +28,8 @@ end
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
-distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
+distribution of the items being inserted (it is expected just a few elements smaller than the current ones).
+
 """
 function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
     ep == sp && return
@@ -124,7 +125,9 @@ Returns a result set and a new initial state; reuse the memory buffers
 @inline function reuse!(res::KnnResult, k::Integer=res.k)
     @assert k > 0
     empty!(res.id); empty!(res.dist)
-    sizehint!(res.id, k); sizehint!(res.dist, k)
+    if k > res.k
+        sizehint!(res.id, k); sizehint!(res.dist, k)
+    end
     KnnResult(res.id, res.dist, k)
 end
 
