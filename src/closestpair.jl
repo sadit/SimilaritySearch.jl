@@ -29,7 +29,7 @@ function search_hint(idx::AbstractSearchIndex, i::Integer, pools)
 end
 
 function search_hint(G::SearchGraph, i::Integer, pools)
-    res = getknnresult(3, pools)
+    res = getknnresult(8, pools)
     vstate = getvstate(length(G), pools)
     visit!(vstate, convert(UInt64, i))
     search(G.search_algo, G, G[i], res, rand(G.links[i]), pools; vstate)

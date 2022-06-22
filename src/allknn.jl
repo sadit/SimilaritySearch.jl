@@ -66,12 +66,12 @@ function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
     c = g[i]
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
-    #=for h in g.links[i] # hints
-        visited(vstate, h) && continue
+    for h in g.links[i] # hints
+        visited(vstate, convert(UInt64, h)) && continue
         search(g.search_algo, g, c, res, h, pools; vstate)
         length(res) == k && break
-    end=#
-    search(g.search_algo, g, c, res, rand(g.links[i]), pools; vstate)
+    end
+    ## search(g.search_algo, g, c, res, rand(g.links[i]), pools; vstate)
     # again for the same issue
     if length(res) < k
         for _ in 1:k
