@@ -10,7 +10,7 @@ import Base: push!, append!
 export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
 include("distances/Distances.jl")
 
-include("db.jl")
+include("db/db.jl")
 include("knnresult.jl")
 @inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
