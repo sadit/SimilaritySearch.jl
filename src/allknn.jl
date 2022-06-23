@@ -36,63 +36,74 @@ In `v0.9` the self reference is kept since removing from the algorithm introduce
 """
 function allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g))
     n = length(g)
-    knns = zeros(Int32, k, n)
+    knns = Matrix{Int32}(undef, k, n)
     dists = Matrix{Float32}(undef, k, n)
     allknn(g, knns, dists; minbatch, pools)
 end
 
 function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
-    n = length(g)
-    @assert n > 0
-    minbatch = getminbatch(minbatch, n)
-
-    if minbatch > 0
-        @batch minbatch=minbatch per=thread for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+    k, n = size(knns)
+    @assert n > 0 && k > 0 && n == length(g)
+    
+    if minbatch < 0
+        for i in 1:n
+            res = _allknn_loop(g, i, k, pools)
+            _k = length(res)
+            knns[1:_k, i] .= res.id
+            _k < k && (knns[_k+1:k] .= zero(Int32))
+            dists[1:_k, i] .= res.dist
+            
         end
     else
-        for i in 1:n
-            _allknn_loop(g, i, knns, dists, pools)
+        minbatch = getminbatch(minbatch, n)
+
+        @batch minbatch=minbatch per=thread for i in 1:n
+            res = _allknn_loop(g, i, k, pools)
+            _k = length(res)
+            knns[1:_k, i] .= res.id
+            _k < k && (knns[_k+1:k] .= zero(Int32))
+            dists[1:_k, i] .= res.dist
         end
     end
     
     knns, dists
 end
 
-function _allknn_loop(g::SearchGraph, i, knns, dists, pools)
-    k = size(knns, 1)
+function _allknn_loop(g::SearchGraph, i, k, pools)
     res = getknnresult(k, pools)
     vstate = getvstate(length(g), pools)
-    c = g[i]
+    q = g[i]
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
+    
     for h in g.links[i] # hints
         visited(vstate, convert(UInt64, h)) && continue
-        search(g.search_algo, g, c, res, h, pools; vstate)
-        length(res) == k && break
+        search(g.search_algo, g, q, res, h, pools; vstate)
+        # length(res) == k && break
     end
-    ## search(g.search_algo, g, c, res, rand(g.links[i]), pools; vstate)
+
+    #=
+    Δ = 1.9f0
+    maxvisits = bs.maxvisits ÷ 2
+    bsize = 1 # ceil(Int, bs.bsize / 2)
+    search(bs, g, c, res, i, pools; vstate, Δ, maxvisits, bsize)
+    =#
+
     # again for the same issue
-    if length(res) < k
+    #=if length(res) < k
         for _ in 1:k
             h = rand(1:length(g))
             visited(vstate, convert(UInt64, h)) && continue
-            search(g.search_algo, g, c, res, h, pools; vstate)
+            search(g.search_algo, g, q, res, h, pools; vstate)
             length(res) == k && break
         end
-    end
+    end=#
 
-    _k = length(res)
-    knns[1:_k, i] .= res.id
-    dists[1:_k, i] .= res.dist
+    res
 end
 
-function _allknn_loop(g, i, knns, dists, pools)
-    k = size(knns, 1)
+function _allknn_loop(g, i, k, pools)
     res = getknnresult(k, pools)
     @inbounds search(g, g[i], res; pools)
-
-    _k = length(res)
-    knns[1:_k, i] .= res.id
-    dists[1:_k, i] .= res.dist
+    res
 end
