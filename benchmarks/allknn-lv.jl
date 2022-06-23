@@ -14,7 +14,7 @@ function SimilaritySearch.evaluate(::NormalizedCosineDistanceLV{Dim}, u::Abstrac
     one(T) - d
 end
 
-function create_database(dim=100, n=100_000, filled=8)
+function create_database(dim=100,filled=8, n=100_000)
     X = zeros(Float32, dim, n)
     for i in 1:n
         rand!(view(X, 1:filled, i))
@@ -29,16 +29,20 @@ end
 
 function main()
     @info "this benchmark is intended to work with multithreading enabled julia sessions"
-    db, dist = create_database()
+    db, dist = create_database(8, 8)
     k = 32
     @info "----- computing gold standard"
+    GC.enable(false)
     goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), k)
+    GC.enable(true)
     @info "----- computing search graph"
     H = SearchGraph(; db, dist, verbose=false)
     index!(H; parallel_block=256)
     optimize!(H, MinRecall(0.9), ksearch=k)
     # prune!(RandomPruning(12), H)
+    GC.enable(false)
     searchtime = @elapsed hI, hD = allknn(H, k; minbatch=32)
+    GC.enable(true)
     n = length(db)
     @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
     @info "searchgraph:" (; n, searchtime, qps=n / searchtime)
