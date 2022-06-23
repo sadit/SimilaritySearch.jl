@@ -113,14 +113,15 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 """
 function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
-    
+    I_ = PtrArray(I)
+    D_ = PtrArray(D)
     if minbatch < 0
         for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I, D, pools)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I, D, pools)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     end
 
