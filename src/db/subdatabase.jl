@@ -2,16 +2,14 @@
 
 # SubDatabase ~ view of the dataset
 #
-struct SubDatabase{DBType,RType} <: AbstractDatabase
-    db::DBType
+struct SubDatabase{DBType<:AbstractDatabase,RType} <: AbstractDatabase
+    parent::DBType
     map::RType
 end
 
-@inline Base.getindex(sdb::SubDatabase, i::Integer) = @inbounds sdb.db[sdb.map[i]]
-@inline Base.length(sdb::SubDatabase) = length(sdb.map)
-@inline Base.eachindex(sdb::SubDatabase) = eachindex(sdb.map)
-@inline function Base.push!(sdb::SubDatabase, v)
-    error("push! unsupported operation on SubDatabase")
-end
-@inline Base.eltype(sdb::SubDatabase) = eltype(sdb.db)
-@inline Random.rand(db::SubDatabase, n::Integer) = SubDatabase(db.db, rand(db.map, n))
+@inline Base.getindex(S::SubDatabase, i::Integer) = @inbounds S.parent[S.map[i]]
+@inline Base.length(S::SubDatabase) = length(S.map)
+@inline Base.eachindex(S::SubDatabase) = eachindex(S.map)
+@inline Base.push!(S::SubDatabase, v) = error("push! unsupported operation on SubDatabase")
+@inline Base.eltype(S::SubDatabase) = eltype(S.parent)
+@inline Random.rand(S::SubDatabase, n::Integer) = SubDatabase(S.parent, rand(S.map, n))

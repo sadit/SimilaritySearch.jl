@@ -44,7 +44,7 @@ DynamicMatrixDatabase(V::DynamicMatrixDatabase{DType,Dim}) where {DType,Dim} = D
 
 @inline function Base.getindex(db::DynamicMatrixDatabase{DType,Dim}, i::Integer) where {DType,Dim}
     ep = i * Dim
-    @inbounds @view db.data[(ep - Dim + 1):ep]
+    @inbounds PtrArray(@view db.data[(ep - Dim + 1):ep])
 end
 @inline Base.setindex!(db::DynamicMatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
 
