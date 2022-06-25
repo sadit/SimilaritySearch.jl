@@ -1,3 +1,4 @@
+# This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch, LoopVectorization, StrideArrays, LinearAlgebra, Random
 
@@ -14,14 +15,14 @@ function SimilaritySearch.evaluate(::NormalizedCosineDistanceLV{Dim}, u::Abstrac
     one(T) - d
 end
 
-function create_database(dim=100,filled=8, n=100_000)
+function create_database(dim=100, filled=8, n=100_000)
     X = zeros(Float32, dim, n)
     for i in 1:n
         rand!(view(X, 1:filled, i))
     end
     
     for c in eachcol(X) normalize!(c) end
-    # MatrixDatabase(X), NormalizedCosineDistanceLV{dim}()
+    #MatrixDatabase(X), NormalizedCosineDistanceLV{dim}()
     MatrixDatabase(StrideArray(X, StaticInt.(size(X)))), NormalizedCosineDistanceLV{dim}()   # slow compilation, fast computation
     # MatrixDatabase(StrideArray(X, size(X))), NormalizedCosineDistanceLV{8}()
     #MatrixDatabase(X), NormalizedCosineDistance()   # fast compilation, a bit slower

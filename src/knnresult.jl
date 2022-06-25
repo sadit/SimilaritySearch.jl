@@ -42,7 +42,7 @@ function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
     nothing
 end
 
-@inline function _find_inspos(dist::Vector{Float32}, sp::Int, ep::Int, d::Float32)
+@inline function _find_inspos(dist, sp::Int, ep::Int, d::Float32)
     @inbounds while (mid = ep-sp) > 16
         mid = sp + (mid >> 1)
         d < dist[mid] || break
@@ -57,8 +57,11 @@ end
     ep
 end
 
-@inline function _shift_vector(arr::Vector, sp::Int, ep::Int, val)
-    #=@inbounds while ep > sp;  arr[ep] = arr[ep-1]; ep -= 1; end=#
+@inline function _shift_vector(arr, sp::Int, ep::Int, val)
+    #=@inbounds while ep > sp
+        arr[ep] = arr[ep-1]
+        ep -= 1
+    end=#
     unsafe_copyto!(arr, sp+1, arr, sp, ep-sp)
     @inbounds arr[sp] = val
 end

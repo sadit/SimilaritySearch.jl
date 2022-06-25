@@ -1,3 +1,5 @@
+# This file is a part of SimilaritySearch.jl
+
 using SimilaritySearch, LinearAlgebra
 
 function create_database()

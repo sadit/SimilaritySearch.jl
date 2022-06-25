@@ -10,7 +10,7 @@ import Base: push!, append!
 export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
 include("distances/Distances.jl")
 
-include("db.jl")
+include("db/db.jl")
 include("knnresult.jl")
 @inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
@@ -113,14 +113,15 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 """
 function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
-    
+    I_ = PtrArray(I)
+    D_ = PtrArray(D)
     if minbatch < 0
         for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I, D, pools)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I, D, pools)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     end
 

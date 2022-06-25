@@ -43,16 +43,18 @@ end
 
 function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
     k, n = size(knns)
-    @assert n > 0 && k > 0 && n == length(g)
-    
+    # @assert n > 0 && k > 0 && n == length(g)
+    #knns_ = pointer(knns)
+    #dists_ = pointer(dists)
+    knns_ = PtrArray(knns)
+    dists_ = PtrArray(dists)
     if minbatch < 0
         for i in 1:n
             res = _allknn_loop(g, i, k, pools)
             _k = length(res)
-            knns[1:_k, i] .= res.id
-            _k < k && (knns[_k+1:k] .= zero(Int32))
-            dists[1:_k, i] .= res.dist
-            
+            knns_[1:_k, i] .= res.id
+            _k < k && (knns_[_k+1:k] .= zero(Int32))
+            dists_[1:_k, i] .= res.dist 
         end
     else
         minbatch = getminbatch(minbatch, n)
@@ -60,14 +62,29 @@ function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::Abst
         @batch minbatch=minbatch per=thread for i in 1:n
             res = _allknn_loop(g, i, k, pools)
             _k = length(res)
-            knns[1:_k, i] .= res.id
-            _k < k && (knns[_k+1:k] .= zero(Int32))
-            dists[1:_k, i] .= res.dist
+            #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
+            knns_[1:_k, i] .= res.id
+            _k < k && (knns_[_k+1:k] .= zero(Int32))
+            dists_[1:_k, i] .= res.dist
         end
     end
     
     knns, dists
 end
+
+#=
+@inline function unsafe_copyto_knns_and_dists!(knns, id, dists, dist, i, _k, k)
+    sp = 4*k*(i-1) + 1
+    knns = knns + sp
+    unsafe_copyto!(knns, id, _k)
+    for i in _k+1:k
+        unsafe_store!(knns, zero(Int32),  i)
+    end
+
+    dists = dists + sp
+    unsafe_copyto!(dists, dist, _k)
+end=#
+
 
 function _allknn_loop(g::SearchGraph, i, k, pools)
     res = getknnresult(k, pools)
