@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Performance, probe, recallscore, timedsearchbatch, macrorecall
+export recallscore, macrorecall
 
 """
     recallscore(gold::Set, res)
