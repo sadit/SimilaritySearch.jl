@@ -48,10 +48,11 @@ function load_data_matrix()
 end
 
 function test_searchgraph(G; method, queries, k, mem, Eid, df, buildtime::Real, opttime::Real)
-	searchtime = @elapsed searchbatch(G, queries, k; parallel=true)
-	closestpairtime = @elapsed closestpair(G; parallel=true)
-	allknntime = @elapsed Gid, _ = allknn(G, k; parallel=true)
-
+	GC.enable(false)
+	searchtime = @elapsed searchbatch(G, queries, k)
+	closestpairtime = @elapsed closestpair(G)
+	allknntime = @elapsed Gid, _ = allknn(G, k)
+	GC.enable(true)
 	push!(df, (method, buildtime, opttime, searchtime, closestpairtime, allknntime, mem, macrorecall(Eid, Gid)))
 end
 
@@ -62,9 +63,11 @@ function main(db, queries, dist, k, warming)
 	if !warming && isfile("E.bin")
 		Ereg, Eid = deserialize("E.bin")
 	else
-		Esearchtime = @elapsed searchbatch(E, queries, k; parallel=true)
-		Eclosestpairtime = @elapsed closestpair(E; parallel=true)
-		Eallknntime = @elapsed Eid, _ = allknn(E, k; parallel=true)
+		GC.enable(false)
+		Esearchtime = @elapsed searchbatch(E, queries, k)
+		Eclosestpairtime = @elapsed closestpair(E)
+		Eallknntime = @elapsed Eid, _ = allknn(E, k)
+		GC.enable(true)
 		mem = sizeof(db.matrix) / 2^20
 		Ereg = ("ExhaustiveSearch", 0.0, 0.0, Esearchtime, Eclosestpairtime, Eallknntime, mem, 1.0)
 		!warming && serialize("E.bin", (Ereg, Eid))
@@ -84,6 +87,7 @@ function main(db, queries, dist, k, warming)
 	#test_searchgraph(G; method="MinRecall(0.99)", queries, k, buildtime, mem, opttime, Eid, df)
 	opttime = @elapsed optimize!(G, MinRecall(0.6))
 	test_searchgraph(G; method="MinRecall(0.6)", queries, k, buildtime, mem, opttime, Eid, df)
+	GC.gc()
 	G, Eid, df
 end
 
@@ -98,9 +102,11 @@ function main_mnist(k=32)
 	db = VectorDatabase([(db[i] .>= 0.5).chunks for i in eachindex(db)])
 	queries = VectorDatabase([(queries[i] .>= 0.5).chunks for i in eachindex(queries)])
 
-    H = SearchGraph(; db, dist=BinaryHammingDistance())
+    H = SearchGraph(; db, dist=BinaryHammingDistance(), verbose=false)
     buildtime = @elapsed index!(H; parallel_block=512)
+	GC.enable(false)
 	opttime = @elapsed optimize!(H, MinRecall(0.9))
+	GC.enable(true)
 	serialize("H.bin", H)
 	mem = filesize("H.bin") / 2^20
 

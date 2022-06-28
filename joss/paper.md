@@ -37,11 +37,10 @@ This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT license
 Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@witten1999managing,@sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods that are popular to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear;]. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., many deep learning internal representations are direct input for similarity search.
 
 ## The $k$ nearest neighbor problem
-Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, 
-the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$. 
+Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$.
 The problem can be solved easily with an exhaustive evaluation, but this solution is impractical when the number of expected queries is large or for high-dimensional datasets. When the dataset can be preprocessed, it is possible to overcome these difficulties by creating an \textit{index}, i.e., a data structure to solve similarity queries efficiently. Depending on the dimensionality and size of the dataset, it could be necessary to trade speed for quality,^[The quality is often measured as the `recall,` which is as a proportion of how many relevant results were found in a search; our package contains a function `macrorecall` that computes the average of this score for a set of query results.] traditional methods left this optimization to the user. Our approach has automated functions that simplify this task.
 
-Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and auto-tuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding]. 
+Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and auto-tuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding].
 
 ## Alternatives
 @malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of the [`hnswlib`](https://github.com/nmslib/hnswlib) and the [`nmslib`](https://github.com/nmslib/nmslib) libraries. Along with the HNSW, the [`faiss`](https://github.com/facebookresearch/faiss) library also provides a broad set of efficient implementations of metric, hashing, and product quantization indexes. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind [`PyNNDescent`](https://github.com/lmcinnes/pynndescent), which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>.]
@@ -52,7 +51,7 @@ Currently, there exists some packages dedicated to nearest neighbor search, for 
 
 # Main features of `SimilaritySearch`
 
-The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free the users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, optimizing both search speed and quality or a minimum quality. This search structure is described in [@simsearch2022], which uses the `SimilaritySearch.jl` package as implementation (0.8 version series). Previous versions of the package are benchmarked in [@tellez2021scalable].
+The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free the users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, optimizing both search speed and quality or a minimum quality. This search structure is described in [@simsearch2022], which uses the `SimilaritySearch.jl` package as implementation (0.9 version series). Previous versions of the package are benchmarked in [@tellez2021scalable].
 
 The main set of functions are:
 
@@ -93,17 +92,17 @@ function example(k, dist=SqL2Distance())
   db, queries = load_data()
   G = SearchGraph(; dist, db)
   index!(G; parallel_block=512)
-  id, dist = searchbatch(G, queries, k; parallel=true)
-  point1, point2, mindist = closestpair(G; parallel=true)
-  idAll, distAll = allknn(G, k; parallel=true)
+  id, dist = searchbatch(G, queries, k)
+  point1, point2, mindist = closestpair(G)
+  idAll, distAll = allknn(G, k)
 end
 
-example()
+example(32)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$. 
+The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$.
 
-For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads). We used `SimilaritySearch.jl` v0.8.20 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
+For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads), we use all threads in all tested systems. For instance, we used `SimilaritySearch.jl` v0.9.3 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
 
 \begin{table}[!ht]
 
@@ -112,16 +111,16 @@ For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstati
 \resizebox{\textwidth}{!}{
 \begin{tabular}{cccc cccc}
 \hline
-method & build     &  opt.     & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem. & \texttt{allknn} \\
-         &  cost (s) &  cost (s) &  cost (s)             & cost (s)              & cost (s)         & (MB) &  recall \\ \hline
-ExhaustiveSearch            &   0.0  & 0.0  &   3.56      &  22.18      & 21.65  & 179.44 &  1.00   \\ \hline
-SG ParetoRecall             &  1.76  & 0.0  &   0.14      &   0.31      &  0.70  & 182.19 &  0.84   \\
-SG \texttt{MinRecall(0.6)}  &  ''    & 0.12 &   0.05      &   0.37      &  0.23  &  ''    &  0.62   \\
-SG \texttt{MinRecall(0.9)}  &  ''    & 0.14 &   0.14      &   0.31      &  0.74  &  ''    &  0.88   \\
-SG \texttt{MinRecall(0.95)} &  ''    & 0.15 &   0.25      &   0.55      &  1.38  &  ''    &  0.96   \\ \hline
-SCANN                       & 25.11  &  -   &     -       &     -       &  2.14  & 201.95 &  1.00   \\
-HNSW (FAISS)                &  1.91  &  -   &     -       &     -       &  1.99  & 195.02 &  0.99   \\
-PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94  & 430.42 &  0.99   \\     
+method                      & build    & opt.     & \texttt{searchbatch}  & \texttt{closestpair}  & \texttt{allknn}  & mem.   & \texttt{allknn} \\
+                            & cost (s) & cost (s) &  cost (s)             & cost (s)              & cost (s)         & (MB)   &  recall \\ \hline
+ExhaustiveSearch            &  0.0     & 0.0      &   3.56                &  22.18                & 21.65            & 179.44 &  1.00   \\ \hline
+SG ParetoRecall             &  0.91    & 0.0      &   0.10                &   0.29                &  0.41            & 182.22 &  0.78   \\
+SG \texttt{MinRecall(0.6)}  &  ''      & 0.10     &   0.04                &   0.11                &  0.19            &  ''    &  0.66   \\
+SG \texttt{MinRecall(0.9)}  &  ''      & 0.12     &   0.13                &   0.46                &  0.61            &  ''    &  0.86   \\
+SG \texttt{MinRecall(0.95)} &  ''      & 0.23     &   0.15                &   0.55                &  0.75            &  ''    &  0.93   \\ \hline
+SCANN                       & 25.11    &  -       &     -                 &     -                 &  2.14            & 201.95 &  1.00   \\
+HNSW (FAISS)                &  1.91    &  -       &     -                 &     -                 &  1.99            & 195.02 &  0.99   \\
+PyNNDescent                 & 45.09    &  -       &     -                 &     -                 &  9.94            & 430.42 &  0.99   \\
 \hline
 \end{tabular}
 }
@@ -129,13 +128,12 @@ PyNNDescent                 & 45.09  &  -   &     -       &     -       &  9.94 
 
 
 ## Comparison with alternatives
-We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods. 
-Our `SearchGraph` (SG) method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed; this 
-also works for larger and high-dimensional datasets as benchmarked in @simsearch2022. 
+We also indexed and searched for all $k$ nearest neighbors using the default values for the HNSW, PyNNDescent, and SCANN nearest neighbor search indexes. All these operations were computed using all available threads. Note that high recall scores indicate that the default parameters can be adjusted to improve search times; nonetheless, optimizing parameters also imply using a model selection procedure that requires more computational resources and knowledge about the packages and methods.
+Our `SearchGraph` (SG) method performs this procedure in a single pass and without extra effort by the user. Note that we run several optimizations that use the same index and spend a small amount of time effectively trading between quality and speed; this also works for larger and high-dimensional datasets as benchmarked in @simsearch2022.
 Finally, short-living tasks like computing all $k$ nearest neighbors for non-linear dimensional reductions (e.g., data visualization) also require low build costs; therefore, a complete model selection is prohibitive, especially for large datasets.
 
 # Final notes
-`SimilaritySearch.jl` provides an alternative for high-dimensional datasets and metric agnostic; additionally, our autotuning feature is a milestone in the nearest neighbor community since the technology becomes more accessible for users without a profound knowledge in the field.
+`SimilaritySearch.jl` provides a metric agnostic alternative for similarity search in high-dimensional datasets; additionally, our autotuning feature is a milestone in the nearest neighbor community since the technology becomes more accessible for users without a profound knowledge in the field.
 More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
