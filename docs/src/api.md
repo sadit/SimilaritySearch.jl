@@ -10,16 +10,19 @@ end
 
 ```@docs
 ExhaustiveSearch
+ParallelExhaustiveSearch
 SearchGraph
 ```
 
 ## Searching
 
 ```@docs
-
 search
 searchbatch
 ```
+
+Note: `KnnResult` based functions are significantly faster in general on pre-allocated objects that similar functions accepting matrices of identifiers and distances. Matrix based outputs are based on `KnnResult` methods that copy their results on the matrices.
+Preallocation is also costly, so if you have relatively small datasets, you are not intended to repeat the search process many times, or you are unsure, it is safe to use matrix-based functions.
 
 ## Computing all knns
 The operation of computing all knns in the index is computed as follows:
@@ -39,7 +42,9 @@ push!(::SearchGraph, item)
 push_item!
 append!
 index!
+rebuild
 ```
+
 
 ## Distance functions
 The distance functions are defined to work under the `evaluate(::metric, u, v)` function (borrowed from [Distances.jl](https://github.com/JuliaStats/Distances.jl) package).

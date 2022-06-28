@@ -1,6 +1,9 @@
 # This file is a part of SimilaritySearch.jl
+using SimilaritySearch, LinearAlgebra
 
-using LinearAlgebra
+using Aqua
+Aqua.test_all(SimilaritySearch, ambiguities=false)
+Aqua.test_ambiguities([SimilaritySearch, Core])
 
 function create_sequence(dim, sort)
     s = rand(1:10, dim)
