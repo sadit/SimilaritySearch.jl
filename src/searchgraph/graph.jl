@@ -25,7 +25,7 @@ abstract type Callback end
 ### Basic operations on the index
 
 """
-    struct SearchGraph <: AbstractSearchContext
+    struct SearchGraph <: AbstractSearchIndex
 
 SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
 The performance is determined by the search algorithm `search_algo` and the neighborhood policy.
@@ -36,7 +36,7 @@ It supports callbacks to adjust parameters as insertions are made.
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 
 """
-@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchContext
+@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
     links::Vector{Vector{Int32}} = Vector{Int32}[]
@@ -60,14 +60,13 @@ can call other metric indexes that can use these shared resources (globally defi
 Each pool is a vector of `Threads.nthreads()` preallocated objects of the required type.
 """
 struct SearchGraphPools{VisitedVerticesType}
-    beams::Vector{KnnResultShift}
+    beams::Vector{KnnResult}
     satnears::Vector{KnnResult}
     vstates::VisitedVerticesType
 end
 
 @inline function getvstate(len, pools::SearchGraphPools)
-    @inbounds v = pools.vstates[Threads.threadid()]
-    _init_vv(v, len)
+    @inbounds reuse!(pools.vstates[Threads.threadid()], len)
 end
 
 @inline function getbeam(bsize::Integer, pools::SearchGraphPools)
@@ -78,6 +77,11 @@ end
     reuse!(pools.satnears[Threads.threadid()], 1)
 end
 
+"""
+    getpools(index::SearchGraph)
+
+Creates or retrieve caches for the search graph.
+"""
 getpools(::SearchGraph; beams=GlobalBeamKnnResult, satnears=GlobalSatKnnResult, vstates=GlobalVisitedVertices) = SearchGraphPools(beams, satnears, vstates)
 
 include("beamsearch.jl")

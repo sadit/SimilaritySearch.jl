@@ -8,11 +8,11 @@ using Test, SimilaritySearch, LinearAlgebra
     db = MatrixDatabase(rand(Float32, dim, 1000))
     G = SearchGraph(; db, dist)
     tG = @elapsed index!(G)
-    tG += @elapsed i, j, d = closestpair(G)
+    tG += @elapsed i, j, d = closestpair(G; minbatch=-1)
     @test i != j
     @test d < mindist
     @show i, j, d
-    i, j, d = closestpair(G; parallel=true)
+    i, j, d = closestpair(G)
     @test i != j
     @test d < mindist
     @show i, j, d, :parallel
