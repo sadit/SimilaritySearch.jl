@@ -31,8 +31,7 @@ end
 ### local search algorithm
 
 @inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    visited(vstate, objID) && return 0
-    visit!(vstate, objID)
+    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
     @inbounds push!(res, objID, evaluate(index.dist, q, index[objID]))
     1
 end
@@ -55,24 +54,25 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ, maxvisits, visited_)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int, visited_::Int)
     push!(beam, argmin(res), minimum(res))
 
     bsize = maxlength(beam)
     sp = 1
+
     @inbounds while sp <= length(beam)
-        prev_id = beam[sp].first
+        prev_id = getid(beam, sp)
+        #prev_dist > maximum(res) && break
         sp += 1
-        
         for childID in index.links[prev_id]
-            visited(vstate, childID) && continue
-            visit!(vstate, childID)
+            check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(index.dist, q, index[childID])
             push!(res, childID, d)
             visited_ += 1
             visited_ > maxvisits && @goto finish_search
             if d <= Δ * maximum(res)
                 push!(beam, childID, d; sp, k=bsize+sp)
+                # rand() < 1 / (sp-1) && continue
                 # @assert length(beam) <= bsize+sp "$sp, $bsize, $(sp+bsize), $(length(beam))"
                 # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
             end

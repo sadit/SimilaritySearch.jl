@@ -19,6 +19,13 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     reduce::Reduction = SatNeighborhood()
 end
 
+"""
+    Neighborhood(reduce::NeighborhoodReduction; logbase=2, minsize=2)
+
+Convenience constructor, see Neighborhood struct.
+"""
+Neighborhood(reduce::NeighborhoodReduction; logbase=2, minsize=2) = Neighborhood(; logbase, minsize, reduce)
+
 Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
     Neighborhood(; logbase, minsize, reduce)
 
@@ -117,19 +124,19 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
     @inbounds obj = index[id]
-    dist = dist < 0.0 ? evaluate(index.dist, item, obj) : dist
-    push!(near, 0, dist)
+    dist = dist < 0f0 ? evaluate(index.dist, item, obj) : dist
+    push!(near, zero(Int32), dist)
 
     @inbounds for linkID in sat_neighborhood
         d = evaluate(index.dist, index[linkID], obj)
         push!(near, linkID, d)
     end
 
-    argmin(near) == 0
+    argmin(near) == zero(Int32)
 end
 
 function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
-    copy(res.id)
+    copy(idview(res))
 end
 
 """
@@ -137,24 +144,132 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
-    N = Vector{Int32}(undef, 2)
-    resize!(N, 0)
-    @inbounds for i in length(res):-1:1  # DistSat => works a little better but also produces a bit larger neighborhoods
-        id, dist = res[i]
+@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=Int32[])
+    push!(N, argmax(res))
+
+    @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
+        (id, dist) = res[i]
         sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
     end
 
     N
 end
 
-@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
-    N = Vector{Int32}(undef, 2)
-    resize!(N, 0)
-    @inbounds for (id, dist) in res  # DistSat => works a little better but also produces a bit larger neighborhoods
+@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=Int32[])
+    push!(N, argmin(res))
+
+    @inbounds for i in 2:length(res)
+        (id, dist) = res[i]
         sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
     end
 
     N
 end
 
+## prunning neighborhood
+
+
+"""
+    NeighborhoodPruning
+
+Abstract data type for neighborhood pruning strategies
+"""
+abstract type NeighborhoodPruning end
+
+"""
+    RandomPruning(k)
+
+Selects `k` random edges for each vertex
+"""
+struct RandomPruning <: NeighborhoodPruning
+    k::Int
+end
+
+"""
+    KeepNearestPruning(k)
+
+Kept `k` nearest neighbor edges for each vertex
+"""
+struct KeepNearestPruning <: NeighborhoodPruning
+    k::Int
+end
+
+"""
+    SatPruning(k, satkind)
+    SatPruning(k)
+
+Selects `SatNeighborhood` or `DistalSatNeighborhood` for each vertex. Defaults to `DistalSatNeighborhood`.
+
+
+- `k`: the threshold size to apply the Sat reduction, i.e., neighbors larger than `k` will be pruned.
+"""
+struct SatPruning{SatKind} <: NeighborhoodPruning
+    k::Int
+    kind::SatKind  ## DistalSatNeighborhood, SatNeighborhood    
+end
+
+SatPruning(k) = SatPruning(k, DistalSatNeighborhood())
+
+"""
+    prune!(r::RandomPruning, index::SearchGraph;  minbatch=0, pools=getpools(index))
+
+Randomly prunes each neighborhood
+
+# Arguments
+
+
+"""
+function prune!(r::RandomPruning, index::SearchGraph; minbatch=0, pools=getpools(index))
+    n = length(index)
+    minbatch = getminbatch(minbatch, n)
+
+    @batch minbatch=minbatch per=thread for i in 1:n
+        @inbounds L = index.links[i]
+        if length(L) > r.k
+            shuffle!(L)
+            resize!(L, r.k)
+        end
+    end
+end
+
+"""
+    prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
+
+Selects `k` nearest neighbors among the the available neighbors
+"""
+function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
+    Threads.@threads for i in eachindex(index.links)
+        @inbounds L = index.links[i]
+        if length(L) > r.k
+            res = getknnresult(r.k, pools)
+            @inbounds c = index[i]
+            @inbounds for objID in L
+                push!(res, objID, evaluate(index.dist, c, index[objID]))
+            end
+
+            resize!(L, length(res))
+            copy!(L, idview(res))
+        end
+    end
+end
+
+"""
+    prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
+
+Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
+"""
+function prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
+    Threads.@threads for i in eachindex(index.links)
+        @inbounds L = index.links[i]
+        if length(L) > r.k
+            res = getknnresult(length(L), pools)
+            @inbounds c = index[i]
+            @inbounds for objID in L
+                push!(res, objID, evaluate(index.dist, c, index[objID]))
+            end
+           
+            empty!(L)
+            neighborhoodreduce(r.kind, index, c, res, pools, L)
+        end
+    end
+end

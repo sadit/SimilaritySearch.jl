@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Performance, probe, recallscore, timedsearchbatch, macrorecall
+export recallscore, macrorecall
 
 """
     recallscore(gold::Set, res)
@@ -13,7 +13,7 @@ end
 
 _convert_as_set(a::Set) = a
 _convert_as_set(a::AbstractVector) = Set(a)
-_convert_as_set(a::KnnResult) = Set(a.id)
+_convert_as_set(a::KnnResult) = Set(idview(a))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
@@ -22,7 +22,7 @@ Computes the macro recall score using goldI as gold standard and resI as predict
 it expects that matrices of integers (identifiers). If `k` is given, then the results are cut to first `k`.
 """
 function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
-    @assert size(goldI) == size(resI)
+    @assert size(goldI) == size(resI) "$(size(goldI)) == $(size(resI))"
     n = size(goldI, 2)
     s = 0.0
     for i in 1:n
@@ -40,7 +40,7 @@ end
 Computes the macro recall score using sets of results (KnnResult objects or vectors of itegers).
 """
 function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
-    @assert size(goldlist) == size(reslist)
+    @assert length(goldlist) == length(reslist) "$(length(goldlist)) == $(length(reslist))"
     s = 0.0
     n = length(goldlist)
     for i in 1:n
@@ -50,17 +50,4 @@ function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     end
 
     s / n
-end
-
-"""
-    timedsearchbatch(index, Q, ksearch::Integer; parallel=false)
-
-Computes the K nearest neigbors of each object in `Q` and returns two matrices, and the average search time in seconds.
-"""
-function timedsearchbatch(index, Q, ksearch::Integer; parallel=false, pools=getpools(index))
-    m = length(Q)
-    I = zeros(Int32, ksearch, m)
-    D = Matrix{Float32}(undef, ksearch, m)
-    t = @elapsed (I, D = searchbatch(index, Q, I, D; parallel, pools))
-    I, D, t/length(Q)
 end

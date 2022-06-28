@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 export KnnResult
-export maxlength, maxlength, getpair, getdist, getid, initialstate, idview, distview, reuse!
+export maxlength, getdist, getid, idview, distview, reuse!
 
 """
     KnnResult(ksearch::Integer)
@@ -28,9 +28,11 @@ end
 
 Sorts the result in place; the possible element out of order is on the last entry always.
 It implements a kind of insertion sort that it is efficient due to the expected
-distribution of the items being inserted (it is expected just a few elements smaller than the current ones)
+distribution of the items being inserted (it is expected just a few elements smaller than the current ones).
+
 """
 function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
+    ep == sp && return
     id, dist = res.id, res.dist
     @inbounds i, d = id[ep], dist[ep]
     pos = _find_inspos(dist, sp, ep, d)
@@ -40,7 +42,13 @@ function _shifted_fixorder!(res::KnnResult, sp::Int, ep::Int)
     nothing
 end
 
-@inline function _find_inspos(dist::Vector{Float32}, sp::Int, ep::Int, d::Float32)
+@inline function _find_inspos(dist, sp::Int, ep::Int, d::Float32)
+    @inbounds while (mid = ep-sp) > 16
+        mid = sp + (mid >> 1)
+        d < dist[mid] || break
+        ep = mid
+    end
+    
     @inbounds while ep > sp
         ep -= 1
         d < dist[ep] || return ep + 1
@@ -49,13 +57,13 @@ end
     ep
 end
 
-@inline function _shift_vector(arr::Vector, sp::Int, ep::Int, val)
-    @inbounds while ep > sp
+@inline function _shift_vector(arr, sp::Int, ep::Int, val)
+    #=@inbounds while ep > sp
         arr[ep] = arr[ep-1]
         ep -= 1
-    end
-
-    @inbounds arr[ep] = val
+    end=#
+    unsafe_copyto!(arr, sp+1, arr, sp, ep-sp)
+    @inbounds arr[sp] = val
 end
 
 """
@@ -119,9 +127,10 @@ Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::KnnResult, k::Integer=res.k)
     @assert k > 0
-    empty!(res.id)
-    empty!(res.dist)
-
+    empty!(res.id); empty!(res.dist)
+    if k > res.k
+        sizehint!(res.id, k); sizehint!(res.dist, k)
+    end
     KnnResult(res.id, res.dist, k)
 end
 

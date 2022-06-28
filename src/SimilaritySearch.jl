@@ -1,20 +1,21 @@
 # This file is a part of SimilaritySearch.jl
 
 module SimilaritySearch
-abstract type AbstractSearchContext end
+abstract type AbstractSearchIndex end
 
 using Parameters
+using Polyester
 
 import Base: push!, append!
-export AbstractSearchContext, SemiMetric, evaluate, search, searchbatch, getknnresult
+export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
 include("distances/Distances.jl")
 
-include("db.jl")
+include("db/db.jl")
 include("knnresult.jl")
-@inline Base.length(searchctx::AbstractSearchContext) = length(searchctx.db)
-@inline Base.getindex(searchctx::AbstractSearchContext, i::Integer) = searchctx.db[i]
-@inline Base.eachindex(searchctx::AbstractSearchContext) = 1:length(searchctx)
-@inline Base.eltype(searchctx::AbstractSearchContext) = eltype(searchctx.db)
+@inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
+@inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
+@inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
+@inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 include("perf.jl")
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
@@ -38,66 +39,131 @@ This function should be specialized for indexes and pools that use shared result
 end
 
 """
-    searchbatch(index, Q, k::Integer; parallel=false, pools=GlobalKnnResult) -> indices, distances
+    searchbatch(index, Q, k::Integer; minbatch=0, pools=GlobalKnnResult) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
-- `parallel` specifies if the query should be solved in parallel at object level (each query is sequentially solved but many queries solved in different threads).
-- `pool` relevant if `parallel=true`. If it is explicitly given it should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
-    In most case uses the default is enought, but different pools should be used when indexes use internal indexes to solve queries (e.g., using index's proxies or database objects defined as indexes).
+# Arguments
+- `index`: The search structure
+- `Q`: The set of queries
+- `k`: The number of neighbors to retrieve
 
+# Keyword arguments
+- `minbatch` specifies how many queries are solved per thread.
+  - Integers ``1 ≤ minbatch ≤ |Q|`` are valid values
+  - Set `minbatch=0` to compute a default number based on the number of available cores.
+  - Set `minbatch=-1` to avoid parallelism.
+- `pools` relevant for special datasets or distance functions. 
+    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
+    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index, Q, k::Integer; parallel=false, pools=getpools(index))
+function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
     m = length(Q)
-    I = zeros(Int32, k, m)
+    I = Matrix{Int32}(undef, k, m)
     D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, Q, I, D; parallel, pools)
+    searchbatch(index, Q, I, D; minbatch, pools)
 end
 
 """
-    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index)) -> indices, distances
+    getminbatch(minbatch, n)
+
+Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
+the thread is used (in minibatches). 
+
+# Arguments
+- `minbatch`
+  - Integers ``1 ≤ minbatch ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
+  - Defaults to 0 which computes a default number based on the number of available cores and `n`.
+  - Set `minbatch=-1` to avoid parallelism.
+
+"""
+function getminbatch(minbatch, n)
+    minbatch < 0 && return n
+    nt = Threads.nthreads()
+    if minbatch == 0
+        # it seems to work for several workloads
+        n <= 2nt && return 1
+        n <= 4nt && return 2
+        n <= 8nt && return 4
+        return 8
+        # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
+    else
+        return ceil(Int, minbatch)
+    end
+end
+
+"""
+    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 
+# Arguments
+- `index`: The search structure
+- `Q`: The set of queries
+- `k`: The number of neighbors to retrieve
+
+# Keyword arguments
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
+- `pools`: relevant for special datasets or distance functions. 
+    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
+    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
+
 """
-function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; parallel=false, pools=getpools(index))
-    k = size(I, 1)
-    
-    if parallel
-        Threads.@threads for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            @inbounds I[1:k_, i] .= res.id
-            @inbounds D[1:k_, i] .= res.dist
+function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
+    minbatch = getminbatch(minbatch, length(Q))
+    I_ = PtrArray(I)
+    D_ = PtrArray(D)
+    if minbatch < 0
+        for i in eachindex(Q)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     else
-        @inbounds for i in eachindex(Q)
-            res, _ = search(index, Q[i], getknnresult(k, pools); pools)
-            k_ = length(res)
-            I[1:k_, i] .= res.id
-            D[1:k_, i] .= res.dist
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            _solve_single_query(index, Q, i, I_, D_, pools)
         end
     end
 
     I, D
 end
 
+function _solve_single_query(index, Q, i, I, D, pools)
+    k = size(I, 1)
+    q = @inbounds Q[i]
+    res = getknnresult(k, pools)
+    search(index, q, res; pools=pools)
+    k_ = length(res)
+    @inbounds I[1:k_, i] .= res.id
+    @inbounds D[1:k_, i] .= res.dist
+    #=sp = (i-1) * k + 1
+    unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
+    unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
+end
+
+
 """
-    searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, pools=getpools(index)) -> indices, distances
+    searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index)) -> indices, distances
 
 Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
 
+# Arguments
+- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
+- `pools`: relevant for special datasets or distance functions. 
+    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
+    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
+
 """
-function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; parallel=false, pools=getpools(index))
-    if parallel
-        Threads.@threads for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i]; pools)
-        end
-    else
+function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
+    minbatch = getminbatch(minbatch, length(Q))
+
+    if minbatch < 0
         @inbounds for i in eachindex(Q)
             search(index, Q[i], KNN[i]; pools)
+        end
+    else
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            @inbounds search(index, Q[i], KNN[i]; pools=pools)
         end
     end
 
@@ -117,11 +183,12 @@ end
 # precompile as the final step of the module definition:
 
 
+#=
 if ccall(:jl_generating_output, Cint, ()) == 1   # if we're precompiling the package
-    #@info "precompiling common combinations of indexes, distances, and databases"
+    @info "precompiling common combinations of indexes, distances, and databases"
     let
         # Note: something happens that the warming stage is not removed
-        #=
+        # =
         function run_functions(E, queries)
             I, D = searchbatch(E, queries, 3)
             @assert size(I) == (3, length(queries))
@@ -195,8 +262,10 @@ if ccall(:jl_generating_output, Cint, ()) == 1   # if we're precompiling the pac
                 end
             end
         end
-        =#
+        = #
     end
 end
+
+=#
 
 end  # end SimilaritySearch module

@@ -45,6 +45,13 @@ Contributions are welcome. Please fill a pull request for documentating and impl
 # Issues
 Report issues in the package providing a minimal reproducible example. If the issue is data dependant, please don't forget to provide the necessary data to reproduce it.
 
+## Limitations of `SearchGraph`
+The main search structucture, the `SearchGraph` is a graph with several characteristics, many of them, induced by the dataset being indexed. Some of its known limitations are related with these characteristics. For instance:
+
+- Metric distances are known to work well, in the other hand, semi-metric should work but routing capabilities are not yet characterized.
+- Even when it performs pretty well as compared with alternatives, discrete metrics like Levenshtein distance and others that take few possible values may also get low performances.
+- Something similar will happen when there exists a lot of near duplicates (elements that are **pretty** close). In this case, it is necessary to remove near duplicates and put them in _bags_ associated to some of its near object.
+- Very high dimensional datasets will produce _long-tail_ distributions of the number of edges per vertex. In extreme cases, you must prune large neighborhoods and enrich single-edge paths.
 
 # About the structures and algorithms
 The following manuscript describes and benchmarks the `SearchGraph` index (package version `0.6`):
@@ -73,3 +80,16 @@ The current algorithm (version `0.8`) is described and benchmarked in the follow
 }
 ```
 
+## About v0.9.X series
+
+The algorithms of this version are the same of v0.8 but with several that break the API compatibility:
+
+- Now it uses `Polyester` package to handle multithreading instead of Threads.@threads
+- Multithreading methods are enabled by default if the processes is started with several threads, in v0.8 was the contrary
+- `allknn` now preserves self-references to simplify algorithms and improve efficiency (`allknn` in v0.8 removes self-references automatically)
+
+Others:
+
+- Adds function docs and benchmarks
+- Adds `SearchGraph` graph pruning methods
+- Removes the `timedsearchbatch` function

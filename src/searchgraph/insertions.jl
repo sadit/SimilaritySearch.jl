@@ -1,13 +1,22 @@
 # This file is a part of SimilaritySearch.jl
 
 """
+    get_parallel_block()
+
+Used by SearchGraph insertion functions to solve `find_neighborhood` in blocks. Small blocks are better to ensure quality; faster constructions will be achieved if `parallel_block` is a multiply of `Threads.nthreads()`
+
+"""
+get_parallel_block() = Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()
+
+
+"""
     append!(
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 
@@ -36,9 +45,9 @@ function Base.append!(
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
     db = convert(AbstractDatabase, db)
@@ -58,12 +67,11 @@ function Base.append!(
     sp = length(index) + 1
     sp > n && return index
 
-    resize!(index.links, n)
     _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
 """
-    index!(index::SearchGraph; parallel_block=1, parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks())
+    index!(index::SearchGraph; parallel_block=get_parallel_block(), parallel_minimum_first_block=parallel_block, callbacks=SearchGraphCallbacks(verbose=index.verbose))
 
 Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
 The arguments are the same than `append!` function but using the internal `index.db` as input.
@@ -72,9 +80,9 @@ The arguments are the same than `append!` function but using the internal `index
 function index!(
         index::SearchGraph;
         neighborhood=Neighborhood(),
-        parallel_block=1,
+        parallel_block=get_parallel_block(),
         parallel_minimum_first_block=parallel_block,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
     @assert length(index) == 0 && length(index.db) > 0
@@ -92,7 +100,7 @@ function index!(
 
     sp = length(index) + 1
     sp > n && return index
-    resize!(index.links, n)
+
     _parallel_append_loop!(index, neighborhood, pools, sp, n, parallel_block, callbacks)
 end
 
@@ -108,7 +116,7 @@ function _sequential_append_loop!(index::SearchGraph, neighborhood::Neighborhood
 end
 
 function _connect_links(index, sp, ep)
-    Threads.@threads for i in sp:ep
+    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
         @inbounds for id in index.links[i]
             lock(index.locks[id])
             try
@@ -121,14 +129,15 @@ function _connect_links(index, sp, ep)
     end
 end
 
-function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block, callbacks)
+function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block::Integer, callbacks)
+    resize!(index.links, n)
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
 
-        # searching neighbors
-        # @show length(index.links), length(index.db), length(db), length(index.locks), length(index), sp, ep
-        Threads.@threads for i in sp:ep
+        # searching neighbors      
+	    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
+            # parallel_block values are pretty small, better to use @threads directly instead of @batch
             @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)
         end
 
@@ -137,8 +146,8 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
         
         # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
         resize!(index.locks, ep)
-        for i in sp:ep
-            @inbounds index.locks[i] = Threads.SpinLock()
+        @inbounds for i in sp:ep
+            index.locks[i] = Threads.SpinLock()
         end
         
         # apply callbacks
@@ -155,7 +164,7 @@ end
         item;
         neighborhood=Neighborhood(),
         push_item=true,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 
@@ -177,7 +186,7 @@ Arguments:
         item;
         neighborhood=Neighborhood(),
         push_item=true,
-        callbacks=SearchGraphCallbacks(),
+        callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 

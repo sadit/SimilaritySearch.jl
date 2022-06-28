@@ -26,13 +26,13 @@ function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
     BeamSearch(; bsize, Δ)
 end
 
-@with_kw mutable struct OptimizeParameters <: Callback
-    kind::ErrorFunction = ParetoRecall()
-    initialpopulation = 16
-    params = SearchParams(maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16)
-    ksearch::Int32 = 10
-    numqueries::Int32 = 64
-    space::BeamSearchSpace = BeamSearchSpace()
+mutable struct OptimizeParameters <: Callback
+    kind::ErrorFunction
+    initialpopulation
+    params::SearchParams
+    ksearch::Int32
+    numqueries::Int32
+    space::BeamSearchSpace
 end
 
 optimization_space(index::SearchGraph) = BeamSearchSpace()
