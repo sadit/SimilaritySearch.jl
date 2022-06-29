@@ -31,10 +31,10 @@ bibliography: paper.bib
 
 # Summary
 
-This manuscript describes the `SimilaritySearch.jl` Julia's package (MIT licensed) that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems with no knowledge of the underlying algorithms since our main structure, the `SearchGraph,` has autotuning capabilities. The package is designed to work in main memory and takes advantage of multithreading systems in most of its primary operations.
+This manuscript describes the MIT licenced Julia [@bezanson2017julia] package `SimilaritySearch.jl` that provides algorithms to efficiently retrieve $k$ nearest neighbors from a metric dataset and other related problems with no knowledge of the underlying algorithms since our main structure, the `SearchGraph,` has autotuning capabilities. The package is designed to work in main memory and takes advantage of multithreading systems in most of its primary operations.
 
 # Statement of need
-Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@witten1999managing,@sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods that are popular to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear]. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., many deep learning internal representations are direct input for similarity search.
+Similarity search algorithms are fundamental tools for many computer science and data analysis methods. For instance, they are among the underlying machinery behind efficient information retrieval systems [@witten1999managing; @sparse-dense-text-retrieval]; they allow fast clustering analysis on large datasets [@pmlr-v157-weng21a; @jayaram2019diskann; @sisap2020kmeans]. Another outstanding example is how they can speed up the constructions of all $k$ nearest neighbor graphs, which are the input of non-linear dimensional reduction methods that are popular to visualize complex data [@umap2018; @trimap2019; @van2008visualizing; @lee2007nonlinear]. The number of potential applications is also increasing as the number of problems solved by deep learning methods proliferates, i.e., many deep learning internal representations are direct input for similarity search.
 
 ## The $k$ nearest neighbor problem
 Given a metric dataset, $S \subseteq U$ and a metric distance function $d$, defined for any pair of elements in $U$, the $k$ nearest neighbor search of $q$ consists on finding the subset $R$ that minimize $\sum_{u \in R} d(q, u)$ for all possible subsets of size $k$, i.e., $R \subset S$ and $|R| = k$.
@@ -43,8 +43,8 @@ The problem can be solved easily with an exhaustive evaluation, but this solutio
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and autotuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding].
 
 ## Alternatives
-@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of the [`hnswlib`](https://github.com/nmslib/hnswlib) and the [`nmslib`](https://github.com/nmslib/nmslib) libraries. Along with the HNSW, the [`faiss`](https://github.com/facebookresearch/faiss) library also provides a broad set of efficient implementations of metric, hashing, and product quantization indexes. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind [`PyNNDescent`](https://github.com/lmcinnes/pynndescent), which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>.]
-@scann2020 introduced the _SCANN_ index for inner product-based metrics and Euclidean distance, available at the [SCANN repository](https://github.com/google-research/google-research/tree/master/scann) based on hashing.
+@malkov2014approximate adds a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of the [`hnswlib`](https://github.com/nmslib/hnswlib) and the [`nmslib`](https://github.com/nmslib/nmslib) libraries. Along with the HNSW, the [`faiss`](https://github.com/facebookresearch/faiss) library also provides a broad set of efficient implementations of metric, hashing, and product quantization indexes. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind [`PyNNDescent`](https://github.com/lmcinnes/pynndescent), which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>.]
+@scann2020 introduces the _SCANN_ index for inner product-based metrics and Euclidean distance, available at the [SCANN repository](https://github.com/google-research/google-research/tree/master/scann) based on hashing.
 
 Currently, there exists some packages dedicated to nearest neighbor search, for instance we have [`NearestNeighbors.jl`](https://github.com/KristofferC/NearestNeighbors.jl), [`Rayuela.jl`](https://github.com/una-dinosauria/Rayuela.jl), [`HNSW.jl`](https://github.com/JuliaNeighbors/HNSW.jl), and a wrapper for the FAISS library, [`Faiss.jl`](https://github.com/zsz00/Faiss.jl), among other efforts.
 
@@ -68,7 +68,7 @@ Note that our implementations produce complete results with _exact_ indexes and 
 The complete set of functions and structures are detailed in the documentation.^[<https://sadit.github.io/SimilaritySearch.jl/>]
 
 # Installation
-The package is available in the julia's integrated package manager:
+The package is available in the Julia's integrated package manager:
 ```julia
 using Pkg
 Pkg.add("SimilaritySearch")
@@ -81,17 +81,17 @@ For instance, we used the set of 70k hand-written digits MNIST dataset [@lecun19
 using SimilaritySearch, MLDatasets 
 
 function load_data()
-  train, test = MNIST(split=:train), MNIST(split=:test)
+  train, test = MNIST(split = :train), MNIST(split = :test)
   (w, h, n), m = size(train.features), size(test.features, 3)
   db = MatrixDatabase(reshape(train.features, w * h, n))
   queries = MatrixDatabase(reshape(test.features, w * h, m))
   db, queries
 end
 
-function example(k, dist=SqL2Distance())
+function example(k, dist = SqL2Distance())
   db, queries = load_data()
   G = SearchGraph(; dist, db)
-  index!(G; parallel_block=512)
+  index!(G; parallel_block = 512)
   id, dist = searchbatch(G, queries, k)
   point1, point2, mindist = closestpair(G)
   idAll, distAll = allknn(G, k)
@@ -102,7 +102,7 @@ example(32)
 
 The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$.
 
-For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads), we use all threads in all tested systems. For instance, we used `SimilaritySearch.jl` v0.9.3 and `julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
+For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads), we use all threads in all tested systems. For instance, we used `SimilaritySearch.jl` v0.9.3 and `Julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
 
 \begin{table}[!ht]
 
