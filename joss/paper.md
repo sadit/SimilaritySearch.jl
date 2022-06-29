@@ -43,8 +43,8 @@ The problem can be solved easily with an exhaustive evaluation, but this solutio
 Our `SearchGraph` is based on the Navigable Small World (NSW) graph index [@malkov2018efficient] using a different search algorithm based on the well-known beam search meta-heuristic, smaller node degrees based on Spatial Access Trees [@navarro2002searching], and autotuned capabilities. The details are studied in [@simsearch2022; @tellez2021scalable; @ruiz2015finding].
 
 ## Alternatives
-@malkov2014approximate adds a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of the [`hnswlib`](https://github.com/nmslib/hnswlib) and the [`nmslib`](https://github.com/nmslib/nmslib) libraries. Along with the HNSW, the [`faiss`](https://github.com/facebookresearch/faiss) library also provides a broad set of efficient implementations of metric, hashing, and product quantization indexes. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind [`PyNNDescent`](https://github.com/lmcinnes/pynndescent), which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>.]
-@scann2020 introduces the _SCANN_ index for inner product-based metrics and Euclidean distance, available at the [SCANN repository](https://github.com/google-research/google-research/tree/master/scann) based on hashing.
+@malkov2014approximate add a hierarchical structure to the NSW to create the Hierarchical NSW (HNSW) search structure. This index is a central component of the [`hnswlib`](https://github.com/nmslib/hnswlib) and the [`nmslib`](https://github.com/nmslib/nmslib) libraries. Along with the HNSW, the [`faiss`](https://github.com/facebookresearch/faiss) library also provides a broad set of efficient implementations of metric, hashing, and product quantization indexes. @nndescent11 introduces the NN Descent method, which uses the graph of neighbors as index structure; it is the machinery behind [`PyNNDescent`](https://github.com/lmcinnes/pynndescent), which is behind the fast computation of UMAP non-linear low dimensional projection.^[<https://github.com/lmcinnes/umap>.]
+@scann2020 introduce the _SCANN_ index for inner product-based metrics and Euclidean distance, available at the [SCANN repository](https://github.com/google-research/google-research/tree/master/scann) based on hashing.
 
 Currently, there exists some packages dedicated to nearest neighbor search, for instance we have [`NearestNeighbors.jl`](https://github.com/KristofferC/NearestNeighbors.jl), [`Rayuela.jl`](https://github.com/una-dinosauria/Rayuela.jl), [`HNSW.jl`](https://github.com/JuliaNeighbors/HNSW.jl), and a wrapper for the FAISS library, [`Faiss.jl`](https://github.com/zsz00/Faiss.jl), among other efforts.
 
@@ -137,6 +137,7 @@ Finally, short-living tasks like computing all $k$ nearest neighbors for non-lin
 More examples and notebooks (Pluto and Jupyter) are available in the sister repository <https://github.com/sadit/SimilaritySearchDemos>.
 
 # Acknowledgements
-This research used the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México.
+The authors would like to thank the reviewers and the editor for their valuable time; their suggestions improved the quality of this manuscript.
+This research used the computing infrastructure of the _Laboratorio de GeoInteligencia Territorial_ at _CentroGEO Centro de Investigación en Ciencias de Información Geoespacial_, Aguascalientes, México. 
 
 # References
