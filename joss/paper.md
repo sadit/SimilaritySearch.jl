@@ -102,12 +102,12 @@ example(32)
 
 The function `example` loads the data (line 12), creates the index (line 14), and then finds all $k$ nearest neighbors of the test in the indexed partition as a batch of queries (line 15). The same index is used to compute the closest pair of points in the train partition (line 16) and compute all $k$ nearest neighbors on the train partition (line 17) for $k=32$.
 
-For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads), we use all threads in all tested systems. For instance, we used `SimilaritySearch.jl` v0.9.3 and `Julia` 1.7.2. Table \ref{tab/performance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
+For this matter, we used an Intel(R) Xeon(R) Silver 4216 CPU @ 2.10GHz workstation with 256GiB RAM using GNU/Linux CentOS 8. Our system has 32 cores (64 threads), we use all threads in all tested systems. For instance, we used `SimilaritySearch.jl` v0.9.3 and `Julia` 1.7.2. Table \ref{tabperformance} compares the running times of `SearchGraph` (SG). We consider different autotuned versions calling `optimize!(G, MinRecall(r))` after the `index!` function call, for different expected recall scores, it defaults to `ParetoRecall`. We also compare with a parallel brute-force algorithm (replacing lines 13-14 with `ExhaustiveSearch(; dist, db)`).
 
 \begin{table}[!ht]
 
 \caption{Performance comparison of running several similarity methods on the MNIST dataset. Smaller time costs and memory are desirable while high recall scores (close to 1) are better.}
-\label{tab/performance}
+\label{tabperformance}
 \resizebox{\textwidth}{!}{
 \begin{tabular}{cccc cccc}
 \hline
