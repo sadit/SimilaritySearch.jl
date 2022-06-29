@@ -88,10 +88,10 @@ function load_data()
   db, queries
 end
 
-function example(k, dist=SqL2Distance())
+function example(k, dist = SqL2Distance())
   db, queries = load_data()
   G = SearchGraph(; dist, db)
-  index!(G; parallel_block=512)
+  index!(G; parallel_block = 512)
   id, dist = searchbatch(G, queries, k)
   point1, point2, mindist = closestpair(G)
   idAll, distAll = allknn(G, k)
