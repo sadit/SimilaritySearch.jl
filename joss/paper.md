@@ -51,7 +51,7 @@ Currently, there are some packages dedicated to nearest neighbor search, for ins
 
 # Main features of `SimilaritySearch`
 
-The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free the users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, optimizing both search speed and quality or a minimum quality. This search structure is described in [@simsearch2022], which uses the `SimilaritySearch.jl` package as implementation (0.9 version series). Previous versions of the package are benchmarked in [@tellez2021scalable].
+The `SearchGraph` struct is an approximate method designed to trade effectively between speed and quality. It has an integrated autotuning feature that almost free the users of any setup and manual model selection. In a single pass, the incremental construction adjusts the index parameters to achieve the desired performance, optimizing both search speed and quality or a minimum quality. This search structure is described in @simsearch2022, which uses the `SimilaritySearch.jl` package as implementation (0.9 version series). Previous versions of the package are benchmarked in @tellez2021scalable.
 
 The main set of functions are:
 
