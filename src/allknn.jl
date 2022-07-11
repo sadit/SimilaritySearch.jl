@@ -64,7 +64,7 @@ function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::Abst
             _k = length(res)
             #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
             knns_[1:_k, i] .= res.id
-            _k < k && (knns_[_k+1:k] .= zero(Int32))
+            _k < k && (knns_[_k+1:k, i] .= zero(Int32))
             dists_[1:_k, i] .= res.dist
         end
     end

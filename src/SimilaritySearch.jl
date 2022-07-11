@@ -133,9 +133,12 @@ function _solve_single_query(index, Q, i, I, D, pools)
     q = @inbounds Q[i]
     res = getknnresult(k, pools)
     search(index, q, res; pools=pools)
-    k_ = length(res)
-    @inbounds I[1:k_, i] .= res.id
-    @inbounds D[1:k_, i] .= res.dist
+    _k = length(res)
+    @inbounds begin
+        I[1:_k, i] .= res.id
+        _k < k && (I[_k+1:k, i] .= zero(Int32))
+        D[1:_k, i] .= res.dist
+    end
     #=sp = (i-1) * k + 1
     unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
     unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
