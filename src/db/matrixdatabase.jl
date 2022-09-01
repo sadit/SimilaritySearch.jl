@@ -25,8 +25,10 @@ Creates another `MatrixDatabase` from another `MatrixDatabase`. They will share 
 """
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 
-@inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
-@inline Base.getindex(db::MatrixDatabase{<:DenseArray}, i::Integer) = PtrArray(view(db.matrix, :, i))
+# @inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
+@inline Base.getindex(db::MatrixDatabase{<:DenseArray}, i::Integer) = view(db.matrix, :, i)
+#@inline Base.getindex(db::MatrixDatabase{Matrix{Float32}}, i::Integer) = PtrArray(view(db.matrix, :, i))
+#@inline Base.getindex(db::MatrixDatabase{Matrix{Float64}}, i::Integer) = PtrArray(view(db.matrix, :, i))
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::MatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
 @inline Base.push!(db::MatrixDatabase, v) = error("push! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")

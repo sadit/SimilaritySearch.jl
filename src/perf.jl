@@ -21,14 +21,21 @@ _convert_as_set(a::KnnResult) = Set(idview(a))
 Computes the macro recall score using goldI as gold standard and resI as predictions;
 it expects that matrices of integers (identifiers). If `k` is given, then the results are cut to first `k`.
 """
-function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
-    @assert size(goldI) == size(resI) "$(size(goldI)) == $(size(resI))"
+function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix)::Float64
     n = size(goldI, 2)
     s = 0.0
     for i in 1:n
-        g = view(goldI, 1:k, i)
-        r = view(resI, 1:k, i)
-        s += recallscore(g, r)
+        s += recallscore(view(goldI, :, i), view(resI, :, i))
+    end
+
+    s / n
+end
+
+function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k::Integer)::Float64
+    n = size(goldI, 2)
+    s = 0.0
+    for i in 1:n
+        s += recallscore(view(goldI, 1:k, i), view(resI, 1:k, i))
     end
 
     s / n

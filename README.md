@@ -88,9 +88,9 @@ The current algorithm (version `0.8` and `0.9`) is described and benchmarked in 
 }
 ```
 
-This package is also described in the JOSS paper, currently under review.
+This package is also described in the JOSS paper:
 
-> Eric S. Tellez and Guillermo Ruiz. _`SimilaritySearch.jl`: Autotuned nearest neighbor indexes for Julia_. Journal of Open Source Software (Under review)
+> Eric S. Tellez and Guillermo Ruiz. _`SimilaritySearch.jl`: Autotuned nearest neighbor indexes for Julia_. Journal of Open Source Software [https://doi.org/10.21105/joss.04442](https://doi.org/10.21105/joss.04442).
 
 ## About v0.9.X series
 
