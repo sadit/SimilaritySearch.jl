@@ -7,15 +7,19 @@ using Parameters
 using Polyester
 
 import Base: push!, append!
-export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult
+export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult, database
 include("distances/Distances.jl")
 
 include("db/db.jl")
 include("knnresult.jl")
+
 @inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
-@inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = searchctx.db[i]
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
+@inline database(searchctx::AbstractSearchIndex) = searchctx.db
+@inline database(searchctx::AbstractSearchIndex, i) = searchctx.db[i]
+@inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = database(searchctx, i)
+
 include("perf.jl")
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
@@ -53,7 +57,7 @@ Searches a batch of queries in the given index (searches for k neighbors).
   - Integers ``1 ≤ minbatch ≤ |Q|`` are valid values
   - Set `minbatch=0` to compute a default number based on the number of available cores.
   - Set `minbatch=-1` to avoid parallelism.
-- `pools` relevant for special datasets or distance functions. 
+- `pools` relevant for special databases or distance functions. 
     In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
@@ -106,7 +110,7 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 
 # Keyword arguments
 - `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: relevant for special datasets or distance functions. 
+- `pools`: relevant for special databases or distance functions. 
     In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
@@ -152,7 +156,7 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
 
 # Arguments
 - `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: relevant for special datasets or distance functions. 
+- `pools`: relevant for special databases or distance functions. 
     In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 

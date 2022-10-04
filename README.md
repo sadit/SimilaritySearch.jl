@@ -5,12 +5,11 @@
 
 # SimilaritySearch.jl
 
-
 SimilaritySearch.jl is a library for nearest neighbor search. In particular, it contains the implementation for `SearchGraph,` a fast and flexible search index using any metric function. It is designed to support multithreading in most of its functions and structures.
 
 The package provides the following indexes:
 
-- `ParallelExhaustiveSearch`: An brute force search index where each query is solved using all available threads.
+- `ParallelExhaustiveSearch`: A brute force search index where each query is solved using all available threads.
 - `ExhaustiveSearch`: A brute force search index, each query is solved using a single thread.
 - `SearchGraph`: An approximate search index with parallel construction.
 
@@ -27,7 +26,7 @@ The precise definitions of these functions and the complete set of functions and
 # Similarity search _ecosystem_ in Julia
 Currently, there exists several packages dedicated to nearest neighbor search, for instance we have [`NearestNeighbors.jl`](https://github.com/KristofferC/NearestNeighbors.jl), [`RegionTrees.jl`](https://github.com/rdeits/RegionTrees.jl), and [`JuliaNeighbors`](https://github.com/JuliaNeighbors) implement search structures like [kd-trees](https://en.wikipedia.org/wiki/K-d_tree), [ball trees](https://en.wikipedia.org/wiki/Ball_tree), [quadtrees](https://en.wikipedia.org/wiki/Quadtree), [octrees](https://en.wikipedia.org/wiki/Octree), [bk-trees](https://en.wikipedia.org/wiki/BK-tree), [vp-tree](https://en.wikipedia.org/wiki/Vantage-point_tree) and other multidimensional and metric structures. These structures work quite well for low dimensional data since they are designed to solve exact similarity queries.
 
-There exist several packages performing approximate similarity search, like [`Rayuela.jl`](https://github.com/una-dinosauria/Rayuela.jl) using product quantization schemes, the wrapper for the [`FAISS`](https://faiss.ai/) library [`Faiss.jl`](https://github.com/zsz00/Faiss.jl). The FAISS library provides high-performance implementations of product quantization schemes and locality-sensitive hashing schemes, along with an industrial-strength implementation of the [`HNSW`](https://github.com/nmslib/hnswlib) index. The [`NearestNeighborDescent.jl`](https://github.com/dillondaudert/NearestNeighborDescent.jl) implements the search algorithm behind [`pynndescent`](https://pynndescent.readthedocs.io/en/latest/?badge=latest). 
+There exist several packages performing approximate similarity search, like [`Rayuela.jl`](https://github.com/una-dinosauria/Rayuela.jl) using product quantization schemes, the wrapper for the [`FAISS`](https://faiss.ai/) library [`Faiss.jl`](https://github.com/zsz00/Faiss.jl). The FAISS library provides high-performance implementations of product quantization schemes and locality-sensitive hashing schemes, along with an industrial-strength implementation of the [`HNSW`](https://github.com/nmslib/hnswlib) index. The [`NearestNeighborDescent.jl`](https://github.com/dillondaudert/NearestNeighborDescent.jl) implements the search algorithm behind [`pynndescent`](https://pynndescent.readthedocs.io/en/latest/?badge=latest).
 
 The `SimilaritySearch.jl` package tries to enrich the ecosystem with search structures and algorithms designed to take advantage of multithreading systems and a unique autotuning feature that simplifies its usage for practitioners. These features are succinctly and efficiently implemented due to the Julia programming language dynamism and performance.
 Regarding performance characteristics, the construction times are vastly reduced compared to similar approaches without reducing search performance or result quality.
