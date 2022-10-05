@@ -13,11 +13,11 @@ include("distances/Distances.jl")
 include("db/db.jl")
 include("knnresult.jl")
 
-@inline Base.length(searchctx::AbstractSearchIndex) = length(searchctx.db)
+@inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 @inline database(searchctx::AbstractSearchIndex) = searchctx.db
-@inline database(searchctx::AbstractSearchIndex, i) = searchctx.db[i]
+@inline database(searchctx::AbstractSearchIndex, i) = database(searchctx)[i]
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = database(searchctx, i)
 
 include("perf.jl")
