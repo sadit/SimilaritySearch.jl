@@ -41,11 +41,11 @@ Solves the query evaluating all items in the given query.
 - `pools`: The set of caches (nothing for this index)
 """
 function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
-    dist = ex.dist
+    dist = distance(ex)
     elock = ex.lock
     minbatch = getminbatch(minbatch, length(ex))
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
-        d = evaluate(dist, ex[i], q)
+        d = evaluate(dist, database(ex, i), q)
         try
             lock(elock)
             push!(res, i, d)

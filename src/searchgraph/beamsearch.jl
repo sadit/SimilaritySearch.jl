@@ -32,7 +32,7 @@ end
 
 @inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
-    @inbounds push!(res, objID, evaluate(index.dist, q, index[objID]))
+    @inbounds push!(res, objID, evaluate(distance(index), q, database(index, objID)))
     1
 end
 
@@ -66,7 +66,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
         sp += 1
         for childID in index.links[prev_id]
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
-            d = evaluate(index.dist, q, index[childID])
+            d = evaluate(distance(index), q, database(index, childID))
             push!(res, childID, d)
             visited_ += 1
             visited_ > maxvisits && @goto finish_search

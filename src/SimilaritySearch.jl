@@ -16,9 +16,28 @@ include("knnresult.jl")
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
+
+"""
+    database(index)
+
+Gets the entire indexed database
+"""
 @inline database(searchctx::AbstractSearchIndex) = searchctx.db
+
+"""
+    database(index, i)
+
+Gets the i-th object from the indexed database
+"""
 @inline database(searchctx::AbstractSearchIndex, i) = database(searchctx)[i]
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = database(searchctx, i)
+
+"""
+    distance(index)
+
+Gets the distance function used in the index
+"""
+@inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
 include("perf.jl")
 include("sequential-exhaustive.jl")

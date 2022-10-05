@@ -121,6 +121,6 @@ end
 
 function _allknn_loop(g, i, k, pools)
     res = getknnresult(k, pools)
-    @inbounds search(g, g[i], res; pools)
+    @inbounds search(g, database(g, i), res; pools)
     res
 end

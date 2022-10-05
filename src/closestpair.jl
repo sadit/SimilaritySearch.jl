@@ -24,7 +24,7 @@ end
 
 function search_hint(idx::AbstractSearchIndex, i::Integer, pools)
     res = getknnresult(2, pools)
-    search(idx, idx[i], res; pools)
+    search(idx, database(idx, i), res; pools)
     argmin(res) == i ? (argmax(res), maximum(res)) : (argmin(res), minimum(res))
 end
 
@@ -32,7 +32,7 @@ function search_hint(G::SearchGraph, i::Integer, pools)
     res = getknnresult(8, pools)
     vstate = getvstate(length(G), pools)
     visit!(vstate, convert(UInt64, i))
-    search(G.search_algo, G, G[i], res, rand(G.links[i]), pools; vstate)
+    search(G.search_algo, G, database(G, i), res, rand(G.links[i]), pools; vstate)
     argmin(res), minimum(res)
 end
 

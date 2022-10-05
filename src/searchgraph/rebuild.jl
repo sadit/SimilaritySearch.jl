@@ -25,7 +25,7 @@ function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGr
     minbatch = minbatch < 0 ? n : getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds direct[i] = find_neighborhood(g, g[i], neighborhood, pools, hints=g.links[i][1])
+        @inbounds direct[i] = find_neighborhood(g, database(g, i), neighborhood, pools, hints=g.links[i][1])
         reverse[i] = Vector{Int32}(undef, 0)
     end
     

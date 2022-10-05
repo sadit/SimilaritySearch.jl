@@ -124,11 +124,12 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
     @inbounds obj = index[id]
-    dist = dist < 0f0 ? evaluate(index.dist, item, obj) : dist
+    dfun = distance(index)
+    dist = dist < 0f0 ? evaluate(dfun, item, obj) : dist
     push!(near, zero(Int32), dist)
 
     @inbounds for linkID in sat_neighborhood
-        d = evaluate(index.dist, index[linkID], obj)
+        d = evaluate(dfun, database(index, linkID), obj)
         push!(near, linkID, d)
     end
 
@@ -238,13 +239,14 @@ end
 Selects `k` nearest neighbors among the the available neighbors
 """
 function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
+    dist = distance(index)
     Threads.@threads for i in eachindex(index.links)
         @inbounds L = index.links[i]
         if length(L) > r.k
             res = getknnresult(r.k, pools)
-            @inbounds c = index[i]
+            @inbounds c = database(index, i)
             @inbounds for objID in L
-                push!(res, objID, evaluate(index.dist, c, index[objID]))
+                push!(res, objID, evaluate(dist, c, database(index, objID)))
             end
 
             resize!(L, length(res))
@@ -259,13 +261,15 @@ end
 Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
 """
 function prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
+    dist = distance(index)
+    
     Threads.@threads for i in eachindex(index.links)
         @inbounds L = index.links[i]
         if length(L) > r.k
             res = getknnresult(length(L), pools)
-            @inbounds c = index[i]
+            @inbounds c = database(index, i)
             @inbounds for objID in L
-                push!(res, objID, evaluate(index.dist, c, index[objID]))
+                push!(res, objID, evaluate(dist, c, database(index, objID)))
             end
            
             empty!(L)
