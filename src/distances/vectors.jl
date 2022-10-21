@@ -1,21 +1,27 @@
 # This file is a part of SimilaritySearch.jl
-
-export L1Distance, L2Distance, SqL2Distance, LInftyDistance, LpDistance
+using LoopVectorization
+export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance
+    TurboL1Distance, TurboL2Distance, TurboSqL2Distance
 import Distances: evaluate
 
 """
     L1Distance()
+    TurboL1Distance()
 
 The manhattan distance or ``L_1`` is defined as
 
 ```math
 L_1(u, v) = \\sum_i{|u_i - v_i|}
 ```
+
+The struct type argument (true|false) is used to choose using `@turbo` macro from `LoopVectorization`
 """
 struct L1Distance <: SemiMetric end
+struct TurboL1Distance <: SemiMetric end
 
 """
     L2Distance()
+    TurboL2Distance()
 
 The euclidean distance or ``L_2`` is defined as
 
@@ -24,9 +30,11 @@ L_2(u, v) = \\sqrt{\\sum_i{(u_i - v_i)^2}}
 ```
 """
 struct L2Distance <: SemiMetric end
+struct TurboL2Distance <: SemiMetric end
 
 """
     SqL2Distance()
+    TurboSqL2Distance()
 
 The squared euclidean distance is defined as
 
@@ -38,6 +46,7 @@ It avoids the computation of the square root and should be used
 whenever you are able do it.
 """
 struct SqL2Distance <: SemiMetric end
+struct TurboSqL2Distance <: SemiMetric end
 
 """
     LInftyDistance()
@@ -63,13 +72,10 @@ L_p(u, v) = \\left|\\sum_i{(u_i - v_i)^p}\\right|^{1/p}
 
 Where ``p_{inv} = 1/p``. Note that you can specify unrelated `p` and `pinv` if you need an specific behaviour.
 """
-struct LpDistance <: SemiMetric
+struct LpDistance{UseTurbo} <: SemiMetric
     p::Float32
     pinv::Float32
 end
-
-LpDistance(p::Real) = LpDistance(p, 1/p)
-
 
 """
     evaluate(::L1Distance, a, b)
@@ -82,6 +88,17 @@ function evaluate(::L1Distance, a, b)
     @fastmath @inbounds @simd for i in eachindex(a, b)
 	    m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
+    end
+
+    d
+end
+
+function evaluate(::TurboL1Distance, a, b)
+    d = zero(eltype(a))
+
+    @turbo thread=1 unroll=4 for i in eachindex(a, b)
+	    m = a[i] - b[i]
+        d += abs(m)
     end
 
     d
@@ -102,6 +119,17 @@ function evaluate(::L2Distance, a, b)
     sqrt(d)
 end
 
+function evaluate(::TurboL2Distance, a, b)
+    d = zero(eltype(a))
+
+    @turbo thread=1 unroll=4 for i in eachindex(a)
+        m = a[i] - b[i]
+        d = muladd(m, m, d)
+    end
+
+    sqrt(d)
+end
+
 """
     evaluate(::SqL2Distance, a, b)
 
@@ -112,6 +140,17 @@ function evaluate(::SqL2Distance, a, b)
 
     @fastmath @inbounds @simd for i in eachindex(a)
         d += (a[i] - b[i])^2
+    end
+
+    d
+end
+
+function evaluate(::TurboSqL2Distance, a, b)
+    d = zero(eltype(a))
+
+    @turbo thread=1 unroll=4 for i in eachindex(a)
+        @inbounds m = a[i] - b[i]
+        d = muladd(m, m, d)
     end
 
     d

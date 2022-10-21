@@ -3,7 +3,7 @@ using SimilaritySearch, LinearAlgebra
 
 using Aqua
 Aqua.test_all(SimilaritySearch, ambiguities=false)
-Aqua.test_ambiguities([SimilaritySearch, Core])
+Aqua.test_ambiguities([SimilaritySearch])
 
 function create_sequence(dim, sort)
     s = rand(1:10, dim)

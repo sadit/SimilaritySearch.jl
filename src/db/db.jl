@@ -129,18 +129,26 @@ Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where T = M.data
 Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
 
 """
-    MatrixDatabase(V::MatrixDatabase)    
+    MatrixDatabase(V)
+    MatrixDatabase(V)
 
-Creates another `MatrixDatabase` from another `MatrixDatabase`. They will share their internal data. Please see [`AbstractDatabase`](@ref) for general usage.
+Creates another `MatrixDatabase` from another `AbstractDatabase`
+
+Note that if `V` is a `MatrixDatabase` or a `StrideMatrixDatabase` then both objects will share their internal data.
+Please see [`AbstractDatabase`](@ref) for general usage.
 """
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
-MatrixDatabase(V::SubDatabase) = MatrixDatabase(hcat(V...))
-MatrixDatabase(V::VectorDatabase) = MatrixDatabase(hcat(V...))
-
+MatrixDatabase(V::StrideMatrixDatabase) = MatrixDatabase(V.matrix)
+MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
+StrideMatrixDatabase(V::MatrixDatabase) = StrideMatrixDatabase(V.matrix)
+StrideMatrixDatabase(V::StrideMatrixDatabase) = StrideMatrixDatabase(V.matrix)
+StrideMatrixDatabase(V::AbstractDatabase) = StrideMatrixDatabase(hcat(V...))
 
 """
     DynamicMatrixDatabase(M::MatrixDatabase)
 
-Creates a `DynamicMatrixDatabase` from a `MatrixDatabase`, copies internal data. Please see [`AbstractDatabase`](@ref) for general usage.
+Creates a `DynamicMatrixDatabase` from a `MatrixDatabase`, copies internal data.
+Please see [`AbstractDatabase`](@ref) for general usage.
 """
-DynamicMatrixDatabase(M::MatrixDatabase) = DynamicMatrixDatabase{eltype{M.data},size(M.matrix, 1)}(copy(vec(M.matrix)))
+DynamicMatrixDatabase(M::MatrixDatabase) = DynamicMatrixDatabase{eltype{M.matrix},size(M.matrix, 1)}(copy(vec(M.matrix)))
+DynamicMatrixDatabase(M::StrideMatrixDatabase) = DynamicMatrixDatabase{eltype{M.matrix},size(M.matrix, 1)}(copy(vec(M.matrix)))

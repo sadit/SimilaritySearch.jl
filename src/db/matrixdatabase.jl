@@ -40,7 +40,8 @@ struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
     matrix::M
 end
 
-StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))
+#StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))
+StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, (size(M))))
 
 @inline Base.eltype(db::StrideMatrixDatabase) = AbstractVector{eltype(db.matrix)} 
 
