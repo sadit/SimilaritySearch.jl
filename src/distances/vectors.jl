@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 using LoopVectorization
-export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance
+export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance,
     TurboL1Distance, TurboL2Distance, TurboSqL2Distance
 import Distances: evaluate
 
@@ -14,7 +14,7 @@ The manhattan distance or ``L_1`` is defined as
 L_1(u, v) = \\sum_i{|u_i - v_i|}
 ```
 
-The struct type argument (true|false) is used to choose using `@turbo` macro from `LoopVectorization`
+The turbo version indicates if the evaluate function uses `@turbo` macro of `LoopVectorization``
 """
 struct L1Distance <: SemiMetric end
 struct TurboL1Distance <: SemiMetric end
