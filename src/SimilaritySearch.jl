@@ -7,7 +7,7 @@ using Parameters
 using Polyester
 
 import Base: push!, append!
-export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult, database
+export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult, database, distance
 include("distances/Distances.jl")
 
 include("db/db.jl")

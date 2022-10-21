@@ -18,13 +18,6 @@ end
 
 @inline Base.eltype(db::MatrixDatabase) = AbstractVector{eltype(db.matrix)} 
 
-"""
-    MatrixDatabase(V::MatrixDatabase)    
-
-Creates another `MatrixDatabase` from another `MatrixDatabase`. They will share their internal data. Please see [`AbstractDatabase`](@ref) for general usage.
-"""
-MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
-
 # @inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
 @inline Base.getindex(db::MatrixDatabase{<:DenseArray}, i::Integer) = view(db.matrix, :, i)
 #@inline Base.getindex(db::MatrixDatabase{Matrix{Float32}}, i::Integer) = PtrArray(view(db.matrix, :, i))
@@ -34,3 +27,25 @@ MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 @inline Base.push!(db::MatrixDatabase, v) = error("push! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.append!(a::MatrixDatabase, b) = error("append! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
+
+
+"""
+    struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
+
+    StrideMatrixDatabase(matrix::StrideArray)
+
+Wraps a matrix object into a `StrideArray` and wrap it as a database. Please see [`AbstractDatabase`](@ref) for general usage.
+"""
+struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
+    matrix::M
+end
+
+StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))
+
+@inline Base.eltype(db::StrideMatrixDatabase) = AbstractVector{eltype(db.matrix)} 
+
+@inline Base.getindex(db::StrideMatrixDatabase, i::Integer) = view(db.matrix, :, i)
+@inline Base.setindex!(db::StrideMatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
+@inline Base.push!(db::StrideMatrixDatabase, v) = error("push! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
+@inline Base.append!(a::StrideMatrixDatabase, b) = error("append! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
+@inline Base.length(db::StrideMatrixDatabase) = size(db.matrix, 2)

@@ -87,19 +87,20 @@ using Test
 
     @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
 
-    @info "#############=========== Default parameters (useful as fast benchmark) ==========###########"
+    @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
     dim = 4
-    db = MatrixDatabase(randn(Float32, dim, n))
-    queries = MatrixDatabase(randn(Float32, dim, m))
+    db = StrideMatrixDatabase(randn(Float32, dim, n))
+    queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, queries, ksearch)
     graph = SearchGraph(; db, dist, verbose)
     buildtime = @elapsed index!(graph)
     @test n == length(db) == length(graph)
     searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+    searchtime2 = @elapsed I, D = searchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "buildtime", buildtime
-    @info "testing without additional optimizations> queries per second:", m/searchtime, ", recall: ", recall
+    @info "testing without additional optimizations> queries per second (including compilation): ", m/searchtime, ", searchtime2 (already compiled):", m/searchtime2, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7
 end

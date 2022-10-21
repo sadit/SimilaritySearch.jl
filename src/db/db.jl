@@ -39,7 +39,7 @@ include("matrixdatabase.jl")
 include("vectordatabase.jl")
 include("subdatabase.jl")
 
-export AbstractDatabase, MatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase
+export AbstractDatabase, MatrixDatabase, StrideMatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase
 
 """
     view(db::AbstractDatabase, map)
@@ -127,6 +127,16 @@ Base.convert(::Type{AbstractDatabase}, M::Vector{Any}) = VectorDatabase(typeof(f
 Base.convert(::Type{AbstractDatabase}, M::AbstractVector) = VectorDatabase(typeof(first(M)).(M))
 Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where T = M.data
 Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
+
+"""
+    MatrixDatabase(V::MatrixDatabase)    
+
+Creates another `MatrixDatabase` from another `MatrixDatabase`. They will share their internal data. Please see [`AbstractDatabase`](@ref) for general usage.
+"""
+MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
+MatrixDatabase(V::SubDatabase) = MatrixDatabase(hcat(V...))
+MatrixDatabase(V::VectorDatabase) = MatrixDatabase(hcat(V...))
+
 
 """
     DynamicMatrixDatabase(M::MatrixDatabase)
