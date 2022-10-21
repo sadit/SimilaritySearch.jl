@@ -72,10 +72,12 @@ L_p(u, v) = \\left|\\sum_i{(u_i - v_i)^p}\\right|^{1/p}
 
 Where ``p_{inv} = 1/p``. Note that you can specify unrelated `p` and `pinv` if you need an specific behaviour.
 """
-struct LpDistance{UseTurbo} <: SemiMetric
+struct LpDistance <: SemiMetric
     p::Float32
     pinv::Float32
 end
+
+LpDistance(p) = LpDistance(p, 1f0/p)
 
 """
     evaluate(::L1Distance, a, b)
