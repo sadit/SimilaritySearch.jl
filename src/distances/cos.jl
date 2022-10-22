@@ -26,6 +26,7 @@ The angle distance is defined as:
 
 """
 struct AngleDistance <: SemiMetric end
+
 """
     NormalizedCosineDistance()
 
@@ -38,6 +39,7 @@ Similar to [`CosineDistance`](@ref) but suppose that input vectors are already n
 """
 struct NormalizedCosineDistance <: SemiMetric end
 
+
 """
     NormalizedAngleDistance()
 
@@ -49,6 +51,15 @@ Similar to [`AngleDistance`](@ref) but suppose that input vectors are already no
 
 """
 struct NormalizedAngleDistance <: SemiMetric end
+
+
+"""
+    TurboNormalizedCosineDistance()
+
+The `@turbo`ed implementation of [@ref](`CosineDistance`) (see [@ref](`LoopVectorization`)'s macro)
+"""
+struct TurboNormalizedCosineDistance <: SemiMetric end
+
 
 const π_2 = π / 2
 
@@ -66,12 +77,24 @@ end
 
 """
     evaluate(::NormalizedCosineDistance, a, b)
+    evaluate(::TurboNormalizedCosineDistance, a, b)
 
 Computes the cosine distance between two vectors, it expects normalized vectors.
 Please use NormalizedAngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-evaluate(::NormalizedCosineDistance, a, b) = one(eltype(a)) - dot(a, b)
+evaluate(::NormalizedCosineDistance, a::T, b) where T = one(eltype(T)) - dot(a, b)
+
+function evaluate(::TurboNormalizedCosineDistance, a::T, b) where T
+    s = zero(eltype(T))
+
+    @turbo for i in eachindex(a)
+        s = muladd(a[i], b[i], s)
+    end
+
+    one(T) - s
+end
+
 
 """
     evaluate(::AngleDistance, a, b)

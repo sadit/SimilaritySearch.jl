@@ -52,13 +52,17 @@ The distance functions are defined to work under the `evaluate(::metric, u, v)` 
 ### Minkowski vector distance functions
 ```@docs
 L1Distance
-TurboL1Distance
 L2Distance
-TurboL2Distance
 SqL2Distance
-TurboSqL2Distance
 LInftyDistance
 LpDistance
+```
+
+The package implements some of these functions using the `@turbo` macro (from [@ref](`LoopVectorization`) package).
+```@docs
+TurboL1Distance
+TurboL2Distance
+TurboSqL2Distance
 ```
 
 ### Cosine and angle distance functions for vectors
@@ -94,7 +98,7 @@ LcsDistance
 ```@docs
 HausdorffDistance
 MinHausdorffDistance
-``` 
+```
 
 ## Public API
 
