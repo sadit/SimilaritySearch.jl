@@ -49,7 +49,19 @@ rebuild
 ## Distance functions
 The distance functions are defined to work under the `evaluate(::metric, u, v)` function (borrowed from [Distances.jl](https://github.com/JuliaStats/Distances.jl) package).
 
-### Cosine and angle distances for vectors
+### Minkowski vector distance functions
+```@docs
+L1Distance
+TurboL1Distance
+L2Distance
+TurboL2Distance
+SqL2Distance
+TurboSqL2Distance
+LInftyDistance
+LpDistance
+```
+
+### Cosine and angle distance functions for vectors
 ```@docs
 CosineDistance
 NormalizedCosineDistance

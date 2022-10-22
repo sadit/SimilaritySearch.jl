@@ -6,7 +6,6 @@ import Distances: evaluate
 
 """
     L1Distance()
-    TurboL1Distance()
 
 The manhattan distance or ``L_1`` is defined as
 
@@ -14,14 +13,18 @@ The manhattan distance or ``L_1`` is defined as
 L_1(u, v) = \\sum_i{|u_i - v_i|}
 ```
 
-The turbo version indicates if the evaluate function uses `@turbo` macro of `LoopVectorization``
 """
 struct L1Distance <: SemiMetric end
+
+"""
+    TurboL1Distance()
+
+The `@turbo`ed implementation of [@ref](`L1Distance`) (see [@ref](`LoopVectorization`)'s macro)
+"""
 struct TurboL1Distance <: SemiMetric end
 
 """
     L2Distance()
-    TurboL2Distance()
 
 The euclidean distance or ``L_2`` is defined as
 
@@ -30,11 +33,16 @@ L_2(u, v) = \\sqrt{\\sum_i{(u_i - v_i)^2}}
 ```
 """
 struct L2Distance <: SemiMetric end
+
+"""
+    TurboL2Distance()
+
+The `@turbo`ed implementation of [@ref](`L2Distance`) (see [@ref](`LoopVectorization`)'s macro)
+"""
 struct TurboL2Distance <: SemiMetric end
 
 """
     SqL2Distance()
-    TurboSqL2Distance()
 
 The squared euclidean distance is defined as
 
@@ -46,6 +54,12 @@ It avoids the computation of the square root and should be used
 whenever you are able do it.
 """
 struct SqL2Distance <: SemiMetric end
+
+"""
+    TurboSqL2Distance()
+
+The `@turbo`ed implementation of [@ref](`SqL2Distance`) (see [@ref](`LoopVectorization`)'s macro)
+"""
 struct TurboSqL2Distance <: SemiMetric end
 
 """
@@ -79,6 +93,8 @@ end
 
 LpDistance(p) = LpDistance(p, 1f0/p)
 
+###################
+
 """
     evaluate(::L1Distance, a, b)
 
@@ -95,6 +111,11 @@ function evaluate(::L1Distance, a, b)
     d
 end
 
+"""
+    evaluate(::TurboL1Distance, a, b)
+
+Computes the Manhattan's distance between `a` and `b`
+"""
 function evaluate(::TurboL1Distance, a, b)
     d = zero(eltype(a))
 
@@ -121,6 +142,11 @@ function evaluate(::L2Distance, a, b)
     sqrt(d)
 end
 
+"""
+    evaluate(::TurboL2Distance, a, b)
+
+Computes the Euclidean's distance betweem `a` and `b`
+"""
 function evaluate(::TurboL2Distance, a, b)
     d = zero(eltype(a))
 
@@ -147,6 +173,11 @@ function evaluate(::SqL2Distance, a, b)
     d
 end
 
+"""
+    evaluate(::TurboSqL2Distance, a, b)
+
+Computes the squared Euclidean's distance between `a` and `b`
+"""
 function evaluate(::TurboSqL2Distance, a, b)
     d = zero(eltype(a))
 
@@ -157,7 +188,6 @@ function evaluate(::TurboSqL2Distance, a, b)
 
     d
 end
-
 
 """
     evaluate(::LInftyDistance, a, b)
