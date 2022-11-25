@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 using SimilaritySearch, LinearAlgebra
 
+
 using Aqua
 Aqua.test_all(SimilaritySearch, ambiguities=false)
 Aqua.test_ambiguities([SimilaritySearch])
@@ -18,6 +19,7 @@ end
 include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
+
 include("testallknn.jl")
 include("testneardup.jl")
 include("testclosestpair.jl")

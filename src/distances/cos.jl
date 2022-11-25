@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance
+export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance, TurboNormalizedCosineDistance
 using LinearAlgebra
 import Distances: evaluate
 
@@ -85,10 +85,11 @@ alternative whenever the triangle inequality is not needed)
 """
 evaluate(::NormalizedCosineDistance, a::T, b) where T = one(eltype(T)) - dot(a, b)
 
-function evaluate(::TurboNormalizedCosineDistance, a::T, b) where T
-    s = zero(eltype(T))
+function evaluate(::TurboNormalizedCosineDistance, a, b)
+    T = typeof(a[1])
+    s = zero(T)
 
-    @turbo for i in eachindex(a)
+    @turbo thread=1 unroll=4 for i in eachindex(a)
         s = muladd(a[i], b[i], s)
     end
 

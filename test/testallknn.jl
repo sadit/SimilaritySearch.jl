@@ -25,3 +25,4 @@ using Test, SimilaritySearch
     @test macrorecall(eI, gI) > 0.8
     @test macrorecall(eI, pI) > 0.99
 end
+
