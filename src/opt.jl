@@ -101,8 +101,17 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `initialpopulation`: the initial sample for the optimization procedure
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `space`: defines the search space
-- `params`: the parameters of the solver, see [`search_models` function from `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
-- `verbose`: controls if the procedure is verbose or not
+- `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
+    Alternatively, you can pass some keywords arguments to `SearchParams`, and use the rest of default values:
+    - `initialpopulation=16`: initial sample
+    - `minbatch=0`: minimum batch size (`Polyester` multithreading, `0` chooses the size based on the input)
+    - `maxpopulation=16`: population upper limit
+    - `bsize=4`: beam size (top best elements used by select, mutate and crossing operations.)
+    - `mutbsize=16`: number of mutated new elements in each iteration
+    - `crossbsize=8`: number of new elements from crossing operation.
+    - `tol=-1.0`: tolearance change between iterations (negative values means disables stopping by converguence)
+    - `maxiters=16`: maximum number of iterations.
+    - `verbose`: controls if the procedure is verbose or not
 """
 function optimize!(
             index::AbstractSearchIndex,
@@ -113,20 +122,27 @@ function optimize!(
             numqueries=64,
             initialpopulation=16,
             minbatch=0,
+            maxpopulation=16,
+            bsize=4,
+            mutbsize=16,
+            crossbsize=8,
+            tol=-1.0,
+            maxiters=16,
             verbose=false,
-            params=SearchParams(; maxpopulation=16, bsize=4, mutbsize=16, crossbsize=8, tol=-1.0, maxiters=16, verbose)
+            params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
     )
 
+    db = database(index)
     if queries === nothing
         sample = rand(1:length(index), numqueries) |> unique
-        queries = SubDatabase(index.db, sample)
+        queries = SubDatabase(db, sample)
     end
 
     knnlist = [KnnResult(ksearch) for _ in eachindex(queries)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
-        db = @view index.db[1:length(index)]
-        seq = ExhaustiveSearch(index.dist, db)
+        db = @view db[1:length(index)]
+        seq = ExhaustiveSearch(distance(index), db)
         searchbatch(seq, queries, knnlist; minbatch)
         gold = [Set(idview(res)) for res in knnlist]
     end
