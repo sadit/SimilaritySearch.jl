@@ -54,19 +54,8 @@ end
 SearchGraph's callback for adjunting search parameters
 """
 function execute_callback(opt::OptimizeParameters, index::SearchGraph)
-    optimize!(index, opt)
-end
-
-function optimize!(
-    index::SearchGraph,
-    opt::OptimizeParameters;
-    queries=nothing,
-    numqueries=opt.numqueries,
-    ksearch=opt.ksearch,
-    initialpopulation=opt.initialpopulation,
-    params=opt.params,
-    verbose=index.verbose,
-)
-    optimize!(index, opt.kind, opt.space; queries, ksearch, numqueries, initialpopulation, verbose, params)
+    queries = nothing
+    optimize_index!(index, opt.kind, opt.space;
+        queries, opt.ksearch, opt.numqueries, opt.initialpopulation, index.verbose, opt.params)
 end
 

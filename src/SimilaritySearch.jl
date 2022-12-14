@@ -44,6 +44,8 @@ include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
+include("deprecated.jl")
+
 include("allknn.jl")
 include("neardup.jl")
 include("closestpair.jl")

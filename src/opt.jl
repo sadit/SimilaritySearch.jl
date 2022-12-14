@@ -74,7 +74,7 @@ end
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
 """
-    optimize!(
+    optimize_index!(
         index::AbstractSearchIndex,
         kind::ErrorFunction=ParetoRecall(),
         space::AbstractSolutionSpace=optimization_space(index);
@@ -92,6 +92,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Arguments
 - `index`: the index to be optimized
 - `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()` or `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time)
+- `space`: defines the search space
 
 # Keyword arguments
 
@@ -100,7 +101,6 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `queries_size`: if `queries===nothing` then a sample of the already indexed database is used, `queries_size` is the size of the sample.
 - `initialpopulation`: the initial sample for the optimization procedure
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
-- `space`: defines the search space
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
     Alternatively, you can pass some keywords arguments to `SearchParams`, and use the rest of default values:
     - `initialpopulation=16`: initial sample
@@ -113,23 +113,23 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
     - `maxiters=16`: maximum number of iterations.
     - `verbose`: controls if the procedure is verbose or not
 """
-function optimize!(
-            index::AbstractSearchIndex,
-            kind::ErrorFunction=ParetoRecall(),
-            space::AbstractSolutionSpace=optimization_space(index);
-            queries=nothing,
-            ksearch=10,
-            numqueries=64,
-            initialpopulation=16,
-            minbatch=0,
-            maxpopulation=16,
-            bsize=4,
-            mutbsize=16,
-            crossbsize=8,
-            tol=-1.0,
-            maxiters=16,
-            verbose=false,
-            params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
+function optimize_index!(
+        index::AbstractSearchIndex,
+        kind::ErrorFunction,
+        space::AbstractSolutionSpace;
+        queries=nothing,
+        ksearch=10,
+        numqueries=64,
+        initialpopulation=16,
+        minbatch=0,
+        maxpopulation=16,
+        bsize=4,
+        mutbsize=16,
+        crossbsize=8,
+        tol=-1.0,
+        maxiters=16,
+        verbose=false,
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
     )
 
     db = database(index)
@@ -183,4 +183,22 @@ function optimize!(
     verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
     setconfig!(config, index, perf)
         bestlist
+end
+
+"""
+    optimize!(
+        index::AbstractSearchIndex,
+        kind::ErrorFunction=ParetoRecall(),
+        space::AbstractSolutionSpace=optimization_space(index);
+        kwargs...)
+        optimize_index!(index, kind, space; kwargs...)
+
+A frontend function for [`optimize_index!`](@ref) which can be specialized for some particular index, kinds or spaces.
+"""
+function optimize!(
+    index::AbstractSearchIndex,
+    kind::ErrorFunction=ParetoRecall(),
+    space::AbstractSolutionSpace=optimization_space(index);
+    kwargs...)
+    optimize_index!(index, kind, space; kwargs...)
 end
