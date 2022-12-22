@@ -89,7 +89,7 @@ end=#
 function _allknn_loop(g::SearchGraph, i, k, pools)
     res = getknnresult(k, pools)
     vstate = getvstate(length(g), pools)
-    q = g[i]
+    q = database(g, i)
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     

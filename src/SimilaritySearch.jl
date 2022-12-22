@@ -44,6 +44,7 @@ include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
+include("permindex.jl")
 include("deprecated.jl")
 
 include("allknn.jl")
