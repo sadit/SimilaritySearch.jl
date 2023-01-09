@@ -16,10 +16,10 @@ end
 PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index, π, π′)
 
 @inline getpools(p::PermutedSearchIndex) = getpools(p.index)
-@inline database(p::PermutedSearchIndex) = SubDatabase(database(p), p.π′)
-@inline database(p::PermutedSearchIndex, i) = database(p, π′[i])
-@inline distance(p::PermutedSearchIndex) = p.dist
-@inline Base.length(p::PermutedSearchIndex) = length(p.cov)
+@inline database(p::PermutedSearchIndex) = SubDatabase(database(p.index), p.π′)
+@inline database(p::PermutedSearchIndex, i) = database(p.index, p.π′[i])
+@inline distance(p::PermutedSearchIndex) = distance(p.index)
+@inline Base.length(p::PermutedSearchIndex) = length(p.index)
 
 function search(p::PermutedSearchIndex, q, res::KnnResult; pools=getpools(index))
     out = search(p.index, q, res; pools)
