@@ -13,7 +13,10 @@ end
 struct ParetoRecall <: ErrorFunction end
 struct ParetoRadius <: ErrorFunction end
 
-function runconfig end
+function runconfig0(conf, index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer, res::KnnResult, pools)
+    runconfig(conf, index, queries[i], res, pools)
+end
+
 function setconfig! end
 
 function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
@@ -34,7 +37,7 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                _, v_ = runconfig(conf, index, queries[i], reuse!(knnlist[i], ksearch), pools)
+                _, v_ = runconfig0(conf, index, queries, i, reuse!(knnlist[i], ksearch), pools)
                 ti = Threads.threadid()
                 vmin[ti] = min(v_, vmin[ti])
                 vmax[ti] = max(v_, vmax[ti])

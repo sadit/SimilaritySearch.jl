@@ -50,7 +50,8 @@ function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::Abst
     dists_ = PtrArray(dists)
     if minbatch < 0
         for i in 1:n
-            res = _allknn_loop(g, i, k, pools)
+            res = getknnresult(k, pools)
+            allknn_single_search(g, i, res, pools)
             _k = length(res)
             knns_[1:_k, i] .= res.id
             _k < k && (knns_[_k+1:k] .= zero(Int32))
@@ -60,7 +61,8 @@ function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::Abst
         minbatch = getminbatch(minbatch, n)
 
         @batch minbatch=minbatch per=thread for i in 1:n
-            res = _allknn_loop(g, i, k, pools)
+            res = getknnresult(k, pools)
+            allknn_single_search(g, i, res, pools)
             _k = length(res)
             #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
             knns_[1:_k, i] .= res.id
@@ -86,8 +88,8 @@ end
 end=#
 
 
-function _allknn_loop(g::SearchGraph, i, k, pools)
-    res = getknnresult(k, pools)
+function allknn_single_search(g::SearchGraph, i::Integer, res::KnnResult, pools)
+    cost = 0
     vstate = getvstate(length(g), pools)
     q = database(g, i)
     # visit!(vstate, i)
@@ -95,7 +97,7 @@ function _allknn_loop(g::SearchGraph, i, k, pools)
     
     for h in g.links[i] # hints
         visited(vstate, convert(UInt64, h)) && continue
-        search(g.search_algo, g, q, res, h, pools; vstate)
+        cost += search(g.search_algo, g, q, res, h, pools; vstate).cost
         # length(res) == k && break
     end
 
@@ -116,11 +118,9 @@ function _allknn_loop(g::SearchGraph, i, k, pools)
         end
     end=#
 
-    res
+    (; res, cost)
 end
 
-function _allknn_loop(g, i, k, pools)
-    res = getknnresult(k, pools)
-    @inbounds search(g, database(g, i), res; pools)
-    res
+function allknn_single_search(g::AbstractSearchIndex, i::Integer, res::KnnResult, pools)
+    search(g, database(g, i), res; pools)
 end
