@@ -85,7 +85,7 @@ Searches a batch of queries in the given index (searches for k neighbors).
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index, Q, k::Integer; minbatch=0, pools=getpools(index))
+function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; minbatch=0, pools=getpools(index))
     m = length(Q)
     I = Matrix{Int32}(undef, k, m)
     D = Matrix{Float32}(undef, k, m)
@@ -137,24 +137,25 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
 """
-function searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
+function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
     I_ = PtrArray(I)
     D_ = PtrArray(D)
     if minbatch < 0
         for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I_, D_, pools)
+            solve_single_query(index, Q, i, I_, D_, pools)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            _solve_single_query(index, Q, i, I_, D_, pools)
+            #Threads.@threads for i in eachindex(Q)
+            solve_single_query(index, Q, i, I_, D_, pools)
         end
     end
 
     I, D
 end
 
-function _solve_single_query(index, Q, i, I, D, pools)
+function solve_single_query(index::AbstractSearchIndex, Q::AbstractDatabase, i, I, D, pools)
     k = size(I, 1)
     q = @inbounds Q[i]
     res = getknnresult(k, pools)
@@ -183,7 +184,7 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
     It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
 
 """
-function searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
+function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
     minbatch = getminbatch(minbatch, length(Q))
 
     if minbatch < 0
