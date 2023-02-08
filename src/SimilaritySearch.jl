@@ -5,17 +5,23 @@ abstract type AbstractSearchIndex end
 
 using Parameters
 using Polyester
+using JLD2
 
 import Base: push!, append!
-export AbstractSearchIndex, SemiMetric, evaluate, search, searchbatch, getknnresult, database, distance
+export AbstractSearchIndex, SemiMetric, evaluate,
+    search, searchbatch, getknnresult, database, distance,
+    saveindex, loadindex
+
 include("distances/Distances.jl")
 
 include("db/db.jl")
 include("knnresult.jl")
+include("io.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
+
 
 """
     database(index)

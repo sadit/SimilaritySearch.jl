@@ -17,16 +17,6 @@ struct SearchGraphCallbacks
     starting::Int32
 end
 
-Base.copy(g::SearchGraph;
-    dist=g.dist,
-    db=g.db,
-    links=g.links,
-    locks=g.locks,
-    hints=g.hints,
-    search_algo=copy(g.search_algo),
-    verbose=true
-) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
-
 """
     SearchGraphCallbacks(kind::ErrorFunction=ParetoRecall();
         hints=DisjointHints(),

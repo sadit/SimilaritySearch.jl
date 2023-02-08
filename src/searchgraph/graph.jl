@@ -46,6 +46,17 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     verbose::Bool = true
 end
 
+Base.copy(G::SearchGraph; 
+    dist=G.dist,
+    db=G.db,
+    links=G.links,
+    locks=G.locks,
+    hints=G.hints,
+    search_algo=copy(G.search_algo),
+    verbose=G.verbose
+) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
+
+
 @inline Base.length(g::SearchGraph) = length(g.locks)
 include("visitedvertices.jl")
 
