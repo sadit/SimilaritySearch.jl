@@ -95,7 +95,7 @@ function allknn_single_search(g::SearchGraph, i::Integer, res::KnnResult, pools)
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     
-    for h in g.links[i] # hints
+    for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
         cost += search(g.search_algo, g, q, res, h, pools; vstate).cost
         # length(res) == k && break

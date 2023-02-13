@@ -10,14 +10,14 @@ It starts with zero items and grows with [`push!(res, id, dist)`](@ref) calls un
 size is reached. After this only the smallest items based on distance are preserved.
 """
 struct KnnResult # <: AbstractVector{Tuple{IdType,DistType}}
-    id::Vector{Int32}
+    id::Vector{UInt32}
     dist::Vector{Float32}
     k::Int  # number of neighbors
 end
 
 function KnnResult(k::Integer)
     @assert k > 0
-    res = KnnResult(Vector{Int32}(undef, 0), Vector{Float32}(undef, 0), k)
+    res = KnnResult(Vector{UInt32}(undef, 0), Vector{Float32}(undef, 0), k)
     sizehint!(res.id, k)
     sizehint!(res.dist, k)
     res

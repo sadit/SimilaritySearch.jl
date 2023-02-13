@@ -36,10 +36,10 @@ It supports callbacks to adjust parameters as insertions are made.
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 
 """
-@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
+@with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, AdjType<:AbstractAdjacencyList, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
-    links::Vector{Vector{Int32}} = Vector{Int32}[]
+    adj::AdjType = AdjacencyList()
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
     hints::Vector{Int32} = Int32[]
     search_algo::SType = BeamSearch()
@@ -49,12 +49,12 @@ end
 Base.copy(G::SearchGraph; 
     dist=G.dist,
     db=G.db,
-    links=G.links,
+    adj=G.adj,
     locks=G.locks,
     hints=G.hints,
     search_algo=copy(G.search_algo),
     verbose=G.verbose
-) = SearchGraph(; dist, db, links, locks, hints, search_algo, verbose)
+) = SearchGraph(; dist, db, adj, locks, hints, search_algo, verbose)
 
 
 @inline Base.length(g::SearchGraph) = length(g.locks)

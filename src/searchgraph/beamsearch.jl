@@ -64,7 +64,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
         prev_id = getid(beam, sp)
         #prev_dist > maximum(res) && break
         sp += 1
-        for childID in index.links[prev_id]
+        for childID in neighbors(index.adj, prev_id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(distance(index), q, database(index, childID))
             push!(res, childID, d)

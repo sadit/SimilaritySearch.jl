@@ -29,7 +29,6 @@ using Test
         @test n == length(db) == length(graph)
         searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
-        #@info sort!(length.(graph.links), rev=true)
         @show goldD[:, 1]
         @show D[:, 1]
         @show goldI[:, 1]

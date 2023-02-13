@@ -52,7 +52,7 @@ function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood,
         search(index.search_algo, index, item, res, hints, pools)
         neighborhoodreduce(neighborhood.reduce, index, item, res, pools)
     else
-        Int32[]
+        UInt32[]
     end
 end
 
@@ -69,15 +69,15 @@ Inserts the object `item` into the index, i.e., creates an edge for each item in
 - `callbacks`: A [`SearchGraphCallbacks`] object (callback list) that will be called after some insertions
 - `push_item`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
 """
-function push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
+function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_item=true)
     push_item && push!(index.db, item)
-    push!(index.links, neighbors)
+    add_vertex!(index.adj, neighbors)
     push!(index.locks, Threads.SpinLock())
     n = length(index)
     n == 1 && return
     ## vstate = getvisitedvertices(index)
     @inbounds for id in neighbors
-        push!(index.links[id], n)  # sat push?
+        add_edge!(index.adj, id, n, 0f0)
     end
 
     callbacks !== nothing && execute_callbacks(callbacks, index)
@@ -145,7 +145,7 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=Int32[])
+@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=UInt32[])
     push!(N, argmax(res))
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
@@ -156,7 +156,7 @@ Reduces `res` using the DistSAT strategy.
     N
 end
 
-@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=Int32[])
+@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=UInt32[])
     push!(N, argmin(res))
 
     @inbounds for i in 2:length(res)
@@ -225,7 +225,7 @@ function prune!(r::RandomPruning, index::SearchGraph; minbatch=0, pools=getpools
     minbatch = getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds L = index.links[i]
+        @inbounds L = neighbors(index.adj, i)
         if length(L) > r.k
             shuffle!(L)
             resize!(L, r.k)
@@ -240,8 +240,8 @@ Selects `k` nearest neighbors among the the available neighbors
 """
 function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
     dist = distance(index)
-    Threads.@threads for i in eachindex(index.links)
-        @inbounds L = index.links[i]
+    Threads.@threads for i in eachindex(index.adj)
+        @inbounds L = neighbors(index.adj, i)
         if length(L) > r.k
             res = getknnresult(r.k, pools)
             @inbounds c = database(index, i)
@@ -263,8 +263,8 @@ Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
 function prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
     dist = distance(index)
     
-    Threads.@threads for i in eachindex(index.links)
-        @inbounds L = index.links[i]
+    Threads.@threads for i in eachindex(index.adj)
+        @inbounds L = neighbors(index.adj, i)
         if length(L) > r.k
             res = getknnresult(length(L), pools)
             @inbounds c = database(index, i)

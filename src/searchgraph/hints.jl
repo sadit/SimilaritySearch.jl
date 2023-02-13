@@ -47,10 +47,10 @@ function execute_callback(opt::DisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
-    meansize = mean(length(index.links[i]) for i in 1:n)
+    meansize = mean(length(neighbors(index.adj, i)) for i in 1:n)
     res = KnnResult(m)
     for i in 1:n
-        push!(res, i, abs(length(index.links[i]) - meansize))
+        push!(res, i, abs(length(neighbors(index.adj, i)) - meansize))
     end
 
     V = Set{Int}()
@@ -58,7 +58,7 @@ function execute_callback(opt::DisjointHints, index)
         i in V && continue
         push!(index.hints, i)
         push!(V, i)
-        union!(V, index.links[i])
+        union!(V, neighbors(index.adj, i))
     end
 end
 
@@ -83,7 +83,7 @@ function execute_callback(opt::KDisjointHints, index)
     m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(1:n, opt.expansion * m))
     m = min(length(sample), m)
-    sort!(sample, by=i->length(index.links[i]), rev=true)
+    sort!(sample, by=i->length(neighbors(index.adj, i)), rev=true)
 
     visited = Set{Int32}()
     empty!(index.hints)
@@ -100,7 +100,7 @@ function execute_callback(opt::KDisjointHints, index)
         push!(E, p => 0)
         while length(E) > 0
             parent, e = pop!(E)
-            for child in keys(index.links[parent])
+            for child in keys(neighbors(index.adj, parent))
                 if !(child in visited)
                     push!(visited, child)
                     e + 1 <= opt.expansion && push!(E, child => e + 1)

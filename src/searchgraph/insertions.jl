@@ -117,11 +117,11 @@ end
 
 function _connect_links(index, sp, ep)
     @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
-        @inbounds for id in index.links[i]
+        @inbounds for id in neighbors(index.adj, i)
             lock(index.locks[id])
             try
-                push!(index.links[id], i)
-                # sat_should_push(index.links[id], index, index[i], i, -1.0) && push!(index.links[id], i)
+                add_edge!(index.adj, id, i, 0f0)
+                # sat_should_push(neighbors(index.adj, id), index, database(index, i), i, -1.0) && add_edge!(index.adj, id, i, 0f0)
             finally
                 unlock(index.locks[id])
             end
@@ -130,7 +130,9 @@ function _connect_links(index, sp, ep)
 end
 
 function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block::Integer, callbacks)
-    resize!(index.links, n)
+    adj = index.adj
+    resize!(adj.links, n)
+
     while sp < n
         ep = min(n, sp + parallel_block)
         index.verbose && rand() < 0.01 && println(stderr, "appending chunk ", (sp=sp, ep=ep, n=n), " ", Dates.now())
@@ -138,7 +140,7 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
         # searching neighbors      
 	    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
             # parallel_block values are pretty small, better to use @threads directly instead of @batch
-            @inbounds index.links[i] = find_neighborhood(index, index.db[i], neighborhood, pools)
+            @inbounds adj.links[i] = find_neighborhood(index, database(index, i), neighborhood, pools)
         end
 
         # connecting neighbors

@@ -42,15 +42,15 @@ function restoreindex(index::AbstractSearchIndex, meta::Dict, f)
 end
 
 """
-    loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing)
+    loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
 
 Loads an index from `filename`, optionally, if `db` is given it will replace the dataset on the loaded index, but it is
-mandatory if the index was saved with `store_db=false`.
+mandatory if the index was saved with `store_db=false`
 """
-function loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing)
+function loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
     index, meta = jldopen(filename) do f
         # @info typeof(f), keys(f) # JLD2.JLDFile
-        restoreindex(f["index"], f["meta"], f)
+        restoreindex(f["index"], f["meta"], f; kwargs...)
     end
 
     if db === nothing
