@@ -51,7 +51,7 @@ end
     res = KnnResult(k)
     V, Vsorted = create_random_array(50, k)
     for i in eachindex(V)
-        push!(res, i, V[i])
+        push_item!(res, i, V[i])
     end
     
     testsorted(res, copy(Vsorted))

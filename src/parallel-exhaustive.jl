@@ -48,15 +48,15 @@ function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, poo
         d = evaluate(dist, database(ex, i), q)
         try
             lock(elock)
-            push!(res, i, d)
+            push_item!(res, i, d)
         finally
             unlock(elock)
         end
     end
 
-    (res=res, cost=length(ex))
+    SearchResult(res, length(ex))
 end
 
-function Base.push!(ex::ParallelExhaustiveSearch, u)
-    push!(ex.db, u)
+function push_item!(ex::ParallelExhaustiveSearch, u)
+    push_item!(ex.db, u)
 end

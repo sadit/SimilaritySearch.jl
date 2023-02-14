@@ -29,8 +29,8 @@ If the storage backend support it, it is possible to use vector operations, for 
 - iterate and collect objects in the database
 - get the number of elements in the database `length(db)`
 - add new objects to the end of the database (not all internal containers will support it)
-  - `push!(db, u)` adds a single element `u`
-  - `append!(db, lst)` adds a list of objects to the end of the database
+  - `push_item!(db, u)` adds a single element `u`
+  - `append_items!(db, lst)` adds a list of objects to the end of the database
 """
 abstract type AbstractDatabase end
 

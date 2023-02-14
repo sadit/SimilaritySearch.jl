@@ -33,7 +33,7 @@ end
         @info "=================== $search_algo"
         graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo, verbose)
         neighborhood = Neighborhood(reduce=IdentityNeighborhood())
-        append!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
+        append_items!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
         @test n == length(db) == length(graph)
         searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
@@ -51,7 +51,7 @@ end
     @info "--- Optimizing parameters ParetoRadius ---"
     graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose)
     neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
-    append!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
+    append_items!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
     @test n == length(db) == length(graph)
     @info "---- starting ParetoRadius optimization ---"
     optimize!(graph, ParetoRadius())

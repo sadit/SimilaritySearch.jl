@@ -14,15 +14,15 @@ AdjacencyList(adj::AdjacencyList) = AdjacencyList(deepcopy(adj.links))
 @inline Base.length(adj::AdjacencyList) = length(adj.links)
 
 Base.@propagate_inbounds @inline function neighbors(adj::AdjacencyList, i::Integer)
-    adj.links[i]
+    @inbounds adj.links[i]
 end
 
 Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList, i::Integer, neighbor::Integer, dist::Float32)
-    push!(adj.links[i], convert(UInt32, neighbor))
+    @inbounds push!(adj.links[i], convert(UInt32, neighbor))
 end
 
 Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList)
-    add_vertex!(adj, UInt32[])
+    @inbounds add_vertex!(adj, UInt32[])
 end
 
 Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList, neighbors::Vector{UInt32})
@@ -42,8 +42,8 @@ function StaticAdjacencyList(adj::StaticAdjacencyList; offset=adj.offset, links=
 end
 
 Base.@propagate_inbounds @inline function neighbors(adj::StaticAdjacencyList, i::Integer)
-    sp::Int64 = i == 1 ? 1 : adj.offset[i-1]+1
-    ep = adj.offset[i]
+    @inbounds sp::Int64 = i == 1 ? 1 : adj.offset[i-1]+1
+    @inbounds ep = adj.offset[i]
     view(adj.links, sp:ep)
 end
 
@@ -63,7 +63,7 @@ function StaticAdjacencyList(adj::AdjacencyList)
 
     i = 1
     s = 0
-    @inbounds for j in eachindex(adj)
+    @inbounds @inbounds for j in eachindex(adj)
         L = neighbors(adj, j)
         s += length(L)
         offset[j] = s
@@ -81,7 +81,7 @@ function AdjacencyList(A::StaticAdjacencyList)
     n = length(A)
     adj = Vector{Vector{UInt32}}(undef, n)
 
-    for objID in 1:n
+    @inbounds for objID in 1:n
         C = neighbors(A, objID)
         len = length(C)
         children = Vector{UInt32}(undef, len)

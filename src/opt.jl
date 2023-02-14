@@ -26,7 +26,7 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
     vmin = Vector{Float64}(undef, nt)
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
-    covradius = Vector{Float64}(undef, m)
+    cov = Vector{Float64}(undef, m)
     pools = getpools(index)
     R = [Set{Int32}() for _ in knnlist]
 
@@ -37,21 +37,21 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                _, v_ = runconfig0(conf, index, queries, i, reuse!(knnlist[i], ksearch), pools)
+                r_ = runconfig0(conf, index, queries, i, reuse!(knnlist[i], ksearch), pools)
                 ti = Threads.threadid()
-                vmin[ti] = min(v_, vmin[ti])
-                vmax[ti] = max(v_, vmax[ti])
-                vacc[ti] += v_
+                vmin[ti] = min(r_.cost, vmin[ti])
+                vmax[ti] = max(r_.cost, vmax[ti])
+                vacc[ti] += r_.cost
             end
         end
 
         for i in eachindex(knnlist)
             res = knnlist[i]
-            covradius[i] = length(res) == 0 ? typemax(Float32) : maximum(res)
+            cov[i] = covradius(res)
         end
 
-        rmin, rmax = extrema(covradius)
-        ravg = mean(covradius)
+        rmin, rmax = extrema(cov)
+        ravg = mean(cov)
 
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)

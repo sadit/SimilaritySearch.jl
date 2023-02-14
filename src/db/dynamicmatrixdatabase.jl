@@ -49,16 +49,16 @@ end
 @inline Base.setindex!(db::DynamicMatrixDatabase, value, i) = @inbounds (db.data[i] .= value)
 
 @inline Base.length(db::DynamicMatrixDatabase{DType,Dim}) where {DType,Dim} = length(db.data) ÷ Dim
-@inline function Base.push!(db::DynamicMatrixDatabase{DType,Dim}, v) where {DType,Dim}
+@inline function push_item!(db::DynamicMatrixDatabase{DType,Dim}, v) where {DType,Dim}
     append!(db.data, v)
     db
 end
 
-@inline Base.append!(a::DynamicMatrixDatabase{DType,Dim}, b::DynamicMatrixDatabase{DType2,Dim})  where {DType,Dim,DType2} = append!(a.data, b.data)
-@inline function Base.append!(db::DynamicMatrixDatabase{DType,Dim}, B) where {DType,Dim}
+@inline append_items!(a::DynamicMatrixDatabase{DType,Dim}, b::DynamicMatrixDatabase{DType2,Dim})  where {DType,Dim,DType2} = append_items!(a.data, b.data)
+@inline function append_items!(db::DynamicMatrixDatabase{DType,Dim}, B) where {DType,Dim}
     sizehint!(db.data, length(db.data) + Dim * length(B))
     for b in B
-        push!(db, b)
+        push_item!(db, b)
     end
 
     db

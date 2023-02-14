@@ -50,7 +50,7 @@ function execute_callback(opt::DisjointHints, index)
     meansize = mean(length(neighbors(index.adj, i)) for i in 1:n)
     res = KnnResult(m)
     for i in 1:n
-        push!(res, i, abs(length(neighbors(index.adj, i)) - meansize))
+        push_item!(res, i, abs(length(neighbors(index.adj, i)) - meansize))
     end
 
     V = Set{Int}()
@@ -84,10 +84,10 @@ function execute_callback(opt::KDisjointHints, index)
     sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
     m = min(length(sample), m)
     sort!(sample, by=i->length(neighbors(index.adj, i)), rev=true)
-
-    visited = Set{UInt32}()
+    IType = eltype(index.hints)
+    visited = Set{IType}()
     empty!(index.hints)
-    E = Pair{UInt32,Int32}[]
+    E = Pair{IType,Int32}[]
     i = 1
     while length(index.hints) < m && i < length(sample)
         # p = rand(1:n)

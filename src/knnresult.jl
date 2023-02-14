@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # export AbstractResult
 export KnnResult
-export maxlength, getdist, getid, idview, distview, reuse!
+export covradius, maxlength, getdist, getid, idview, distview, reuse!
 
 """
     KnnResult(ksearch::Integer)
@@ -68,12 +68,12 @@ end
 end
 
 """
-    push!(res::KnnResult, item::Pair)
-    push!(res::KnnResult, id::Integer, dist::Real)
+    push_item!(res::KnnResult, item::Pair)
+    push_item!(res::KnnResult, id::Integer, dist::Real)
 
 Appends an item into the result set
 """
-@inline function Base.push!(res::KnnResult, id::Integer, dist::Real; sp=1, k=maxlength(res))
+@inline function push_item!(res::KnnResult, id::Integer, dist::Real; sp=1, k=maxlength(res))
     len = length(res)
 
     if len < k
@@ -90,9 +90,11 @@ Appends an item into the result set
     _shifted_fixorder!(res, sp, len)
     true
 end
+@inline push_item!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
+
+@inline covradius(res::KnnResult)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
 
 #@inline Base.push!(res::KnnResult, id::Integer, dist::Real) = push!(res, convert(Int32, id), convert(Float32, dist))
-@inline Base.push!(res::KnnResult, p::Pair) = push!(res, p.first, p.second)
 
 """
     popfirst!(p::KnnResult)

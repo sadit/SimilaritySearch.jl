@@ -70,7 +70,7 @@ Inserts the object `item` into the index, i.e., creates an edge for each item in
 - `push_item`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
 """
 function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_item=true)
-    push_item && push!(index.db, item)
+    push_item && push_item!(index.db, item)
     add_vertex!(index.adj, neighbors)
     push!(index.locks, Threads.SpinLock())
     n = length(index)
@@ -126,11 +126,11 @@ function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnRe
     @inbounds obj = index[id]
     dfun = distance(index)
     dist = dist < 0f0 ? evaluate(dfun, item, obj) : dist
-    push!(near, zero(Int32), dist)
+    push_item!(near, zero(UInt32), dist)
 
     @inbounds for linkID in sat_neighborhood
         d = evaluate(dfun, database(index, linkID), obj)
-        push!(near, linkID, d)
+        push_item!(near, linkID, d)
     end
 
     argmin(near) == zero(Int32)
@@ -246,7 +246,7 @@ function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index)
             res = getknnresult(r.k, pools)
             @inbounds c = database(index, i)
             @inbounds for objID in L
-                push!(res, objID, evaluate(dist, c, database(index, objID)))
+                push_item!(res, objID, evaluate(dist, c, database(index, objID)))
             end
 
             resize!(L, length(res))
@@ -269,7 +269,7 @@ function prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
             res = getknnresult(length(L), pools)
             @inbounds c = database(index, i)
             @inbounds for objID in L
-                push!(res, objID, evaluate(dist, c, database(index, objID)))
+                push_item!(res, objID, evaluate(dist, c, database(index, objID)))
             end
            
             empty!(L)

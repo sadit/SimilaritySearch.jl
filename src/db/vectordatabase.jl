@@ -53,14 +53,14 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 """
 VectorDatabase(; type=Vector{Float32}) = VectorDatabase(type[])
 
-@inline Base.getindex(db::VectorDatabase, i::Integer) = db.vecs[i]
+Base.Base.@propagate_inbounds @inline Base.getindex(db::VectorDatabase, i::Integer) = db.vecs[i]
 @inline Base.setindex!(db::VectorDatabase, value, i::Integer) = setindex!(db.vecs, value, i)
 @inline Base.length(db::VectorDatabase) = length(db.vecs)
-@inline Base.push!(db::VectorDatabase, v) = (push!(db.vecs, v); db)
+@inline push_item!(db::VectorDatabase, v) = (push!(db.vecs, v); db)
 
-@inline function Base.append!(db::VectorDatabase, B)
+@inline function append_items!(db::VectorDatabase, B)
     for b in B
-        push!(db, b)
+        push!(db.vecs, b)
     end
 
     db

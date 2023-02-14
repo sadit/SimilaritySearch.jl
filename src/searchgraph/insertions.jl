@@ -10,7 +10,7 @@ get_parallel_block() = Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()
 
 
 """
-    append!(
+    append_items!(
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
@@ -41,7 +41,7 @@ Note 1: Callbacks are not executed inside parallel blocks
 Note 2: Callbacks will be ignored if `callbacks=nothing`
 
 """
-function Base.append!(
+function append_items!(
         index::SearchGraph,
         db;
         neighborhood=Neighborhood(),
@@ -51,7 +51,7 @@ function Base.append!(
         pools=getpools(index)
     )
     db = convert(AbstractDatabase, db)
-    append!(index.db, db)
+    append_items!(index.db, db)
 
     parallel_block == 1 && return _sequential_append_loop!(index, neighborhood, callbacks, pools)
 
@@ -161,7 +161,7 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
 end
 
 """
-    push!(
+    push_item!(
         index::SearchGraph,
         item;
         neighborhood=Neighborhood(),
@@ -183,7 +183,7 @@ Arguments:
 
 - Note: `callbacks=nothing` ignores the execution of any callback
 """
-@inline function push!(
+@inline function push_item!(
         index::SearchGraph,
         item;
         neighborhood=Neighborhood(),

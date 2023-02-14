@@ -24,8 +24,8 @@ end
 #@inline Base.getindex(db::MatrixDatabase{Matrix{Float64}}, i::Integer) = PtrArray(view(db.matrix, :, i))
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::MatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
-@inline Base.push!(db::MatrixDatabase, v) = error("push! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
-@inline Base.append!(a::MatrixDatabase, b) = error("append! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
+@inline push_item!(db::MatrixDatabase, v) = error("push! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
+@inline append_items!(a::MatrixDatabase, b) = error("append! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
 
 
@@ -47,6 +47,6 @@ StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, (size(M)))
 
 @inline Base.getindex(db::StrideMatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::StrideMatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
-@inline Base.push!(db::StrideMatrixDatabase, v) = error("push! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
-@inline Base.append!(a::StrideMatrixDatabase, b) = error("append! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
+@inline push_item!(db::StrideMatrixDatabase, v) = error("push! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
+@inline append_items!(a::StrideMatrixDatabase, b) = error("append! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.length(db::StrideMatrixDatabase) = size(db.matrix, 2)

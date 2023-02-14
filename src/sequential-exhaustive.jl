@@ -32,12 +32,12 @@ function search(seq::ExhaustiveSearch, q, res::KnnResult; pools=nothing)
     dist = distance(seq)
     @inbounds for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)
-        push!(res, i, d)
+        push_item!(res, i, d)
     end
 
-    (res=res, cost=length(seq))
+    SearchResult(res, length(seq))
 end
 
 function Base.push!(seq::ExhaustiveSearch, u)
-    push!(seq.db, u)
+    push_item!(seq.db, u)
 end

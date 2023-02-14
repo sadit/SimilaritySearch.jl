@@ -32,7 +32,7 @@ end
 
 @inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
-    @inbounds push!(res, objID, evaluate(distance(index), q, database(index, objID)))
+    @inbounds push_item!(res, objID, evaluate(distance(index), q, database(index, objID)))
     1
 end
 
@@ -55,7 +55,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
 end
 
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int, visited_::Int)
-    push!(beam, argmin(res), minimum(res))
+    push_item!(beam, argmin(res), minimum(res))
 
     bsize = maxlength(beam)
     sp = 1
@@ -67,11 +67,11 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
         for childID in neighbors(index.adj, prev_id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(distance(index), q, database(index, childID))
-            push!(res, childID, d)
+            push_item!(res, childID, d)
             visited_ += 1
             visited_ > maxvisits && @goto finish_search
             if d <= Δ * maximum(res)
-                push!(beam, childID, d; sp, k=bsize+sp)
+                push_item!(beam, childID, d; sp, k=bsize+sp)
                 # rand() < 1 / (sp-1) && continue
                 # @assert length(beam) <= bsize+sp "$sp, $bsize, $(sp+bsize), $(length(beam))"
                 # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
@@ -80,7 +80,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
     end
 
     @label finish_search
-    (res=res, cost=visited_)
+    SearchResult(res, visited_)
 end
 
 """

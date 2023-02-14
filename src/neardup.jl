@@ -27,16 +27,16 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real)
     res = KnnResult(3)  # should be 1, but index's setups work better on larger `k` values
     L = zeros(Int32, length(X))
     D = zeros(Float32, length(X))
-    M = Int32[1]
+    M = UInt32[1]
     L[1] = 1
     D[1] = 0.0
-    push!(idx, X[1])
+    push_item!(idx, X[1])
     @inbounds for i in 2:length(X)
         res = reuse!(res)
         x = X[i]
         search(idx, x, res)
         if length(res) == 0 || minimum(res) > ϵ
-            push!(idx, x)
+            push_item!(idx, x)
             L[i] = i
             D[i] = 0.0
             push!(M, i)

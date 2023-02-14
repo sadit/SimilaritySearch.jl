@@ -33,7 +33,7 @@ using Test, SimilaritySearch, SparseArrays, LinearAlgebra
     A = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZαβγδι"
     F = VectorDatabase(type=String)
     for i in 1:100
-        push!(F, String(rand(A, 5)))
+        push_item!(F, String(rand(A, 5)))
     end
 
     @test length(F) == 100

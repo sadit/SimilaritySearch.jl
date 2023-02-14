@@ -10,7 +10,9 @@ using JLD2
 import Base: push!, append!
 export AbstractSearchIndex, SemiMetric, evaluate,
     search, searchbatch, getknnresult, database, distance,
-    saveindex, loadindex
+    saveindex, loadindex,
+    SearchResult,
+    push_item!, append_items!
 
 include("distances/Distances.jl")
 
@@ -44,6 +46,19 @@ Gets the i-th object from the indexed database
 Gets the distance function used in the index
 """
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
+
+"""
+    struct SearchResult
+        res::KnnResult  # result struct
+        cost::Int  # number of distances (if algorithm allow it)
+    end
+
+Response of a typical search knn query
+"""
+struct SearchResult
+    res::KnnResult
+    cost::Int
+end
 
 include("perf.jl")
 include("sequential-exhaustive.jl")
