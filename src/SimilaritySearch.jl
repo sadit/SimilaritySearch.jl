@@ -187,9 +187,6 @@ function solve_single_query(index::AbstractSearchIndex, Q::AbstractDatabase, i, 
         _k < k && (I[_k+1:k, i] .= zero(Int32))
         D[1:_k, i] .= res.dist
     end
-    #=sp = (i-1) * k + 1
-    unsafe_copyto!(pointer(I, sp), pointer(res.id), k_)
-    unsafe_copyto!(pointer(D, sp), pointer(res.dist), k_)=#
 end
 
 

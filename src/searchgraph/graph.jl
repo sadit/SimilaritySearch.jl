@@ -110,6 +110,6 @@ function search(index::SearchGraph, q, res::KnnResult; hints=index.hints, pools=
     if length(index) > 0
         search(index.search_algo, index, q, res, hints, pools)
     else
-        (res=res, cost=0)
+        SearchResult(res, 0)
     end
 end
