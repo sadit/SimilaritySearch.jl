@@ -81,13 +81,13 @@ SearchGraph's callback for selecting hints at random
 function execute_callback(opt::KDisjointHints, index)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
-    sample = unique(rand(1:n, opt.expansion * m))
+    sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
     m = min(length(sample), m)
     sort!(sample, by=i->length(neighbors(index.adj, i)), rev=true)
 
-    visited = Set{Int32}()
+    visited = Set{UInt32}()
     empty!(index.hints)
-    E = Pair{Int32,Int32}[]
+    E = Pair{UInt32,Int32}[]
     i = 1
     while length(index.hints) < m && i < length(sample)
         # p = rand(1:n)

@@ -41,7 +41,7 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     db::DataType = VectorDatabase()
     adj::AdjType = AdjacencyList()
     locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
-    hints::Vector{Int32} = Int32[]
+    hints::Vector{Int32} = UInt32[]
     search_algo::SType = BeamSearch()
     verbose::Bool = true
 end

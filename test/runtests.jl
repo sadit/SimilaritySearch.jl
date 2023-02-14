@@ -19,6 +19,7 @@ end
 include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
+include("testadj.jl")
 
 include("testallknn.jl")
 include("testneardup.jl")

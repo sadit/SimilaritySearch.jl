@@ -6,6 +6,14 @@ using Test
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
+function run_graph(G, queries, ksearch, Igold)
+    searchtime = @elapsed I, _ = searchbatch(G, queries, ksearch)
+    recall = macrorecall(Igold, I)
+    @test recall >= 0.7
+    @show recall, searchtime, 1 / searchtime
+end
+
+
 @testset "vector indexing with SearchGraph" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
     Random.seed!(0)
@@ -86,6 +94,15 @@ using Test
 
     @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
 
+    tmpfile = tempname()
+    @info "--- load and save!!!"
+    saveindex(tmpfile, graph; store_db=false)
+    let
+        G = loadindex(tmpfile, database(graph))
+        @time run_graph(G, queries, ksearch, goldI)
+        @time run_graph(G, queries, ksearch, goldI)
+    end
+
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
     dim = 4
     db = StrideMatrixDatabase(randn(Float32, dim, n))
@@ -95,11 +112,12 @@ using Test
     graph = SearchGraph(; db, dist, verbose)
     buildtime = @elapsed index!(graph)
     @test n == length(db) == length(graph)
-    searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
-    searchtime2 = @elapsed I, D = searchbatch(graph, queries, ksearch)
+    searchtime = @elapsed I, _ = searchbatch(graph, queries, ksearch)
+    searchtime2 = @elapsed I, _ = searchbatch(graph, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "buildtime", buildtime
     @info "testing without additional optimizations> queries per second (including compilation): ", m/searchtime, ", searchtime2 (already compiled):", m/searchtime2, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7
 end
+

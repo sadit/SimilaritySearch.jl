@@ -4,25 +4,28 @@ abstract type AbstractAdjacencyList end
 
 Base.eachindex(adj::AbstractAdjacencyList) = 1:length(adj)
 
-@with_kw struct AdjacencyList <: AbstractAdjacencyList
-    links::Vector{Vector{UInt32}} = Vector{Vector{UInt32}}(undef, 0)
+struct AdjacencyList <: AbstractAdjacencyList
+    links::Vector{Vector{UInt32}}
 end
 
-AdjacencyList(adj::AdjacencyList) = AdjacencyList(deepcopy(adj))
+AdjacencyList() = AdjacencyList(Vector{Vector{UInt32}}(undef, 0))
+AdjacencyList(adj::AdjacencyList) = AdjacencyList(deepcopy(adj.links))
 
-Base.@propagate_inbounds function neighbors(adj::AdjacencyList, i::Integer)
+@inline Base.length(adj::AdjacencyList) = length(adj.links)
+
+Base.@propagate_inbounds @inline function neighbors(adj::AdjacencyList, i::Integer)
     adj.links[i]
 end
 
-Base.@propagate_inbounds function add_edge!(adj::AdjacencyList, i::Integer, neighbor::Integer, dist::Float32)
+Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList, i::Integer, neighbor::Integer, dist::Float32)
     push!(adj.links[i], convert(UInt32, neighbor))
 end
 
-Base.@propagate_inbounds function add_vertex!(adj::AdjacencyList)
+Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList)
     add_vertex!(adj, UInt32[])
 end
 
-Base.@propagate_inbounds function add_vertex!(adj::AdjacencyList, neighbors::Vector{UInt32})
+Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList, neighbors::Vector{UInt32})
     push!(adj.links, neighbors)
     neighbors
 end
@@ -38,9 +41,9 @@ function StaticAdjacencyList(adj::StaticAdjacencyList; offset=adj.offset, links=
     StaticAdjacencyList(offset, links)
 end
 
-Base.@propagate_inbounds function neighbors(adj::StaticAdjacencyList, i::Integer)
-    sp::Int64 = i == 1 ? 1 : adj.links[i-1]
-    ep = adj.links[i]
+Base.@propagate_inbounds @inline function neighbors(adj::StaticAdjacencyList, i::Integer)
+    sp::Int64 = i == 1 ? 1 : adj.offset[i-1]+1
+    ep = adj.offset[i]
     view(adj.links, sp:ep)
 end
 
@@ -55,10 +58,13 @@ end
 function StaticAdjacencyList(adj::AdjacencyList)
     n = length(adj)
     offset = Vector{Int64}(undef, n)
-    links = Vector{UInt32}(undef, n)
+    N = sum(length(neighbors(adj, j)) for j in eachindex(adj))
+    links = Vector{UInt32}(undef, N)
 
     i = 1
-    @inbounds for (j, L) in enumerate(adj)
+    s = 0
+    @inbounds for j in eachindex(adj)
+        L = neighbors(adj, j)
         s += length(L)
         offset[j] = s
 
@@ -76,7 +82,7 @@ function AdjacencyList(A::StaticAdjacencyList)
     adj = Vector{Vector{UInt32}}(undef, n)
 
     for objID in 1:n
-        C = A[objID]
+        C = neighbors(A, objID)
         len = length(C)
         children = Vector{UInt32}(undef, len)
 

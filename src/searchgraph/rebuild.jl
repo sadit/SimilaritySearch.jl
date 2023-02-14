@@ -20,13 +20,13 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGraphCallbacks(verbose=g.verbose), minbatch=0, pools=getpools(g))
     n = length(g)
     @assert n > 0
-    direct = Vector{Vector{Int32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
-    reverse = Vector{Vector{Int32}}(undef, n)
+    direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
+    reverse = Vector{Vector{UInt32}}(undef, n)
     minbatch = minbatch < 0 ? n : getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
         @inbounds direct[i] = find_neighborhood(g, database(g, i), neighborhood, pools, hints=neighbors(g.adj, i)[1])
-        reverse[i] = Vector{Int32}(undef, 0)
+        reverse[i] = Vector{UInt32}(undef, 0)
     end
 
     connect_reverse_links!(direct, reverse, g.locks, 1, length(g), minbatch)

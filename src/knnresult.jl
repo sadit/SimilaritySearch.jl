@@ -1,4 +1,5 @@
 # This file is a part of SimilaritySearch.jl
+# export AbstractResult
 export KnnResult
 export maxlength, getdist, getid, idview, distview, reuse!
 
