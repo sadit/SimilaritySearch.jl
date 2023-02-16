@@ -2,7 +2,8 @@
 module AdjacencyLists
 
 abstract type AbstractAdjacencyList{EndPointType} end
-export AbstractAdjacencyList, WeightedEndPoint, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!
+export AbstractAdjacencyList, WeightedEndPoint, IWeightedEndPoint, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!,
+    IdOrder, WeightOrder, RevWeightOrder
 
 using Base.Order
 import Base.Order: lt
@@ -14,6 +15,11 @@ struct WeightedEndPoint
     weight::Float32
 end
 
+struct IWeightedEndPoint
+    id::UInt32
+    weight::Int32
+end
+
 struct IdOrderingType <: Ordering end
 struct WeightOrderingType <: Ordering end
 struct RevWeightOrderingType <: Ordering end
@@ -21,12 +27,12 @@ const IdOrder = IdOrderingType()
 const WeightOrder = WeightOrderingType()
 const RevWeightOrder = RevWeightOrderingType()
 
-@inline Order.lt(::IdOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.id < b.id
-@inline Order.lt(::WeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.weight < b.weight
-@inline Order.lt(::RevWeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = b.weight < a.weight
-@inline Order.lt(::IdOrderingType, a::Number, b::Number) = a < b
-@inline Order.lt(::WeightOrderingType, a::Number, b::Number) = a < b
-@inline Order.lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
+@inline lt(::IdOrderingType, a, b) = a.id < b.id
+@inline lt(::WeightOrderingType, a, b) = a.weight < b.weight
+@inline lt(::RevWeightOrderingType, a, b) = b.weight < a.weight
+@inline lt(::IdOrderingType, a::Number, b::Number) = a < b
+@inline lt(::WeightOrderingType, a::Number, b::Number) = a < b
+@inline lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
 
 """
     sort_last_add_edge!(order::Ordering, plist)
@@ -242,11 +248,14 @@ end
  
 Creates an sparse matrix (from SparseArrays) from `idx`
 """
-function sparse(adj::AbstractAdjacencyList{WeightedEndPoint})
+sparse(adj::AbstractAdjacencyList{WeightedEndPoint}) = sparse_from_adj(adj, UInt32, Float32)
+sparse(adj::AbstractAdjacencyList{IWeightedEndPoint}) = sparse_from_adj(adj, UInt32, Int32)
+
+function sparse_from_adj(adj::AbstractAdjacencyList, IType, FType)
     n = length(adj)
-    I = UInt32[]
-    J = UInt32[]
-    F = Float32[]
+    I = IType[]
+    J = JType[]
+    F = FType[]
     sizehint!(I, n)
     sizehint!(J, n)
     sizehint!(F, n)
