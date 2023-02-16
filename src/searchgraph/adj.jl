@@ -62,7 +62,7 @@ function AdjacencyList(lists::Vector{Vector{EndPointType}}) where EndPointType
     AdjacencyList{EndPointType}(lists, EndPointType[], locks, Threads.SpinLock())
 end
 
-function AdjacencyList(::Type{EndPointType}=UInt32; n::Int=0) where EndPointType
+function AdjacencyList(::Type{EndPointType}; n::Int=0) where EndPointType
     lists = Vector{Vector{EndPointType}}(undef, n)
     AdjacencyList(lists)
 end
