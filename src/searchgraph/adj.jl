@@ -1,6 +1,11 @@
 # This file is a part of SimilaritySearch.jl
+module AdjacencyLists
 
 abstract type AbstractAdjacencyList{EndPointType} end
+export AbstractAdjacencyList, WeightedEndPoint, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!
+
+using Base.Order
+import Base.Order: lt
 
 Base.eachindex(adj::AbstractAdjacencyList) = 1:length(adj)
 
@@ -9,19 +14,19 @@ struct WeightedEndPoint
     weight::Float32
 end
 
-struct IdOrderingType <: Base.Order.Ordering end
-struct WeightOrderingType <: Base.Order.Ordering end
-struct RevWeightOrderingType <: Base.Order.Ordering end
+struct IdOrderingType <: Ordering end
+struct WeightOrderingType <: Ordering end
+struct RevWeightOrderingType <: Ordering end
 const IdOrder = IdOrderingType()
 const WeightOrder = WeightOrderingType()
 const RevWeightOrder = RevWeightOrderingType()
 
-@inline Base.Order.lt(::IdOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.id < b.id
-@inline Base.Order.lt(::WeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.weight < b.weight
-@inline Base.Order.lt(::RevWeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = b.weight < a.weight
-@inline Base.Order.lt(::IdOrderingType, a::Number, b::Number) = a < b
-@inline Base.Order.lt(::WeightOrderingType, a::Number, b::Number) = a < b
-@inline Base.Order.lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
+@inline Order.lt(::IdOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.id < b.id
+@inline Order.lt(::WeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = a.weight < b.weight
+@inline Order.lt(::RevWeightOrderingType, a::WeightedEndPoint, b::WeightedEndPoint) = b.weight < a.weight
+@inline Order.lt(::IdOrderingType, a::Number, b::Number) = a < b
+@inline Order.lt(::WeightOrderingType, a::Number, b::Number) = a < b
+@inline Order.lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
 
 """
     sort_last_add_edge!(order::Ordering, plist)
@@ -257,4 +262,6 @@ function sparse(adj::AbstractAdjacencyList{WeightedEndPoint})
     end
 
     sparse(I, J, F, length(adj), n)
+end
+
 end

@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
+using .AdjacencyLists
 
 """
     abstract type NeighborhoodReduction end
@@ -39,7 +40,7 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
 @with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, AdjType<:AbstractAdjacencyList, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
-    adj::AdjType = AdjacencyList(UInt32)
+    adj::AdjType = AdjacencyLists.AdjacencyList(UInt32)
     hints::Vector{Int32} = UInt32[]
     search_algo::SType = BeamSearch()
     len::Ref{Int} = Ref(0)
