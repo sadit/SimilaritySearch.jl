@@ -89,7 +89,7 @@ function index!(
     parallel_block == 1 && return _sequential_append_loop!(index, neighborhood, callbacks, pools)
 
     m = 0
-    db = index.db
+    db = database(index)
     n = length(db)
 
     parallel_minimum_first_block = min(parallel_minimum_first_block, n)
@@ -115,23 +115,18 @@ function _sequential_append_loop!(index::SearchGraph, neighborhood::Neighborhood
     index
 end
 
-function _connect_links(index, sp, ep)
+function _connect_reverse_links(index::SearchGraph, sp::Integer, ep::Integer)
+    # NOTE: This algorithm avoids inter-locks, but if it is improved, we must check for them
     @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
         @inbounds for id in neighbors(index.adj, i)
-            lock(index.locks[id])
-            try
-                add_edge!(index.adj, id, i, 0f0)
-                # sat_should_push(neighbors(index.adj, id), index, database(index, i), i, -1.0) && add_edge!(index.adj, id, i, 0f0)
-            finally
-                unlock(index.locks[id])
-            end
+            add_edge!(index.adj, id, i)
         end
     end
 end
 
 function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, pools::SearchGraphPools, sp, n, parallel_block::Integer, callbacks)
     adj = index.adj
-    resize!(adj.links, n)
+    resize!(adj, n)
 
     while sp < n
         ep = min(n, sp + parallel_block)
@@ -140,18 +135,13 @@ function _parallel_append_loop!(index::SearchGraph, neighborhood::Neighborhood, 
         # searching neighbors      
 	    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
             # parallel_block values are pretty small, better to use @threads directly instead of @batch
-            @inbounds adj.links[i] = find_neighborhood(index, database(index, i), neighborhood, pools)
+            @inbounds adj.end_point[i] = find_neighborhood(index, database(index, i), neighborhood, pools)
         end
 
         # connecting neighbors
-        _connect_links(index, sp, ep)
-        
-        # increasing locks => new items are enabled for searching (and reported by length so they can also be hints)
-        resize!(index.locks, ep)
-        @inbounds for i in sp:ep
-            index.locks[i] = Threads.SpinLock()
-        end
-        
+        _connect_reverse_links(index, sp, ep)
+        index.len[] = ep
+
         # apply callbacks
         callbacks !== nothing && execute_callbacks(callbacks, index, sp, ep)
         sp = ep + 1
@@ -228,6 +218,6 @@ Arguments:
 )
     neighbors = find_neighborhood(index, item, neighborhood, pools)
     push_neighborhood!(index, item, neighbors, callbacks; push_item)
-
+    index.len[] += 1
     neighbors
 end

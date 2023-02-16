@@ -39,10 +39,10 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
 @with_kw struct SearchGraph{DistType<:SemiMetric, DataType<:AbstractDatabase, AdjType<:AbstractAdjacencyList, SType<:LocalSearchAlgorithm}<:AbstractSearchIndex
     dist::DistType = SqL2Distance()
     db::DataType = VectorDatabase()
-    adj::AdjType = AdjacencyList()
-    locks::Vector{Threads.SpinLock} = Threads.SpinLock[]
+    adj::AdjType = AdjacencyList(UInt32)
     hints::Vector{Int32} = UInt32[]
     search_algo::SType = BeamSearch()
+    len::Ref{Int} = Ref(0)
     verbose::Bool = true
 end
 
@@ -50,14 +50,14 @@ Base.copy(G::SearchGraph;
     dist=G.dist,
     db=G.db,
     adj=G.adj,
-    locks=G.locks,
     hints=G.hints,
     search_algo=copy(G.search_algo),
+    len=Ref(length(G)),
     verbose=G.verbose
-) = SearchGraph(; dist, db, adj, locks, hints, search_algo, verbose)
+) = SearchGraph(; dist, db, adj, hints, search_algo, len, verbose)
 
 
-@inline Base.length(g::SearchGraph) = length(g.locks)
+@inline Base.length(g::SearchGraph) = g.len[]
 include("visitedvertices.jl")
 
 ## search algorithms

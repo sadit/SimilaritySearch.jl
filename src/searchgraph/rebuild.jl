@@ -29,8 +29,8 @@ function rebuild(g::SearchGraph; neighborhood=Neighborhood(), callbacks=SearchGr
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
-    connect_reverse_links!(direct, reverse, g.locks, 1, length(g), minbatch)
-    G = copy(g; adj=AdjacencyList(direct), locks=copy(g.locks), hints=copy(g.hints), search_algo=copy(g.search_algo))
+    connect_reverse_links!(direct, reverse, g.adj.locks, 1, length(g), minbatch)
+    G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), search_algo=copy(g.search_algo))
     execute_callbacks(callbacks, G, force=true)
     G
 end
@@ -69,4 +69,3 @@ function connect_reverse_links!(direct, reverse, locks, sp, ep, minbatch)
         end
     end
 end
-

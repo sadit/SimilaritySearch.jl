@@ -8,6 +8,7 @@ using Test, SimilaritySearch
     n = 100
     X = MatrixDatabase(rand(Float32, 4, n))
     G = SearchGraph(; db=X, dist, verbose=false)
+    @show G.len, G.len[], length(G)
     index!(G)
     @test length(G) == n
     optimize!(G, MinRecall(0.95))

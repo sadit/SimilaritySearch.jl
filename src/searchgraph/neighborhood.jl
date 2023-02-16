@@ -72,12 +72,11 @@ Inserts the object `item` into the index, i.e., creates an edge for each item in
 function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_item=true)
     push_item && push_item!(index.db, item)
     add_vertex!(index.adj, neighbors)
-    push!(index.locks, Threads.SpinLock())
     n = length(index)
     n == 1 && return
     ## vstate = getvisitedvertices(index)
     @inbounds for id in neighbors
-        add_edge!(index.adj, id, n, 0f0)
+        add_edge!(index.adj, id, n)
     end
 
     callbacks !== nothing && execute_callbacks(callbacks, index)

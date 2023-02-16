@@ -25,5 +25,5 @@ using SimilaritySearch:
         @test neighbors(A, i) == neighbors(C, i)
     end
 
-    @test A.links == C.links
+    @test A.end_point == C.end_point
 end
