@@ -106,10 +106,11 @@ end
 
 function _sequential_append_loop!(index::SearchGraph, neighborhood::Neighborhood, callbacks, pools::SearchGraphPools)
     i = length(index)
-    n = length(index.db)
+    db = index.db
+    n = length(db)
     @inbounds while i < n
         i += 1
-        push_item!(index, index.db[i], neighborhood, false, callbacks, pools)
+        push_item!(index, db[i], neighborhood, false, callbacks, pools)
     end
 
     index
@@ -167,7 +168,7 @@ Arguments:
 - `index`: The search graph index where the insertion is going to happen
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
 - `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
-- `push_item`: if `push_item=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
+- `push_db`: if `push_db=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
 - `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
@@ -177,12 +178,12 @@ Arguments:
         index::SearchGraph,
         item;
         neighborhood=Neighborhood(),
-        push_item=true,
+        push_db=true,
         callbacks=SearchGraphCallbacks(verbose=index.verbose),
         pools=getpools(index)
     )
 
-    push_item!(index, item, neighborhood, push_item, callbacks, pools)
+    push_item!(index, item, neighborhood, push_db, callbacks, pools)
 end
 
 """
@@ -202,7 +203,7 @@ Arguments:
 - `index`: The search graph index where the insertion is going to happen.
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
 - `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
-- `push_item`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
+- `push_db`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
 - `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
@@ -212,12 +213,11 @@ Arguments:
     index::SearchGraph,
     item,
     neighborhood::Neighborhood,
-    push_item::Bool,
+    push_db::Bool,
     callbacks::SearchGraphCallbacks,
     pools::SearchGraphPools
 )
     neighbors = find_neighborhood(index, item, neighborhood, pools)
-    push_neighborhood!(index, item, neighbors, callbacks; push_item)
-    index.len[] += 1
-    neighbors
+    push_neighborhood!(index, item, neighbors, callbacks; push_db)
+    index
 end

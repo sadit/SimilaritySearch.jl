@@ -67,12 +67,12 @@ Inserts the object `item` into the index, i.e., creates an edge for each item in
 - `item`: The item that will be inserted.
 - `neighbors`: An array of indices that will be connected to the new vertex.
 - `callbacks`: A [`SearchGraphCallbacks`] object (callback list) that will be called after some insertions
-- `push_item`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
+- `push_db`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
 """
-function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_item=true)
-    push_item && push_item!(index.db, item)
+function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_db=true)
+    push_db && push_item!(index.db, item)
     add_vertex!(index.adj, neighbors)
-    n = length(index)
+    n = index.len[] = length(index.adj)
     n == 1 && return
     ## vstate = getvisitedvertices(index)
     @inbounds for id in neighbors
