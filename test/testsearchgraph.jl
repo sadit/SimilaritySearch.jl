@@ -15,8 +15,7 @@ end
 
 
 @testset "vector indexing with SearchGraph" begin
-    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are requiered
-    Random.seed!(0)
+    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
     n, m, dim = 100_000, 100, 8
 
