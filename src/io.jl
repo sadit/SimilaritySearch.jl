@@ -37,7 +37,7 @@ end
 
 Called on loading to restore any value on the index that depends on the new instance (i.e., datasets, pointers, etc.)
 """
-function restoreindex(index::AbstractSearchIndex, meta::Dict, f)
+function restoreindex(index::AbstractSearchIndex, meta::Dict, f; kwargs...)
     index, meta # nothing for most indexes
 end
 
@@ -65,6 +65,5 @@ function loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}
         index = copy(index; db=StrideMatrixDatabase(database(index)))
     end
 
-    
     index
 end

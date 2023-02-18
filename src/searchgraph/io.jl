@@ -12,7 +12,19 @@ function saveindex(filename::AbstractString, index::SearchGraph, meta::Dict)
     jldsave(filename; index=I, meta)
 end
 
-function restoreindex(index::SearchGraph, meta::Dict, f)
-    copy(index; adj=AdjacencyList(index.adj)), meta
+"""
+    loadindex(filename::AbstractString, db=nothing; staticgraph=false)
+    restoreindex(index::SearchGraph, meta::Dict, f; staticgraph=false)
+
+Loads a SearchGraph index
+
+- `staticgraph=false`. Determines if the index uses a static or a dynamic adjacency list.
+"""
+function restoreindex(index::SearchGraph, meta::Dict, f; staticgraph=false)
+    if staticgraph
+        index, meta
+    else
+        copy(index; adj=AdjacencyList(index.adj)), meta
+    end
     # index, meta
 end

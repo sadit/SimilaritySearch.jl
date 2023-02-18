@@ -2,20 +2,20 @@
 module AdjacencyLists
 
 abstract type AbstractAdjacencyList{EndPointType} end
-export AbstractAdjacencyList, WeightedEndPoint, IWeightedEndPoint, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!,
-    IdOrder, WeightOrder, RevWeightOrder
+export AbstractAdjacencyList, IdWeight, IdIntWeight, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!,
+    IdOrder, WeightOrder, RevWeightOrder, sort_last_add_edge!
 
 using Base.Order
 import Base.Order: lt
 
 Base.eachindex(adj::AbstractAdjacencyList) = 1:length(adj)
 
-struct WeightedEndPoint
+struct IdWeight
     id::UInt32
     weight::Float32
 end
 
-struct IWeightedEndPoint
+struct IdIntWeight
     id::UInt32
     weight::Int32
 end
@@ -244,12 +244,12 @@ function sparse(adj::AbstractAdjacencyList{EndPointType}, val::AbstractFloat=1f0
 end
 
 """
-    sparse(idx::AbstractAdjacencyList{WeightedEndPoint}) 
+    sparse(idx::AbstractAdjacencyList{IdWeight}) 
  
 Creates an sparse matrix (from SparseArrays) from `idx`
 """
-sparse(adj::AbstractAdjacencyList{WeightedEndPoint}) = sparse_from_adj(adj, UInt32, Float32)
-sparse(adj::AbstractAdjacencyList{IWeightedEndPoint}) = sparse_from_adj(adj, UInt32, Int32)
+sparse(adj::AbstractAdjacencyList{IdWeight}) = sparse_from_adj(adj, UInt32, Float32)
+sparse(adj::AbstractAdjacencyList{IdIntWeight}) = sparse_from_adj(adj, UInt32, Int32)
 
 function sparse_from_adj(adj::AbstractAdjacencyList, IType, FType)
     n = length(adj)

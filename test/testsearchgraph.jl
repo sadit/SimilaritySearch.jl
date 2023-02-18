@@ -27,51 +27,54 @@ end
     goldtime = @elapsed goldI, goldD = searchbatch(seq, queries, ksearch)
     verbose = false
 
-    for bsize in [2, 12]
-        search_algo = BeamSearch(; bsize)
-        @info "=================== $search_algo"
-        graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo, verbose)
-        neighborhood = Neighborhood(reduce=IdentityNeighborhood())
-        append_items!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
-        @test n == length(db) == length(graph)
-        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
-        @test size(I) == size(D) == (ksearch, m) == size(goldI)
-        @show goldD[:, 1]
-        @show D[:, 1]
-        @show goldI[:, 1]
-        @show I[:, 1]
-        recall = macrorecall(goldI, I)
-        @info "testing search_algo: $(string(graph.search_algo)), time: $(searchtime)"
-        @test recall >= 0.6
-        @info "queries per second: $(m/searchtime), recall: $recall"
-        @info "===="
+    @testset "fixed params" begin
+        for bsize in [2, 12]
+            search_algo = BeamSearch(; bsize)
+            @info "=================== $search_algo"
+            graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo, verbose)
+            neighborhood = Neighborhood(reduce=IdentityNeighborhood())
+            append_items!(graph, db; neighborhood, parallel_block=8, callbacks=SearchGraphCallbacks(nothing))
+            @test n == length(db) == length(graph)
+            searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+            @test size(I) == size(D) == (ksearch, m) == size(goldI)
+            @show goldD[:, 1]
+            @show D[:, 1]
+            @show goldI[:, 1]
+            @show I[:, 1]
+            recall = macrorecall(goldI, I)
+            @info "testing search_algo: $(string(graph.search_algo)), time: $(searchtime)"
+            @test recall >= 0.6
+            @info "queries per second: $(m/searchtime), recall: $recall"
+            @info "===="
+        end
     end
 
-    @info "--- Optimizing parameters ParetoRadius ---"
-    graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose)
-    neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
-    append_items!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
-    @test n == length(db) == length(graph)
-    @info "---- starting ParetoRadius optimization ---"
-    optimize!(graph, ParetoRadius())
-    searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
-    @test size(I) == size(D) == (ksearch, m) == size(goldI)
-    recall = macrorecall(goldI, I)
-    @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
-    @info graph.search_algo
-    @test recall >= 0.3  # we don't expect high quality results on ParetoRadius
+    @testset "AutoBS with ParetoRadius" begin
+        graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2), verbose)
+        neighborhood = Neighborhood(reduce=DistalSatNeighborhood())
+        append_items!(graph, db; neighborhood, callbacks=SearchGraphCallbacks(ParetoRadius()))
+        @test n == length(db) == length(graph)
+        @info "---- starting ParetoRadius optimization ---"
+        optimize!(graph, ParetoRadius())
+        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        @test size(I) == size(D) == (ksearch, m) == size(goldI)
+        recall = macrorecall(goldI, I)
+        @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
+        @info graph.search_algo
+        @test recall >= 0.3  # we don't expect high quality results on ParetoRadius
 
 
-    @info "---- starting ParetoRecall optimization ---"
-    optimize!(graph, ParetoRecall())
-    searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
-    @test size(I) == size(D) == (ksearch, m) == size(goldI)
-    recall = macrorecall(goldI, I)
-    @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
-    @info graph.search_algo
-    @test recall >= 0.6
+        @info "---- starting ParetoRecall optimization ---"
+        optimize!(graph, ParetoRecall())
+        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        @test size(I) == size(D) == (ksearch, m) == size(goldI)
+        recall = macrorecall(goldI, I)
+        @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
+        @info graph.search_algo
+        @test recall >= 0.6
+    end
 
-    @info "========================= REBUILD TEST ======================"
+    @info "========================= AutoBS MinRecall ======================"
     graph = SearchGraph(; db, dist, verbose)
     index!(graph; callbacks=SearchGraphCallbacks(MinRecall(0.9)))
     @test n == length(db) == length(graph)
@@ -82,24 +85,27 @@ end
     @info "testing without additional optimizations: queries per second:", m/searchtime, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.6
+    
+    @testset "rebuild" begin
+        graph = rebuild(graph)
+        @test n == length(db) == length(graph)
+        optimize!(graph, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
+        searchtime_ = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        @test size(I) == size(D) == (ksearch, m) == size(goldI)
+        recall_ = macrorecall(goldI, I)
 
-    @info "========================= rebuild process =========================="
-    graph = rebuild(graph)
-    @test n == length(db) == length(graph)
-    optimize!(graph, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
-    searchtime_ = @elapsed I, D = searchbatch(graph, queries, ksearch)
-    @test size(I) == size(D) == (ksearch, m) == size(goldI)
-    recall_ = macrorecall(goldI, I)
+        @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
+    end
 
-    @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
-
-    tmpfile = tempname()
-    @info "--- load and save!!!"
-    saveindex(tmpfile, graph; store_db=false)
-    let
-        G = loadindex(tmpfile, database(graph))
-        @time run_graph(G, queries, ksearch, goldI)
-        @time run_graph(G, queries, ksearch, goldI)
+    @testset "saveindex and loadindex" begin
+        tmpfile = tempname()
+        @info "--- load and save!!!"
+        saveindex(tmpfile, graph; store_db=false)
+        let
+            G = loadindex(tmpfile, database(graph); staticgraph=true)
+            @test G.adj isa StaticAdjacencyList
+            @time run_graph(G, queries, ksearch, goldI)
+        end
     end
 
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
