@@ -65,9 +65,15 @@ function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::Abst
             allknn_single_search(g, i, res, pools)
             _k = length(res)
             #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
-            knns_[1:_k, i] .= res.id
-            _k < k && (knns_[_k+1:k, i] .= zero(Int32))
-            dists_[1:_k, i] .= res.dist
+            @inbounds for j in 1:_k
+                u = res.items[j]
+                knns_[j, i] = u.id
+                dists_[j, i] = u.weight
+            end
+        
+            for j in _k+1:k
+                knns_[j, i] = zero(Int32)
+            end
         end
     end
     

@@ -56,7 +56,9 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-                union!(R[i], idview(res))
+                for item in res
+                    push!(R[i], item.id)
+                end
             end
 
             macrorecall(gold, R)
@@ -147,7 +149,7 @@ function optimize_index!(
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch(seq, queries, knnlist; minbatch)
-        gold = [Set(idview(res)) for res in knnlist]
+        gold = [Set(item.id for item in res) for res in knnlist]
     end
 
     M = Ref(0.0)

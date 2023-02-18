@@ -173,7 +173,6 @@ function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, I::Abstrac
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            #Threads.@threads for i in eachindex(Q)
             solve_single_query(index, Q, i, I_, D_, pools)
         end
     end
@@ -181,16 +180,20 @@ function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, I::Abstrac
     I, D
 end
 
-function solve_single_query(index::AbstractSearchIndex, Q::AbstractDatabase, i, I, D, pools)
-    k = size(I, 1)
+function solve_single_query(index::AbstractSearchIndex, Q::AbstractDatabase, i, knns_, dists_, pools)
+    k = size(knns_, 1)
     q = @inbounds Q[i]
     res = getknnresult(k, pools)
     search(index, q, res; pools=pools)
     _k = length(res)
-    @inbounds begin
-        I[1:_k, i] .= res.id
-        _k < k && (I[_k+1:k, i] .= zero(Int32))
-        D[1:_k, i] .= res.dist
+    @inbounds for j in 1:_k
+        u = res.items[j]
+        knns_[j, i] = u.id
+        dists_[j, i] = u.weight
+    end
+
+    for j in _k+1:k
+        knns_[j, i] = zero(Int32)
     end
 end
 

@@ -9,11 +9,10 @@ function testsorted(res, Vsorted)
     @show Vsorted
     @info "======================== starting ============="
     @test collect(res) == Vsorted
-    @test minimum(res) == first(Vsorted)[end]
-    @test maximum(res) == last(Vsorted)[end]
-    @test argmin(res) == first(Vsorted)[1]
-    @test argmax(res) == last(Vsorted)[1]
-
+    @test minimum(res) == first(Vsorted).weight
+    @test maximum(res) == last(Vsorted).weight
+    @test argmin(res) == first(Vsorted).id
+    @test argmax(res) == last(Vsorted).id
     @show res
     
     @test collect(res) == Vsorted
@@ -25,7 +24,6 @@ function testsorted(res, Vsorted)
     popfirst!(Vsorted)
     popfirst!(res)
     @test collect(res) == Vsorted
-
 end
 
 function create_random_array(n, k)

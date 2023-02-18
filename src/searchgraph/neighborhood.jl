@@ -136,7 +136,7 @@ function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnRe
 end
 
 function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
-    copy(idview(res))
+    [item.id for item in res]
 end
 
 """
@@ -148,8 +148,8 @@ Reduces `res` using the DistSAT strategy.
     push!(N, argmax(res))
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
-        (id, dist) = res[i]
-        sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
+        p = res[i]
+        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(pools)) && push!(N, p.id)
     end
 
     N
@@ -159,8 +159,8 @@ end
     push!(N, argmin(res))
 
     @inbounds for i in 2:length(res)
-        (id, dist) = res[i]
-        sat_should_push(N, index, item, id, dist, getsatknnresult(pools)) && push!(N, id)
+        p = res[i]
+        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(pools)) && push!(N, p.id)
     end
 
     N
@@ -249,7 +249,9 @@ function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index)
             end
 
             resize!(L, length(res))
-            copy!(L, idview(res))
+            for i in eachindex(res)
+                @inbounds L[i] = res[i].id
+            end
         end
     end
 end

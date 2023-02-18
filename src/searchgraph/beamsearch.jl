@@ -55,13 +55,11 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
 end
 
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int, visited_::Int)
-    push_item!(beam, argmin(res), minimum(res))
-
-    bsize = maxlength(beam)
+    push_item!(beam, res[1])
     sp = 1
 
     @inbounds while sp <= length(beam)
-        prev_id = getid(beam, sp)
+        prev_id = beam[sp].id
         #prev_dist > maximum(res) && break
         sp += 1
         for childID in neighbors(index.adj, prev_id)
@@ -71,9 +69,8 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
             visited_ += 1
             visited_ > maxvisits && @goto finish_search
             if d <= Δ * covradius(res) # maximum(res)
-                push_item!(beam, childID, d; sp, k=bsize+sp)
+                push_item!(beam, IdWeight(childID, d), sp)
                 # rand() < 1 / (sp-1) && continue
-                # @assert length(beam) <= bsize+sp "$sp, $bsize, $(sp+bsize), $(length(beam))"
                 # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
             end
         end

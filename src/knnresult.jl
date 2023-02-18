@@ -44,19 +44,20 @@ Appends an item into the result set
     true
 end
 
-@inline function push_item!(res::KnnResult, item::IdWeight, sp::Int, ep=maxlength(res))
+@inline function push_item!(res::KnnResult, item::IdWeight, sp::Int)
     len = length(res)
+    ep = maxlength(res) + sp
 
     if len < ep
         push!(res.items, item)
-        sort_last_item!(WeightOrder, view(res.items, sp:ep))
+        sort_last_item!(WeightOrder, view(res.items, sp:len+1))
         return true
     end
 
     item.weight >= maximum(res) && return false
 
     @inbounds res.items[end] = item
-    sort_last_item!(WeightOrder, sort_last_item!(WeightOrder, view(res.items, sp:ep)))
+    sort_last_item!(WeightOrder, view(res.items, sp:len))
     true
 end
 

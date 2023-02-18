@@ -54,7 +54,8 @@ function execute_callback(opt::DisjointHints, index)
     end
 
     V = Set{Int}()
-    for i in idview(res)
+    for item in res
+        i = item.id
         i in V && continue
         push!(index.hints, i)
         push!(V, i)
