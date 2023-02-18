@@ -12,11 +12,16 @@ export AbstractSearchIndex, SemiMetric, evaluate,
     search, searchbatch, getknnresult, database, distance,
     saveindex, loadindex,
     SearchResult,
-    push_item!, append_items!
+    push_item!, append_items!,
+    IdWeight
 
 include("distances/Distances.jl")
 
 include("db/db.jl")
+include("adj.jl")
+
+using .AdjacencyLists
+
 include("knnresult.jl")
 include("io.jl")
 

@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
 using Dates
-using .AdjacencyLists
 
 """
     abstract type NeighborhoodReduction end

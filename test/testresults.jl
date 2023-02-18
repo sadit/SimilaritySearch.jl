@@ -16,33 +16,21 @@ function testsorted(res, Vsorted)
 
     @show res
     
-    @test idview(res) == first.(Vsorted)
-    @test distview(res) == last.(Vsorted)
+    @test collect(res) == Vsorted
 
     pop!(Vsorted)
     pop!(res)
-    @test idview(res) == first.(Vsorted)
-    @test distview(res) == last.(Vsorted)
     @test collect(res) == Vsorted
 
     popfirst!(Vsorted)
     popfirst!(res)
-
-    @info "b   collect id:" => idview(res)
-    @info "b collect dist:" => distview(res)
-    @info "b ========" => first.(Vsorted)
-    @info "b ========" => last.(Vsorted)
-    @show idview(res)
-    @show distview(res)    
-    @test idview(res) == first.(Vsorted)
-    @test distview(res) == last.(Vsorted)
     @test collect(res) == Vsorted
 
 end
 
 function create_random_array(n, k)
     V = rand(Float32, n)
-    Vsorted = sort!([i => v for (i, v) in enumerate(V)], by=x->x[2])[1:k]
+    Vsorted = sort!([IdWeight(i, v) for (i, v) in enumerate(V)], by=x->x.weight)[1:k]
     V, Vsorted
 end
 

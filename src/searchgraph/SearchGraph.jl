@@ -6,7 +6,7 @@ export find_neighborhood, push_neighborhood!
 export BeamSearch, BeamSearchSpace, Callback
 export KDisjointHints, DisjointHints, RandomHints
 export RandomPruning, KeepNearestPruning, SatPruning, prune!
-include("adj.jl")
+
 include("graph.jl")
 include("callbacks.jl")
 include("rebuild.jl")
