@@ -8,12 +8,12 @@ export recallscore, macrorecall
 Compute recall and precision scores from the result sets.
 """
 function recallscore(gold, res)::Float64
-    length(intersect(_convert_as_set(gold), _convert_as_set(res))) / length(gold)
+    length(intersect(as_set(gold), as_set(res))) / length(gold)
 end
 
-_convert_as_set(a::Set) = a
-_convert_as_set(a::AbstractVector) = Set(a)
-_convert_as_set(a::KnnResult) = Set(item.id for item in res)
+as_set(a::Set) = a
+as_set(a::AbstractVector) = Set(a)
+as_set(res::KnnResult) = Set(IdView(res))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64

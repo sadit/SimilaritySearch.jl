@@ -56,9 +56,7 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-                for item in res
-                    push!(R[i], item.id)
-                end
+                union!(R[i], IdView(res))
             end
 
             macrorecall(gold, R)

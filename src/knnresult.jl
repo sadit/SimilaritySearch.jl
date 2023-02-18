@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 # export AbstractResult
-export KnnResult
+export KnnResult, IdView, DistView
 export covradius, maxlength, reuse!
 
 """
@@ -128,14 +128,23 @@ end
 @inline Base.eachindex(res::KnnResult) = firstindex(res):lastindex(res)
 Base.eltype(res::KnnResult) = IdWeight
 
-##### iterator interface
-### KnnResult
-"""
-    Base.iterate(res::KnnResult, state::Int=1)
+struct IdView
+    res::KnnResult
+end
 
-Support for iteration
-"""
-function Base.iterate(res::KnnResult, i::Int=1)
+struct DistView
+    res::KnnResult
+end
+
+@inline Base.getindex(v::IdView, i::Integer) = v.res[i].id
+@inline Base.getindex(v::DistView, i::Integer) = v.res[i].weight
+@inline Base.eachindex(v::IdView) = 1:length(v.res)
+@inline Base.eachindex(v::DistView) = 1:length(v.res)
+@inline Base.length(v::IdView) = length(v.res)
+@inline Base.length(v::DistView) = length(v.res)
+
+##### iterator interface
+function Base.iterate(res::Union{KnnResult,IdView,DistView}, i::Int=1)
     n = length(res)
     (n == 0 || i > n) && return nothing
     @inbounds res[i], i+1
