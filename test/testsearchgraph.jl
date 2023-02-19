@@ -100,9 +100,10 @@ end
     @testset "saveindex and loadindex" begin
         tmpfile = tempname()
         @info "--- load and save!!!"
-        saveindex(tmpfile, graph; store_db=false)
+        saveindex(tmpfile, graph; meta=[1, 2, 4, 8], store_db=false)
         let
-            G = loadindex(tmpfile, database(graph); staticgraph=true)
+            G, meta = loadindex(tmpfile, database(graph); staticgraph=true)
+            @test meta == [1, 2, 4, 8]
             @test G.adj isa StaticAdjacencyList
             @time run_graph(G, queries, ksearch, goldI)
         end
