@@ -142,6 +142,8 @@ end
 @inline Base.eachindex(v::DistView) = 1:length(v.res)
 @inline Base.length(v::IdView) = length(v.res)
 @inline Base.length(v::DistView) = length(v.res)
+@inline Base.eltype(v::IdView) = UInt32
+@inline Base.eltype(v::DistView) = Float32
 
 ##### iterator interface
 function Base.iterate(res::Union{KnnResult,IdView,DistView}, i::Int=1)
