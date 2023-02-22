@@ -2,13 +2,21 @@
 module AdjacencyLists
 
 abstract type AbstractAdjacencyList{EndPointType} end
-export AbstractAdjacencyList, IdWeight, IdIntWeight, AdjacencyList, StaticAdjacencyList, neighbors, add_edge!, add_vertex!,
-    IdOrder, WeightOrder, RevWeightOrder, sort_last_item!
+export AbstractAdjacencyList, AdjacencyList, StaticAdjacencyList,
+    neighbors, add_edge!, add_edges!, add_vertex!, neighbors_length,
+    IdWeight, IdIntWeight, 
+    sort_last_item!, IdOrder, WeightOrder, RevWeightOrder
 
 using Base.Order
 import Base.Order: lt
 
 Base.eachindex(adj::AbstractAdjacencyList) = 1:length(adj)
+
+function Base.iterate(adj::AbstractAdjacencyList, i::Int=1)
+    n = length(adj)
+    (n == 0 || i > n) && return nothing
+    @inbounds neighbors(adj, i), i+1
+end
 
 struct IdWeight
     id::UInt32
@@ -68,15 +76,21 @@ struct AdjacencyList{EndPointType} <: AbstractAdjacencyList{EndPointType}
     glock::Threads.SpinLock
 end
 
+Base.eltype(adj::AdjacencyList{EndPointType}) where EndPointType = Vector{EndPointType}
+
+
 function AdjacencyList(lists::Vector{Vector{EndPointType}}) where EndPointType
     locks = [Threads.SpinLock() for _ in 1:length(lists)]
     AdjacencyList{EndPointType}(lists, EndPointType[], locks, Threads.SpinLock())
 end
 
-function AdjacencyList(::Type{EndPointType}; n::Int=0) where EndPointType
+
+function AdjacencyList(::Type{EndPointType}, n::Int) where EndPointType
     lists = Vector{Vector{EndPointType}}(undef, n)
     AdjacencyList(lists)
 end
+
+AdjacencyList(t::Type{EndPointType}; n::Int=0) where EndPointType = AdjacencyList(t, n::Int)
 
 function Base.resize!(adj::AdjacencyList, n)
     lock(adj.glock)
@@ -104,6 +118,11 @@ Base.@propagate_inbounds @inline function neighbors(adj::AdjacencyList, i::Integ
     isassigned(adj.end_point, i) ? adj.end_point[i] : adj.empty_cent
 end
 
+Base.@propagate_inbounds @inline function neighbors_length(adj::AdjacencyList, i::Integer)
+    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
+    isassigned(adj.end_point, i) ? length(adj.end_point[i]) : 0
+end
+
 Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointType}, i::Integer, end_point, order=nothing) where EndPointType
     @inbounds lock(adj.locks[i])
 
@@ -115,6 +134,38 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
         else
             @inbounds adj.end_point[i] = EndPointType[end_point]
         end        
+    finally
+        @inbounds unlock(adj.locks[i])
+    end
+
+    adj
+end
+
+Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors::Vector{EndPointType}) where EndPointType
+    @inbounds lock(adj.locks[i])
+    try
+        if isassigned(adj.end_point, i)
+            push!(adj.end_point[i], neighbors)
+        else
+            adj.end_point[i] = neighbors
+        end
+    finally
+        @inbounds unlock(adj.locks[i])
+    end
+
+    adj
+end
+
+Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors) where EndPointType
+    @inbounds lock(adj.locks[i])
+    try
+        if !isassigned(adj.end_point, i)
+            adj.end_point[i] = neighbors
+        end
+
+        for p in neighbors
+            push!(adj.end_point[i], p)
+        end
     finally
         @inbounds unlock(adj.locks[i])
     end
@@ -145,19 +196,32 @@ struct StaticAdjacencyList{EndPointType} <: AbstractAdjacencyList{EndPointType}
 end
 
 Base.length(adj::StaticAdjacencyList) = length(adj.offset)
+Base.eltype(adj::StaticAdjacencyList{EndPointType}) where EndPointType = typeof(view(adj.end_point, 1:1))
 
 function StaticAdjacencyList(adj::StaticAdjacencyList; offset=adj.offset, end_point=adj.end_point)
     StaticAdjacencyList(offset, end_point)
 end
 
 Base.@propagate_inbounds @inline function neighbors(adj::StaticAdjacencyList, i::Integer)
-    @inbounds sp::Int64 = i == 1 ? 1 : adj.offset[i-1]+1
+    @inbounds sp::Int64 = i == 1 ? 1 : adj.offset[i-1] + 1
     @inbounds ep = adj.offset[i]
     view(adj.end_point, sp:ep)
 end
 
+Base.@propagate_inbounds @inline function neighbors_length(adj::StaticAdjacencyList, i::Integer)
+    @inbounds sp::Int64 = i == 1 ? 1 : adj.offset[i-1] + 1
+    @inbounds ep = adj.offset[i]
+    length(ep - sp + 1)
+end
+
+
+
 function add_edge!(adj::StaticAdjacencyList, i::Integer, end_point)
     error("ERROR: unsupported add_edge! on a static adjacent list")
+end
+
+function add_edges!(adj::StaticAdjacencyList, i::Integer, neighbors)
+    error("ERROR: unsupported add_edges! on a static adjacent list")
 end
 
 function add_vertex!(adj::StaticAdjacencyList)

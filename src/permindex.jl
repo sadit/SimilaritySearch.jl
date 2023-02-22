@@ -23,8 +23,9 @@ PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index,
 
 function search(p::PermutedSearchIndex, q, res::KnnResult; pools=getpools(index))
     out = search(p.index, q, res; pools)
-    @inbounds for i in eachindex(res.id)
-        res.id[i] = p.π[res.id[i]]
+    @inbounds for i in eachindex(res)
+        x = res[i]
+        res[i] = IdWeight(p.π[x.id], x.weight)
     end
 
     out

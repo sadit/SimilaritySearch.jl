@@ -112,9 +112,8 @@ end
 
 Access the i-th item in `res`
 """
-@inline function Base.getindex(res::KnnResult, i)
-    @inbounds res.items[i]
-end
+@inline Base.getindex(res::KnnResult, i) = (@inbounds res.items[i])
+@inline Base.setindex!(res::KnnResult, item::IdWeight, i::Integer) = (res.items[i] = item)
 
 @inline Base.last(res::KnnResult) = last(res.items)
 @inline Base.first(res::KnnResult) = @inbounds first(res.items)
