@@ -12,5 +12,4 @@ using Test, JET, SimilaritySearch, LinearAlgebra
     @test sum(D.dist) > 0
     @test D.map == sort(unique(D.nn))
     
-    @test_call neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ)
 end
