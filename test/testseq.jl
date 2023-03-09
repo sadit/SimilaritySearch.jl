@@ -1,13 +1,12 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch
-using Distances
-using LinearAlgebra
-using Test
+using SimilaritySearch, Distances, LinearAlgebra
+using Test, JET
 
 function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     id, dist = searchbatch(seq, queries, 10)
+    @test_call searchbatch(seq, queries, 10)
 
     for c in eachcol(dist)
         @test c[1] < valid_lower

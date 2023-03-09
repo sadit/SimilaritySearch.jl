@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, SimilaritySearch, LinearAlgebra
+using Test, JET, SimilaritySearch, LinearAlgebra
 
 @testset "neardup" begin
     dist = CosineDistance()
@@ -11,4 +11,6 @@ using Test, SimilaritySearch, LinearAlgebra
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
     @test D.map == sort(unique(D.nn))
+    
+    @test_call neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ)
 end

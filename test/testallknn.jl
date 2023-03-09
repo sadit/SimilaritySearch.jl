@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, SimilaritySearch
+using Test, JET, SimilaritySearch
 
 @testset "allknn" begin
     k = 5
@@ -25,5 +25,9 @@ using Test, SimilaritySearch
     @test size(pI) == size(pD) == (k, n)
     @test macrorecall(eI, gI) > 0.8
     @test macrorecall(eI, pI) > 0.99
+    
+    @test_call allknn(G, k)
+    @test_call allknn(E, k)
+    @test_call allknn(P, k)
 end
 

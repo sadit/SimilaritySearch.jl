@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch
-using Test
+using Test, JET
 
 function testsorted(res, Vsorted)
     @info "========================", (typeof(res), length(res), maxlength(res)), length(Vsorted)
@@ -41,4 +41,5 @@ end
     end
     
     testsorted(res, copy(Vsorted))
+    @test_call push_item!(res, 1, V[1])
 end

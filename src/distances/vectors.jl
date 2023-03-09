@@ -166,7 +166,7 @@ Computes the squared Euclidean's distance between `a` and `b`
 function evaluate(::SqL2Distance, a, b)
     d = zero(eltype(a))
 
-    @fastmath @inbounds @simd for i in eachindex(a)
+    @inbounds @simd for i in eachindex(a)
         d += (a[i] - b[i])^2
     end
 

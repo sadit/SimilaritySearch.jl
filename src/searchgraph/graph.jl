@@ -42,7 +42,7 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     adj::AdjType = AdjacencyLists.AdjacencyList(UInt32)
     hints::Vector{Int32} = UInt32[]
     search_algo::SType = BeamSearch()
-    len::Ref{Int} = Ref(0)
+    len::Ref{Int64} = Ref(zero(Int64))
     verbose::Bool = true
 end
 
@@ -57,7 +57,8 @@ Base.copy(G::SearchGraph;
 ) = SearchGraph(; dist, db, adj, hints, search_algo, len, verbose)
 
 
-@inline Base.length(g::SearchGraph) = g.len[]
+@inline Base.length(g::SearchGraph)::Int64 = g.len[]
+
 include("visitedvertices.jl")
 
 ## search algorithms

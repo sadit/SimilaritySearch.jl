@@ -54,7 +54,7 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int, visited_::Int)
+function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
     push_item!(beam, res[1])
     sp = 1
 

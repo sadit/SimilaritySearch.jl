@@ -1,6 +1,6 @@
 
-using SimilaritySearch, Random
-using Test
+using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random
+using Test, JET
 
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
@@ -8,6 +8,7 @@ using Test
 
 function run_graph(G, queries, ksearch, Igold)
     searchtime = @elapsed I, _ = searchbatch(G, queries, ksearch)
+    @test_call searchbatch(G, queries, ksearch)
     recall = macrorecall(Igold, I)
     @test recall >= 0.7
     @show recall, searchtime, 1 / searchtime

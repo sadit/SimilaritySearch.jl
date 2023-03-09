@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, SimilaritySearch, LinearAlgebra
+using Test, JET, SimilaritySearch, LinearAlgebra
 
 @testset "closestpair" begin
     dist = CosineDistance()
@@ -19,4 +19,6 @@ using Test, SimilaritySearch, LinearAlgebra
     tE = @elapsed i, j, d = closestpair(ExhaustiveSearch(; dist, db))
     @info "NOTE: the exact method will be faster on small datasets due to the preprocessing step of the approximation method"
     @info "closestpair computation time", :approx => tG, :exact => tE
+    
+    @test_call closestpair(G; minbatch=-1)
 end
