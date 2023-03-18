@@ -16,12 +16,21 @@ when indexes are saved and restored.
 - `store_db=true` controls if the daset should stored, when `store_db=false` you need to give the dataset on loading.
 
 """
-function saveindex(filename::AbstractString, index::AbstractSearchIndex, meta, options::Dict)
-    jldsave(filename; index, meta, options)
+function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex, meta, options::Dict; parent="/")
+    file[joinpath(parent, "options")] = options 
+    file[joinpath(parent, "meta")] = meta
+    file[joinpath(parent, "index")] = index
 end
 
-function saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=nothing, store_db=true)
+function saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
+    jldopen(filename, "w") do f
+        saveindex(f, index; meta, store_db, parent)
+    end
+end
+
+function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
     uses_stride_matrix_database = database(index) isa StrideMatrixDatabase
+
     if store_db
         stores_database = true
     else
@@ -33,19 +42,16 @@ function saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=no
         "uses_stride_matrix_database" => uses_stride_matrix_database,
         "stores_database" => stores_database
     )
-    saveindex(filename::AbstractString, index::AbstractSearchIndex, meta, options)
 
-    index
+    saveindex(file, index, meta, options; parent)
 end
 
 """
-    restoreindex(index::AbstractSearchIndex, meta, options::Dict, f)
+    restoreindex(index::AbstractSearchIndex, meta, options::Dict)
 
 Called on loading to restore any value on the index that depends on the new instance (i.e., datasets, pointers, etc.)
 """
-function restoreindex(index::AbstractSearchIndex, meta, options::Dict, f; kwargs...)
-    index, meta, options # nothing for most indexes
-end
+restoreindex(index::AbstractSearchIndex, meta, options::Dict; kwargs...) = index
 
 """
     loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
@@ -54,14 +60,20 @@ Loads an index from `filename`, optionally, if `db` is given it will replace the
 mandatory if the index was saved with `store_db=false`
 """
 function loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
-    index, meta, options = jldopen(filename) do f
-        # @info typeof(f), keys(f) # JLD2.JLDFile
-        restoreindex(f["index"], f["meta"], f["options"], f; kwargs...)
+    jldopen(filename) do f
+        loadindex(f, db; kwargs...)
     end
+end
+
+function loadindex(f::JLD2.JLDFile, db::Union{Nothing,AbstractDatabase}=nothing; parent="/", kwargs...)
+    options = f[joinpath(parent, "options")]
+    meta = f[joinpath(parent, "meta")]
+    index = f[joinpath(parent, "index")]
+    index = restoreindex(index, meta, options; kwargs...)
 
     if db === nothing
-        if !meta["stores_database"]
-            @warn "the database was not stored for $filename and was not passed to loadindex"
+        if !options["stores_database"]
+            @warn "the database was not stored and was not passed to loadindex"
         end
     else
         index = copy(index; db)
