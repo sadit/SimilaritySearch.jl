@@ -1,26 +1,21 @@
 # This file is a part of SimilaritySearch.jl
 
 """
-    saveindex(filename::AbstractString, index::AbstractSearchIndex, meta; store_db=true)
+    saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
+    saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
 
 Saves the index into the given file using JLD2. It is recommended instead plain JLD2 since it simplifies
 several typical operations and also allow that indexes perform pre-save and post-load operations
 when indexes are saved and restored. 
 
 # Arguments:
-- `filename`: output file of the index.
+- `filename` or `file`: output file of the index.
 - `index`: the index to be saved.
-- `meta`: additional metadata to be saved with the index (it can be any object supported by JLD2).
-
-# Keyword arguments:
+- `meta=nothing`: additional metadata to be saved with the index (it can be any object supported by JLD2).
+- `parent="/"`: parent group in the h5 file
 - `store_db=true` controls if the daset should stored, when `store_db=false` you need to give the dataset on loading.
 
 """
-function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex, meta, options::Dict; parent="/")
-    file[joinpath(parent, "options")] = options 
-    file[joinpath(parent, "meta")] = meta
-    file[joinpath(parent, "index")] = index
-end
 
 function saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
     jldopen(filename, "w") do f
@@ -43,21 +38,35 @@ function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing,
         "stores_database" => stores_database
     )
 
-    saveindex(file, index, meta, options; parent)
+    serializeindex(file, parent, index, meta, options)
 end
 
 """
-    restoreindex(index::AbstractSearchIndex, meta, options::Dict)
+    serializeindex(file, parent::String, index::AbstractSearchIndex, meta, options::Dict)
+
+Stores the index in the h5 file. It can be specialized to make any special treatment of the index
+"""
+function serializeindex(file, parent::String, index::AbstractSearchIndex, meta, options::Dict)
+    file[joinpath(parent, "options")] = options 
+    file[joinpath(parent, "meta")] = meta
+    file[joinpath(parent, "index")] = index
+end
+
+"""
+    restoreindex(file, index::AbstractSearchIndex, meta, options::Dict)
 
 Called on loading to restore any value on the index that depends on the new instance (i.e., datasets, pointers, etc.)
 """
-restoreindex(index::AbstractSearchIndex, meta, options::Dict; kwargs...) = index
+restoreindex(file, parent, index::AbstractSearchIndex, meta, options::Dict; kwargs...) = index
 
 """
     loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
 
-Loads an index from `filename`, optionally, if `db` is given it will replace the dataset on the loaded index, but it is
-mandatory if the index was saved with `store_db=false`
+Loads an index from `filename`. If `db` is given it will replace the dataset on the loaded index
+
+# Arguments
+- `db`: Replaces the index database after loading with that specified in `db`
+- `parent="/"`: Parent group of the index
 """
 function loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
     jldopen(filename) do f
@@ -69,7 +78,7 @@ function loadindex(f::JLD2.JLDFile, db::Union{Nothing,AbstractDatabase}=nothing;
     options = f[joinpath(parent, "options")]
     meta = f[joinpath(parent, "meta")]
     index = f[joinpath(parent, "index")]
-    index = restoreindex(index, meta, options; kwargs...)
+    index = restoreindex(f, parent, index, meta, options; kwargs...)
 
     if db === nothing
         if !options["stores_database"]

@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.10.4"
+version = "0.10.5"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
