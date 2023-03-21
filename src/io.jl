@@ -24,12 +24,18 @@ function saveindex(filename::AbstractString, index::AbstractSearchIndex; meta=no
 end
 
 function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
+    db = database(index)
     uses_stride_matrix_database = database(index) isa StrideMatrixDatabase
 
     if store_db
         stores_database = true
+        db = uses_stride_matrix_database ? Matrix(db) : db
     else
         stores_database = false
+        db = nothing
+    end
+    
+    if db !== nothing
         index = copy(index; db=MatrixDatabase(zeros(Float32, 2, 2)))
     end
 
@@ -38,7 +44,11 @@ function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing,
         "stores_database" => stores_database
     )
 
+    file[joinpath(parent, "options")] = options 
+    file[joinpath(parent, "meta")] = meta
+    file[joinpath(parent, "db")] = db
     serializeindex(file, parent, index, meta, options)
+    nothing
 end
 
 """
@@ -47,8 +57,6 @@ end
 Stores the index in the h5 file. It can be specialized to make any special treatment of the index
 """
 function serializeindex(file, parent::String, index::AbstractSearchIndex, meta, options::Dict)
-    file[joinpath(parent, "options")] = options 
-    file[joinpath(parent, "meta")] = meta
     file[joinpath(parent, "index")] = index
 end
 
@@ -81,15 +89,18 @@ function loadindex(f::JLD2.JLDFile, db::Union{Nothing,AbstractDatabase}=nothing;
     index = restoreindex(f, parent, index, meta, options; kwargs...)
 
     if db === nothing
-        if !options["stores_database"]
+        if options["stores_database"]
+            db = f[joinpath(parent, "db")]
+            if options["uses_stride_matrix_database"]
+                db = copy(index; db=StrideMatrixDatabase(database(index)))
+            end
+
+            index = copy(index; db)
+        else
             @warn "the database was not stored and was not passed to loadindex"
         end
     else
         index = copy(index; db)
-    end
-
-    if options["uses_stride_matrix_database"]
-        index = copy(index; db=StrideMatrixDatabase(database(index)))
     end
 
     index, meta

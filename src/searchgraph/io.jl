@@ -9,8 +9,6 @@ The adjancency list is always saved as `StaticAdjacencyList`, so it must changed
 function serializeindex(file, parent::String, index::SearchGraph, meta, options::Dict)
     adj = StaticAdjacencyList(index.adj)
     I = copy(index; adj)
-    file[joinpath(parent, "options")] = options 
-    file[joinpath(parent, "meta")] = meta
     file[joinpath(parent, "index")] = I
 end
 
