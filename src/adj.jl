@@ -124,6 +124,7 @@ Base.@propagate_inbounds @inline function neighbors_length(adj::AdjacencyList, i
 end
 
 Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointType}, i::Integer, end_point, order=nothing) where EndPointType
+    i == 0 && return adj
     @inbounds lock(adj.locks[i])
 
     try
@@ -142,6 +143,7 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
 end
 
 Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors::Vector{EndPointType}) where EndPointType
+    i == 0 && return adj
     @inbounds lock(adj.locks[i])
     try
         if isassigned(adj.end_point, i)
@@ -157,6 +159,7 @@ Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPoint
 end
 
 Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors) where EndPointType
+    i == 0 && return adj
     @inbounds lock(adj.locks[i])
     try
         if !isassigned(adj.end_point, i)
