@@ -134,7 +134,7 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
             order === nothing || sort_last_item!(order, list)
         else
             @inbounds adj.end_point[i] = EndPointType[end_point]
-        end        
+        end
     finally
         @inbounds unlock(adj.locks[i])
     end
@@ -162,10 +162,10 @@ Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPoint
     i == 0 && return adj
     @inbounds lock(adj.locks[i])
     try
-        if !isassigned(adj.end_point, i)
-            adj.end_point[i] = Vector(neighbors)
-        else
+        if isassigned(adj.end_point, i)
             append!(adj.end_point[i], neighbors)
+        else
+            adj.end_point[i] = Vector(neighbors)
         end
     finally
         @inbounds unlock(adj.locks[i])
