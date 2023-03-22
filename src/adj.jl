@@ -147,7 +147,7 @@ Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPoint
     @inbounds lock(adj.locks[i])
     try
         if isassigned(adj.end_point, i)
-            push!(adj.end_point[i], neighbors)
+            append!(adj.end_point[i], neighbors)
         else
             adj.end_point[i] = neighbors
         end
@@ -163,11 +163,9 @@ Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPoint
     @inbounds lock(adj.locks[i])
     try
         if !isassigned(adj.end_point, i)
-            adj.end_point[i] = neighbors
-        end
-
-        for p in neighbors
-            push!(adj.end_point[i], p)
+            adj.end_point[i] = Vector(neighbors)
+        else
+            append!(adj.end_point[i], neighbors)
         end
     finally
         @inbounds unlock(adj.locks[i])
