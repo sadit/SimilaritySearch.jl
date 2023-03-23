@@ -134,6 +134,7 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
             order === nothing || sort_last_item!(order, list)
         else
             @inbounds adj.end_point[i] = EndPointType[end_point]
+            sizehint!(adj.end_point[i], initial_adjacency_list_size(adj))
         end
     finally
         @inbounds unlock(adj.locks[i])
@@ -141,6 +142,8 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
 
     adj
 end
+
+initial_adjacency_list_size(adj::AdjacencyList) = 16
 
 Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors::Vector{EndPointType}) where EndPointType
     i == 0 && return adj
@@ -175,7 +178,9 @@ Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPoint
 end
 
 Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList{T}) where T
-    add_vertex!(adj, T[])
+    l = T[]
+    sizehint!(l, initial_adjacency_list_size(adj))
+    add_vertex!(adj, l)
 end
 
 Base.@propagate_inbounds @inline function add_vertex!(adj::AdjacencyList{T}, neighbors) where T
