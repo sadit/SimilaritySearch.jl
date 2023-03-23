@@ -95,7 +95,7 @@ An index iterator of `db`
 A subset of `db` (using a collection of indexes `lst`)
 """
 @inline Base.getindex(db::AbstractDatabase, lst::AbstractVector) = SubDatabase(db, lst)
-@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{Bool}) = SubDatabase(db, findall(p -> p > 0, lst))
+@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{Bool}) = SubDatabase(db, lst .== true)
 
 #
 # Generic functions
