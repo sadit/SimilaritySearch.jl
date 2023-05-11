@@ -26,6 +26,7 @@ end
 function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
     db = database(index)
     uses_stride_matrix_database = database(index) isa StrideMatrixDatabase
+    index = copy(index; db=MatrixDatabase(zeros(Float32, 2, 2))) # the database is replaced in any case to handle it here and serializeindex forget about it
 
     if store_db
         stores_database = true
@@ -35,10 +36,6 @@ function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing,
         db = nothing
     end
     
-    if db !== nothing
-        index = copy(index; db=MatrixDatabase(zeros(Float32, 2, 2)))
-    end
-
     options = Dict(
         "uses_stride_matrix_database" => uses_stride_matrix_database,
         "stores_database" => stores_database
