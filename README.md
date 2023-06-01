@@ -104,3 +104,13 @@ Others:
 - Adds function docs and benchmarks
 - Adds `SearchGraph` graph pruning methods
 - Removes the `timedsearchbatch` function
+
+## About v0.10.X series
+
+It makes easy to adjust the `SearchGraph` structure to different workloads and applications. For instance,
+- More control for construction parameters
+- Loading and saving
+- Refactors search API to be consistent across structs
+
+Please refer to <https://github.com/sadit/SimilaritySearch.jl/blob/main/test/testsearchgraph.jl> for working examples. The demos page will be updated soon.
+Nonetheless, some minor (but breaking) changes in the API 
