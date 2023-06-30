@@ -112,5 +112,4 @@ It makes easy to adjust the `SearchGraph` structure to different workloads and a
 - Loading and saving
 - Refactors search API to be consistent across structs
 
-Please refer to <https://github.com/sadit/SimilaritySearch.jl/blob/main/test/testsearchgraph.jl> for working examples. The demos page will be updated soon.
-Nonetheless, some minor (but breaking) changes in the API 
+Please refer to <https://github.com/sadit/SimilaritySearchDemos> and <https://github.com/sadit/SimilaritySearch.jl/blob/main/test/testsearchgraph.jl> for working examples.
