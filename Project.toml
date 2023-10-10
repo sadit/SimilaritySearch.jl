@@ -27,7 +27,7 @@ Parameters = "0.12"
 Polyester = "0.6, 0.7"
 SearchModels = "0.3"
 StatsBase = "0.30.0, 0.32.0, 0.33"
-StrideArraysCore = "0.3, 0.4"
+StrideArraysCore = "0.3, 0.4, 0.5"
 julia = "1.7, 1.8, 1.9"
 
 [extras]
