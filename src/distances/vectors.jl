@@ -117,7 +117,7 @@ end
 """
     evaluate(::TurboL1Distance, a, b)
 
-Computes the Manhattan's distance between `a` and `b`
+Computes the Manhattan's distance between `a` and `b`. `@turbo` version
 """
 function evaluate(::TurboL1Distance, a, b)
     d = zero(eltype(a))

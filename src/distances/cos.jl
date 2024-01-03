@@ -56,7 +56,8 @@ struct NormalizedAngleDistance <: SemiMetric end
 """
     TurboNormalizedCosineDistance()
 
-The `@turbo`ed implementation of [`CosineDistance`](@ref), see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
+The `@turbo`ed implementation of [`CosineDistance`](@ref),
+see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
 """
 struct TurboNormalizedCosineDistance <: SemiMetric end
 

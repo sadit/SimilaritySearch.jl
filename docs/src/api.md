@@ -36,6 +36,12 @@ The operation of finding the closest pair of elements in the indexed dataset.
 closestpair
 ```
 
+## Remove near duplicates
+Finds and removes near duplicate items in a metric dataset
+```@docs
+neardup
+```
+
 ## Indexing elements
 ```@docs
 push_item!
@@ -62,6 +68,8 @@ The package implements some of these functions using the `@turbo` macro from [`L
 TurboL1Distance
 TurboL2Distance
 TurboSqL2Distance
+TurboNormalizedCosineDistance
+
 ```
 
 ### Cosine and angle distance functions for vectors
@@ -107,5 +115,31 @@ getminbatch
 getknnresult
 getpools
 Neighborhood
+Callback
 SearchGraphCallbacks
+BeamSearchSpace
+```
+
+## Database API
+```@docs
+AbstractDatabase
+MatrixDatabase
+VectorDatabase
+DynamicMatrixDatabase
+StrideMatrixDatabase
+```
+
+```@docs
+
+find_neighborhood
+push_neighborhood
+SatPruning
+RandomPruning
+KeepNearestPruning
+NeighborhoodPruning
+maxlength
+get_parallel_block
+SimilarityFromDistance
+execute_callbacks
+
 ```

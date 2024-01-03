@@ -2,6 +2,11 @@
 
 export BeamSearchSpace
 
+"""
+    BeamSearchSpace(; bsize, Δ, bsize_scale, Δ_scale)
+
+Define search space for beam search autotuning
+"""
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 8:8:64
     Δ = [0.8, 0.9, 1.0, 1.1]                  # this really depends on the dataset, be careful

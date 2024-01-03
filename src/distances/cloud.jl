@@ -53,7 +53,7 @@ end
 """
     MinHausdorffDistance(dist::SemiMetric)
 
-Similar to [HausdorffDistance](@ref) but using minimum instead of maximum.
+Similar to [`HausdorffDistance`](@ref) but using minimum instead of maximum.
 """
 struct MinHausdorffDistance{Dtype<:SemiMetric} <: SemiMetric
     dist::Dtype

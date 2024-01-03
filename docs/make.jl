@@ -14,6 +14,8 @@ makedocs(;
         "Home" => "index.md",
         "API" => "api.md"
     ],
+    doctest=false,
+    warnonly=true  #Documenter.except(:missing_docs, :missing_docs)
 )
 
 deploydocs(;

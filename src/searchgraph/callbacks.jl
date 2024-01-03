@@ -35,7 +35,10 @@ end
         space::BeamSearchSpace=BeamSearchSpace()
     )
 
-Convenient constructor function to create `SearchGraphCallbacks` structs. See [`SearchGraphCallbacks`](@ref), [`SearchParams`](@ref), and [`BeamSearchSpace`](@ref) for more details.
+Convenient constructor function to create `SearchGraphCallbacks` structs.
+See [`SearchGraphCallbacks`](@ref), [`BeamSearchSpace`](@ref), and
+[`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl)
+for more details
 
 # Arguments
 
