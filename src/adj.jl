@@ -18,11 +18,22 @@ function Base.iterate(adj::AbstractAdjacencyList, i::Int=1)
     @inbounds neighbors(adj, i), i+1
 end
 
+"""
+    IdWeight(id, weight)
+
+Stores a pair of objects to be accessed. It is used in several places but mostly as an item in `KnnResult` algorithms where `weight` field is a distance instead of a weight
+    
+"""
 struct IdWeight
     id::UInt32
     weight::Float32
 end
 
+"""
+    IdIntWeight(id, weight)
+
+Stores a pair of objects to be accessed. Similar to [`IdWeight`](@ref) but it stores an integer weight 
+"""
 struct IdIntWeight
     id::UInt32
     weight::Int32

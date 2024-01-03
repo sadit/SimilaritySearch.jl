@@ -10,6 +10,7 @@ using JLD2
 import Base: push!, append!
 export AbstractSearchIndex, SemiMetric, evaluate,
     search, searchbatch, getknnresult, database, distance,
+    getminbatch,
     saveindex, loadindex,
     SearchResult,
     push_item!, append_items!,

@@ -57,7 +57,7 @@ LInftyDistance
 LpDistance
 ```
 
-The package implements some of these functions using the `@turbo` macro (from [@ref](`LoopVectorization`) package).
+The package implements some of these functions using the `@turbo` macro from [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl) package.
 ```@docs
 TurboL1Distance
 TurboL2Distance
@@ -99,18 +99,13 @@ HausdorffDistance
 MinHausdorffDistance
 ```
 
-## Public API
+## Functions that customize parameters
+Several algorithms support arguments that modify the performance, for instance, some of them should be computed or prepared with external functions or structs
 
-```@autodocs
-Modules = [SimilaritySearch]
-Private = false
-Order = [:function, :type]
-```
-
-## Private API
-
-```@autodocs
-Modules = [SimilaritySearch]
-Public = false
-Order = [:function, :type]
+```@docs
+getminbatch
+getknnresult
+getpools
+Neighborhood
+SearchGraphCallbacks
 ```

@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 """
-    @with_kw mutable struct Neighborhood
+    Neighborhood(; logbase=2, minsize=2, reduce=SatNeighborhood())
     
 Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
 The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.

@@ -19,7 +19,8 @@ struct L1Distance <: SemiMetric end
 """
     TurboL1Distance()
 
-The `@turbo`ed implementation of [@ref](`L1Distance`) (see [@ref](`LoopVectorization`)'s macro)
+The `@turbo`ed implementation of [`L1Distance`](@ref),
+see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
 """
 struct TurboL1Distance <: SemiMetric end
 
@@ -37,7 +38,8 @@ struct L2Distance <: SemiMetric end
 """
     TurboL2Distance()
 
-The `@turbo`ed implementation of [@ref](`L2Distance`) (see [@ref](`LoopVectorization`)'s macro)
+The `@turbo`ed implementation of [`L2Distance`](@ref),
+see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
 """
 struct TurboL2Distance <: SemiMetric end
 
@@ -58,7 +60,8 @@ struct SqL2Distance <: SemiMetric end
 """
     TurboSqL2Distance()
 
-The `@turbo`ed implementation of [@ref](`SqL2Distance`) (see [@ref](`LoopVectorization`)'s macro)
+The `@turbo`ed implementation of [`SqL2Distance`](@ref),
+see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
 """
 struct TurboSqL2Distance <: SemiMetric end
 
