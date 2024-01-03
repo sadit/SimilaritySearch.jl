@@ -38,9 +38,8 @@ closestpair
 
 ## Indexing elements
 ```@docs
-push!(::SearchGraph, item)
 push_item!
-append!
+append_items!
 index!
 rebuild
 ```

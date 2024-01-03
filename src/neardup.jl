@@ -55,6 +55,7 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ, minbatch=0)
 
     dist = distance(idx)
     R = KnnResult(1)
+    push_lock = Threads.SpinLock()
 
     for ii in 2:n
         reuse!(R)
@@ -65,7 +66,12 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ, minbatch=0)
         @batch minbatch=minbatch_ per=thread for jj in eachindex(tmp)
             j = tmp[jj]
             d = evaluate(dist, u, X[j])
-            push_item!(R, j, d)
+            try
+                lock(push_lock)
+                push_item!(R, j, d)
+            finally
+                unlock(push_lock)
+            end
         end
 
         nn, d = argmin(R), minimum(R)
