@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 using SimilaritySearch, LinearAlgebra
-
+#using JET
 
 using Aqua
 Aqua.test_all(SimilaritySearch, ambiguities=false)

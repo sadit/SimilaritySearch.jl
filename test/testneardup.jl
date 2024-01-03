@@ -1,15 +1,27 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, JET, SimilaritySearch, LinearAlgebra
+using Test, SimilaritySearch, LinearAlgebra
 
-@testset "neardup" begin
+@testset "neardup single block" begin
     dist = CosineDistance()
-    X = rand(Float32, 4, 1000)
+    X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ)
+    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ; blocksize=100)
+    @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
-    @test D.map == sort(unique(D.nn))
-    
+    @test sort(D.map) == sort(unique(D.nn)) 
+end
+
+@testset "neardup small block" begin
+    dist = CosineDistance()
+    X = rand(Float32, 4, 100)
+    db = VectorDatabase(Vector{Float32}[])
+    ϵ = 0.1
+    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ; blocksize=16)
+    @show D.map D.nn D.dist
+    @test all(x -> x <= ϵ, D.dist)
+    @test sum(D.dist) > 0
+    @test sort(D.map) == sort(unique(D.nn)) 
 end

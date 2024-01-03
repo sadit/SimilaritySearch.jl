@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.10.9"
+version = "0.10.10"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -20,7 +20,7 @@ StrideArraysCore = "7792a7ef-975c-4747-a70f-980b88e8d1da"
 [compat]
 Aqua = "0.6"
 Distances = "0.10"
-JET = "0.7, 0.8"
+JET = "0.8"
 JLD2 = "0.4"
 LoopVectorization = "0.12"
 Parameters = "0.12"

@@ -42,7 +42,7 @@ function allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g
 end
 
 function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
-    k, n = size(knns)
+    k, n = size(knns, 1), length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
     # @assert n > 0 && k > 0 && n == length(g)
     #knns_ = pointer(knns)
     #dists_ = pointer(dists)

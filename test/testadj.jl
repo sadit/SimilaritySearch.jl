@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, JET, SimilaritySearch, LinearAlgebra
+using Test, SimilaritySearch, LinearAlgebra
 using SimilaritySearch:
     AdjacencyList, StaticAdjacencyList, neighbors
 
