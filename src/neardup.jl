@@ -4,8 +4,7 @@ export neardup
 
 
 """
-    neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, filterblocks=true, verbose=true)
-    neardup(idx::AbstractSearchIndex, X::AbstractVector, ϵ; kwargs...)
+    neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, filterblocks=true, verbose=true)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -16,7 +15,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
 - `dist`: an array of distance values to each covering element (correspond to each element in `nn`)
 
-`push_fun` argument can be used to customize object insertions, e.g., set `SearchGraphCallbacks` for `SearchGraph`, it can be passed as a `do` block.
+If you need to customize object insertions, e.g., set some particular `SearchGraphCallbacks` for `SearchGraph`, you must wrap the index `idx` and implement the custom `push_item!` and `append_items!`.
 
 # Arguments
 - `idx`: An empty index (i.e., a `SearchGraph`)
@@ -27,22 +26,65 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
 - `blocksize`: the number of items processed at the time
 - `minbatch`: argument to control `@batch` macro (see `Polyester` package multithreading)
-- `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), if false then it supposes that blocks are free of neardups (e.g., randomized databases)
+- `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), if false then it supposes that blocks are free of neardups (e.g., randomized databases). If filterblocks=true, then you must perform a serialized insertion of nondups.
 - `verbose`: controls the verbosity of the function
 
 # Notes
-- The index `idx` must support incremental construction, e.g., with a valid `push_item!` implementation
-- You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `idx.db` or where `nn[i] == i`
+- The index `idx` must support incremental construction, e.g., with a valid `push_item!` and `append_items!` implementations
+- You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
-function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; kwargs...)
-    neardup(push_item!, idx, X, ϵ; kwargs...)
+function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
+        k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
+    n = length(X)
+    blocksize = min(blocksize, n) 
+    res = KnnResult(k)  # should be 1, but index's setups work better on larger `k` values
+    knns = Matrix{Int32}(undef, k, blocksize)
+    dists = Matrix{Float32}(undef, k, blocksize)
+
+    L = zeros(Int32, n)
+    D = zeros(Float32, n)
+    M = UInt32[]
+    imap = UInt32[]
+    tmp = UInt32[]
+
+    for r in Iterators.partition(1:n, blocksize)
+        if length(idx) == 0
+            if verbose
+                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+            end
+            neardup_block!(idx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
+        else
+            empty!(imap)
+            searchbatch(idx, X[r], knns, dists)
+            if verbose
+                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+            end
+
+            for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects
+                d, nn = dists[1, i], knns[1, i]
+                if d > ϵ
+                    push!(imap, j)
+                else
+                    L[j] = M[nn]
+                    D[j] = d
+                end
+            end
+
+            if length(imap) > 0
+                neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch, filterblocks)
+            end
+        end 
+    end
+
+
+    (idx=idx, map=M, nn=L, dist=D)
 end
 
+
 """
-    neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+    neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
 
 # Arguments:
-- `push_fun` function to push into `idx` (e.g., to pass specific arguments or catch objects as they are found)
 - `idx` the output index
 - `X` input database- `L` nearest neighbors of the input database to non-near dups
 - `imap` list of items to test and insert
@@ -54,11 +96,11 @@ end
 - `minbatch` argument for the `@batch` macro (Polyester multithreading)
 - `filterblocks` if true it performs neardup in blocks
 """
-function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
     if !filterblocks
+        append_items!(idx, X[imap])
         for i in imap
             push!(M, i)
-            push_fun(idx, X[i])
             L[i] = i
             D[i] = 0f0
         end
@@ -71,7 +113,7 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int,
     i = first(imap)
     push!(tmp, i)
     push!(M, i)
-    push_fun(idx, X[i])
+    push_item!(idx, X[i])
     L[i] = i
     D[i] = 0f0
 
@@ -100,7 +142,7 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int,
         if d > ϵ
             push!(tmp, i)
             push!(M, i)
-            push_fun(idx, u)
+            push_item!(idx, u)
             L[i] = i
             D[i] = 0f0
         else
@@ -108,52 +150,4 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int,
             D[i] = d
         end
     end
-end
-
-
-function neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
-        k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
-    n = length(X)
-    blocksize = min(blocksize, n) 
-    res = KnnResult(k)  # should be 1, but index's setups work better on larger `k` values
-    knns = Matrix{Int32}(undef, k, blocksize)
-    dists = Matrix{Float32}(undef, k, blocksize)
-
-    L = zeros(Int32, n)
-    D = zeros(Float32, n)
-    M = UInt32[]
-    imap = UInt32[]
-    tmp = UInt32[]
-
-    for r in Iterators.partition(1:n, blocksize)
-        if length(idx) == 0
-            if verbose
-                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
-            end
-            neardup_block!(push_fun, idx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
-        else
-            empty!(imap)
-            searchbatch(idx, X[r], knns, dists)
-            if verbose
-                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
-            end
-
-            for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects
-                d, nn = dists[1, i], knns[1, i]
-                if d > ϵ
-                    push!(imap, j)
-                else
-                    L[j] = M[nn]
-                    D[j] = d
-                end
-            end
-
-            if length(imap) > 0
-                neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch, filterblocks)
-            end
-        end 
-    end
-
-
-    (idx=idx, map=M, nn=L, dist=D)
 end

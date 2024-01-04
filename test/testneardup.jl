@@ -27,7 +27,7 @@ end
 end
 
 
-@testset "neardup small block with filter_blocks=false" begin
+@testset "neardup small block with filterblocks=false" begin
     dist = CosineDistance()
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
