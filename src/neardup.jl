@@ -4,8 +4,8 @@ export neardup
 
 
 """
-    neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractVector, ϵ)
-    neardup(idx::AbstractSearchIndex, X::AbstractVector, ϵ)
+    neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, verbose=true)
+    neardup(idx::AbstractSearchIndex, X::AbstractVector, ϵ; kwargs)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -16,12 +16,18 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
 - `dist`: an array of distance values to each covering element (correspond to each element in `nn`)
 
-`push_fun` argument can be used to customize object insertions (e.g., set `SearchGraphCallbacks` for `SearchGraph`)
+`push_fun` argument can be used to customize object insertions, e.g., set `SearchGraphCallbacks` for `SearchGraph`, it can be passed as a `do` block.
 
 # Arguments
 - `idx`: An empty index (i.e., a `SearchGraph`)
 - `X`: The input dataset
 - `ϵ`: Real value to cut
+
+# Keyword arguments
+- `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
+- `blocksize`: the number of items processed at the time
+- `minbatch`: argument to control `@batch` macro (see `Polyester` package multithreading)
+- `verbose`: controls the verbosity of the function
 
 # Notes
 - The index `idx` must support incremental construction, e.g., with a valid `push_item!` implementation
@@ -32,18 +38,20 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; kwargs
 end
 
 """
-    neardup_block!(push_fun, idx, X, imap, L, D, M, ϵ)
+    neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int=0)
 
 # Arguments:
 - `push_fun` function to push into `idx` (e.g., to pass specific arguments or catch objects as they are found)
 - `idx` the output index
 - `X` input database- `L` nearest neighbors of the input database to non-near dups
 - `imap` list of items to test and insert
+- `tmp` a temporary buffer to save imap elements
+- `L` nearest neighbors ids of the input database to non-near dups
 - `D` nearest neighbors distances of the input database to non-near dups
 - `M` maps of `idx` to the input database
 - `ϵ` radius to consider objects as near dups
 """
-function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ, minbatch=0)
+function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int=0)
     empty!(tmp)
     n = length(imap)
     i = first(imap)
@@ -89,7 +97,7 @@ function neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ, minbatch=0)
 end
 
 
-function neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256)
+function neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, verbose=true)
     n = length(X)
     blocksize = min(blocksize, n) 
     res = KnnResult(k)  # should be 1, but index's setups work better on larger `k` values
@@ -104,10 +112,17 @@ function neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDataba
 
     for r in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
-            neardup_block!(push_fun, idx, X, r, tmp, L, D, M, ϵ)
+            if verbose
+                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+            end
+            neardup_block!(push_fun, idx, X, r, tmp, L, D, M, ϵ; minbatch)
         else
             empty!(imap)
             searchbatch(idx, X[r], knns, dists)
+            if verbose
+                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+            end
+
             for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects
                 d, nn = dists[1, i], knns[1, i]
                 if d > ϵ
@@ -119,7 +134,7 @@ function neardup(push_fun::Function, idx::AbstractSearchIndex, X::AbstractDataba
             end
 
             if length(imap) > 0
-                neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ)
+                neardup_block!(push_fun, idx, X, imap, tmp, L, D, M, ϵ; minbatch)
             end
         end 
     end
