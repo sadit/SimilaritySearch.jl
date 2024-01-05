@@ -15,7 +15,6 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
 - `dist`: an array of distance values to each covering element (correspond to each element in `nn`)
 
-If you need to customize object insertions, e.g., set some particular `SearchGraphCallbacks` for `SearchGraph`, you must wrap the index `idx` and implement the custom `push_item!` and `append_items!`.
 
 # Arguments
 - `idx`: An empty index (i.e., a `SearchGraph`)
@@ -30,7 +29,12 @@ If you need to customize object insertions, e.g., set some particular `SearchGra
 - `verbose`: controls the verbosity of the function
 
 # Notes
-- The index `idx` must support incremental construction, e.g., with a valid `push_item!` and `append_items!` implementations
+- The index `idx` must support incremental construction
+- If you need to customize object insertions, you must wrap the index `idx` and implement your custom methods; it requires valid implementations of the following functions:
+   - `searchbatch(idx::AbstractSearchIndex, queries::AbstractDatabase, knns::Matrix, dists::Matrix)`
+   - `distance(idx::AbstractSearchIndex)`
+   - `length(idx::AbstractSearchIndex)`
+   - `append_items!(idx::AbstractSearchIndex, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
 function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
@@ -75,7 +79,6 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
             end
         end 
     end
-
 
     (idx=idx, map=M, nn=L, dist=D)
 end
