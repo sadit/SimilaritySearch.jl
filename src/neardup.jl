@@ -66,7 +66,6 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
                     push!(imap, j)
                 else
                     D[j] = d
-                    @show (length(M), length(L), j, nn, length(idx))
                     L[j] = M[nn]
                 end
             end
