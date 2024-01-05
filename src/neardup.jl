@@ -26,7 +26,7 @@ If you need to customize object insertions, e.g., set some particular `SearchGra
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
 - `blocksize`: the number of items processed at the time
 - `minbatch`: argument to control `@batch` macro (see `Polyester` package multithreading)
-- `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), if false then it supposes that blocks are free of neardups (e.g., randomized databases). If filterblocks=true, then you must perform a serialized insertion of nondups.
+- `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), otherwise, it supposes that blocks are free of neardups (e.g., randomized order).
 - `verbose`: controls the verbosity of the function
 
 # Notes
@@ -65,8 +65,9 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
                 if d > ϵ
                     push!(imap, j)
                 else
-                    L[j] = M[nn]
                     D[j] = d
+                    @show (length(M), length(L), j, nn, length(idx))
+                    L[j] = M[nn]
                 end
             end
 
@@ -113,7 +114,7 @@ function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblo
     i = first(imap)
     push!(tmp, i)
     push!(M, i)
-    push_item!(idx, X[i])
+    # push_item!(idx, X[i])
     L[i] = i
     D[i] = 0f0
 
@@ -142,7 +143,7 @@ function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblo
         if d > ϵ
             push!(tmp, i)
             push!(M, i)
-            push_item!(idx, u)
+            #push_item!(idx, u)
             L[i] = i
             D[i] = 0f0
         else
@@ -150,4 +151,6 @@ function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblo
             D[i] = d
         end
     end
+
+    append_items!(idx, X[tmp])
 end
