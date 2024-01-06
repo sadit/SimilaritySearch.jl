@@ -200,7 +200,7 @@ A frontend function for [`optimize_index!`](@ref) which can be specialized for s
 """
 function optimize!(
     index::AbstractSearchIndex,
-    kind::ErrorFunction=ParetoRecall(),
+    kind::ErrorFunction=MinRecall(0.9),
     space::AbstractSolutionSpace=optimization_space(index);
     kwargs...)
     optimize_index!(index, kind, space; kwargs...)

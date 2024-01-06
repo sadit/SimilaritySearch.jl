@@ -7,7 +7,7 @@ using Test, JET, SimilaritySearch
     dist = L2Distance()
     n = 100
     X = MatrixDatabase(rand(Float32, 4, n))
-    G = SearchGraph(; db=X, dist, verbose=false)
+    G = SearchGraph(; db=X, dist)
     @show G.len, G.len[], length(G)
     index!(G)
     @test length(G) == n

@@ -20,6 +20,7 @@ include("distances/Distances.jl")
 
 include("db/db.jl")
 include("adj.jl")
+include("log.jl")
 
 using .AdjacencyLists
 

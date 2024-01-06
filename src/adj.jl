@@ -80,11 +80,17 @@ function sort_last_item!(order::Ordering, plist::AbstractVector)
     nothing
 end
 
+"""
+    struct AdjacencyList
+
+
+Structure to represent a sparse graph
+"""
 struct AdjacencyList{EndPointType} <: AbstractAdjacencyList{EndPointType}
-    end_point::Vector{Vector{EndPointType}}
+    end_point::Vector{Vector{EndPointType}} # ending point of the i-th edge
     empty_cent::Vector{EndPointType}  # empty list centinel for `neighbors` func
-    locks::Vector{Threads.SpinLock}
-    glock::Threads.SpinLock
+    locks::Vector{Threads.SpinLock} # adjancency list lock
+    glock::Threads.SpinLock # global locks
 end
 
 Base.eltype(adj::AdjacencyList{EndPointType}) where EndPointType = Vector{EndPointType}

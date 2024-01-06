@@ -2,24 +2,7 @@
 
 using Dates
 
-"""
-    abstract type NeighborhoodReduction end
-    
-Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood`, and returns a new KnnResult struct (perhaps a copy of res) since `push_neighborhood` captures
-the reference of its output.
-"""
-abstract type NeighborhoodReduction end
-abstract type LocalSearchAlgorithm end
 
-"""
-    abstract type Callback end
-
-Abstract type to trigger callbacks after some number of insertions.
-SearchGraph stores the callbacks in `callbacks` (a dictionary that associates symbols and callback objects);
-A SearchGraph object controls when callbacks are fired using `callback_logbase` and `callback_starting`
-
-"""
-abstract type Callback end
 
 ### Basic operations on the index
 
@@ -42,7 +25,6 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     hints::Vector{Int32} = UInt32[]
     search_algo::SType = BeamSearch()
     len::Ref{Int64} = Ref(zero(Int64))
-    verbose::Bool = true
 end
 
 Base.copy(G::SearchGraph; 
@@ -52,8 +34,7 @@ Base.copy(G::SearchGraph;
     hints=G.hints,
     search_algo=copy(G.search_algo),
     len=Ref(length(G)),
-    verbose=G.verbose
-) = SearchGraph(; dist, db, adj, hints, search_algo, len, verbose)
+) = SearchGraph(; dist, db, adj, hints, search_algo, len)
 
 
 @inline Base.length(g::SearchGraph)::Int64 = g.len[]

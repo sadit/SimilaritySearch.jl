@@ -1,23 +1,5 @@
 # This file is a part of SimilaritySearch.jl
 
-"""
-    Neighborhood(; logbase=2, minsize=2, reduce=SatNeighborhood())
-    
-Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
-The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.
-- The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
-for \$out\$  elements in the current index.
-- The \$in\$ size is unbounded.
-- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the reduced result set.
-
-Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
-
-"""
-@with_kw struct Neighborhood{Reduction<:NeighborhoodReduction}
-    logbase::Float32 = 2
-    minsize::Int32 = 2
-    reduce::Reduction = SatNeighborhood()
-end
 
 """
     Neighborhood(reduce::NeighborhoodReduction; logbase=2, minsize=2)
@@ -57,32 +39,24 @@ function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood,
 end
 
 """
-    push_neighborhood!(index::SearchGraph, item, neighbors, callbacks; push_item=true)
+    connect_reverse_links(adj::abstractadjacencylist, n::integer, neighbors::abstractvector)
 
-Inserts the object `item` into the index, i.e., creates an edge for each item in `neighbors` (internal function)
-
-# Arguments
-
-- `index`: The search index to be modified.
-- `item`: The item that will be inserted.
-- `neighbors`: An array of indices that will be connected to the new vertex.
-- `callbacks`: A [`SearchGraphCallbacks`] object (callback list) that will be called after some insertions
-- `push_db`: Specifies if the item must be inserted into the internal `db` (sometimes is already there like in [`index!`](@ref))
+Internal function to connect reverse links after an insertion
 """
-function push_neighborhood!(index::SearchGraph, item, neighbors::Vector{UInt32}, callbacks; push_db=true)
-    push_db && push_item!(index.db, item)
-    add_vertex!(index.adj, neighbors)
-    n = index.len[] = length(index.adj)
-    n == 1 && return
-    ## vstate = getvisitedvertices(index)
+function connect_reverse_links(adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
     @inbounds for id in neighbors
-        add_edge!(index.adj, id, n)
+        add_edge!(adj, id, n)
     end
+end
 
-    callbacks !== nothing && execute_callbacks(callbacks, index)
+"""
+    connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
 
-    if index.verbose && length(index) % 100_000 == 0
-        println(stderr, "added n=$(length(index)), neighborhood=$(length(neighbors)), $(string(index.search_algo)), $(Dates.now())")
+Internal function to connect reverse links after an insertion batch
+"""
+function connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
+    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
+        connect_reverse_links(adj, i, neighbors(adj, i))
     end
 end
 

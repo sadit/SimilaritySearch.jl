@@ -38,6 +38,36 @@ mutable struct OptimizeParameters <: Callback
     ksearch::Int32
     numqueries::Int32
     space::BeamSearchSpace
+    verbose::Bool
+end
+
+"""
+    OptimizeParameters(kind=MinRecall(0.9);
+        initialpopulation=16,
+        maxiters=12,
+        bsize=4,
+        tol=-1.0,
+        ksearch=10,
+        numqueries=32,
+        verbose=false,
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters, verbose),
+        space::BeamSearchSpace=BeamSearchSpace()
+    )
+
+Creates a hyperoptimization callback using the given parameters
+"""
+function OptimizeParameters(kind=MinRecall(0.9);
+        initialpopulation=16,
+        maxiters=12,
+        bsize=4,
+        tol=-1.0,
+        ksearch=10,
+        numqueries=32,
+        verbose=false,
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters, verbose),
+        space::BeamSearchSpace=BeamSearchSpace()
+    )
+    OptimizeParameters(kind, initialpopulation, params, ksearch, numqueries, space, verbose)
 end
 
 optimization_space(index::SearchGraph) = BeamSearchSpace()
@@ -61,6 +91,6 @@ SearchGraph's callback for adjunting search parameters
 function execute_callback(opt::OptimizeParameters, index::SearchGraph)
     queries = nothing
     optimize_index!(index, opt.kind, opt.space;
-        queries, opt.ksearch, opt.numqueries, opt.initialpopulation, index.verbose, opt.params)
+        queries, opt.ksearch, opt.numqueries, opt.initialpopulation, opt.verbose, opt.params)
 end
 
