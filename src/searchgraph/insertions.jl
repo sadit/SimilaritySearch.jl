@@ -30,7 +30,7 @@ function append_items!(
     db = convert(AbstractDatabase, db)
     append_items!(index.db, db)
 
-    parallel_block == 1 && return _sequential_append_items_loop!(index, setup, pools)
+    setup.parallel_block == 1 && return _sequential_append_items_loop!(index, setup, pools)
 
     n = length(index) + length(db)
     m = 0
