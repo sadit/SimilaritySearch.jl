@@ -10,15 +10,12 @@
 
 Appends all items in db to the index. It can be made in parallel or sequentially.
 
-Arguments:
+# Arguments:
 
 - `index`: the search graph index
-- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
+- `setup`: The setup environment of the graph, see  [`SearchGraphSetup`](@ref).
 - `db`: the collection of objects to insert, an `AbstractDatabase` is the canonical input, but supports any iterable objects
 - `pools`: The set of caches used for searching.
-
-Note 1: Callbacks are not executed inside parallel blocks
-Note 2: Callbacks will be ignored if `callbacks=nothing`
 
 """
 function append_items!(
@@ -56,6 +53,12 @@ end
 
 Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
 The arguments are the same than `append_items!` function but using the internal `index.db` as input.
+
+# Arguments:
+
+- `index`: The graph index
+- `setup`: The setup environment of the graph, see  [`SearchGraphSetup`](@ref).
+- `pools`: Search pools to avoid memory allocations
 
 """
 function index!(
@@ -130,16 +133,14 @@ end
         pools=getpools(index)
     )
 
-Appends an object into the index. It accepts the same arguments that `push_item!`
-but assuming some default values.
+Appends an object into the index.
 
 Arguments:
 
 - `index`: The search graph index where the insertion is going to happen
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
-- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
+- `setup`: The setup environment of the graph, see  [`SearchGraphSetup`](@ref).
 - `push_db`: if `push_db=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
-- `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
 """
@@ -163,15 +164,14 @@ end
         pools
     )
 
-Appends an object into the index
+Appends an object into the index. Internal function
 
 Arguments:
 
 - `index`: The search graph index where the insertion is going to happen.
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
-- `neighborhood`: A [`Neighborhood`](@ref) object that specifies the kind of neighborhood that will be computed.
+- `setup`: The setup environment of the graph, see  [`SearchGraphSetup`](@ref).
 - `push_db`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
-- `callbacks`: The set of callbacks that are called whenever the index grows enough. Keeps hyperparameters and structure in shape.
 - `pools`: The set of caches used for searching.
 
 - Note: setting `callbacks` as `nothing` ignores the execution of any callback

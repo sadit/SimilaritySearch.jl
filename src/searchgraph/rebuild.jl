@@ -29,13 +29,13 @@ function rebuild(g::SearchGraph; setup=SearchGraphSetup(), minbatch=0, pools=get
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
-    connect_reverse_links!(direct, reverse, g.adj.locks, 1, length(g), minbatch)
+    rebuild_connect_reverse_links!(direct, reverse, g.adj.locks, 1, length(g), minbatch)
     G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), search_algo=copy(g.search_algo))
     execute_callbacks(setup, G, force=true)
     G
 end
 
-function connect_reverse_links!(direct, reverse, locks, sp, ep, minbatch)
+function rebuild_connect_reverse_links!(direct, reverse, locks, sp, ep, minbatch)
     @batch minbatch=minbatch per=thread for i in sp:ep
         j = 0
         D = direct[i]
