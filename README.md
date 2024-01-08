@@ -113,3 +113,11 @@ It makes easy to adjust the `SearchGraph` structure to different workloads and a
 - Refactors search API to be consistent across structs
 
 Please refer to <https://github.com/sadit/SimilaritySearchDemos> and <https://github.com/sadit/SimilaritySearch.jl/blob/main/test/testsearchgraph.jl> for working examples.
+
+## About v0.11 series
+
+It introduces a major refactoring. In particular, it makes explicit use of context objects for most functions. It also introduces simple logging procedures.
+However, we preserve compatibility in many public functions using implicit use of default context objects.
+
+
+
