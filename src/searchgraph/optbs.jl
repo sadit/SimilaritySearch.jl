@@ -98,19 +98,18 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     index.search_algo.maxvisits = ceil(Int, 2perf.visited[end])
 end
 
-function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, pools)
-    search(bs, index, q, res, index.hints, pools; maxvisits = 4index.search_algo.maxvisits)
-    # search(bs, index, q, res, index.hints, pools)
+function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, context::SearchGraphContext)
+    search(bs, index, context, q, res, index.hints; maxvisits = 4index.search_algo.maxvisits)
+    # search(bs, index, q, res, index.hints, caches)
 end
 
 """
-    execute_callback(opt::OptimizeParameters, index::SearchGraph)
+    execute_callback(opt::OptimizeParameters, index::SearchGraph, context::SearchGraphContext)
 
 SearchGraph's callback for adjunting search parameters
 """
-function execute_callback(opt::OptimizeParameters, index::SearchGraph)
+function execute_callback(opt::OptimizeParameters, index::SearchGraph, context::SearchGraphContext)
     queries = nothing
-    optimize_index!(index, opt.kind, opt.space;
+    optimize_index!(index, context, opt.kind; opt.space,
         queries, opt.ksearch, opt.numqueries, opt.initialpopulation, opt.verbose, opt.params)
 end
-

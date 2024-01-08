@@ -4,13 +4,14 @@ export neardup
 
 
 """
-    neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, filterblocks=true, verbose=true)
+    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, filterblocks=true, verbose=true)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
 
 The function returns a named tuple `(idx, map, nn, dist)` where:
 - `idx`: it is the index of the non duplicated elements
+- `ctx`: the index's context
 - `map`: a mapping from `|idx|-1` to its positions in `X`
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
 - `dist`: an array of distance values to each covering element (correspond to each element in `nn`)
@@ -31,13 +32,13 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 # Notes
 - The index `idx` must support incremental construction
 - If you need to customize object insertions, you must wrap the index `idx` and implement your custom methods; it requires valid implementations of the following functions:
-   - `searchbatch(idx::AbstractSearchIndex, queries::AbstractDatabase, knns::Matrix, dists::Matrix)`
+   - `searchbatch(idx::AbstractSearchIndex, ctx, queries::AbstractDatabase, knns::Matrix, dists::Matrix)`
    - `distance(idx::AbstractSearchIndex)`
    - `length(idx::AbstractSearchIndex)`
-   - `append_items!(idx::AbstractSearchIndex, items::AbstractDatabase)`
+   - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
-function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
+function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
         k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
     n = length(X)
     blocksize = min(blocksize, n) 
@@ -56,10 +57,10 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
             if verbose
                 @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
             end
-            neardup_block!(idx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
+            neardup_block!(idx, ctx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
         else
             empty!(imap)
-            searchbatch(idx, X[r], knns, dists)
+            searchbatch(idx, ctx, X[r], knns, dists)
             if verbose
                 @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
             end
@@ -75,7 +76,7 @@ function neardup(idx::AbstractSearchIndex, X::AbstractDatabase, ϵ::Real;
             end
 
             if length(imap) > 0
-                neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch, filterblocks)
+                neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch, filterblocks)
             end
         end 
     end
@@ -85,10 +86,11 @@ end
 
 
 """
-    neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+    neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
 
 # Arguments:
 - `idx` the output index
+- `ctx` the index's context
 - `X` input database- `L` nearest neighbors of the input database to non-near dups
 - `imap` list of items to test and insert
 - `tmp` a temporary buffer to save imap elements
@@ -99,9 +101,9 @@ end
 - `minbatch` argument for the `@batch` macro (Polyester multithreading)
 - `filterblocks` if true it performs neardup in blocks
 """
-function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+function neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
     if !filterblocks
-        append_items!(idx, X[imap])
+        append_items!(idx, ctx, X[imap])
         for i in imap
             push!(M, i)
             L[i] = i
@@ -154,5 +156,5 @@ function neardup_block!(idx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblo
         end
     end
 
-    append_items!(idx, X[tmp])
+    append_items!(idx, ctx, X[tmp])
 end

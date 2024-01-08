@@ -15,14 +15,14 @@ end
 
 PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index, π, π′)
 
-@inline getpools(p::PermutedSearchIndex) = getpools(p.index)
+@inline getcontext(p::PermutedSearchIndex) = getcontext(p.index)
 @inline database(p::PermutedSearchIndex) = SubDatabase(database(p.index), p.π′)
 @inline database(p::PermutedSearchIndex, i) = database(p.index, p.π′[i])
 @inline distance(p::PermutedSearchIndex) = distance(p.index)
 @inline Base.length(p::PermutedSearchIndex) = length(p.index)
 
-function search(p::PermutedSearchIndex, q, res::KnnResult; pools=getpools(index))
-    out = search(p.index, q, res; pools)
+function search(p::PermutedSearchIndex, ctx::AbstractContext, res::KnnResult)
+    out = search(p.index, ctx, q, res)
     @inbounds for i in eachindex(res)
         x = res[i]
         res[i] = IdWeight(p.π[x.id], x.weight)

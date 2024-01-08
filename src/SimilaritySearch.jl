@@ -8,13 +8,10 @@ using Polyester
 using JLD2
 
 import Base: push!, append!
-export AbstractSearchIndex, SemiMetric, evaluate,
-    search, searchbatch, getknnresult, database, distance,
-    getminbatch,
-    saveindex, loadindex,
-    SearchResult,
-    push_item!, append_items!,
-    IdWeight
+export AbstractSearchIndex, AbstractContext, GenericContext, 
+       SemiMetric, evaluate, search, searchbatch, getknnresult, database, distance,
+       getcontext, getminbatch, saveindex, loadindex,
+       SearchResult, push_item!, append_items!, IdWeight
 
 include("distances/Distances.jl")
 
@@ -31,6 +28,18 @@ include("io.jl")
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 
+abstract type AbstractContext end
+
+struct GenericContext <: AbstractContext
+    knn::Vector{KnnResult}
+    minbatch::Int
+end
+
+GenericContext(k::Integer=32, minbatch::Integer=0) = GenericContext([KnnResult(k) for _ in 1:Threads.nthreads()], minbatch)
+
+function getcontext(s::AbstractSearchIndex)
+    error("Not implemented method for $s")
+end
 
 """
     database(index)
@@ -79,21 +88,20 @@ include("allknn.jl")
 include("neardup.jl")
 include("closestpair.jl")
 
-const GlobalKnnResult = [KnnResult(32)]   # see __init__ function at the end of this file
 
 """
-    getknnresult(k::Integer, pools=nothing) -> KnnResult
+    getknnresult(k::Integer, ctx::AbstractContext) -> KnnResult
 
 Generic function to obtain a shared result set for the same thread and avoid memory allocations.
-This function should be specialized for indexes and pools that use shared results or threads in some special way.
+This function should be specialized for indexes and caches that use shared results or threads in some special way.
 """
-@inline function getknnresult(k::Integer, pools=nothing)
-    res = @inbounds GlobalKnnResult[Threads.threadid()]
+@inline function getknnresult(k::Integer, ctx::AbstractContext)
+    res = ctx.knn[Threads.threadid()]
     reuse!(res, k)
 end
 
 """
-    searchbatch(index, Q, k::Integer; minbatch=0, pools=GlobalKnnResult) -> indices, distances
+    searchbatch(index, ctx, Q, k::Integer) -> indices, distances
 
 Searches a batch of queries in the given index (searches for k neighbors).
 
@@ -103,21 +111,91 @@ Searches a batch of queries in the given index (searches for k neighbors).
 - `k`: The number of neighbors to retrieve
 
 # Keyword arguments
-- `minbatch` specifies how many queries are solved per thread.
-  - Integers ``1 ≤ minbatch ≤ |Q|`` are valid values
-  - Set `minbatch=0` to compute a default number based on the number of available cores.
-  - Set `minbatch=-1` to avoid parallelism.
-- `pools` relevant for special databases or distance functions. 
-    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
-    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
+- `context`: caches, hyperparameters, and meta data
+
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; minbatch=0, pools=getpools(index))
+function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer)
     m = length(Q)
     I = Matrix{Int32}(undef, k, m)
     D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, Q, I, D; minbatch, pools)
+    searchbatch(index, ctx, Q, I, D)
+end
+
+"""
+    searchbatch(index, ctx, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}) -> indices, distances
+
+Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
+
+# Arguments
+- `index`: The search structure
+- `Q`: The set of queries
+- `k`: The number of neighbors to retrieve
+- `ctx`: environment for running searches (hyperparameters and caches)
+"""
+function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}) 
+    @assert size(I) == size(D)
+    minbatch = getminbatch(ctx.minbatch, length(Q))
+    I_ = PtrArray(I)
+    D_ = PtrArray(D)
+    if minbatch < 0
+        for i in eachindex(Q)
+            solve_single_query(index, ctx, Q, i, I_, D_)
+        end
+    else
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            solve_single_query(index, ctx, Q, i, I_, D_)
+        end
+    end
+
+    I, D
+end
+
+function solve_single_query(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
+    k = size(knns_, 1)
+    q = @inbounds Q[i]
+    res = getknnresult(k, ctx)
+    search(index, ctx, q, res)
+    _k = length(res)
+    @inbounds for j in 1:_k
+        u = res.items[j]
+        knns_[j, i] = u.id
+        dists_[j, i] = u.weight
+    end
+
+    for j in _k+1:k
+        knns_[j, i] = zero(Int32)
+    end
+end
+
+
+"""
+    searchbatch(index, context, Q, KNN::AbstractVector{KnnResult}) -> indices, distances
+
+Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
+
+# Arguments
+- `context`: contain caches to reduce memory allocations and hyperparameters for search customization
+
+"""
+function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, KNN::AbstractVector{KnnResult})
+    minbatch = getminbatch(ctx.minbatch, length(Q))
+
+    if minbatch < 0
+        @inbounds for i in eachindex(Q)
+            search(index, ctx, Q[i], KNN[i])
+        end
+    else
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            @inbounds search(index, ctx, Q[i], KNN[i])
+        end
+    end
+
+    KNN
+end
+
+function __init__()
 end
 
 """
@@ -147,183 +225,5 @@ function getminbatch(minbatch, n)
         return ceil(Int, minbatch)
     end
 end
-
-"""
-    searchbatch(index, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index)) -> indices, distances
-
-Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
-
-# Arguments
-- `index`: The search structure
-- `Q`: The set of queries
-- `k`: The number of neighbors to retrieve
-
-# Keyword arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: relevant for special databases or distance functions. 
-    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
-    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
-
-"""
-function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; minbatch=0, pools=getpools(index))
-    minbatch = getminbatch(minbatch, length(Q))
-    I_ = PtrArray(I)
-    D_ = PtrArray(D)
-    if minbatch < 0
-        for i in eachindex(Q)
-            solve_single_query(index, Q, i, I_, D_, pools)
-        end
-    else
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            solve_single_query(index, Q, i, I_, D_, pools)
-        end
-    end
-
-    I, D
-end
-
-function solve_single_query(index::AbstractSearchIndex, Q::AbstractDatabase, i, knns_, dists_, pools)
-    k = size(knns_, 1)
-    q = @inbounds Q[i]
-    res = getknnresult(k, pools)
-    search(index, q, res; pools=pools)
-    _k = length(res)
-    @inbounds for j in 1:_k
-        u = res.items[j]
-        knns_[j, i] = u.id
-        dists_[j, i] = u.weight
-    end
-
-    for j in _k+1:k
-        knns_[j, i] = zero(Int32)
-    end
-end
-
-
-"""
-    searchbatch(index, Q, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index)) -> indices, distances
-
-Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
-
-# Arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: relevant for special databases or distance functions. 
-    In most case uses the default is enought, but different pools should be used when indexes use other indexes internally to solve queries.
-    It should be an array of `Threads.nthreads()` preallocated `KnnResult` objects used to reduce memory allocations.
-
-"""
-function searchbatch(index::AbstractSearchIndex, Q::AbstractDatabase, KNN::AbstractVector{KnnResult}; minbatch=0, pools=getpools(index))
-    minbatch = getminbatch(minbatch, length(Q))
-
-    if minbatch < 0
-        @inbounds for i in eachindex(Q)
-            search(index, Q[i], KNN[i]; pools)
-        end
-    else
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            @inbounds search(index, Q[i], KNN[i]; pools=pools)
-        end
-    end
-
-    KNN
-end
-
-function __init__()
-    __init__visitedvertices()
-    __init__beamsearch()
-    __init__neighborhood()
-
-    for _ in 2:Threads.nthreads()
-        push!(GlobalKnnResult, KnnResult(32))
-    end
-end
-
-# precompile as the final step of the module definition:
-
-
-#=
-if ccall(:jl_generating_output, Cint, ()) == 1   # if we're precompiling the package
-    @info "precompiling common combinations of indexes, distances, and databases"
-    let
-        # Note: something happens that the warming stage is not removed
-        # =
-        function run_functions(E, queries)
-            I, D = searchbatch(E, queries, 3)
-            @assert size(I) == (3, length(queries))
-            I, D = allknn(E, 3)
-            @assert size(I) == (3, length(queries))
-            p1, p2, d = closestpair(E)
-            @assert p1 != p2
-        end
-
-        # running common combinations for precompilation
-        for X in [rand(Float32, 2, 16), rand(Float64, 2, 16)] # 32 to force calling triggers / callbacks
-            for c in eachcol(X)
-                normalize!(c)
-            end
-
-            # for dist in [L2Distance(), SqL2Distance(), L1Distance(), CosineDistance(), NormalizedCosineDistance(), AngleDistance(), NormalizedAngleDistance()]
-            for dist in [L2Distance(), SqL2Distance(), CosineDistance(), NormalizedCosineDistance()]
-                #for db in [MatrixDatabase(X), VectorDatabase(X)]
-                for db in [MatrixDatabase(X)]
-                    #for db in [db_, rand(db_, 15)]
-                        E = ExhaustiveSearch(; db, dist)
-                        run_functions(E, db)
-                        G = SearchGraph(; db, dist, verbose=false)
-                        index!(G)
-                        run_functions(G, db)
-                        optimize!(G, ParetoRecall())
-                        optimize!(G, MinRecall(0.8))
-                        optimize!(G, ParetoRadius())
-                        try
-                            # static databases will throw an error
-                            push!(G, db[1])
-                            append!(G, db)
-                        finally
-                            continue
-                        end
-                    #end
-                end
-            end
-        end
-        =#
-        #=
-        # Skip precompilation of the following combinations since they are not so used but increase significantly the compilation times
-        for X in [
-                rand(Int64(1):Int64(6), 4, 32), rand(Int32(1):Int32(6), 4, 32), rand(Int16(1):Int16(6), 4, 32), rand(Int8(1):Int8(6), 4, 32),
-                rand(UInt64(1):UInt64(6), 4, 32), rand(UInt32(1):UInt32(6), 4, 32), rand(UInt16(1):UInt16(6), 4, 32), rand(UInt8(1):UInt8(6), 4, 32)
-            ] # 32 to force calling triggers / callbacks
-
-            for c in eachcol(X)
-                sort!(c)
-            end
-
-            for dist in [StringHammingDistance(), LevenshteinDistance(), LcsDistance(), JaccardDistance(), DiceDistance(), CosineDistanceSet()]
-                for db_ in [MatrixDatabase(X), VectorDatabase(X)]
-                    for db in [db_, rand(db_, 30)]
-                        E = ExhaustiveSearch(; db, dist)
-                        run_functions(E, db)
-                        G = SearchGraph(; db, dist, verbose=false)
-                        index!(G)
-                        run_functions(G, db)
-                        optimize!(G, ParetoRecall())
-                        optimize!(G, MinRecall(0.8))
-                        optimize!(G, ParetoRadius())
-                        try
-                            # static databases will throw an error
-                            push!(G, db[1])
-                            append!(G, db)
-                        finally
-                            continue
-                        end
-                    end
-                end
-            end
-        end
-        = #
-    end
-end
-
-=#
 
 end  # end SimilaritySearch module

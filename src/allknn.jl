@@ -3,21 +3,21 @@
 export allknn
 
 """
-    allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
-    allknn(g, knns, dists; minbatch=0, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchIndex, context, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
+    allknn(g, context, knns, dists; minbatch=0, pools=getpools(g)) -> knns, dists
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
 # Parameters:
 
 - `g`: the index
+- `context`: the index's context (caches, hyperparameters, logger, etc)
 - Query specification and result:
    - `k`: the number of neighbors to retrieve
    - `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
    - `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
 
-- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
-- `pools`: A pools object, dependent of `g`
+- `context`: caches, hyperparameters and meta specifications, e.g., see [`SearchGraphContext`](@ref)
 
 # Returns:
 
@@ -25,44 +25,40 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
     Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
 - `dists` a (k, n) matrix of distances; the i-th column corresponds to the i-th object in the dataset.
     Zero values in `knns` should be ignored in `dists`
-
-# Keyword arguments
-- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
-- `pools`: `pools`: A pools object, dependent of `g`
  
 # Note:
 This function was introduced in `v0.8` series, and removes self references automatically.
 In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.    
 """
-function allknn(g::AbstractSearchIndex, k::Integer; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, context::AbstractContext, k::Integer)
     n = length(g)
     knns = Matrix{Int32}(undef, k, n)
     dists = Matrix{Float32}(undef, k, n)
-    allknn(g, knns, dists; minbatch, pools)
+    allknn(g, context, knns, dists)
 end
 
-function allknn(g::AbstractSearchIndex, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32}; minbatch=0, pools=getpools(g))
+function allknn(g::AbstractSearchIndex, context::AbstractContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32})
     k, n = size(knns, 1), length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
     # @assert n > 0 && k > 0 && n == length(g)
     #knns_ = pointer(knns)
     #dists_ = pointer(dists)
     knns_ = PtrArray(knns)
     dists_ = PtrArray(dists)
-    if minbatch < 0
+    if context.minbatch < 0
         for i in 1:n
-            res = getknnresult(k, pools)
-            allknn_single_search(g, i, res, pools)
+            res = getknnresult(k, context)
+            allknn_single_search(g, context, i, res)
             _k = length(res)
             knns_[1:_k, i] .= res.id
             _k < k && (knns_[_k+1:k] .= zero(Int32))
             dists_[1:_k, i] .= res.dist 
         end
     else
-        minbatch = getminbatch(minbatch, n)
+        minbatch = getminbatch(context.minbatch, n)
 
         @batch minbatch=minbatch per=thread for i in 1:n
-            res = getknnresult(k, pools)
-            allknn_single_search(g, i, res, pools)
+            res = getknnresult(k, context)
+            allknn_single_search(g, context, i, res)
             _k = length(res)
             #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
             @inbounds for j in 1:_k
@@ -94,16 +90,16 @@ end
 end=#
 
 
-function allknn_single_search(g::SearchGraph, i::Integer, res::KnnResult, pools)
+function allknn_single_search(g::SearchGraph, context::SearchGraphContext, i::Integer, res::KnnResult)
     cost = 0
-    vstate = getvstate(length(g), pools)
+    vstate = getvstate(length(g), context)
     q = database(g, i)
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        cost += search(g.search_algo, g, q, res, h, pools; vstate).cost
+        cost += search(g.search_algo, g, context, q, res, h; vstate).cost
         # length(res) == k && break
     end
 
@@ -127,6 +123,6 @@ function allknn_single_search(g::SearchGraph, i::Integer, res::KnnResult, pools)
     (; res, cost)
 end
 
-function allknn_single_search(g::AbstractSearchIndex, i::Integer, res::KnnResult, pools)
-    search(g, database(g, i), res; pools)
+function allknn_single_search(g::AbstractSearchIndex, context::AbstractContext, i::Integer, res::KnnResult)
+    search(g, context, database(g, i), res,)
 end

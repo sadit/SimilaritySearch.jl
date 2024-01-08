@@ -20,14 +20,6 @@ end
 Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
     BeamSearch(; bsize, Δ, maxvisits)
 
-const GlobalBeamKnnResult = [KnnResult(32)]  # see __init__ function
-
-function __init__beamsearch()
-    for _ in 2:Threads.nthreads()
-        push!(GlobalBeamKnnResult, KnnResult(32))
-    end
-end
-
 ### local search algorithm
 
 @inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
@@ -81,7 +73,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
 end
 
 """
-    search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+    search(bs::BeamSearch, index::SearchGraph, context, q, res, hints; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
 
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
@@ -89,7 +81,7 @@ Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 - `hints`: Starting points for searching, randomly selected when it is an empty collection
-- `pools`: A SearchGraphPools object with preallocated pools
+- `context`: A SearchGraphContext object with preallocated objects
 
 Optional arguments (defaults to values in `bs`)
 - `bsize`: Beam size
@@ -97,9 +89,9 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, q, res, hints, pools::SearchGraphPools; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits, vstate=getvstate(length(index), pools))
+function search(bs::BeamSearch, index::SearchGraph, context::SearchGraphContext, q, res, hints; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits, vstate=getvstate(length(index), context))
     # k is the number of neighbors in res
     visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
-    beam = getbeam(bsize, pools)
+    beam = getbeam(bsize, context)
     beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
 end

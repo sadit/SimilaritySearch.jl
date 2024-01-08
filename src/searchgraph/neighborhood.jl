@@ -14,7 +14,7 @@ Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.r
 neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
 
 """
-    find_neighborhood(index::SearchGraph{T}, item, neighborhood, pools; hints=index.hints)
+    find_neighborhood(index::SearchGraph{T}, context, item; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 `res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
@@ -22,17 +22,17 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 # Arguments
 - `index`: The search index.
 - `item`: The item to be inserted.
-- `neighborhood`: A [`Neighborhood`](@ref) object that describes how to compute item's neighborhood.
-- `pools`: Cache pools to be used
+- `context`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, item, neighborhood::Neighborhood, pools::SearchGraphPools; hints=index.hints)
+function find_neighborhood(index::SearchGraph, context::SearchGraphContext, item; hints=index.hints)
     n = length(index)
     if n > 0
+        neighborhood = context.neighborhood
         ksearch = neighborhoodsize(neighborhood, index)
-        res = getknnresult(ksearch, pools)
-        search(index.search_algo, index, item, res, hints, pools)
-        neighborhoodreduce(neighborhood.reduce, index, item, res, pools)
+        res = getknnresult(ksearch, context)
+        search(index.search_algo, index, context, item, res, hints)
+        neighborhoodreduce(neighborhood.reduce, index, context, item, res)
     else
         UInt32[]
     end
@@ -57,13 +57,6 @@ Internal function to connect reverse links after an insertion batch
 function connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
     @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
         connect_reverse_links(adj, i, neighbors(adj, i))
-    end
-end
-
-const GlobalSatKnnResult = [KnnResult(1)]
-function __init__neighborhood()
-    for _ in 2:Threads.nthreads()
-        push!(GlobalSatKnnResult, KnnResult(1))
     end
 end
 
@@ -109,32 +102,32 @@ function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnRe
     argmin(near) == zero(Int32)
 end
 
-function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools)
+function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     [item.id for item in res]
 end
 
 """
-    reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, pools)
+    reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, context)
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=UInt32[])
+@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
     push!(N, argmax(res))
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = res[i]
-        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(pools)) && push!(N, p.id)
+        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
     end
 
     N
 end
 
-@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, item, res, pools::SearchGraphPools, N=UInt32[])
+@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
     push!(N, argmin(res))
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(pools)) && push!(N, p.id)
+        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
     end
 
     N
@@ -169,35 +162,33 @@ struct KeepNearestPruning <: NeighborhoodPruning
 end
 
 """
-    SatPruning(k, satkind)
+    SatPruning(k; kind=DistalSatNeighborhood())
     SatPruning(k)
 
 Selects `SatNeighborhood` or `DistalSatNeighborhood` for each vertex. Defaults to `DistalSatNeighborhood`.
 
-
 - `k`: the threshold size to apply the Sat reduction, i.e., neighbors larger than `k` will be pruned.
 """
-struct SatPruning{SatKind} <: NeighborhoodPruning
+@with_kw struct SatPruning <: NeighborhoodPruning
     k::Int
-    kind::SatKind  ## DistalSatNeighborhood, SatNeighborhood    
+    kind = DistalSatNeighborhood() ## DistalSatNeighborhood, SatNeighborhood    
 end
 
 SatPruning(k) = SatPruning(k, DistalSatNeighborhood())
 
 """
-    prune!(r::RandomPruning, index::SearchGraph;  minbatch=0, pools=getpools(index))
+    prune!(r::RandomPruning, index::SearchGraph, context::SearchGraphContext)
 
 Randomly prunes each neighborhood
 
 # Arguments
 
-
 """
-function prune!(r::RandomPruning, index::SearchGraph; minbatch=0, pools=getpools(index))
+function prune!(r::RandomPruning, index::SearchGraph, context::SearchGraphContext)
     n = length(index)
     minbatch = getminbatch(minbatch, n)
 
-    @batch minbatch=minbatch per=thread for i in 1:n
+    @batch minbatch=getminbatch(0, n) per=thread for i in 1:n
         @inbounds L = neighbors(index.adj, i)
         if length(L) > r.k
             shuffle!(L)
@@ -207,16 +198,16 @@ function prune!(r::RandomPruning, index::SearchGraph; minbatch=0, pools=getpools
 end
 
 """
-    prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
+    prune!(r::KeepNearestPruning, index::SearchGraph, context::SearchGraphContext)
 
-Selects `k` nearest neighbors among the the available neighbors
+Selects `k` nearest neighbors among the available neighbors
 """
-function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index))
+function prune!(r::KeepNearestPruning, index::SearchGraph, context::SearchGraphContext)
     dist = distance(index)
     Threads.@threads for i in eachindex(index.adj)
         @inbounds L = neighbors(index.adj, i)
         if length(L) > r.k
-            res = getknnresult(r.k, pools)
+            res = getknnresult(r.k, context)
             @inbounds c = database(index, i)
             @inbounds for objID in L
                 push_item!(res, objID, evaluate(dist, c, database(index, objID)))
@@ -231,24 +222,25 @@ function prune!(r::KeepNearestPruning, index::SearchGraph; pools=getpools(index)
 end
 
 """
-    prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
+    prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
 
 Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
 """
-function prune!(r::SatPruning, index::SearchGraph; pools=getpools(index))
+function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
     dist = distance(index)
     
-    Threads.@threads for i in eachindex(index.adj)
-        @inbounds L = neighbors(index.adj, i)
+    @batch minbatch=getminbatch(0, length(index)) per=thread for i in eachindex(index.adj)
+        L = neighbors(index.adj, i)
         if length(L) > r.k
-            res = getknnresult(length(L), pools)
-            @inbounds c = database(index, i)
-            @inbounds for objID in L
+            res = getknnresult(length(L), context)
+            c = database(index, i)
+            for objID in L
                 push_item!(res, objID, evaluate(dist, c, database(index, objID)))
             end
            
             empty!(L)
-            neighborhoodreduce(r.kind, index, c, res, pools, L)
+            neighborhoodreduce(r.kind, index, context, c, res, L)
         end
     end
 end
+

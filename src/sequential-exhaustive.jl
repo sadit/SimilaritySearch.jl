@@ -20,15 +20,23 @@ function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
 
-getpools(index::ExhaustiveSearch) = nothing
+getcontext(index::ExhaustiveSearch) = GenericContext()
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
+function push_item!(seq::ExhaustiveSearch, context::GenericContext, u)
+    push_item!(seq.db, u)
+end
+
+function append_items!(seq::ExhaustiveSearch, context::GenericContext, u::AbstractDatabase)
+    append_items!(seq.db, u)
+end
+
 """
-    search(seq::ExhaustiveSearch, q, res::KnnResult)
+    search(seq::ExhaustiveSearch, context::AbstractContext, q, res::KnnResult)
 
 Solves the query evaluating all items in the given query.
 """
-function search(seq::ExhaustiveSearch, q, res::KnnResult; pools=nothing)
+function search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::KnnResult)
     dist = distance(seq)
     @inbounds for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)
@@ -38,6 +46,3 @@ function search(seq::ExhaustiveSearch, q, res::KnnResult; pools=nothing)
     SearchResult(res, length(seq))
 end
 
-function Base.push!(seq::ExhaustiveSearch, u)
-    push_item!(seq.db, u)
-end

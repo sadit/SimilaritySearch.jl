@@ -7,7 +7,9 @@ using Test, SimilaritySearch, LinearAlgebra
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ; blocksize=100)
+    G = SearchGraph(; db, dist)
+    ctx = getcontext(G)
+    D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=100)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
@@ -19,7 +21,9 @@ end
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ; blocksize=16)
+    G = SearchGraph(; db, dist)
+    ctx = getcontext(G)
+    D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=16)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
@@ -32,7 +36,9 @@ end
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    D = neardup(SearchGraph(; db, dist), MatrixDatabase(X), ϵ; blocksize=16, filterblocks=false)
+    G = SearchGraph(; db, dist)
+    ctx = getcontext(G)
+    D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=16, filterblocks=false)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0

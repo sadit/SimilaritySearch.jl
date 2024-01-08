@@ -23,11 +23,11 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-getpools(index::ParallelExhaustiveSearch) = nothing
+getcontext(index::ParallelExhaustiveSearch) = GenericContext()
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
+    search(ex::ParallelExhaustiveSearch, context::GenericContext, q, res::KnnResult)
 
 Solves the query evaluating all items in the given query.
 
@@ -35,15 +35,13 @@ Solves the query evaluating all items in the given query.
 - `ex`: the search structure
 - `q`: the query to solve
 - `res`: the result set
+- `context`: running context
 
-# Keyword arguments
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
-- `pools`: The set of caches (nothing for this index)
 """
-function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, pools=nothing)
+function search(ex::ParallelExhaustiveSearch, context::GenericContext, q, res::KnnResult)
     dist = distance(ex)
     elock = ex.lock
-    minbatch = getminbatch(minbatch, length(ex))
+    minbatch = getminbatch(context.minbatch, length(ex))
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, database(ex, i), q)
         try
@@ -57,6 +55,10 @@ function search(ex::ParallelExhaustiveSearch, q, res::KnnResult; minbatch=0, poo
     SearchResult(res, length(ex))
 end
 
-function push_item!(ex::ParallelExhaustiveSearch, u)
+function push_item!(ex::ParallelExhaustiveSearch, context::GenericContext, u)
+    push_item!(ex.db, u)
+end
+
+function append_items!(ex::ParallelExhaustiveSearch, context::GenericContext, u::AbstractDatabase)
     push_item!(ex.db, u)
 end

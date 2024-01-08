@@ -3,7 +3,7 @@
 using SearchModels, Random
 using StatsBase
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize!, MinRecall, ParetoRecall, ParetoRadius
+export OptimizeParameters, optimize_index!, MinRecall, ParetoRecall, ParetoRadius
 
 abstract type ErrorFunction end
 @with_kw struct MinRecall <: ErrorFunction
@@ -13,13 +13,13 @@ end
 struct ParetoRecall <: ErrorFunction end
 struct ParetoRadius <: ErrorFunction end
 
-function runconfig0(conf, index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer, res::KnnResult, pools)
-    runconfig(conf, index, queries[i], res, pools)
+function runconfig0(conf, index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer, res::KnnResult, caches)
+    runconfig(conf, index, queries[i], res, caches)
 end
 
 function setconfig! end
 
-function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -27,7 +27,6 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
     cov = Vector{Float64}(undef, m)
-    pools = getpools(index)
     R = [Set{Int32}() for _ in knnlist]
 
     function lossfun(conf)
@@ -37,7 +36,7 @@ function create_error_function(index::AbstractSearchIndex, gold, knnlist::Vector
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                r_ = runconfig0(conf, index, queries, i, reuse!(knnlist[i], ksearch), pools)
+                r_ = runconfig0(conf, index, queries, i, reuse!(knnlist[i], ksearch), context)
                 ti = Threads.threadid()
                 vmin[ti] = min(r_.cost, vmin[ti])
                 vmax[ti] = max(r_.cost, vmax[ti])
@@ -79,26 +78,34 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 """
     optimize_index!(
         index::AbstractSearchIndex,
-        kind::ErrorFunction=ParetoRecall(),
-        space::AbstractSolutionSpace=optimization_space(index);
+        context::AbstractContext,
+        kind::ErrorFunction=MinRecall(0.9);
+        space::AbstractSolutionSpace=optimization_space(index),
+        context_exhaustive_search=GenericContext(context.knn, context.minbatch),
         queries=nothing,
         ksearch=10,
         numqueries=64,
-        initialpopulation=8,
-        minbatch=0,
+        initialpopulation=16,
+        maxpopulation=16,
+        bsize=4,
+        mutbsize=16,
+        crossbsize=8,
+        tol=-1.0,
+        maxiters=16,
         verbose=false,
-        params=SearchParams(; maxpopulation=8, bsize=4, mutbsize=8, crossbsize=2, tol=-1.0, maxiters=8, verbose)
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
     )
 
 Tries to configure the `index` to achieve the specified performance (`kind`). The optimization procedure is an stochastic search over the configuration space yielded by `kind` and `queries`.
 
 # Arguments
 - `index`: the index to be optimized
+- `context`: index context
 - `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()` or `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time)
-- `space`: defines the search space
 
 # Keyword arguments
 
+- `space`: defines the search space
 - `queries`: the set of queries to be used to measure performances, a validation set. It can be an `AbstractDatabase` or nothing.
 - `queries_ksearch`: the number of neighbors to retrieve for `queries`
 - `queries_size`: if `queries===nothing` then a sample of the already indexed database is used, `queries_size` is the size of the sample.
@@ -118,13 +125,14 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 """
 function optimize_index!(
         index::AbstractSearchIndex,
-        kind::ErrorFunction,
-        space::AbstractSolutionSpace;
+        context::AbstractContext,
+        kind::ErrorFunction=MinRecall(0.9);
+        space::AbstractSolutionSpace=optimization_space(index),
+        context_exhaustive_search=GenericContext(context.knn, context.minbatch),
         queries=nothing,
         ksearch=10,
         numqueries=64,
         initialpopulation=16,
-        minbatch=0,
         maxpopulation=16,
         bsize=4,
         mutbsize=16,
@@ -146,7 +154,7 @@ function optimize_index!(
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
-        searchbatch(seq, queries, knnlist; minbatch)
+        searchbatch(seq, context_exhaustive_search, queries, knnlist)
         gold = [Set(item.id for item in res) for res in knnlist]
     end
 
@@ -161,7 +169,7 @@ function optimize_index!(
         end
     end
 
-    errorfun = create_error_function(index, gold, knnlist, queries, ksearch, verbose)
+    errorfun = create_error_function(index, context, gold, knnlist, queries, ksearch, verbose)
 
     function geterr(p)
         cost = p.visited[2] / M[]
@@ -188,20 +196,3 @@ function optimize_index!(
         bestlist
 end
 
-"""
-    optimize!(
-        index::AbstractSearchIndex,
-        kind::ErrorFunction=ParetoRecall(),
-        space::AbstractSolutionSpace=optimization_space(index);
-        kwargs...)
-        optimize_index!(index, kind, space; kwargs...)
-
-A frontend function for [`optimize_index!`](@ref) which can be specialized for some particular index, kinds or spaces.
-"""
-function optimize!(
-    index::AbstractSearchIndex,
-    kind::ErrorFunction=MinRecall(0.9),
-    space::AbstractSolutionSpace=optimization_space(index);
-    kwargs...)
-    optimize_index!(index, kind, space; kwargs...)
-end

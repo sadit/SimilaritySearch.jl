@@ -3,50 +3,50 @@
 export closestpair
 
 """
-    closestpair(idx::AbstractSearchIndex; minbatch=0, pools=getpools(idx))
+    closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; minbatch=0)
 
 Finds the closest pair among all elements in `idx`. If the index `idx` is approximate then pair of points could be also an approximation.
 
 # Arguments:
 - `idx`: the search structure that indexes the set of points
+- `ctx`: the search context (caches, hyperparameters, etc)
 
 # Keyword Arguments:
 - `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
-- `pools`: The pools needed for the index. Only used for special cases, default values should work in most cases. See [`getpools`](@ref) for more information.
 """
-function closestpair(idx::AbstractSearchIndex; minbatch=0, pools=getpools(idx))
+function closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; minbatch=0)
     if Threads.nthreads() == 1 || minbatch < 0 
-        sequential_closestpair(idx, pools)
+        sequential_closestpair(idx, ctx)
     else
-        parallel_closestpair(idx, pools, minbatch)
+        parallel_closestpair(idx, ctx, minbatch)
     end
 end
 
-function search_hint(idx::AbstractSearchIndex, i::Integer, pools)
-    res = getknnresult(2, pools)
-    search(idx, database(idx, i), res; pools)
-    argmin(res) == i ? (argmax(res), maximum(res)) : (argmin(res), minimum(res))
+function search_hint(idx::AbstractSearchIndex, ctx::AbstractContext, i::Integer)
+    res = getknnresult(2, ctx)
+    search(idx, ctx, database(idx, i), res)
+    argmin(res) == i ? res[2] : res[1]
 end
 
-function search_hint(G::SearchGraph, i::Integer, pools)
-    res = getknnresult(8, pools)
-    vstate = getvstate(length(G), pools)
+function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer)
+    res = getknnresult(8, ctx)
+    vstate = getvstate(length(G), ctx)
     visit!(vstate, convert(UInt64, i))
-    search(G.search_algo, G, database(G, i), res, rand(neighbors(G.adj, i)), pools; vstate)
-    argmin(res), minimum(res)
+    search(G.search_algo, G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
+    argmin(res) == i ? res[2] : res[1]
 end
 
-function parallel_closestpair(idx::AbstractSearchIndex, pools, minbatch)::Tuple{Int32,Int32,Float32}
+function parallel_closestpair(idx::AbstractSearchIndex, ctx, minbatch)::Tuple{Int32,Int32,Float32}
     n = length(idx)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.nthreads()]
 
     minbatch = getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for objID in 1:n
-        id_, d_ = search_hint(idx, objID, pools)
+        p = search_hint(idx, ctx, objID)
         tID = Threads.threadid()
-        @inbounds if d_ < last(B[tID])
-            B[tID] = (Int32(objID), id_, d_)
+        @inbounds if p.weight < last(B[tID])
+            B[tID] = (Int32(objID), p.id, p.weight)
         end
     end
 
@@ -54,14 +54,14 @@ function parallel_closestpair(idx::AbstractSearchIndex, pools, minbatch)::Tuple{
     B[i]
 end
 
-function sequential_closestpair(idx::AbstractSearchIndex, pools)::Tuple{Int32,Int32,Float32}
+function sequential_closestpair(idx::AbstractSearchIndex, ctx)::Tuple{Int32,Int32,Float32}
     mindist = typemax(Float32)
     I = J = zero(Int32)
 
     for i in eachindex(idx)
-        id_, d_ = search_hint(idx, i, pools)
-        if d_ < mindist
-            I, J, mindist = Int32(i), id_, d_
+        p = search_hint(idx, ctx, i)
+        if p.weight < mindist
+            I, J, mindist = Int32(i), p.id, p.weight
         end
     end
 
