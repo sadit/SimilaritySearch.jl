@@ -61,7 +61,7 @@ abstract type LocalSearchAlgorithm end
 
 include("graph.jl")
 
-getcontext(::SearchGraph) = SearchGraphContext()
+getcontext(::SearchGraph) = DEFAULT_SEARCH_GRAPH_CONTEXT[]
 
 include("log.jl")
 include("callbacks.jl")

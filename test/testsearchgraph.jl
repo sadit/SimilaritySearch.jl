@@ -56,7 +56,7 @@ end
 
     @testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2))
-        ctx = SearchGraphContext(
+        ctx = SearchGraphContext(getcontext(graph);
             neighborhood = Neighborhood(reduce=DistalSatNeighborhood()),
             hyperparameters_callback = OptimizeParameters(ParetoRadius()),
             parallel_block = 8
@@ -85,7 +85,7 @@ end
 
     @info "========================= AutoBS MinRecall ======================"
     graph = SearchGraph(; db, dist)
-    ctx = SearchGraphContext(
+    ctx = SearchGraphContext(getcontext(graph);
         neighborhood = Neighborhood(reduce=SatNeighborhood()),
         hyperparameters_callback = OptimizeParameters(MinRecall(0.9)),
         parallel_block = 16

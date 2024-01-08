@@ -20,7 +20,7 @@ function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
 
-getcontext(index::ExhaustiveSearch) = GenericContext()
+getcontext(index::ExhaustiveSearch) = DEFAULT_CONTEXT[]
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
 function push_item!(seq::ExhaustiveSearch, context::GenericContext, u)

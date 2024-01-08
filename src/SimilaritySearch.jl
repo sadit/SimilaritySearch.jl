@@ -200,9 +200,6 @@ function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstra
     KNN
 end
 
-function __init__()
-end
-
 """
     getminbatch(minbatch, n)
 
@@ -229,6 +226,13 @@ function getminbatch(minbatch, n)
     else
         return ceil(Int, minbatch)
     end
+end
+
+DEFAULT_CONTEXT = Ref(GenericContext())
+DEFAULT_SEARCH_GRAPH_CONTEXT = Ref(SearchGraphContext())
+function __init__()
+    DEFAULT_CONTEXT[] = GenericContext()
+    DEFAULT_SEARCH_GRAPH_CONTEXT[] = SearchGraphContext()
 end
 
 end  # end SimilaritySearch module

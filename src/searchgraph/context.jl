@@ -17,8 +17,25 @@ export SearchGraphContext
         vstates::Vector = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()]
         minbatch::Int = 0
     )
+    
+    SearchGraphContext(ctx::SearchGraphContext;
+        logger=ctx.logger,
+        neighborhood=ctx.neighborhood,
+        hints_callback=ctx.hints_callback,
+        hyperparameters_callback=ctx.hyperparameters_callback,
+        parallel_block=ctx.parallel_block,
+        parallel_first_block=ctx.parallel_first_block,
+        logbase_callback=ctx.logbase_callback,
+        starting_callback=ctx.starting_callback,
+        knn = ctx.knn,
+        beam = ctx.beam,
+        sat = ctx.sat,
+        vstates = ctx.vstates,
+        minbatch = 0
+    )
+ 
 
-    Convenient constructor for the following struct:
+    Convenient constructors for the following struct:
 
     struct SearchGraphContext <: AbstractContext
         logger
@@ -93,6 +110,29 @@ function SearchGraphContext(;
         beam = [KnnResult(16) for _ in 1:Threads.nthreads()],
         sat = [KnnResult(16) for _ in 1:Threads.nthreads()],
         vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
+        minbatch = 0
+    )
+ 
+    SearchGraphContext(logger, neighborhood,
+                       hints_callback, hyperparameters_callback,
+                       logbase_callback, starting_callback,
+                       parallel_block, parallel_first_block,
+                       knn, beam, sat, vstates, minbatch)
+end
+
+function SearchGraphContext(ctx::SearchGraphContext;
+        logger=ctx.logger,
+        neighborhood=ctx.neighborhood,
+        hints_callback=ctx.hints_callback,
+        hyperparameters_callback=ctx.hyperparameters_callback,
+        parallel_block=ctx.parallel_block,
+        parallel_first_block=ctx.parallel_first_block,
+        logbase_callback=ctx.logbase_callback,
+        starting_callback=ctx.starting_callback,
+        knn = ctx.knn,
+        beam = ctx.beam,
+        sat = ctx.sat,
+        vstates = ctx.vstates,
         minbatch = 0
     )
  

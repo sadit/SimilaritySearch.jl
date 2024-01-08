@@ -2,8 +2,6 @@
 
 using Dates
 
-
-
 ### Basic operations on the index
 
 """

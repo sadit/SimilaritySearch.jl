@@ -23,7 +23,7 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-getcontext(index::ParallelExhaustiveSearch) = GenericContext()
+getcontext(index::ParallelExhaustiveSearch) = DEFAULT_CONTEXT[]
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
