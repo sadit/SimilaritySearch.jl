@@ -2,7 +2,7 @@ using SimilaritySearch, Random
 
 function benchmark(res, n)
     # @info "===========", typeof(res), n
-    push!(res, 1, rand())
+    push_item!(res, 1, rand())
 
     popfirst_ = pop_ = 0
     for i in 3:n
@@ -17,7 +17,7 @@ function benchmark(res, n)
         end
 
         # push!(res, i, rand())
-        push!(res, i, 3 * maximum(res) * rand())
+        push_item!(res, i, 3 * maximum(res) * rand())
     end
 
     #@info "finished", pop_, popfirst_

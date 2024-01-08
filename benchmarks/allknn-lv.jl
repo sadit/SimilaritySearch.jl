@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, LoopVectorization, StrideArrays, LinearAlgebra, Random
+using SimilaritySearch, LoopVectorization, LinearAlgebra, Random
 
 struct NormalizedCosineDistanceLV{Dim} <: SemiMetric
 end
@@ -23,26 +23,29 @@ function create_database(dim=100, filled=8, n=100_000)
     
     for c in eachcol(X) normalize!(c) end
     #MatrixDatabase(X), NormalizedCosineDistanceLV{dim}()
-    MatrixDatabase(StrideArray(X, StaticInt.(size(X)))), NormalizedCosineDistanceLV{dim}()   # slow compilation, fast computation
-    # MatrixDatabase(StrideArray(X, size(X))), NormalizedCosineDistanceLV{8}()
-    #MatrixDatabase(X), NormalizedCosineDistance()   # fast compilation, a bit slower
+    StrideMatrixDatabase(X), NormalizedCosineDistanceLV{dim}()   # slow compilation, fast computation
 end
 
 function main()
     @info "this benchmark is intended to work with multithreading enabled julia sessions"
     db, dist = create_database(8, 8)
     k = 32
+    ctx = SearchGraphContext(
+                             hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
+                             logger=nothing,
+                             parallel_block=256
+                            )
     @info "----- computing gold standard"
     GC.enable(false)
-    goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), k)
+    goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), ctx, k)
     GC.enable(true)
     @info "----- computing search graph"
-    H = SearchGraph(; db, dist, verbose=false)
-    index!(H; parallel_block=256)
-    optimize!(H, MinRecall(0.9), ksearch=k)
+    H = SearchGraph(; db, dist)
+    index!(H, ctx)
+    optimize_index!(H, ctx, ksearch=k)
     # prune!(RandomPruning(12), H)
     GC.enable(false)
-    searchtime = @elapsed hI, hD = allknn(H, k; minbatch=32)
+    searchtime = @elapsed hI, hD = allknn(H, ctx, k)
     GC.enable(true)
     n = length(db)
     @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
