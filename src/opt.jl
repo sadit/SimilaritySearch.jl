@@ -81,7 +81,7 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         context::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        context_exhaustive_search=GenericContext(context.knn, context.minbatch),
+        context_exhaustive_search=GenericContext(context),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -128,7 +128,7 @@ function optimize_index!(
         context::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        context_exhaustive_search=GenericContext(context.knn, context.minbatch),
+        context_exhaustive_search=GenericContext(context),
         queries=nothing,
         ksearch=10,
         numqueries=64,

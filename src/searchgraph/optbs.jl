@@ -104,11 +104,11 @@ function runconfig(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, contex
 end
 
 """
-    execute_callback(opt::OptimizeParameters, index::SearchGraph, context::SearchGraphContext)
+    execute_callback(index::SearchGraph, context::SearchGraphContext, opt::OptimizeParameters)
 
 SearchGraph's callback for adjunting search parameters
 """
-function execute_callback(opt::OptimizeParameters, index::SearchGraph, context::SearchGraphContext)
+function execute_callback(index::SearchGraph, context::SearchGraphContext, opt::OptimizeParameters)
     queries = nothing
     optimize_index!(index, context, opt.kind; opt.space,
         queries, opt.ksearch, opt.numqueries, opt.initialpopulation, opt.verbose, opt.params)

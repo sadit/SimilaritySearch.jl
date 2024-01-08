@@ -10,11 +10,11 @@ Indicates that hints are a random sample of the dataset
 end
 
 """
-    executed_callback(opt::RandomHints, index::SearchGraph, ctx::SearchGraphContext)
+    executed_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
 
 SearchGraph's callback for selecting hints at random
 """
-function execute_callback(opt::RandomHints, index::SearchGraph, ctx::SearchGraphContext)
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -43,7 +43,7 @@ Indicates that hints are a small disjoint (untouched neighbors) subsample
     logbase::Float32 = 1.1
 end
 
-function execute_callback(opt::DisjointHints, index::SearchGraph, ctx::SearchGraphContext)
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::DisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -75,11 +75,11 @@ Indicates that hints are selected to have a disjoint neighborhood
 end
 
 """
-    execute_callback(opt::KDisjointHints, index, ctx)
+    execute_callback(index, ctx, opt::KDisjointHints)
 
 SearchGraph's callback for selecting hints at random
 """
-function execute_callback(opt::KDisjointHints, index::SearchGraph, ctx::SearchGraphContext)
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
@@ -109,6 +109,4 @@ function execute_callback(opt::KDisjointHints, index::SearchGraph, ctx::SearchGr
             end
         end
     end
-    
-    # @info "disjoint hints $m --> $(length(index.hints))"
 end

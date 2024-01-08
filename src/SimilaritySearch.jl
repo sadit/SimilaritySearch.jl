@@ -33,9 +33,14 @@ abstract type AbstractContext end
 struct GenericContext <: AbstractContext
     knn::Vector{KnnResult}
     minbatch::Int
+    logger
 end
 
-GenericContext(k::Integer=32, minbatch::Integer=0) = GenericContext([KnnResult(k) for _ in 1:Threads.nthreads()], minbatch)
+GenericContext(; k::Integer=32, minbatch::Integer=0, logger=InformativeLog()) =
+    GenericContext([KnnResult(k) for _ in 1:Threads.nthreads()], minbatch, logger)
+
+GenericContext(ctx::AbstractContext; knn=ctx.knn, minbatch=ctx.minbatch, logger=ctx.logger) =
+    GenericContext(knn, minbatch, logger)
 
 function getcontext(s::AbstractSearchIndex)
     error("Not implemented method for $s")

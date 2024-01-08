@@ -23,6 +23,5 @@ include("testadj.jl")
 include("testallknn.jl")
 include("testneardup.jl")
 include("testclosestpair.jl")
-
-#include("testsearchgraph.jl")
+include("testsearchgraph.jl")
 

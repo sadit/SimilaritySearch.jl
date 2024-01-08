@@ -3,7 +3,7 @@
 export rebuild
 
 """
-    rebuild(g::SearchGraph; context=SearchGraphContext(), minbatch=0)
+    rebuild(g::SearchGraph; context=SearchGraphContext())
 
 Rebuilds the `SearchGraph` index but seeing the whole dataset for the incremental construction, i.e.,
 it can connect the i-th vertex to its knn in the 1..n possible vertices instead of its knn among 1..(i-1) as in the original algorithm.
@@ -15,21 +15,21 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 - `minbatch`: controls how the multithreading is made, see [`getminbatch`](@ref)
 
 """
-function rebuild(g::SearchGraph; context=SearchGraphContext(), minbatch=0)
+function rebuild(g::SearchGraph, context::SearchGraphContext)
     n = length(g)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     reverse = Vector{Vector{UInt32}}(undef, n)
-    minbatch = minbatch < 0 ? n : getminbatch(minbatch, n)
+    minbatch = context.minbatch < 0 ? n : getminbatch(context.minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds direct[i] = find_neighborhood(g, database(g, i), context.neighborhood, caches, hints=first(neighbors(g.adj, i)))
+        @inbounds direct[i] = find_neighborhood(g, context, database(g, i), hints=first(neighbors(g.adj, i)))
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
     rebuild_connect_reverse_links!(direct, reverse, g.adj.locks, 1, length(g), minbatch)
     G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), search_algo=copy(g.search_algo))
-    execute_callbacks(context, G, force=true)
+    execute_callbacks(G, context, force=true)
     G
 end
 

@@ -7,8 +7,9 @@ using Test, JET
 #
 
 function run_graph(G, queries, ksearch, Igold)
-    searchtime = @elapsed I, _ = searchbatch(G, queries, ksearch)
-    @test_call searchbatch(G, queries, ksearch)
+    ctx = getcontext(G)
+    searchtime = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
+    @test_call searchbatch(G, ctx, queries, ksearch)
     recall = macrorecall(Igold, I)
     @test recall >= 0.7
     @show recall, searchtime, 1 / searchtime
@@ -25,21 +26,21 @@ end
 
     dist = SqL2Distance()
     seq = ExhaustiveSearch(dist, db)
-    goldtime = @elapsed goldI, goldD = searchbatch(seq, queries, ksearch)
+    goldtime = @elapsed goldI, goldD = searchbatch(seq, getcontext(seq), queries, ksearch)
 
     @testset "fixed params" begin
         for bsize in [2, 12]
             search_algo = BeamSearch(; bsize)
             @info "=================== $search_algo"
             graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
-            setup = SearchGraphSetup(
+            ctx = SearchGraphContext(
                 neighborhood = Neighborhood(reduce=IdentityNeighborhood()),
                 hyperparameters_callback = OptimizeParameters(ParetoRecall()),
                 parallel_block = 8
             )
-            append_items!(graph, db; setup)
+            append_items!(graph, ctx, db)
             @test n == length(db) == length(graph)
-            searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+            searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
             @test size(I) == size(D) == (ksearch, m) == size(goldI)
             @show goldD[:, 1]
             @show D[:, 1]
@@ -55,16 +56,16 @@ end
 
     @testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2))
-        setup = SearchGraphSetup(
+        ctx = SearchGraphContext(
             neighborhood = Neighborhood(reduce=DistalSatNeighborhood()),
             hyperparameters_callback = OptimizeParameters(ParetoRadius()),
             parallel_block = 8
         )
-        append_items!(graph, db; setup)
+        append_items!(graph, ctx, db)
         @test n == length(db) == length(graph)
         @info "---- starting ParetoRadius optimization ---"
-        optimize!(graph, ParetoRadius())
-        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        optimize_index!(graph, ctx, ParetoRadius())
+        searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall = macrorecall(goldI, I)
         @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
@@ -73,8 +74,8 @@ end
 
 
         @info "---- starting ParetoRecall optimization ---"
-        optimize!(graph, ParetoRecall())
-        searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        optimize_index!(graph, ctx, ParetoRecall())
+        searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall = macrorecall(goldI, I)
         @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
@@ -84,15 +85,15 @@ end
 
     @info "========================= AutoBS MinRecall ======================"
     graph = SearchGraph(; db, dist)
-    setup = SearchGraphSetup(
+    ctx = SearchGraphContext(
         neighborhood = Neighborhood(reduce=SatNeighborhood()),
         hyperparameters_callback = OptimizeParameters(MinRecall(0.9)),
         parallel_block = 16
     )
-    index!(graph; setup)
+    index!(graph, ctx)
     @test n == length(db) == length(graph)
-    optimize!(graph, MinRecall(0.9); queries)
-    searchtime = @elapsed I, D = searchbatch(graph, queries, ksearch)
+    optimize_index!(graph, ctx, MinRecall(0.9); queries)
+    searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
     @test size(I) == size(D) == (ksearch, m) == size(goldI)
     recall = macrorecall(goldI, I)
     @info "testing without additional optimizations: queries per second:", m/searchtime, ", recall: ", recall
@@ -100,10 +101,10 @@ end
     @test recall >= 0.6
     
     @testset "rebuild" begin
-        graph = rebuild(graph)
+        graph = rebuild(graph, ctx)
         @test n == length(db) == length(graph)
-        optimize!(graph, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
-        searchtime_ = @elapsed I, D = searchbatch(graph, queries, ksearch)
+        optimize_index!(graph, ctx, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
+        searchtime_ = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall_ = macrorecall(goldI, I)
 
@@ -127,12 +128,12 @@ end
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
-    goldI, goldD = searchbatch(seq, queries, ksearch)
+    goldI, goldD = searchbatch(seq, ctx, queries, ksearch)
     graph = SearchGraph(; db, dist)
-    buildtime = @elapsed index!(graph)
+    buildtime = @elapsed index!(graph, ctx)
     @test n == length(db) == length(graph)
-    searchtime = @elapsed I, _ = searchbatch(graph, queries, ksearch)
-    searchtime2 = @elapsed I, _ = searchbatch(graph, queries, ksearch)
+    searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
+    searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     recall = macrorecall(goldI, I)
     @info "buildtime", buildtime
     @info "testing without additional optimizations> queries per second (including compilation): ", m/searchtime, ", searchtime2 (already compiled):", m/searchtime2, ", recall: ", recall
