@@ -35,6 +35,10 @@ function append_items!(seq::ExhaustiveSearch, context::GenericContext, u::Abstra
     context.logger !== nothing && LOG(context.logger, append_items!, index, sp, ep, ep)
 end
 
+function index!(seq::ExhaustiveSearch, ctx::AbstractContext)
+    # do nothing
+end
+
 """
     search(seq::ExhaustiveSearch, context::AbstractContext, q, res::KnnResult)
 

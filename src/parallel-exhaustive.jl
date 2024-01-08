@@ -66,3 +66,7 @@ function append_items!(ex::ParallelExhaustiveSearch, context::GenericContext, u:
     ep = length(seq)
     context.logger !== nothing && LOG(context.logger, append_items!, index, sp, ep, ep)
 end
+
+function index!(seq::ParallelExhaustiveSearch, ctx::AbstractContext)
+    # do nothing
+end
