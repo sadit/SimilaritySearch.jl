@@ -105,6 +105,11 @@ This function should be specialized for indexes and caches that use shared resul
     reuse!(res, k)
 end
 
+@inline function getknnresult(k::Integer)
+    res = DEFAULT_CONTEXT[].knn[Threads.threadid()]
+    reuse!(res, k)
+end
+
 """
     searchbatch(index, ctx, Q, k::Integer) -> indices, distances
     searchbatch(index, Q, k::Integer) -> indices, distances
@@ -227,6 +232,8 @@ function getminbatch(minbatch, n)
         return ceil(Int, minbatch)
     end
 end
+
+getcontext() = DEFAULT_CONTEXT[]
 
 DEFAULT_CONTEXT = Ref(GenericContext())
 DEFAULT_SEARCH_GRAPH_CONTEXT = Ref(SearchGraphContext())
