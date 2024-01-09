@@ -39,6 +39,7 @@ function append_items!(
     sp > n && return index
 
     _parallel_append_items_loop!(index, context, sp, n)
+    index
 end
 
 """
@@ -71,6 +72,7 @@ function index!(index::SearchGraph, context::SearchGraphContext)
     sp > n && return index
 
     _parallel_append_items_loop!(index, context, sp, n)
+    index
 end
 
 function _sequential_append_items_loop!(index::SearchGraph, context::SearchGraphContext)
@@ -107,8 +109,6 @@ function _parallel_append_items_loop!(index::SearchGraph, context::SearchGraphCo
         context.logger !== nothing && LOG(context.logger, append_items!, index, sp, ep, n)
         sp = ep + 1
     end
-
-    index
 end
 
 """

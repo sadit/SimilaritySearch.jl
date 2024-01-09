@@ -1,6 +1,7 @@
 # This file is part of SimilaritySearch.jl
 
-export InformativeLog
+
+export InformativeLog, LOG
 
 """
     InformativeLog(; append_prob=0.01, push_prob=0.0001)
