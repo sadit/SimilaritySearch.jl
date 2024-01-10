@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.11.0"
+version = "0.11.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -30,7 +30,7 @@ Polyester = "0.7"
 Random = "^1.0"
 SearchModels = "0.3"
 SparseArrays = "^1.0"
-StatsBase = "^0.32"
+StatsBase = "0.32 - 0.34"
 StrideArraysCore = "0.3, 0.4, 0.5"
 Test = "^1.0"
 julia = "^1.8"

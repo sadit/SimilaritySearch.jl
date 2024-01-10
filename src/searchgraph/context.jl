@@ -102,7 +102,7 @@ function SearchGraphContext(;
         neighborhood=Neighborhood(),
         hints_callback=DisjointHints(),
         hyperparameters_callback=OptimizeParameters(),
-        parallel_block=get_parallel_block(),
+        parallel_block=4Threads.nthreads(),
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
         starting_callback=8,

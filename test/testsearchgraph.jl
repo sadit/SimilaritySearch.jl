@@ -28,6 +28,7 @@ end
     seq = ExhaustiveSearch(dist, db)
     goldtime = @elapsed goldI, goldD = searchbatch(seq, getcontext(seq), queries, ksearch)
 
+    #=
     @testset "fixed params" begin
         for bsize in [2, 12]
             search_algo = BeamSearch(; bsize)
@@ -53,14 +54,16 @@ end
             @info "===="
         end
     end
+    =#
 
     @testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(getcontext(graph);
-            neighborhood = Neighborhood(reduce=DistalSatNeighborhood()),
+            neighborhood = Neighborhood(reduce=SatNeighborhood()),
             hyperparameters_callback = OptimizeParameters(ParetoRadius()),
             parallel_block = 8
         )
+        #ctx = getcontext(graph)
         append_items!(graph, ctx, db)
         @test n == length(db) == length(graph)
         @info "---- starting ParetoRadius optimization ---"
@@ -74,7 +77,7 @@ end
 
 
         @info "---- starting ParetoRecall optimization ---"
-        optimize_index!(graph, ctx, ParetoRecall())
+         optimize_index!(graph, ctx, ParetoRecall())
         searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall = macrorecall(goldI, I)

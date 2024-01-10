@@ -30,6 +30,7 @@ function append_items!(
     m = 0
 
     parallel_first_block = min(context.parallel_first_block, n)
+
     @inbounds while length(index) < parallel_first_block
         m += 1
         push_item!(index, context, db[m], false)
@@ -91,7 +92,7 @@ function _parallel_append_items_loop!(index::SearchGraph, context::SearchGraphCo
     adj = index.adj
     resize!(adj, n)
 
-    while sp < n
+    while sp <= n
         ep = min(n, sp + context.parallel_block)
 
         # searching neighbors 
