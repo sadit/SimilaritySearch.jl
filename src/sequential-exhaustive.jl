@@ -25,7 +25,7 @@ Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(di
 
 function push_item!(seq::ExhaustiveSearch, context::GenericContext, u)
     push_item!(seq.db, u)
-    context.logger !== nothing && LOG(context.logger, push_item!, index, length(seq))
+    context.logger !== nothing && LOG(context.logger, push_item!, seq, length(seq))
     seq
 end
 
@@ -33,7 +33,7 @@ function append_items!(seq::ExhaustiveSearch, context::GenericContext, u::Abstra
     sp = length(seq)
     append_items!(seq.db, u)
     ep = length(seq)
-    context.logger !== nothing && LOG(context.logger, append_items!, index, sp, ep, ep)
+    context.logger !== nothing && LOG(context.logger, append_items!, seq, sp, ep, ep)
     seq
 end
 

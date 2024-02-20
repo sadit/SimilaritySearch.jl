@@ -57,19 +57,19 @@ end
 
 function push_item!(ex::ParallelExhaustiveSearch, context::GenericContext, u)
     push_item!(ex.db, u)
-    context.logger !== nothing && LOG(context.logger, push_item!, index, length(seq))
+    context.logger !== nothing && LOG(context.logger, push_item!, ex, length(ex))
     ex
 end
 
 function append_items!(ex::ParallelExhaustiveSearch, context::GenericContext, u::AbstractDatabase)
-    sp = length(seq)
+    sp = length(ex)
     push_item!(ex.db, u)
-    ep = length(seq)
-    context.logger !== nothing && LOG(context.logger, append_items!, index, sp, ep, ep)
+    ep = length(ex)
+    context.logger !== nothing && LOG(context.logger, append_items!, ex, sp, ep, ep)
     ex
 end
 
-function index!(seq::ParallelExhaustiveSearch, ctx::AbstractContext)
+function index!(ex::ParallelExhaustiveSearch, ctx::AbstractContext)
     # do nothing
-    seq
+    ex
 end
