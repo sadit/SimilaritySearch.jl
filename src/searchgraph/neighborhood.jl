@@ -88,14 +88,13 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function sat_should_push(sat_neighborhood::T, index, item, id, dist, near::KnnResult) where T
-    @inbounds obj = index[id]
-    dfun = distance(index)
+function sat_should_push(sat_neighborhood::T, dfun::SemiMetric, db::AbstractDatabase, item, id, dist, near::KnnResult) where T
+    @inbounds obj = db[id]
     dist = dist < 0f0 ? evaluate(dfun, item, obj) : dist
     push_item!(near, zero(UInt32), dist)
 
     @inbounds for linkID in sat_neighborhood
-        d = evaluate(dfun, database(index, linkID), obj)
+        d = evaluate(dfun, db[linkID], obj)
         push_item!(near, linkID, d)
     end
 
@@ -113,10 +112,12 @@ Reduces `res` using the DistSAT strategy.
 """
 @inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
     push!(N, argmax(res))
+    dfun = distance(index)
+    db = database(index)
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = res[i]
-        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
+        sat_should_push(N, dfun, db, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
     end
 
     N
@@ -124,10 +125,12 @@ end
 
 @inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
     push!(N, argmin(res))
+    dfun = distance(index)
+    db = database(index)
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        sat_should_push(N, index, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
+        sat_should_push(N, dfun, db, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
     end
 
     N
