@@ -9,7 +9,7 @@ using Test, JET, SimilaritySearch
     X = MatrixDatabase(rand(Float32, 2, n))
 
     X1 = hsp_queries(dist, X, X, k)
-    X2 = hsp_queries(dist, X, X, k; hfactor=0.5f0)
+    X2 = hsp_queries(dist, X, X, k; hfactor=0.5)
 
     X1 = sort!(length.(X1))
     X2 = sort!(length.(X2))

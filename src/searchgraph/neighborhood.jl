@@ -61,13 +61,15 @@ function connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Inte
 end
 
 """
-    SatNeighborhood()
+    SatNeighborhood(hfactor::Float32=0f0)
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage.
 """
-struct SatNeighborhood <: NeighborhoodReduction end
-Base.copy(::SatNeighborhood) = SatNeighborhood()
+struct SatNeighborhood <: NeighborhoodReduction
+    hfactor::Float32
+    SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
+end
 
 """
     DistalSatNeighborhood()
@@ -75,8 +77,11 @@ Base.copy(::SatNeighborhood) = SatNeighborhood()
 New items are connected with a small set of items computed with a Distal SAT like scheme (**cite**).
 It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
 """
-struct DistalSatNeighborhood <: NeighborhoodReduction end
-Base.copy(::DistalSatNeighborhood) = DistalSatNeighborhood()
+struct DistalSatNeighborhood <: NeighborhoodReduction
+    hfactor::Float32
+    SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
+end
+
 
 """
     struct IdentityNeighborhood
@@ -97,30 +102,32 @@ end
 
 Reduces `res` using the DistSAT strategy.
 """
-@inline function neighborhoodreduce(::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
-    push!(N, argmax(res))
+@inline function neighborhoodreduce(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     dfun = distance(index)
     db = database(index)
+    hsp_neighborhood = getsatknnresult(length(res), context)
+    push_item!(hsp_neighborhood, argmax(res), maximum(res))
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = res[i]
-        hsp_should_push(N, dfun, db, item, p.id, p.weight, 0.25f0) && push!(N, p.id)
+        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, p.weight, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
     end
 
-    N
+    UInt32.(IdView(hsp_neighborhood))
 end
 
-@inline function neighborhoodreduce(::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res, N=UInt32[])
-    push!(N, argmin(res))
+@inline function neighborhoodreduce(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     dfun = distance(index)
     db = database(index)
+    hsp_neighborhood = getsatknnresult(length(res), context)
+    push_item!(hsp_neighborhood, argmin(res), minimum(res))
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        hsp_should_push(N, dfun, db, item, p.id, p.weight, 0.25f0) && push!(N, p.id)
+        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, p.weight, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
     end
 
-    N
+    UInt32.(IdView(hsp_neighborhood))
 end
 
 ## prunning neighborhood

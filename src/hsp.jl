@@ -43,9 +43,9 @@ end
 
 
 """
-    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns, dists; ctx = SearchGraphContext())
-    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext())
-    hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext())
+    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns, dists; <kwargs>)
+    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; <kwargs>)
+    hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; <kwargs>)
 
 
 Computes the half-space partition of the queries `Q` (possibly given as `knns`, `dists`)
@@ -55,7 +55,8 @@ Computes the half-space partition of the queries `Q` (possibly given as `knns`, 
 - `ctx::SearchGraphContext` search context (caches)
 - `hfactor::Float32` hyperbolic parameter, hfactor=0 means for hyperplane partitions
 """
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix, dists::AbstractMatrix; ctx = SearchGraphContext(), hfactor::Float32=0f0)
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix, dists::AbstractMatrix; ctx = SearchGraphContext(), hfactor=0f0)
+    hfactor = convert(Float32, hfactor)
     n = length(Q)
     hsp = Vector{KnnResult}(undef, n)
     Threads.@threads :static for i = 1:n
@@ -76,13 +77,13 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     hsp
 end
 
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor::Float32=0f0)
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor=0f0)
     idx = ExhaustiveSearch(; dist, db=X)
     knns, dists = searchbatch(idx, Q, k)
     hsp_queries(dist, X, Q, knns, dists; ctx, hfactor)
 end
 
-function hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor::Float32=0f0)
+function hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor=0f0)
     knns, dists = searchbatch(idx, ctx, Q, k)
     hsp_queries(distance(idx), database(idx), Q, knns, dists; ctx, hfactor)
 end

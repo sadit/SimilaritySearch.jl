@@ -13,6 +13,7 @@ export SearchGraphContext
         starting_callback=8
         knn::Vector{KnnResult} = [KnnResult(16) for _ in 1:Threads.nthreads()]
         beam::Vector{KnnResult} = [KnnResult(16) for _ in 1:Threads.nthreads()]
+        sat::Vector{KnnResult} = [KnnResult(16) for _ in 1:Threads.nthreads()]
         vstates::Vector = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()]
         minbatch::Int = 0
     )
@@ -28,6 +29,7 @@ export SearchGraphContext
         starting_callback=ctx.starting_callback,
         knn = ctx.knn,
         beam = ctx.beam,
+        sat = ctx.sat,
         vstates = ctx.vstates,
         minbatch = 0
     )
@@ -46,6 +48,7 @@ export SearchGraphContext
         parallel_first_block::Int32
         knn::Vector{KnnResult} 
         beam::Vector{KnnResult} 
+        sat::Vector{KnnResult} 
         vstates::Vector 
         minbatch::Int
     end
@@ -61,6 +64,7 @@ export SearchGraphContext
 - `parallel_first_block`: the size of the first block that is processed in parallel
 - `knn`: result cache
 - `beam`: beam cache
+- `sat`: sat's neighborhood result cache
 - `vstates`: visited vertices cache 
 - `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
 
@@ -88,6 +92,7 @@ struct SearchGraphContext <: AbstractContext
     parallel_first_block::Int32
     knn::Vector{KnnResult}
     beam::Vector{KnnResult}
+    sat::Vector{KnnResult}
     vstates::Vector{VisitedVerticesBits}
     minbatch::Int
 end
@@ -103,6 +108,7 @@ function SearchGraphContext(;
         starting_callback=8,
         knn = [KnnResult(16) for _ in 1:Threads.nthreads()],
         beam = [KnnResult(16) for _ in 1:Threads.nthreads()],
+        sat = [KnnResult(16) for _ in 1:Threads.nthreads()],
         vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
         minbatch = 0
     )
@@ -111,7 +117,7 @@ function SearchGraphContext(;
                        hints_callback, hyperparameters_callback,
                        logbase_callback, starting_callback,
                        parallel_block, parallel_first_block,
-                       knn, beam, vstates, minbatch)
+                       knn, beam, sat, vstates, minbatch)
 end
 
 function SearchGraphContext(ctx::SearchGraphContext;
@@ -125,6 +131,7 @@ function SearchGraphContext(ctx::SearchGraphContext;
         starting_callback=ctx.starting_callback,
         knn = ctx.knn,
         beam = ctx.beam,
+        sat = ctx.sat,
         vstates = ctx.vstates,
         minbatch = 0
     )
@@ -133,7 +140,7 @@ function SearchGraphContext(ctx::SearchGraphContext;
                        hints_callback, hyperparameters_callback,
                        logbase_callback, starting_callback,
                        parallel_block, parallel_first_block,
-                       knn, beam, vstates, minbatch)
+                       knn, beam, sat, vstates, minbatch)
 end
 
 # we use a static scheduler so,i.e., we use Polyester
@@ -143,5 +150,9 @@ end
 
 @inline function getbeam(bsize::Integer, context::SearchGraphContext)
     reuse!(context.beam[Threads.threadid()], bsize)
+end
+
+@inline function getsatknnresult(len, context::SearchGraphContext)
+    reuse!(context.sat[Threads.threadid()], len)
 end
 
