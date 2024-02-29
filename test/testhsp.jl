@@ -8,9 +8,13 @@ using Test, JET, SimilaritySearch
     n = 1000
     X = MatrixDatabase(rand(Float32, 2, n))
 
-    for h in hsp_queries(dist, X, X, k)
-        @info length(h) h
-    end
+    X1 = hsp_queries(dist, X, X, k)
+    X2 = hsp_queries(dist, X, X, k; hfactor=0.5f0)
+
+    X1 = sort!(length.(X1))
+    X2 = sort!(length.(X2))
+    @show X1[[1, n ÷ 4, n ÷ 2, round(Int, 0.75 * n), n]]
+    @show X2[[1, n ÷ 4, n ÷ 2, round(Int, 0.75 * n), n]]
 end
 
 

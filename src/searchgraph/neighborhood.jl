@@ -104,7 +104,7 @@ Reduces `res` using the DistSAT strategy.
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = res[i]
-        hsp_should_push(N, dfun, db, item, p.id, p.weight) && push!(N, p.id)
+        hsp_should_push(N, dfun, db, item, p.id, p.weight, 0.25f0) && push!(N, p.id)
     end
 
     N
@@ -117,7 +117,7 @@ end
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        hsp_should_push(N, dfun, db, item, p.id, p.weight) && push!(N, p.id)
+        hsp_should_push(N, dfun, db, item, p.id, p.weight, 0.25f0) && push!(N, p.id)
     end
 
     N

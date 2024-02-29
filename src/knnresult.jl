@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 # export AbstractResult
 export KnnResult, IdView, DistView
-export covradius, maxlength, reuse!
+export covradius, maxlength, reuse!, eachdist, eachid, eachiddist
 
 """
     KnnResult(ksearch::Integer)
@@ -134,6 +134,18 @@ end
 struct DistView
     res::KnnResult
 end
+
+eachid(res::KnnResult) = IdView(res)
+eachid(idlist::AbstractVector{T}) where {T<:Integer} = idlist
+eachid(idlist::AbstractVector{T}) where {T<:IdWeight} = (p.id for p in idlist)
+eachid(idlist::AbstractVector{T}) where {T<:Tuple} = (p[1] for p in idlist)
+eachdist(res::KnnResult) = DistView(res)
+eachdist(list::AbstractVector{T}) where {T<:Number} = list
+eachdist(list::AbstractVector{T}) where {T<:IdWeight} = (p.weight for p in list)
+eachdist(list::AbstractVector{T}) where {T<:Tuple} = (p[2] for p in list)
+eachiddist(res::KnnResult) = ((p.id, p.weight) for p in res)
+eachiddist(list::AbstractVector{T}) where {T<:IdWeight} = ((p.id, p.weight) for p in res)
+eachiddist(list::AbstractVector{T}) where {T<:Tuple} = ((p[1], p[2]) for p in list)
 
 @inline Base.getindex(v::IdView, i::Integer) = v.res[i].id
 @inline Base.getindex(v::DistView, i::Integer) = v.res[i].weight
