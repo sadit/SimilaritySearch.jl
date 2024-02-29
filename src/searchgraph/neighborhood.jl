@@ -88,19 +88,6 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function sat_should_push(sat_neighborhood::T, dfun::SemiMetric, db::AbstractDatabase, item, id, dist, near::KnnResult) where T
-    @inbounds obj = db[id]
-    dist = dist < 0f0 ? evaluate(dfun, item, obj) : dist
-    push_item!(near, zero(UInt32), dist)
-
-    @inbounds for linkID in sat_neighborhood
-        d = evaluate(dfun, db[linkID], obj)
-        push_item!(near, linkID, d)
-    end
-
-    argmin(near) == zero(Int32)
-end
-
 function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     [item.id for item in res]
 end
@@ -117,7 +104,7 @@ Reduces `res` using the DistSAT strategy.
 
     @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = res[i]
-        sat_should_push(N, dfun, db, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
+        hsp_should_push(N, dfun, db, item, p.id, p.weight) && push!(N, p.id)
     end
 
     N
@@ -130,7 +117,7 @@ end
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        sat_should_push(N, dfun, db, item, p.id, p.weight, getsatknnresult(context)) && push!(N, p.id)
+        hsp_should_push(N, dfun, db, item, p.id, p.weight) && push!(N, p.id)
     end
 
     N
