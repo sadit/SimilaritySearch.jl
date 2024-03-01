@@ -30,7 +30,6 @@ end
     @test sort(D.map) == sort(unique(D.nn)) 
 end
 
-
 @testset "neardup small block with filterblocks=false" begin
     dist = CosineDistance()
     X = rand(Float32, 4, 100)

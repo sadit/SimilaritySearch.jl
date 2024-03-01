@@ -110,3 +110,35 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KDis
         end
     end
 end
+
+"""
+    mutable struct EpsilonCentersHints
+
+Indicates that hints are a small set of objects having a minimal distance between them 
+"""
+mutable struct EpsilonCentersHints <: Callback
+    epsilon::Float32
+    samplesize::Function
+
+    EpsilonCentersHints(epsilon::Number, samplesize=sqrt) = new(convert(Float32, epsilon), samplesize)
+end
+
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonCentersHints)
+    n = length(index)
+    m = min(n, ceil(Int, opt.samplesize(n)))
+    s = rand(1:n, m) |> unique! |> sort!
+
+    sample = VectorDatabase(s)
+    out = VectorDatabase(UInt32[])
+    dist = DistanceWithIdentifiers(distance(index), database(index))
+    E = ExhaustiveSearch(; dist, db=out)
+    ϵ = opt.epsilon > 0.0 ? opt.epsilon : let
+        D = distsample(dist, sample; m)
+        quantile(D, abs(ϵ))
+    end
+
+    neardup(E, getcontext(E), sample, ϵ)
+    resize!(index.hints, length(out))
+    index.hints .= out.vecs
+end
+

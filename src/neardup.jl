@@ -2,9 +2,8 @@
 
 export neardup
 
-
 """
-    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, minbatch=0, filterblocks=true, verbose=true)
+    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), minbatch=0, filterblocks=true, verbose=true)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -20,7 +19,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 # Arguments
 - `idx`: An empty index (i.e., a `SearchGraph`)
 - `X`: The input dataset
-- `ϵ`: Real value to cut
+- `ϵ`: Real value to cut, if negative, then ϵ will be computed using the quantile value at 'abs(ϵ)' in a small sample of nearest neighbor distances; the quantile method should be used only for applications that need some vague approximations to `ϵ`
 
 # Keyword arguments
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
@@ -36,10 +35,12 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
    - `distance(idx::AbstractSearchIndex)`
    - `length(idx::AbstractSearchIndex)`
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
-- You can access the set of elements being 'ϵ'-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
+- You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
-function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
-        k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
+function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
+        k::Int=8, blocksize::Int=max(256, get_parallel_block()), filterblocks=true, minbatch::Int=0, verbose::Bool=true)
+
+    ϵ = convert(Float32, ϵ)
     n = length(X)
     blocksize = min(blocksize, n) 
     res = KnnResult(k)  # should be 1, but index's setups work better on larger `k` values
@@ -55,14 +56,14 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
     for r in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
             if verbose
-                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
             neardup_block!(idx, ctx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
         else
             empty!(imap)
             searchbatch(idx, ctx, X[r], knns, dists)
             if verbose
-                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, timestamp: $(Dates.now())"
+                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
 
             for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects

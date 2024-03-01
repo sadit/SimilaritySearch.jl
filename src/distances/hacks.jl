@@ -29,3 +29,15 @@ struct SimilarityFromDistance{Dist<:SemiMetric} <: SemiMetric
 end
 
 @inline evaluate(sim::SimilarityFromDistance, u, v) = 1 / (1 + evaluate(sim.dist, u, v))
+
+"""
+    DistanceWithIdentifiers(distance, database)
+
+Wraps the given database and distance with a proxy database that is accessed with integers from 1 to n
+"""
+struct DistanceWithIdentifiers{Dist<:SemiMetric,DB} <: SemiMetric
+    dist::Dist
+    db::DB
+end
+
+@inline evaluate(D::DistanceWithIdentifiers, i::Integer, j::Integer) = evaluate(D.dist, D.db[i], D.db[j])

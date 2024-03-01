@@ -16,6 +16,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext,
 include("distances/Distances.jl")
 
 include("db/db.jl")
+include("distsample.jl")
 include("adj.jl")
 include("log.jl")
 
