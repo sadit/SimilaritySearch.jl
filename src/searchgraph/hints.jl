@@ -133,8 +133,8 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
     dist = DistanceWithIdentifiers(distance(index), database(index))
     E = ExhaustiveSearch(; dist, db=out)
     ϵ = opt.epsilon > 0.0 ? opt.epsilon : let
-        D = distsample(dist, sample; m)
-        quantile(D, abs(ϵ))
+        D = distsample(dist, sample; samplesize=m)
+        quantile(D, abs(opt.epsilon))
     end
 
     neardup(E, getcontext(E), sample, ϵ)
