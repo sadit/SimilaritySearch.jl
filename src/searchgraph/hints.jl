@@ -112,18 +112,18 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KDis
 end
 
 """
-    mutable struct EpsilonCentersHints
+    mutable struct EpsilonHints
 
 Indicates that hints are a small set of objects having a minimal distance between them 
 """
-mutable struct EpsilonCentersHints <: Callback
+mutable struct EpsilonHints <: Callback
     epsilon::Float32
     samplesize::Function
 
-    EpsilonCentersHints(epsilon::Number, samplesize=sqrt) = new(convert(Float32, epsilon), samplesize)
+    EpsilonHints(epsilon::Number, samplesize=sqrt) = new(convert(Float32, epsilon), samplesize)
 end
 
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonCentersHints)
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
     n = length(index)
     m = min(n, ceil(Int, opt.samplesize(n)))
     s = rand(1:n, m) |> unique! |> sort!

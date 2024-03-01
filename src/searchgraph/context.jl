@@ -101,7 +101,7 @@ function SearchGraphContext(;
         logger=InformativeLog(),
         neighborhood=Neighborhood(),
         #hints_callback=DisjointHints(),
-        hints_callback=EpsilonCentersHints(0.01),
+        hints_callback=EpsilonHints(0.005),
         hyperparameters_callback=OptimizeParameters(),
         parallel_block=4Threads.nthreads(),
         parallel_first_block=parallel_block,
