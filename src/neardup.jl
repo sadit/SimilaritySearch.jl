@@ -38,12 +38,19 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
-function neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
-    out = VectorDatabase(UInt32[])
+function neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
     dist_ = DistanceWithIdentifiers(dist, X)
-    G = SearchGraph(; dist=dist_, db=out)
-    ctx = getcontext(G)
-    neardup(G, ctx, X, ϵ; kwargs...)
+    X_ = VectorDatabase(UInt32[])
+    if recall < 1.0
+        idx = SearchGraph(; dist=dist_, db=X_)
+        ctx = SearchGraphContext(getcontext(G);
+                          hyperparameters_callback=OptimizeParametes(MinRecall(recall)))
+    else
+        idx = ExhaustiveSearch(; dist=dist_, db=X_)
+        ctx = getcontext(idx)
+
+    end
+    neardup(idx, ctx, VectorDatabase(UnitRange{UInt32}(1, length(X))), ϵ; kwargs...)
 end
 
 function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
@@ -114,7 +121,7 @@ end
 - `minbatch` argument for the `@batch` macro (Polyester multithreading)
 - `filterblocks` if true it performs neardup in blocks
 """
-function neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
     if !filterblocks
         append_items!(idx, ctx, X[imap])
         for i in imap

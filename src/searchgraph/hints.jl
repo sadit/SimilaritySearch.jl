@@ -136,7 +136,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
     E = ExhaustiveSearch(; dist, db=out)
     ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
         D = distsample(dist, sample; samplesize=m)
-        quantile(D, opt.quantile)
+        max(0f0, quantile(D, opt.quantile))
     end
 
     neardup(E, getcontext(E), sample, ϵ)

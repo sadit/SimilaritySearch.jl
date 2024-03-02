@@ -43,3 +43,15 @@ end
     @test sum(D.dist) > 0
     @test sort(D.map) == sort(unique(D.nn)) 
 end
+
+@testset "neardup small block with filterblocks=false" begin
+    dist = CosineDistance()
+    X = MatrixDatabase(rand(Float32, 4, 100))
+    ϵ = 0.1
+    D = neardup(dist, X, ϵ; blocksize=16, filterblocks=true)
+    @show D.map D.nn D.dist
+    @test all(x -> x <= ϵ, D.dist)
+    @test sum(D.dist) > 0
+    @test sort(D.map) == sort(unique(D.nn)) 
+end
+
