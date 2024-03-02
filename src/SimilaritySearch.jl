@@ -63,6 +63,7 @@ Gets the i-th object from the indexed database
 @inline database(searchctx::AbstractSearchIndex, i) = database(searchctx)[i]
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = database(searchctx, i)
 
+
 """
     distance(index)
 
@@ -158,6 +159,7 @@ function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstra
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            #Threads.@threads :static for i in eachindex(Q)
             solve_single_query(index, ctx, Q, i, I_, D_)
         end
     end
@@ -228,8 +230,8 @@ function getminbatch(minbatch, n)
         # it seems to work for several workloads
         n <= 2nt && return 1
         n <= 4nt && return 2
-        n <= 8nt && return 4
-        return 8
+        #n <= 8nt && return 4
+        return 4
         # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
     else
         return ceil(Int, minbatch)
@@ -250,8 +252,8 @@ using PrecompileTools
 
 
 @setup_workload begin
-    X = rand(Float32, 2, 512)
-    Q = rand(Float32, 2, 16)
+    X = rand(Float32, 2, 256)
+    Q = rand(Float32, 2, 32)
     k = 8
     for c in eachcol(X) normalize!(c) end
     for c in eachcol(Q) normalize!(c) end
