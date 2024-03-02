@@ -135,6 +135,8 @@ end
     graph = SearchGraph(; db, dist)
     buildtime = @elapsed index!(graph, ctx)
     @test n == length(db) == length(graph)
+    @test_call search(graph, ctx, queries[1], KnnResult(1))
+    @test_call searchbatch(graph, ctx, queries, ksearch)
     searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     recall = macrorecall(goldI, I)

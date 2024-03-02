@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance, TurboNormalizedCosineDistance
+export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance, TurboNormalizedCosineDistance, TurboCosineDistance
 using LinearAlgebra
 import Distances: evaluate
 
@@ -56,10 +56,17 @@ struct NormalizedAngleDistance <: SemiMetric end
 """
     TurboNormalizedCosineDistance()
 
-The `@turbo`ed implementation of [`CosineDistance`](@ref),
+The `@turbo`ed implementation of [`NormalizedCosineDistance`](@ref),
 see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
 """
 struct TurboNormalizedCosineDistance <: SemiMetric end
+
+"""
+    TurboNormalizedCosineDistance()
+
+The `@turbo`ed implementation of [`CosineDistance`](@ref),
+"""
+struct TurboCosineDistance <: SemiMetric end
 
 
 const π_2 = π / 2
@@ -95,6 +102,23 @@ function evaluate(::TurboNormalizedCosineDistance, a, b)
     end
 
     one(T) - s
+end
+
+"""
+    evaluate(::TurboCosineDistance, a, b)
+
+
+Turbo'ed version of cosine distance
+"""
+function evaluate(::TurboCosineDistance, a, b)
+    T = typeof(a[1])
+    s = zero(T)
+
+    @turbo thread=1 unroll=4 for i in eachindex(a)
+        s = muladd(a[i], b[i], s)
+    end
+
+    one(T) - s / (norm(a) * norm(b))
 end
 
 

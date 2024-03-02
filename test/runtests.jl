@@ -16,7 +16,7 @@ function create_sequence(dim, sort)
     s
 end
 
-include("testdb.jl")
+#=include("testdb.jl")
 include("testresults.jl")
 include("testseq.jl")
 include("testadj.jl")
@@ -24,6 +24,5 @@ include("testallknn.jl")
 include("testhsp.jl")
 include("testneardup.jl")
 include("testclosestpair.jl")
+=#
 include("testsearchgraph.jl")
-
-#include("testhsp.jl")

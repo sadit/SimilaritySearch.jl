@@ -13,6 +13,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
 
+
 include("distances/Distances.jl")
 
 include("db/db.jl")
@@ -244,5 +245,35 @@ function __init__()
     DEFAULT_SEARCH_GRAPH_CONTEXT[] = SearchGraphContext()
 end
 
+
+using PrecompileTools
+
+
+@setup_workload begin
+    X = rand(Float32, 2, 1024)
+    Q = rand(Float32, 2, 32)
+    k = 8
+    for c in eachcol(X) normalize!(c) end
+    for c in eachcol(Q) normalize!(c) end
+    
+    @compile_workload begin
+        for (db, queries) in [(MatrixDatabase(X), MatrixDatabase(Q)),
+                              (StrideMatrixDatabase(X), StrideMatrixDatabase(Q))
+                             ]
+            for dist in [L1Distance(), L2Distance(), SqL2Distance(), CosineDistance(), NormalizedCosineDistance(), TurboL2Distance(), TurboSqL2Distance(), TurboCosineDistance(), TurboNormalizedCosineDistance()]
+                G = SearchGraph(; dist, db)  
+                E = ExhaustiveSearch(; dist, db)  
+                for idx in [G, E]
+                    ctx = getcontext(idx)
+                    index!(idx, ctx)
+                    knns, dists = searchbatch(idx, ctx, queries, k)
+                    knns, dists = allknn(idx, ctx, k)
+                    closestpair(idx, ctx)
+                    hsp_queries(idx, queries, k)
+                end 
+            end
+        end
+    end
+end
 
 end  # end SimilaritySearch module

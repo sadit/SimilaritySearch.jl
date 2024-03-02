@@ -4,6 +4,7 @@ export neardup
 
 """
     neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), minbatch=0, filterblocks=true, verbose=true)
+    neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -37,8 +38,16 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
+function neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
+    out = VectorDatabase(UInt32[])
+    dist_ = DistanceWithIdentifiers(dist, X)
+    G = SearchGraph(; dist=dist_, db=out)
+    ctx = getcontext(G)
+    neardup(G, ctx, X, ϵ; kwargs...)
+end
+
 function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
-        k::Int=8, blocksize::Int=max(256, get_parallel_block()), filterblocks=true, minbatch::Int=0, verbose::Bool=true)
+        k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
 
     ϵ = convert(Float32, ϵ)
     n = length(X)
