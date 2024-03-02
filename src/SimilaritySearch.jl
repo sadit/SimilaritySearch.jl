@@ -250,8 +250,8 @@ using PrecompileTools
 
 
 @setup_workload begin
-    X = rand(Float32, 2, 1024)
-    Q = rand(Float32, 2, 32)
+    X = rand(Float32, 2, 512)
+    Q = rand(Float32, 2, 16)
     k = 8
     for c in eachcol(X) normalize!(c) end
     for c in eachcol(Q) normalize!(c) end
@@ -267,8 +267,9 @@ using PrecompileTools
                     ctx = getcontext(idx)
                     index!(idx, ctx)
                     knns, dists = searchbatch(idx, ctx, queries, k)
-                    knns, dists = allknn(idx, ctx, k)
-                    closestpair(idx, ctx)
+
+                    #knns, dists = allknn(idx, ctx, k)
+                    #closestpair(idx, ctx)
                     hsp_queries(idx, queries, k)
                 end 
             end

@@ -99,9 +99,9 @@ end
 
 function SearchGraphContext(;
         logger=InformativeLog(),
-        neighborhood=Neighborhood(),
+        neighborhood=Neighborhood(SatNeighborhood(0f0)),
         #hints_callback=DisjointHints(),
-        hints_callback=EpsilonHints(-0.02),
+        hints_callback=EpsilonHints(quantile=1/64),
         hyperparameters_callback=OptimizeParameters(),
         parallel_block=4Threads.nthreads(),
         parallel_first_block=parallel_block,

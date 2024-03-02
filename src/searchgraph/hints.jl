@@ -118,9 +118,11 @@ Indicates that hints are a small set of objects having a minimal distance betwee
 """
 mutable struct EpsilonHints <: Callback
     epsilon::Float32
+    quantile::Float32
     samplesize::Function
 
-    EpsilonHints(epsilon::Number, samplesize=sqrt) = new(convert(Float32, epsilon), samplesize)
+    EpsilonHints(epsilon::Number; quantile=0f0, samplesize=sqrt) = new(convert(Float32, epsilon), convert(Float32, quantile), samplesize)
+    EpsilonHints(; quantile=0.01, epsilon=0f0, samplesize=sqrt) = new(convert(Float32, epsilon), convert(Float32, quantile), samplesize)
 end
 
 function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
@@ -132,9 +134,9 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
     out = VectorDatabase(UInt32[])
     dist = DistanceWithIdentifiers(distance(index), database(index))
     E = ExhaustiveSearch(; dist, db=out)
-    ϵ = opt.epsilon > 0.0 ? opt.epsilon : let
+    ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
         D = distsample(dist, sample; samplesize=m)
-        quantile(D, abs(opt.epsilon))
+        quantile(D, opt.quantile)
     end
 
     neardup(E, getcontext(E), sample, ϵ)

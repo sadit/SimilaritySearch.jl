@@ -90,6 +90,9 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
             end
         end 
     end
+    if verbose
+        @info "neardup> finished current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
+    end
 
     (idx=idx, map=M, nn=L, dist=D)
 end
