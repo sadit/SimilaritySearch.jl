@@ -252,8 +252,8 @@ using PrecompileTools
 
 
 @setup_workload begin
-    X = rand(Float32, 2, 256)
-    Q = rand(Float32, 2, 32)
+    X = rand(Float32, 2, 64)
+    Q = rand(Float32, 2, 8)
     k = 8
     for c in eachcol(X) normalize!(c) end
     for c in eachcol(Q) normalize!(c) end

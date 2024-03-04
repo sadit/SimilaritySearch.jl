@@ -5,7 +5,7 @@ export index!, push_item!
 export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood
 export find_neighborhood
 export BeamSearch, BeamSearchSpace, Callback
-export KDisjointHints, DisjointHints, RandomHints
+export KDisjointHints, DisjointHints, RandomHints, EpsilonHints
 export RandomPruning, KeepNearestPruning, SatPruning, prune!
 
 """

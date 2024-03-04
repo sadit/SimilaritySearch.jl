@@ -29,11 +29,6 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Rand
     end
 end
 
-function callback__(opt::RandomHints, index)
-    empty!(index.hints)
-    push!(index.hints, 1)
-end
-
 """
     mutable struct DisjointHints
 
