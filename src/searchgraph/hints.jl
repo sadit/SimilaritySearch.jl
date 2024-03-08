@@ -113,12 +113,18 @@ Indicates that hints are a small set of objects having a minimal distance betwee
 """
 mutable struct EpsilonHints <: Callback
     epsilon::Float32
+    minepsilon::Float32
     quantile::Float32
     samplesize::Function
+    maxsize::Function
 
-    EpsilonHints(epsilon::Number; quantile=0f0, samplesize=sqrt) = new(convert(Float32, epsilon), convert(Float32, quantile), samplesize)
-    EpsilonHints(; quantile=0.01, epsilon=0f0, samplesize=sqrt) = new(convert(Float32, epsilon), convert(Float32, quantile), samplesize)
 end
+EpsilonHints(; quantile=0.01, epsilon=0f0, minepsilon=1e-5, samplesize=sqrt, maxsize=x->log(1.1, x)) =
+    EpsilonHints(convert(Float32, epsilon),
+                 convert(Float32, minepsilon), 
+                 convert(Float32, quantile),
+                 samplesize,
+                 maxsize)
 
 function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
     n = length(index)
@@ -131,11 +137,18 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
     E = ExhaustiveSearch(; dist, db=out)
     ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
         D = distsample(dist, sample; samplesize=m)
-        max(0f0, quantile(D, opt.quantile))
+        max(opt.minepsilon, quantile(D, opt.quantile))
     end
 
     neardup(E, getcontext(E), sample, ϵ)
-    resize!(index.hints, length(out))
-    index.hints .= out.vecs
+    v = out.vecs # internals of VectorDatabase
+    max_ = ceil(Int, opt.maxsize(n))
+    if length(v) > max_
+        shuffle!(v)
+        resize!(v, max_)
+    end
+    
+    resize!(index.hints, length(v))
+    index.hints .= v
 end
 
