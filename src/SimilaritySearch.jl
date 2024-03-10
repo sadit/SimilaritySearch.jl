@@ -94,6 +94,7 @@ include("deprecated.jl")
 
 include("allknn.jl")
 include("neardup.jl")
+include("fft.jl")
 include("closestpair.jl")
 include("hsp.jl")
 
