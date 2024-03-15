@@ -100,7 +100,8 @@ end
 function SearchGraphContext(;
         logger=InformativeLog(),
         neighborhood=Neighborhood(SatNeighborhood(0f0)),
-        hints_callback=DisjointHints(),
+        #hints_callback=DisjointHints(),
+        hints_callback=KCentersHints(kfun=x->log(1.2, x)),
         #hints_callback=EpsilonHints(quantile=1/64),
         hyperparameters_callback=OptimizeParameters(),
         parallel_block=4Threads.nthreads(),

@@ -26,10 +26,10 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; verbose=true)
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)
     
-    @inbounds for i in 1:N
+    @inbounds for i in 1:k
         push!(dmaxlist, dmax)
         push!(centers, imax)
-        verbose && println(stderr, "computing fartest point $(length(centers)), dmax: $dmax, imax: $imax, n: $(length(X))")
+        verbose && println(stderr, "computing farthest point $(length(centers)), dmax: $dmax, imax: $imax, n: $(length(X))")
 
         pivot = X[imax]
         @batch minbatch=getminbatch(0, N) for i in 1:N
@@ -41,7 +41,6 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; verbose=true)
         end
 
         dmax, imax = findmax(nndists)
-        length(dmaxlist) < k || break
     end
 
     (; centers, nn, dists=nndists, dmax)

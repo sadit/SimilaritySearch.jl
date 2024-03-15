@@ -152,3 +152,28 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
     index.hints .= v
 end
 
+"""
+    mutable struct KCentersHints
+
+Indicates that hints are a small set of objects having a minimal distance between them 
+"""
+mutable struct KCentersHints <: Callback
+    samplesize::Function
+    kfun::Function
+end
+
+KCentersHints(; samplesize=sqrt, kfun=n->log(1.15)) = KCentersHints(samplesize, kfun)
+
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
+    n = length(index)
+    m = min(n, ceil(Int, opt.samplesize(n)))
+    s = rand(1:n, m) |> unique! |> sort!
+    k = min(ceil(Int, opt.kfun(n)), m-1)
+
+    D = SubDatabase(database(index), s)
+    A = fft(distance(index), D, k)
+    @show n, m, k, length(A.centers)
+    resize!(index.hints, k)
+    index.hints .= D.map[A.centers]
+end
+

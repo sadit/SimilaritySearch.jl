@@ -248,7 +248,6 @@ function __init__()
     DEFAULT_SEARCH_GRAPH_CONTEXT[] = SearchGraphContext()
 end
 
-
 using PrecompileTools
 
 
@@ -279,5 +278,4 @@ using PrecompileTools
         end
     end
 end
-
 end  # end SimilaritySearch module
