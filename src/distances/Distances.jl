@@ -9,4 +9,7 @@
     include("cos.jl")
     include("cloud.jl")
     include("hacks.jl")
+    @static if VERSION < v"1.11"
+        include("turboed.jl")
+    end
 #end

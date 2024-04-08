@@ -2,9 +2,12 @@
 using SimilaritySearch, LinearAlgebra
 #using JET
 
-using Aqua
-Aqua.test_all(SimilaritySearch, ambiguities=false)
-Aqua.test_ambiguities([SimilaritySearch])
+
+if VERSION == v"1.10"
+    using Aqua
+    Aqua.test_all(SimilaritySearch, ambiguities=false)
+    Aqua.test_ambiguities([SimilaritySearch])
+end
 
 function create_sequence(dim, sort)
     s = rand(1:10, dim)

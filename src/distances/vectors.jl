@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 using LoopVectorization
-export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance,
-    TurboL1Distance, TurboL2Distance, TurboSqL2Distance
+export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance
 import Distances: evaluate
 
 """
@@ -17,14 +16,6 @@ L_1(u, v) = \\sum_i{|u_i - v_i|}
 struct L1Distance <: SemiMetric end
 
 """
-    TurboL1Distance()
-
-The `@turbo`ed implementation of [`L1Distance`](@ref),
-see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
-"""
-struct TurboL1Distance <: SemiMetric end
-
-"""
     L2Distance()
 
 The euclidean distance or ``L_2`` is defined as
@@ -34,14 +25,6 @@ L_2(u, v) = \\sqrt{\\sum_i{(u_i - v_i)^2}}
 ```
 """
 struct L2Distance <: SemiMetric end
-
-"""
-    TurboL2Distance()
-
-The `@turbo`ed implementation of [`L2Distance`](@ref),
-see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
-"""
-struct TurboL2Distance <: SemiMetric end
 
 """
     SqL2Distance()
@@ -56,14 +39,6 @@ It avoids the computation of the square root and should be used
 whenever you are able do it.
 """
 struct SqL2Distance <: SemiMetric end
-
-"""
-    TurboSqL2Distance()
-
-The `@turbo`ed implementation of [`SqL2Distance`](@ref),
-see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
-"""
-struct TurboSqL2Distance <: SemiMetric end
 
 """
     LInftyDistance()
@@ -115,22 +90,6 @@ function evaluate(::L1Distance, a, b)
 end
 
 """
-    evaluate(::TurboL1Distance, a, b)
-
-Computes the Manhattan's distance between `a` and `b`. `@turbo` version
-"""
-function evaluate(::TurboL1Distance, a, b)
-    d = zero(eltype(a))
-
-    @turbo thread=1 unroll=4 for i in eachindex(a, b)
-	    m = a[i] - b[i]
-        d += abs(m)
-    end
-
-    d
-end
-
-"""
     evaluate(::L2Distance, a, b)
     
 Computes the Euclidean's distance betweem `a` and `b`
@@ -146,22 +105,6 @@ function evaluate(::L2Distance, a, b)
 end
 
 """
-    evaluate(::TurboL2Distance, a, b)
-
-Computes the Euclidean's distance betweem `a` and `b`
-"""
-function evaluate(::TurboL2Distance, a, b)
-    d = zero(eltype(a))
-
-    @turbo thread=1 unroll=4 for i in eachindex(a)
-        m = a[i] - b[i]
-        d = muladd(m, m, d)
-    end
-
-    sqrt(d)
-end
-
-"""
     evaluate(::SqL2Distance, a, b)
 
 Computes the squared Euclidean's distance between `a` and `b`
@@ -171,22 +114,6 @@ function evaluate(::SqL2Distance, a, b)
 
     @inbounds @simd for i in eachindex(a)
         d += (a[i] - b[i])^2
-    end
-
-    d
-end
-
-"""
-    evaluate(::TurboSqL2Distance, a, b)
-
-Computes the squared Euclidean's distance between `a` and `b`
-"""
-function evaluate(::TurboSqL2Distance, a, b)
-    d = zero(eltype(a))
-
-    @turbo thread=1 unroll=4 for i in eachindex(a)
-        @inbounds m = a[i] - b[i]
-        d = muladd(m, m, d)
     end
 
     d

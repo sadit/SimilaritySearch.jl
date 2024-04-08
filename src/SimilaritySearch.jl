@@ -248,9 +248,8 @@ function __init__()
     DEFAULT_SEARCH_GRAPH_CONTEXT[] = SearchGraphContext()
 end
 
+#=
 using PrecompileTools
-
-
 @setup_workload begin
     X = rand(Float32, 2, 64)
     Q = rand(Float32, 2, 8)
@@ -278,4 +277,5 @@ using PrecompileTools
         end
     end
 end
+=#
 end  # end SimilaritySearch module

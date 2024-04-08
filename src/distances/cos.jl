@@ -53,21 +53,6 @@ Similar to [`AngleDistance`](@ref) but suppose that input vectors are already no
 struct NormalizedAngleDistance <: SemiMetric end
 
 
-"""
-    TurboNormalizedCosineDistance()
-
-The `@turbo`ed implementation of [`NormalizedCosineDistance`](@ref),
-see [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl).
-"""
-struct TurboNormalizedCosineDistance <: SemiMetric end
-
-"""
-    TurboNormalizedCosineDistance()
-
-The `@turbo`ed implementation of [`CosineDistance`](@ref),
-"""
-struct TurboCosineDistance <: SemiMetric end
-
 
 const π_2 = π / 2
 
@@ -85,41 +70,12 @@ end
 
 """
     evaluate(::NormalizedCosineDistance, a, b)
-    evaluate(::TurboNormalizedCosineDistance, a, b)
 
 Computes the cosine distance between two vectors, it expects normalized vectors.
 Please use NormalizedAngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
 evaluate(::NormalizedCosineDistance, a::T, b) where T = one(eltype(T)) - dot(a, b)
-
-function evaluate(::TurboNormalizedCosineDistance, a, b)
-    T = typeof(a[1])
-    s = zero(T)
-
-    @turbo thread=1 unroll=4 for i in eachindex(a)
-        s = muladd(a[i], b[i], s)
-    end
-
-    one(T) - s
-end
-
-"""
-    evaluate(::TurboCosineDistance, a, b)
-
-
-Turbo'ed version of cosine distance
-"""
-function evaluate(::TurboCosineDistance, a, b)
-    T = typeof(a[1])
-    s = zero(T)
-
-    @turbo thread=1 unroll=4 for i in eachindex(a)
-        s = muladd(a[i], b[i], s)
-    end
-
-    one(T) - s / (norm(a) * norm(b))
-end
 
 
 """
