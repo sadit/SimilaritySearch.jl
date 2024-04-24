@@ -43,17 +43,24 @@ function neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kw
     X_ = VectorDatabase(UInt32[])
     if recall < 1.0
         idx = SearchGraph(; dist=dist_, db=X_)
-        ctx = SearchGraphContext(getcontext(G);
-                          hyperparameters_callback=OptimizeParametes(MinRecall(recall)))
+        hyperparameters_callback = OptimizeParametes(MinRecall(recall))
+        ctx = SearchGraphContext(getcontext(G); hyperparameters_callback)
     else
         idx = ExhaustiveSearch(; dist=dist_, db=X_)
         ctx = getcontext(idx)
-
     end
-    neardup(idx, ctx, VectorDatabase(UnitRange{UInt32}(1, length(X))), ϵ; kwargs...)
+
+    R = neardup_(idx, ctx, VectorDatabase(UnitRange{UInt32}(1, length(X))), ϵ; kwargs...)
+    (; R..., centers=X_.vecs)
 end
 
-function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
+function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; kwargs...)
+    R = neardup_(idx, ctx, X, ϵ; kwargs...)
+    centers = sort!(unique(R.nn))
+    (; R..., centers)
+end
+
+function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
         k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
 
     ϵ = convert(Float32, ϵ)
@@ -138,7 +145,6 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     i = first(imap)
     push!(tmp, i)
     push!(M, i)
-    # push_item!(idx, X[i])
     L[i] = i
     D[i] = 0f0
 
@@ -167,7 +173,6 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         if d > ϵ
             push!(tmp, i)
             push!(M, i)
-            #push_item!(idx, u)
             L[i] = i
             D[i] = 0f0
         else
