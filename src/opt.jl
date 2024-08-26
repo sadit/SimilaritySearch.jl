@@ -3,11 +3,15 @@
 using SearchModels, Random
 using StatsBase
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize_index!, MinRecall, ParetoRecall, ParetoRadius
+export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius
 
 abstract type ErrorFunction end
 @with_kw struct MinRecall <: ErrorFunction
-    minrecall = 0.9
+    minrecall::Float32 = 0.9f0
+end
+
+@with_kw struct OptRadius <: ErrorFunction
+    tol::Float32 = 0.1
 end
 
 struct ParetoRecall <: ErrorFunction end
@@ -33,6 +37,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         vmin .= typemax(eltype(vmin))
         vmax .= typemin(eltype(vmax))
         vacc .= 0.0
+        empty!(cov)
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
@@ -44,13 +49,22 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
             end
         end
 
+        searchtime /= m
+
         for i in eachindex(knnlist)
             res = knnlist[i]
-            cov[i] = covradius(res)
+            if length(res) == maxlength(res)
+                push!(cov, maximum(res))
+            end
         end
+        @assert length(cov) > 2 "Too few queries fetched k near neighbors"
 
-        rmin, rmax = extrema(cov)
-        ravg = mean(cov)
+        radius = let (rmin, rmax) = extrema(cov)
+            while length(cov) < length(knnlist) # appending maximum radius to increment the mean
+                push!(cov, rmax)  ## not so efficient but I hope that this not happens a lot
+            end
+            (min=rmin, mean=mean(cov), max=rmax)
+        end
 
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
@@ -63,13 +77,9 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
             nothing
         end
 
-        verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index))")
-        (;
-            visited=(minimum(vmin), sum(vacc)/m, maximum(vmax)),
-            radius=(rmin, ravg, rmax),
-            recall=recall,
-            searchtime=searchtime/m
-        )
+        visited = (min=minimum(vmin), mean=sum(vacc)/m, max=maximum(vmax))
+        verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime per query, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
+        (; visited, radius, recall, searchtime)
     end
 end
 
@@ -158,13 +168,13 @@ function optimize_index!(
         gold = [Set(item.id for item in res) for res in knnlist]
     end
 
-    M = Ref(0.0)
-    R = Ref(0.0)
-    function inspect_pop(space, params, population)
+    M = Ref(0.0) # max cost
+    R = Ref(0.0) # radius
+    function inspect_population(space, params, population)
         if M[] == 0.0
             for (c, p) in population
-                M[] = max(p.visited[end], M[])
-                R[] = max(p.radius[end], R[])
+                M[] = max(p.visited.max, M[])
+                R[] = max(p.radius.max, R[])
             end
         end
     end
@@ -172,13 +182,17 @@ function optimize_index!(
     errorfun = create_error_function(index, context, gold, knnlist, queries, ksearch, verbose)
 
     function geterr(p)
-        cost = p.visited[2] / M[]
+        cost = p.visited.mean / M[]
         if kind isa ParetoRecall 
             cost^2 + (1.0 - p.recall)^2
+        elseif kind isa ParetoRadius
+            _kfun(cost) + _kfun(p.radius.mean / R[])
         elseif kind isa MinRecall
             p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
-        else
-            _kfun(cost) + _kfun(p.radius[2] / R[])
+        elseif kind isa OptRadius
+            round(p.radius.mean / (R[] * kind.tol), digits=0)
+        else  
+            error("unknown optimization goal $kind")
         end
     end
     
@@ -187,8 +201,8 @@ function optimize_index!(
         space, 
         initialpopulation,
         params;
-        inspect_population=inspect_pop,
-        geterr=geterr)
+        inspect_population,
+        geterr)
     
     config, perf = bestlist[1]
     verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")

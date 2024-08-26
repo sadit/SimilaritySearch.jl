@@ -44,8 +44,15 @@ end
 Internal function to connect reverse links after an insertion
 """
 function connect_reverse_links(adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
+    p = 1f0
+    q = 0.8f0
     @inbounds for id in neighbors
-        add_edge!(adj, id, n)
+        if rand(Float32) < p
+            add_edge!(adj, id, n)
+            p = p*q
+            #p = max(p*q, 0.25)
+            p < 0.01 && break
+        end
     end
 end
 

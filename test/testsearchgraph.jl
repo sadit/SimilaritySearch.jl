@@ -60,7 +60,7 @@ end
         graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(getcontext(graph);
             neighborhood = Neighborhood(reduce=SatNeighborhood()),
-            hyperparameters_callback = OptimizeParameters(ParetoRadius()),
+            hyperparameters_callback = OptimizeParameters(OptRadius()),
             parallel_block = 8
         )
         #ctx = getcontext(graph)
@@ -73,8 +73,7 @@ end
         recall = macrorecall(goldI, I)
         @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
         @info graph.search_algo
-        @test recall >= 0.3  # we don't expect high quality results on ParetoRadius
-
+        @test recall >= 0.6  # we don't expect high quality results on ParetoRadius
 
         @info "---- starting ParetoRecall optimization ---"
          optimize_index!(graph, ctx, ParetoRecall())
@@ -133,10 +132,16 @@ end
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, ctx, queries, ksearch)
     graph = SearchGraph(; db, dist)
+    ctx = SearchGraphContext(getcontext(graph);
+        neighborhood = Neighborhood(reduce=SatNeighborhood(), logbase=2.0),
+        hyperparameters_callback = OptimizeParameters(OptRadius(0.001)),
+        parallel_block = 16
+    )
     buildtime = @elapsed index!(graph, ctx)
     @test n == length(db) == length(graph)
     @test_call search(graph, ctx, queries[1], KnnResult(1))
     @test_call searchbatch(graph, ctx, queries, ksearch)
+    optimize_index!(graph, ctx, MinRecall(0.8))
     searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     recall = macrorecall(goldI, I)
