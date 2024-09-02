@@ -27,16 +27,17 @@ function rebuild(g::SearchGraph, context::SearchGraphContext)
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
-    rebuild_connect_reverse_links!(direct, reverse, g.adj.locks, 1, length(g), minbatch)
+    rebuild_connect_reverse_links!(context.neighborhood, direct, reverse, g.adj.locks, 1, length(g), minbatch)
     G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), search_algo=copy(g.search_algo))
     execute_callbacks(G, context, force=true)
     G
 end
 
-function rebuild_connect_reverse_links!(direct, reverse, locks, sp, ep, minbatch)
+function rebuild_connect_reverse_links!(N, direct, reverse, locks, sp, ep, minbatch)
     @batch minbatch=minbatch per=thread for i in sp:ep
         j = 0
         D = direct[i]
+        p = 1f0
         @inbounds while j < length(D)
             j += 1
             id = D[j]
@@ -47,11 +48,14 @@ function rebuild_connect_reverse_links!(direct, reverse, locks, sp, ep, minbatch
                 continue
             end
 
-            lock(locks[id])
-            try
-                push!(reverse[id], i)
-            finally
-                unlock(locks[id])
+            if rand(Float32) < p
+                lock(locks[id])
+                try
+                    push!(reverse[id], i)
+                finally
+                    unlock(locks[id])
+                end
+                p *= N.connect_reverse_links_factor
             end
         end
     end

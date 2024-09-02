@@ -94,15 +94,13 @@ function _parallel_append_items_loop!(index::SearchGraph, context::SearchGraphCo
 
     while sp <= n
         ep = min(n, sp + context.parallel_block)
-
         # searching neighbors 
 	      @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
-            # parallel_block values are pretty small, better to use @threads directly instead of @batch
             @inbounds adj.end_point[i] = find_neighborhood(index, context, database(index, i))
         end
 
         # connecting neighbors
-        connect_reverse_links(index.adj, sp, ep)
+        connect_reverse_links(context.neighborhood, index.adj, sp, ep)
         index.len[] = ep
 
         # apply callbacks
@@ -170,7 +168,7 @@ Arguments:
     add_vertex!(index.adj, neighbors)
     n = index.len[] = length(index.adj)
     if n > 1 
-        connect_reverse_links(index.adj, n, neighbors)
+        connect_reverse_links(context.neighborhood, index.adj, n, neighbors)
         execute_callbacks(index, context)
     end
     

@@ -2,14 +2,26 @@
 
 
 """
-    Neighborhood(reduce::NeighborhoodReduction; logbase=2, minsize=2)
+    Neighborhood(filter::NeighborhoodFilter;
+        logbase=2,
+        minsize=2, 
+        connect_reverse_links_factor=0.8,
+        connect_reverse_links_min_factor=0.01)
 
 Convenience constructor, see Neighborhood struct.
 """
-Neighborhood(reduce::NeighborhoodReduction; logbase=2, minsize=2) = Neighborhood(; logbase, minsize, reduce)
+function Neighborhood(filter::NeighborhoodFilter;
+    logbase=2,
+    minsize=2,
+    connect_reverse_links_factor=0.8)
+    Neighborhood(; logbase, minsize, connect_reverse_links_factor, filter)
+end
 
-Base.copy(N::Neighborhood; logbase=N.logbase, minsize=N.minsize, reduce=copy(N.reduce)) =
-    Neighborhood(; logbase, minsize, reduce)
+Base.copy(N::Neighborhood;
+        logbase=N.logbase, minsize=N.minsize,
+        connect_reverse_links_factor=N.connect_reverse_links_factor,
+        filter=copy(N.filter)
+    ) = Neighborhood(; logbase, minsize, connect_reverse_links_factor, filter)
 
 neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
 
@@ -17,7 +29,7 @@ neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + lo
     find_neighborhood(index::SearchGraph{T}, context, item; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
-`res` is always reused since `reduce` creates a new KnnResult from it (a copy if `reduce` in its simpler terms)
+`res` is always reused since `filter` creates a new KnnResult from it (a copy if `filter` in its simpler terms)
 
 # Arguments
 - `index`: The search index.
@@ -32,38 +44,35 @@ function find_neighborhood(index::SearchGraph, context::SearchGraphContext, item
         ksearch = neighborhoodsize(neighborhood, index)
         res = getknnresult(ksearch, context)
         search(index.search_algo, index, context, item, res, hints)
-        neighborhoodreduce(neighborhood.reduce, index, context, item, res)
+        neighborhoodfilter(neighborhood.filter, index, context, item, res)
     else
         UInt32[]
     end
 end
 
 """
-    connect_reverse_links(adj::abstractadjacencylist, n::integer, neighbors::abstractvector)
+    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, n::integer, neighbors::abstractvector)
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
+function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
     p = 1f0
-    q = 0.8f0
     @inbounds for id in neighbors
         if rand(Float32) < p
             add_edge!(adj, id, n)
-            p = p*q
-            #p = max(p*q, 0.25)
-            p < 0.01 && break
+            p *= neighborhood.connect_reverse_links_factor
         end
     end
 end
 
 """
-    connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
+    connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
 
 Internal function to connect reverse links after an insertion batch
 """
-function connect_reverse_links(adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
+function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
     @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
-        connect_reverse_links(adj, i, neighbors(adj, i))
+        connect_reverse_links(neighborhood, adj, i, neighbors(adj, i))
     end
 end
 
@@ -71,9 +80,9 @@ end
     SatNeighborhood(hfactor::Float32=0f0)
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
-It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage.
+It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
 """
-struct SatNeighborhood <: NeighborhoodReduction
+struct SatNeighborhood <: NeighborhoodFilter
     hfactor::Float32
     SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
 end
@@ -82,9 +91,9 @@ end
     DistalSatNeighborhood()
 
 New items are connected with a small set of items computed with a Distal SAT like scheme (**cite**).
-It starts with `k` near items that are reduced to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
+It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
 """
-struct DistalSatNeighborhood <: NeighborhoodReduction
+struct DistalSatNeighborhood <: NeighborhoodFilter
     hfactor::Float32
     SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
 end
@@ -95,21 +104,21 @@ end
 
 It does not modifies the given neighborhood
 """
-struct IdentityNeighborhood <: NeighborhoodReduction end
+struct IdentityNeighborhood <: NeighborhoodFilter end
 Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function neighborhoodreduce(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
+function neighborhoodfilter(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     [item.id for item in res]
 end
 
 """
-    reduce(sat::DistalSatNeighborhood, index::SearchGraph, item, res, context)
+    filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, context)
 
-Reduces `res` using the DistSAT strategy.
+filters `res` using the DistSAT strategy.
 """
-@inline function neighborhoodreduce(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
+@inline function neighborhoodfilter(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     dfun = distance(index)
     db = database(index)
     hsp_neighborhood = getsatknnresult(length(res), context)
@@ -123,7 +132,7 @@ Reduces `res` using the DistSAT strategy.
     UInt32.(IdView(hsp_neighborhood))
 end
 
-@inline function neighborhoodreduce(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
+@inline function neighborhoodfilter(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     dfun = distance(index)
     db = database(index)
     hsp_neighborhood = getsatknnresult(length(res), context)
@@ -243,7 +252,7 @@ function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
             end
            
             empty!(L)
-            neighborhoodreduce(r.kind, index, context, c, res, L)
+            neighborhoodfilter(r.kind, index, context, c, res, L)
         end
     end
 end

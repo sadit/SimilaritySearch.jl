@@ -35,7 +35,7 @@ end
             @info "=================== $search_algo"
             graph = SearchGraph(; db=DynamicMatrixDatabase(Float32, dim), dist, search_algo=search_algo)
             ctx = SearchGraphContext(
-                neighborhood = Neighborhood(reduce=IdentityNeighborhood()),
+                neighborhood = Neighborhood(filter=IdentityNeighborhood()),
                 hyperparameters_callback = OptimizeParameters(ParetoRecall()),
                 parallel_block = 8
             )
@@ -59,7 +59,7 @@ end
     @testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, search_algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(getcontext(graph);
-            neighborhood = Neighborhood(reduce=SatNeighborhood()),
+            neighborhood = Neighborhood(filter=SatNeighborhood()),
             hyperparameters_callback = OptimizeParameters(OptRadius()),
             parallel_block = 8
         )
@@ -88,7 +88,7 @@ end
     @info "========================= AutoBS MinRecall ======================"
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(getcontext(graph);
-        neighborhood = Neighborhood(reduce=SatNeighborhood()),
+        neighborhood = Neighborhood(filter=SatNeighborhood()),
         hyperparameters_callback = OptimizeParameters(MinRecall(0.9)),
         parallel_block = 16
     )
@@ -132,20 +132,21 @@ end
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, ctx, queries, ksearch)
     graph = SearchGraph(; db, dist)
-    ctx = SearchGraphContext(getcontext(graph);
-        neighborhood = Neighborhood(reduce=SatNeighborhood(), logbase=2.0),
-        hyperparameters_callback = OptimizeParameters(OptRadius(0.001)),
+    ctx = SearchGraphContext(
+        getcontext(graph);
+        neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=2, connect_reverse_links_factor=0.8f0),
+        hyperparameters_callback = OptimizeParameters(OptRadius(0.01)),
         parallel_block = 16
     )
     buildtime = @elapsed index!(graph, ctx)
     @test n == length(db) == length(graph)
     @test_call search(graph, ctx, queries[1], KnnResult(1))
     @test_call searchbatch(graph, ctx, queries, ksearch)
-    optimize_index!(graph, ctx, MinRecall(0.8))
+    optimize_index!(graph, ctx, MinRecall(0.9))
     searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     recall = macrorecall(goldI, I)
-    @info "buildtime", buildtime
+    @info "buildtime: $buildtime, memory: $(Base.summarysize(graph.adj))"
     @info "testing without additional optimizations> queries per second (including compilation): ", m/searchtime, ", searchtime2 (already compiled):", m/searchtime2, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7

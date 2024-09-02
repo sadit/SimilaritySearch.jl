@@ -95,7 +95,6 @@ end
 
 Base.eltype(adj::AdjacencyList{EndPointType}) where EndPointType = Vector{EndPointType}
 
-
 function AdjacencyList(lists::Vector{Vector{EndPointType}}) where EndPointType
     locks = [Threads.SpinLock() for _ in 1:length(lists)]
     AdjacencyList{EndPointType}(lists, EndPointType[], locks, Threads.SpinLock())
@@ -160,7 +159,7 @@ Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointT
     adj
 end
 
-initial_adjacency_list_size(adj::AdjacencyList) = 16
+initial_adjacency_list_size(adj::AdjacencyList) = 8
 
 Base.@propagate_inbounds @inline function add_edges!(adj::AdjacencyList{EndPointType}, i::Integer, neighbors::Vector{EndPointType}) where EndPointType
     i == 0 && return adj

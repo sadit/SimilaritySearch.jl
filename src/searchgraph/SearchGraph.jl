@@ -27,29 +27,30 @@ A SearchGraph object controls when callbacks are fired using `callback_logbase` 
 abstract type Callback end
 
 """
-    abstract type NeighborhoodReduction end
+    abstract type NeighborhoodFilter end
     
 Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood`
 """
-abstract type NeighborhoodReduction end
+abstract type NeighborhoodFilter end
 
 """
-    Neighborhood(; logbase=2, minsize=2, reduce=SatNeighborhood())
+    Neighborhood(; logbase=2, minsize=2, filter=SatNeighborhood())
     
 Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
 The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.
 - The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
 for \$out\$  elements in the current index.
 - The \$in\$ size is unbounded.
-- reduce is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the reduced result set.
+- filter is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the filterd result set.
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
 """
-@with_kw struct Neighborhood{Reduction<:NeighborhoodReduction}
+@with_kw struct Neighborhood{Reduction<:NeighborhoodFilter}
     logbase::Float32 = 2
     minsize::Int32 = 2
-    reduce::Reduction = SatNeighborhood()
+    connect_reverse_links_factor::Float32 = 0.8f0
+    filter::Reduction = SatNeighborhood()
 end
 
 ########################### SearchGraphContext
