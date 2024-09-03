@@ -134,7 +134,7 @@ end
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
         getcontext(graph);
-        neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=2, connect_reverse_links_factor=0.8f0),
+        neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=2, connect_reverse_links_factor=0f0),
         hyperparameters_callback = OptimizeParameters(OptRadius(0.01)),
         parallel_block = 16
     )
@@ -146,7 +146,8 @@ end
     searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     recall = macrorecall(goldI, I)
-    @info "buildtime: $buildtime, memory: $(Base.summarysize(graph.adj))"
+    mem = sum(map(length, graph.adj.end_point)) * sizeof(eltype(graph.adj.end_point[1])) / 2^20 # adj mem
+    @info "buildtime: $buildtime sec, memory: $(mem)MB"
     @info "testing without additional optimizations> queries per second (including compilation): ", m/searchtime, ", searchtime2 (already compiled):", m/searchtime2, ", recall: ", recall
     @info graph.search_algo
     @test recall >= 0.7
