@@ -57,7 +57,9 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
                 push!(cov, maximum(res))
             end
         end
-        @assert length(cov) > 2 "Too few queries fetched k near neighbors"
+        if length(cov) <= 3 
+            throw(ArgumentError("Too few queries fetched k near neighbors; please ignore this conf $conf"))
+        end
 
         radius = let (rmin, rmax) = extrema(cov)
             while length(cov) < length(knnlist) # appending maximum radius to increment the mean
