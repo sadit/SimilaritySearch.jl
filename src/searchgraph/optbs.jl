@@ -11,7 +11,7 @@ Define search space for beam search autotuning
     bsize = 8:8:64
     Δ = [0.8, 0.9, 1.0, 1.1]                  # this really depends on the dataset, be careful
     bsize_scale = (s=1.5, p1=0.8, p2=0.8, lower=2, upper=512)  # all these are reasonably values
-    Δ_scale = (s=1.07, p1=0.8, p2=0.8, lower=0.6, upper=2.0)  # that should work in most datasets
+    Δ_scale = (s=1.07, p1=0.3333, p2=0.8, lower=0.6, upper=2.0)  # that should work in most datasets
 end
 
 Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
