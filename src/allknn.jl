@@ -99,7 +99,7 @@ function allknn_single_search(g::SearchGraph, context::SearchGraphContext, i::In
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        cost += search(g.search_algo, g, context, q, res, h; vstate).cost
+        cost += search(g.algo, g, context, q, res, h; vstate).cost
         # length(res) == k && break
     end
 
@@ -115,7 +115,7 @@ function allknn_single_search(g::SearchGraph, context::SearchGraphContext, i::In
         for _ in 1:k
             h = rand(1:length(g))
             visited(vstate, convert(UInt64, h)) && continue
-            search(g.search_algo, g, q, res, h, pools; vstate)
+            search(g.algo, g, q, res, h, pools; vstate)
             length(res) == k && break
         end
     end=#

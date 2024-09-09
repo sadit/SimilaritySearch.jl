@@ -1,4 +1,44 @@
 # This file is a part of SimilaritySearch.jl
+#
+"""
+    approx_by_hints(index::SearchGraph, q, hints, res::KnnResult, vstate)
+
+Approximate the result using a set of hints (the set of identifiers (integers)) behints  `hints`
+"""
+function approx_by_hints(index::SearchGraph, q, hints::T, res::KnnResult, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
+    visited = 0
+    for objID in hints
+        obj = database(index, objID)
+        visited += enqueue_item!(index, q, obj, res, objID, vstate)
+    end
+
+    visited
+end
+
+struct AdjacentStoredHints{DB<:AbstractDatabase}
+    hints::DB
+    map::Vector{Int32}
+
+end
+
+function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where DBType<:AbstractDatabase
+    h = Vector{Int32}(index.hints)
+    s = SubDatabase(database(index), h)
+    hints = AdjacentStoredHints(DBType(s), h)
+    copy(index; hints)
+end
+
+
+
+function approx_by_hints(index::SearchGraph, q, h::AdjacentStoredHints, res::KnnResult, vstate)
+    visited = 0
+    for (i, objID) in enumerate(h.map)
+        obj = h.hints[i]
+        visited += enqueue_item!(index, q, obj, res, objID, vstate)
+    end
+
+    visited
+end
 
 """
     mutable struct RandomHints
@@ -117,8 +157,8 @@ mutable struct EpsilonHints <: Callback
     quantile::Float32
     samplesize::Function
     maxsize::Function
-
 end
+
 EpsilonHints(; quantile=0.01, epsilon=0f0, minepsilon=1e-5, samplesize=sqrt, maxsize=x->log(1.1, x)) =
     EpsilonHints(convert(Float32, epsilon),
                  convert(Float32, minepsilon), 

@@ -57,9 +57,8 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
                 push!(cov, maximum(res))
             end
         end
-        if length(cov) <= 3 
-            throw(ArgumentError("Too few queries fetched k near neighbors; please ignore this conf $conf"))
-        end
+
+        length(cov) <= 3 && throw(InvalidSetupError(conf, "Too few queries fetched k near neighbors"))
 
         radius = let (rmin, rmax) = extrema(cov)
             while length(cov) < length(knnlist) # appending maximum radius to increment the mean
@@ -205,10 +204,14 @@ function optimize_index!(
         params;
         inspect_population,
         geterr)
-    
-    config, perf = bestlist[1]
-    verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
-    setconfig!(config, index, perf)
-        bestlist
+   
+    if length(bestlist) == 0
+        verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
+    else
+        config, perf = bestlist[1]
+        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
+        setconfig!(config, index, perf)
+    end
+    bestlist
 end
 

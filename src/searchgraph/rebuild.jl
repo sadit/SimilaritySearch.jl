@@ -28,7 +28,7 @@ function rebuild(g::SearchGraph, context::SearchGraphContext)
     end
 
     rebuild_connect_reverse_links!(context.neighborhood, direct, reverse, g.adj.locks, 1, length(g), minbatch)
-    G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), search_algo=copy(g.search_algo))
+    G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), algo=copy(g.algo))
     execute_callbacks(G, context, force=true)
     G
 end

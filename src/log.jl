@@ -19,6 +19,6 @@ end
 
 function LOG(logger::InformativeLog, ::typeof(push_item!), index::AbstractSearchIndex, n::Integer)
     if rand() < logger.push_prob
-        println(stderr, "push_item n=$(length(index)), $(string(index.search_algo)), $(Dates.now())")
+        println(stderr, "push_item n=$(length(index)), $(string(index.algo)), $(Dates.now())")
     end
 end

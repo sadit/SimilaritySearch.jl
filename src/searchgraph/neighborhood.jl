@@ -43,7 +43,7 @@ function find_neighborhood(index::SearchGraph, context::SearchGraphContext, item
         neighborhood = context.neighborhood
         ksearch = neighborhoodsize(neighborhood, index)
         res = getknnresult(ksearch, context)
-        search(index.search_algo, index, context, item, res, hints)
+        search(index.algo, index, context, item, res, hints)
         neighborhoodfilter(neighborhood.filter, index, context, item, res)
     else
         UInt32[]

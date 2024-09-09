@@ -32,7 +32,7 @@ function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer)
     res = getknnresult(8, ctx)
     vstate = getvstate(length(G), ctx)
     visit!(vstate, convert(UInt64, i))
-    search(G.search_algo, G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
+    search(G.algo, G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
     argmin(res) == i ? res[2] : res[1]
 end
 

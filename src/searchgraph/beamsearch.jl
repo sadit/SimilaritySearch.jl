@@ -22,25 +22,15 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 
 ### local search algorithm
 
-@inline function beamsearch_queue(index::SearchGraph, q, res::KnnResult, objID, vstate)
-    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
-    @inbounds push_item!(res, objID, evaluate(distance(index), q, database(index, objID)))
-    1
-end
-
 function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
-    visited_ = 0
-
-    for objID in hints
-        visited_ += beamsearch_queue(index, q, res, objID, vstate)
-    end
+    visited_ = approx_by_hints(index, q, hints, res, vstate)
     
     if length(res) == 0
         _range = 1:length(index)
         for _ in 1:bsize
            objID = rand(_range)
-           visited_ += beamsearch_queue(index, q, res, objID, vstate)
-       end
+           visited_ += enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+        end
     end
 
     visited_
