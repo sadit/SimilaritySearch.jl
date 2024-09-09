@@ -10,8 +10,8 @@ Define search space for beam search autotuning
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 8:8:64
     Δ = [0.8, 0.9, 1.0, 1.1]                  # this really depends on the dataset, be careful
-    bsize_scale = (s=1.5, p1=0.8, p2=0.8, lower=2, upper=512)  # all these are reasonably values
-    Δ_scale = (s=1.07, p1=0.3333, p2=0.8, lower=0.6, upper=2.0)  # that should work in most datasets
+    bsize_scale = (s=1.5, p1=0.8, p2=0.75, lower=2, upper=512)  # all these are reasonably values
+    Δ_scale = (s=1.05, p1=0.3333, p2=0.75, lower=0.5, upper=1.99)  # that should work in most datasets
 end
 
 Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
@@ -21,7 +21,7 @@ Base.rand(space::BeamSearchSpace) = BeamSearch(bsize=rand(space.bsize), Δ=rand(
 
 function combine(a::BeamSearch, b::BeamSearch)
     bsize = ceil(Int, (a.bsize + b.bsize) / 2)
-    Δ = (a.Δ + b.Δ) / 2
+    Δ = round((a.Δ + b.Δ) / 2, digits=2)
     BeamSearch(; bsize, Δ)
 end
 
