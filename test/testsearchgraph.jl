@@ -136,7 +136,9 @@ end
     ctx = SearchGraphContext(
         getcontext(graph);
         neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=1.5, connect_reverse_links_factor=0.8f0),
+        # neighborhood = Neighborhood(filter=IdentityNeighborhood(), logbase=1.5, connect_reverse_links_factor=0.8f0),
         hyperparameters_callback = OptimizeParameters(OptRadius(0.03)),
+        #hyperparameters_callback = OptimizeParameters(MinRecall(0.99)),
         parallel_block = 16
     )
     buildtime = @elapsed index!(graph, ctx)

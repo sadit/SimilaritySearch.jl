@@ -58,7 +58,9 @@ Internal function to connect reverse links after an insertion
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
     p = 1f0
     @inbounds for id in neighbors
-        if rand(Float32) < p
+        # nlen = neighbors_length(adj, id)
+        if rand(Float32) < p # || nlen < 16
+            #(p > 0.99 || nlen < 64)
             add_edge!(adj, id, n)
             p *= neighborhood.connect_reverse_links_factor
         end
