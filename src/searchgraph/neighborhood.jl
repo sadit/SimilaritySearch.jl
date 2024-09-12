@@ -95,7 +95,7 @@ It starts with `k` near items that are filterd to a small neighborhood due to th
 """
 struct DistalSatNeighborhood <: NeighborhoodFilter
     hfactor::Float32
-    SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
+    DistalSatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
 end
 
 
