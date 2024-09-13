@@ -1,5 +1,4 @@
-
-using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random
+using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
 using Test, JET
 
 #
@@ -127,7 +126,7 @@ end
 
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
     dim = 4 
-    # n = 10^6
+    n = 10^6
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
@@ -156,8 +155,10 @@ end
     searchtime5 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
     mem = sum(map(length, graph.adj.end_point)) * sizeof(eltype(graph.adj.end_point[1])) / 2^20 # adj mem
     @info "buildtime: $buildtime sec, memory: $(mem)MB, recall: $recall, recall with AdjacentStoredHints: $recall_"
-    @info "A>queries per second (including compilation): $(m/searchtime), searchtime (already compiled): $(m/searchtime2)"
-    @info "B>queries per second (including compilation): $(m/searchtime3), searchtime (already compiled): $(m/searchtime5)"
+    @info "A> QpS: $(m/searchtime), QpS (already compiled): $(m/searchtime2)"
+    @info "B> QpS: $(m/searchtime3), QpS (already compiled): $(m/searchtime5)"
+    N = [neighbors_length(graph.adj, i) for i in eachindex(graph.adj)]
+    @info quantile(N, [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99, 1.0])
     @info graph.algo
     @test recall >= 0.7
 end

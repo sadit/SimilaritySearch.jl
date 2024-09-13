@@ -9,7 +9,7 @@ function hsp_should_push(hsp_neighborhood::Vector{T}, dfun::SemiMetric, db::Abst
         @inbounds for hsp_objID in hsp_neighborhood
             hsp_obj = db[hsp_objID]
             d = evaluate(dfun, tested_point, hsp_obj)
-            d < dist_between_point_and_center && return false
+            d <= dist_between_point_and_center && return false
         end
     else
         @inbounds for hsp_objID in hsp_neighborhood
@@ -28,7 +28,7 @@ function hsp_should_push(hsp_neighborhood::Union{KnnResult,Vector{IdWeight}}, df
         @inbounds for hsp_objID in eachid(hsp_neighborhood)
             hsp_obj = db[hsp_objID]
             d = evaluate(dfun, tested_point, hsp_obj)
-            d < dist_between_point_and_center && return false
+            d <= dist_between_point_and_center && return false
         end
     else
         @inbounds for (hsp_objID, dist_between_hsp_obj_and_center) in eachiddist(hsp_neighborhood)
