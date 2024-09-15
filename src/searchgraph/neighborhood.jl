@@ -1,6 +1,5 @@
 # This file is a part of SimilaritySearch.jl
 
-
 """
     Neighborhood(filter::NeighborhoodFilter;
         logbase=2,
@@ -56,14 +55,14 @@ end
 Internal function to connect reverse links after an insertion
 """
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
-    p = 1f0
-    maxnlen = log(neighborhood.logbase, n) 
+    #p = 1f0
+    #maxnlen = log(neighborhood.logbase, n) 
     @inbounds for id in neighbors
-        nlen = neighbors_length(adj, id)
-        #if nlen < 2maxnlen # rand(Float32) < p # || nlen < 16
+        #nlen = neighbors_length(adj, id)
+        #if rand(Float32) < p # nlen < 300 # || nlen < 16
             #(p > 0.99 || nlen < 64)
             add_edge!(adj, id, n)
-            #p *= neighborhood.connect_reverse_links_factor
+        #    p *= neighborhood.connect_reverse_links_factor
         #end
     end
 end
@@ -143,8 +142,7 @@ end
 
     @inbounds for i in 2:length(res)
         p = res[i]
-        d = p.weight # + (0.0001f0 * rand(Float32)) ## the SAT/HSP works fine when there is no duplicates
-        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, d, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
+        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, p.weight, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
     end
 
     UInt32.(IdView(hsp_neighborhood))

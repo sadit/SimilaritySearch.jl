@@ -23,7 +23,8 @@ function rebuild(g::SearchGraph, context::SearchGraphContext)
     minbatch = context.minbatch < 0 ? n : getminbatch(context.minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds direct[i] = find_neighborhood(g, context, database(g, i), hints=first(neighbors(g.adj, i)))
+        @inbounds direct[i] = find_neighborhood(g, context, database(g, i); hints=first(neighbors(g.adj, i))) 
+        # @info length(direct[i]) neighbors_length(g.adj, i) 
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
@@ -37,7 +38,7 @@ function rebuild_connect_reverse_links!(N, direct, reverse, locks, sp, ep, minba
     @batch minbatch=minbatch per=thread for i in sp:ep
         j = 0
         D = direct[i]
-        p = 1f0
+        # p = 1f0
         @inbounds while j < length(D)
             j += 1
             id = D[j]
@@ -48,15 +49,15 @@ function rebuild_connect_reverse_links!(N, direct, reverse, locks, sp, ep, minba
                 continue
             end
 
-            if rand(Float32) < p
+            #if rand(Float32) < p
                 lock(locks[id])
                 try
                     push!(reverse[id], i)
                 finally
                     unlock(locks[id])
                 end
-                p *= N.connect_reverse_links_factor
-            end
+            #    p *= N.connect_reverse_links_factor
+            #end
         end
     end
 

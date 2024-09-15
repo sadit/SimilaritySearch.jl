@@ -6,6 +6,7 @@ using Test, JET
 #
 
 function run_graph(G, queries, ksearch, Igold)
+    @info typeof(G)
     ctx = getcontext(G)
     searchtime = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
     @test_call searchbatch(G, ctx, queries, ksearch)
@@ -105,6 +106,7 @@ end
         graph = rebuild(graph, ctx)
         @test n == length(db) == length(graph)
         optimize_index!(graph, ctx, MinRecall(0.9); queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
+        @info graph.algo, length(queries), ksearch
         searchtime_ = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall_ = macrorecall(goldI, I)
@@ -126,7 +128,7 @@ end
 
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
     dim = 4 
-    n = 10^6
+    n = 10^5
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)

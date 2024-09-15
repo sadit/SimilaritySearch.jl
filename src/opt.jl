@@ -80,9 +80,11 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
 
         visited = (min=minimum(vmin), mean=sum(vacc)/m, max=maximum(vmax))
         verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime per query, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
-        (; visited, radius, recall, searchtime)
+        (; visited, radius, recall, searchtime, conf)
     end
 end
+
+regularization(c, space::AbstractSolutionSpace) = 0.0
 
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
@@ -191,7 +193,9 @@ function optimize_index!(
         elseif kind isa MinRecall
             p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
         elseif kind isa OptRadius
-            round(p.radius.mean / (R[] * kind.tol), digits=0)
+            r = p.radius.mean / R[]
+            round(r / kind.tol, digits=0) #+ regularization(p.conf, space)
+            #2r + cost^2 # regularization(p.conf, space)
         else  
             error("unknown optimization goal $kind")
         end

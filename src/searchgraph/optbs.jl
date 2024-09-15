@@ -14,6 +14,10 @@ Define search space for beam search autotuning
     Δ_scale = (s=1.05, p1=0.75, p2=0.75, lower=0.5, upper=1.99)  # that should work in most datasets
 end
 
+function regularization(c::BeamSearch, s::BeamSearchSpace)
+    (c.bsize / s.bsize_scale.upper)^2 + c.Δ^2
+end
+
 Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
 Base.isequal(a::BeamSearch, b::BeamSearch) = a.bsize == b.bsize && a.Δ == b.Δ && a.maxvisits == b.maxvisits
 Base.eltype(::BeamSearchSpace) = BeamSearch

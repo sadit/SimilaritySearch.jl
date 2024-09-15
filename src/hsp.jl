@@ -8,14 +8,14 @@ function hsp_should_push(hsp_neighborhood::Vector{T}, dfun::SemiMetric, db::Abst
     if hfactor <= eps(Float32)
         @inbounds for hsp_objID in hsp_neighborhood
             hsp_obj = db[hsp_objID]
-            d = evaluate(dfun, tested_point, hsp_obj)
+            d = evaluate(dfun, tested_point, hsp_obj) + rand(Float32) * 1f-4  # work around for d(u,v)=0, the hsp has issues with equivalent elements 
             d <= dist_between_point_and_center && return false
         end
     else
         @inbounds for hsp_objID in hsp_neighborhood
             hsp_obj = db[hsp_objID]
-            d = evaluate(dfun, tested_point, hsp_obj)
-            d - dist_between_point_and_center < hfactor * evaluate(dfun, center, hsp_obj) && return false
+            d = evaluate(dfun, tested_point, hsp_obj) + rand(Float32) * 1f-4
+            d - dist_between_point_and_center <= hfactor * evaluate(dfun, center, hsp_obj) && return false
         end
     end
 
@@ -27,14 +27,14 @@ function hsp_should_push(hsp_neighborhood::Union{KnnResult,Vector{IdWeight}}, df
     if hfactor <= eps(Float32)
         @inbounds for hsp_objID in eachid(hsp_neighborhood)
             hsp_obj = db[hsp_objID]
-            d = evaluate(dfun, tested_point, hsp_obj)
+            d = evaluate(dfun, tested_point, hsp_obj) + rand(Float32) * 1f-4
             d <= dist_between_point_and_center && return false
         end
     else
         @inbounds for (hsp_objID, dist_between_hsp_obj_and_center) in eachiddist(hsp_neighborhood)
             hsp_obj = db[hsp_objID]
-            d = evaluate(dfun, tested_point, hsp_obj)
-            d - dist_between_point_and_center < hfactor * dist_between_hsp_obj_and_center && return false
+            d = evaluate(dfun, tested_point, hsp_obj) + rand(Float32) * 1f-4
+            d - dist_between_point_and_center <= hfactor * dist_between_hsp_obj_and_center && return false
         end
     end
 
