@@ -46,11 +46,10 @@ for \$out\$  elements in the current index.
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
 """
-@with_kw struct Neighborhood{Reduction<:NeighborhoodFilter}
+@with_kw struct Neighborhood{NFILTER<:NeighborhoodFilter}
     logbase::Float32 = 2
     minsize::Int32 = 2
-    connect_reverse_links_factor::Float32 = 0.8f0
-    filter::Reduction = SatNeighborhood()
+    filter::NFILTER = SatNeighborhood()
 end
 
 ########################### SearchGraphContext

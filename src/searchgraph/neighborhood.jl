@@ -3,67 +3,62 @@
 """
     Neighborhood(filter::NeighborhoodFilter;
         logbase=2,
-        minsize=2, 
-        connect_reverse_links_factor=0.8,
-        connect_reverse_links_min_factor=0.01)
+        minsize=2)
 
 Convenience constructor, see Neighborhood struct.
 """
 function Neighborhood(filter::NeighborhoodFilter;
     logbase=2,
-    minsize=2,
-    connect_reverse_links_factor=0.8)
-    Neighborhood(; logbase, minsize, connect_reverse_links_factor, filter)
+    minsize=2)
+    Neighborhood(; logbase, minsize, filter)
 end
 
 Base.copy(N::Neighborhood;
         logbase=N.logbase, minsize=N.minsize,
-        connect_reverse_links_factor=N.connect_reverse_links_factor,
         filter=copy(N.filter)
-    ) = Neighborhood(; logbase, minsize, connect_reverse_links_factor, filter)
+    ) = Neighborhood(; logbase, minsize, filter)
 
-neighborhoodsize(N::Neighborhood, index::SearchGraph) = ceil(Int, N.minsize + log(N.logbase, length(index)))
+function neighborhoodsize(N::Neighborhood, index::SearchGraph)::Int
+    n = length(index)
+    n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
+end
 
 """
-    find_neighborhood(index::SearchGraph{T}, context, item; hints=index.hints)
+    find_neighborhood(copy_, index::SearchGraph{T}, context, item; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
-`res` is always reused since `filter` creates a new KnnResult from it (a copy if `filter` in its simpler terms)
+The `copy_` function forces to control how the returned KnnResult object is handled because it uses a cache result set from
+the given context. 
 
 # Arguments
+- `copy_`: A copying function, it controls what is retrieved by the function.
 - `index`: The search index.
 - `item`: The item to be inserted.
 - `context`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, context::SearchGraphContext, item; hints=index.hints)
-    n = length(index)
-    if n > 0
-        neighborhood = context.neighborhood
-        ksearch = neighborhoodsize(neighborhood, index)
-        res = getknnresult(ksearch, context)
+function find_neighborhood(copy_::Function, index::SearchGraph, context::SearchGraphContext, item; hints=index.hints)
+    neighborhood = context.neighborhood
+    ksearch = neighborhoodsize(neighborhood, index)
+    res = getknnresult(ksearch, context)
+    if ksearch > 0
         search(index.algo, index, context, item, res, hints)
-        neighborhoodfilter(neighborhood.filter, index, context, item, res)
-    else
-        UInt32[]
+        res = neighborhoodfilter(neighborhood.filter, index, context, item, res)
     end
+
+    copy_(res)
 end
 
 """
-    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, n::integer, neighbors::abstractvector)
+    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, n::integer, neighbors::KnnResult)
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors::AbstractVector)
-    #p = 1f0
+function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors)
     #maxnlen = log(neighborhood.logbase, n) 
     @inbounds for id in neighbors
         #nlen = neighbors_length(adj, id)
-        #if rand(Float32) < p # nlen < 300 # || nlen < 16
-            #(p > 0.99 || nlen < 64)
-            add_edge!(adj, id, n)
-        #    p *= neighborhood.connect_reverse_links_factor
-        #end
+        add_edge!(adj, id, n)
     end
 end
 
@@ -79,15 +74,17 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
 end
 
 """
-    SatNeighborhood(hfactor::Float32=0f0)
+    SatNeighborhood(hfactor::Float32=0f0, nndist::Float32=1f-4)
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
 """
 struct SatNeighborhood <: NeighborhoodFilter
     hfactor::Float32
-    SatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
+    nndist::Float32
 end
+
+SatNeighborhood(; hfactor::AbstractFloat=0f0, nndist::AbstractFloat=1f-4) = SatNeighborhood(convert(Float32, hfactor), convert(Float32, nndist)) 
 
 """
     DistalSatNeighborhood()
@@ -97,9 +94,10 @@ It starts with `k` near items that are filterd to a small neighborhood due to th
 """
 struct DistalSatNeighborhood <: NeighborhoodFilter
     hfactor::Float32
-    DistalSatNeighborhood(h::AbstractFloat=0.0) = new(convert(Float32, h)) 
+    nndist::Float32
 end
 
+DistalSatNeighborhood(; hfactor::AbstractFloat=0f0, nndist::AbstractFloat=1f-4) = DistalSatNeighborhood(convert(Float32, hfactor), convert(Float32, nndist)) 
 
 """
     struct IdentityNeighborhood
@@ -112,7 +110,7 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 ## functions
 
 function neighborhoodfilter(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
-    [item.id for item in res]
+    res
 end
 
 """
@@ -124,32 +122,18 @@ filters `res` using the DistSAT strategy.
     dfun = distance(index)
     db = database(index)
     hsp_neighborhood = getsatknnresult(length(res), context)
-    push_item!(hsp_neighborhood, argmax(res), maximum(res))
-
-    @inbounds for i in length(res)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
-        p = res[i]
-        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, p.weight, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
-    end
-
-    UInt32.(IdView(hsp_neighborhood))
+    hsp_distal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
+    hsp_neighborhood
 end
 
 @inline function neighborhoodfilter(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
-    dfun = distance(index)
-    db = database(index)
     hsp_neighborhood = getsatknnresult(length(res), context)
-    push_item!(hsp_neighborhood, argmin(res), minimum(res))
-
-    @inbounds for i in 2:length(res)
-        p = res[i]
-        hsp_should_push(hsp_neighborhood, dfun, db, item, p.id, p.weight, sat.hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
-    end
-
-    UInt32.(IdView(hsp_neighborhood))
+    hsp_proximal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
+    hsp_neighborhood
 end
 
 ## prunning neighborhood
-
+#=
 
 """
     NeighborhoodPruning
@@ -259,3 +243,4 @@ function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
     end
 end
 
+=#

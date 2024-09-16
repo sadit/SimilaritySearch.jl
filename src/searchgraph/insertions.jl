@@ -96,7 +96,7 @@ function _parallel_append_items_loop!(index::SearchGraph, context::SearchGraphCo
         ep = min(n, sp + context.parallel_block)
         # searching neighbors 
 	      @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
-            @inbounds adj.end_point[i] = find_neighborhood(index, context, database(index, i))
+            @inbounds adj.end_point[i] = find_neighborhood(identity, index, context, database(index, i)) |> IdView |> collect 
         end
 
         # connecting neighbors
@@ -164,11 +164,11 @@ Arguments:
     push_db::Bool
 )
     push_db && push_item!(index.db, item)
-    neighbors = find_neighborhood(index, context, item)
-    add_vertex!(index.adj, neighbors)
+    neighbors = find_neighborhood(identity, index, context, item)
+    add_vertex!(index.adj, collect(IdView(neighbors)))
     n = index.len[] = length(index.adj)
     if n > 1 
-        connect_reverse_links(context.neighborhood, index.adj, n, neighbors)
+        connect_reverse_links(context.neighborhood, index.adj, n, IdView(neighbors))
         execute_callbacks(index, context)
     end
     

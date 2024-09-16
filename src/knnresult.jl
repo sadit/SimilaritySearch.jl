@@ -16,7 +16,7 @@ struct KnnResult
 end
 
 function KnnResult(k::Integer)
-    @assert k > 0
+    # @assert k > 0
     res = KnnResult(Vector{IdWeight}(undef, 0), k)
     sizehint!(res.items, k)
     res
@@ -98,7 +98,7 @@ The maximum allowed cardinality (the k of knn)
 Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::KnnResult, k::Integer=res.k)
-    @assert k > 0
+    # @assert k > 0
     empty!(res.items)
     if k > res.k
         sizehint!(res.items, k)

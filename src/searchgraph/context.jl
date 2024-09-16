@@ -99,7 +99,7 @@ end
 
 function SearchGraphContext(;
         logger=InformativeLog(),
-        neighborhood=Neighborhood(SatNeighborhood(0f0)),
+        neighborhood=Neighborhood(SatNeighborhood(; hfactor=0f0, nndist=1f-4)),
         #hints_callback=DisjointHints(),
         hints_callback=KCentersHints(kfun=x->log(1.2, x)),
         #hints_callback=EpsilonHints(quantile=1/64),
