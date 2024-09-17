@@ -50,11 +50,10 @@ end
         initialpopulation=16,
         maxiters=12,
         bsize=4,
-        tol=-1.0,
         ksearch=10,
         numqueries=32,
         verbose=false,
-        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters, verbose),
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
         space::BeamSearchSpace=BeamSearchSpace()
     )
 
@@ -68,7 +67,6 @@ Creates a hyperoptimization callback using the given parameters
 - `initialpopulation`: Optimization argument that determines the initial number of configurations.
 - `maxiters`: Optimization argument that determines the number of iterations.
 - `bsize`: Optimization argument that determines how many top configurations are allowed to mutate and cross.
-- `tol`: Optimization argument that determines the minimal tolerance improvement to stop the optimization.
 - `params`: The `SearchParams` arguments (if separated optimization arguments are not enough)
 - `ksearch`: The number of neighbors to be retrived by the optimization process.
 - `numqueries`: The number of queries to be performed during the optimization process.
@@ -84,11 +82,10 @@ function OptimizeParameters(kind=MinRecall(0.9);
         initialpopulation=16,
         maxiters=12,
         bsize=4,
-        tol=-1.0,
         ksearch=10,
         numqueries=32,
         verbose=false,
-        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, tol, maxiters, verbose),
+        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
         space::BeamSearchSpace=BeamSearchSpace()
     )
     OptimizeParameters(kind, initialpopulation, params, ksearch, numqueries, space, verbose)

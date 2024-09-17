@@ -132,7 +132,6 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
     - `bsize=4`: beam size (top best elements used by select, mutate and crossing operations.)
     - `mutbsize=16`: number of mutated new elements in each iteration
     - `crossbsize=8`: number of new elements from crossing operation.
-    - `tol=-1.0`: tolearance change between iterations (negative values means disables stopping by converguence)
     - `maxiters=16`: maximum number of iterations.
     - `verbose`: controls if the procedure is verbose or not
 """
@@ -150,10 +149,9 @@ function optimize_index!(
         bsize=4,
         mutbsize=16,
         crossbsize=8,
-        tol=-1.0,
         maxiters=16,
         verbose=false,
-        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose)
     )
 
     db = database(index)
@@ -182,9 +180,10 @@ function optimize_index!(
         end
     end
 
-    errorfun = create_error_function(index, context, gold, knnlist, queries, ksearch, verbose)
+    getperformance = create_error_function(index, context, gold, knnlist, queries, ksearch, verbose)
 
-    function geterr(p)
+    function getcost(p)
+        p = last(p)
         cost = p.visited.mean / M[]
         if kind isa ParetoRecall 
             cost^2 + (1.0 - p.recall)^2
@@ -195,19 +194,28 @@ function optimize_index!(
         elseif kind isa OptRadius
             r = p.radius.mean / R[]
             round(r / kind.tol, digits=0) #+ regularization(p.conf, space)
-            #2r + cost^2 # regularization(p.conf, space)
         else  
             error("unknown optimization goal $kind")
         end
     end
     
-    bestlist = search_models(
-        errorfun,
-        space, 
-        initialpopulation,
-        params;
-        inspect_population,
-        geterr)
+    function sort_by_best(space, params, population)
+        if kind isa OptRadius 
+            sort!(population, by=getcost)
+            sort!(view(population, 1:params.bsize), by=p->p.second.visited.mean)
+        else
+            sort!(population, by=getcost)
+        end
+
+        population
+    end
+
+    function convergence(curr, prev)
+        abs(getcost(prev) - getcost(curr)) <= 1e-3
+    end
+
+    bestlist = search_models(getperformance, space, initialpopulation, params;
+        inspect_population, sort_by_best, convergence)
    
     if length(bestlist) == 0
         verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
