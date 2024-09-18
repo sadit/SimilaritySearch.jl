@@ -214,8 +214,7 @@ function optimize_index!(
         abs(getcost(prev) - getcost(curr)) <= 1e-3
     end
 
-    bestlist = search_models(getperformance, space, initialpopulation, params;
-        inspect_population, sort_by_best, convergence)
+    bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence)
    
     if length(bestlist) == 0
         verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
