@@ -107,7 +107,7 @@ function SearchGraphContext(;
         parallel_block=4Threads.nthreads(),
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
-        starting_callback=8,
+        starting_callback=256,
         knn = [KnnResult(16) for _ in 1:Threads.nthreads()],
         beam = [KnnResult(16) for _ in 1:Threads.nthreads()],
         sat = [KnnResult(16) for _ in 1:Threads.nthreads()],
