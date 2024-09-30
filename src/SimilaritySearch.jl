@@ -168,7 +168,7 @@ function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstra
     I, D
 end
 
-function solve_single_query(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
+@inline function solve_single_query(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
     k = size(knns_, 1)
     q = @inbounds Q[i]
     res = getknnresult(k, ctx)

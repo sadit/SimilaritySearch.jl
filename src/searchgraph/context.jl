@@ -93,15 +93,16 @@ struct SearchGraphContext <: AbstractContext
     knn::Vector{KnnResult}
     beam::Vector{KnnResult}
     sat::Vector{KnnResult}
-    vstates::Vector{VisitedVerticesBits}
+    # vstates::Vector{VisitedVerticesBits}
+    vstates::Vector{Vector{UInt64}}
     minbatch::Int
 end
 
 function SearchGraphContext(;
         logger=InformativeLog(),
-        neighborhood=Neighborhood(SatNeighborhood(; hfactor=0f0, nndist=1f-4)),
+        neighborhood=Neighborhood(SatNeighborhood(; hfactor=0f0, nndist=3f-3)),
         #hints_callback=DisjointHints(),
-        hints_callback=KCentersHints(kfun=x->log(1.2, x)),
+        hints_callback=KCentersHints(; logbase=1.2),
         #hints_callback=EpsilonHints(quantile=1/64),
         hyperparameters_callback=OptimizeParameters(),
         parallel_block=4Threads.nthreads(),
@@ -111,7 +112,8 @@ function SearchGraphContext(;
         knn = [KnnResult(16) for _ in 1:Threads.nthreads()],
         beam = [KnnResult(16) for _ in 1:Threads.nthreads()],
         sat = [KnnResult(16) for _ in 1:Threads.nthreads()],
-        vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
+        # vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
+        vstates = [Vector{UInt32}(undef, 32) for _ in 1:Threads.nthreads()],
         minbatch = 0
     )
  

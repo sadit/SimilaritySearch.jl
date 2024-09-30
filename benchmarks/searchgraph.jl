@@ -1,10 +1,10 @@
 using JLD2, SimilaritySearch, SimilaritySearch.AdjacencyLists, Statistics, StatsBase
 
-function run(dist, db, queries, goldI, ksearch; nndist=0.01f0, logbase=1.5)
+function run(dist, db, queries, goldI, ksearch; nndist=0.01f0, logbase=1.3)
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
         neighborhood = Neighborhood(; filter=SatNeighborhood(; nndist), logbase),
-        # neighborhood = Neighborhood(filter=IdentityNeighborhood(), logbase=1.5, connect_reverse_links_factor=0.8f0),
+        #neighborhood = Neighborhood(filter=DistalSatNeighborhood(), logbase=1.3),
         #hyperparameters_callback = OptimizeParameters(OptRadius(0.01)),
         hyperparameters_callback = OptimizeParameters(MinRecall(0.95)),
         parallel_block = 256

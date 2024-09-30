@@ -12,7 +12,7 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 - `maxvisits`: MAximum visits while searching, useful for early stopping without convergence
 """
 @with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
-    bsize::Int32 = 8  # size of the search beam
+    bsize::Int32 = 4  # size of the search beam
     Δ::Float32 = 1.0  # soft-margin for accepting an element into the beam
     maxvisits::Int64 = 1000_000 # maximum visits by search, useful for early stopping without convergence, very high by default
 end
@@ -39,23 +39,27 @@ end
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
     push_item!(beam, res[1])
     sp = 1
-
+    dist = distance(index)
     @inbounds while sp <= length(beam)
         prev_id = beam[sp].id
-        #prev_dist > maximum(res) && break
         sp += 1
+        # NEIGHBROHOODMAXLEN = 64
         for childID in neighbors(index.adj, prev_id)
+            # (NEIGHBROHOODMAXLEN -= 1) == 0 && break
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
-            d = evaluate(distance(index), q, database(index, childID))
-            push_item!(res, childID, d)
+            d = evaluate(dist, q, database(index, childID))
+            c = IdWeight(childID, d)
+            push_item!(res, c)
             visited_ += 1
             visited_ > maxvisits && @goto finish_search
-            if d <= Δ * covradius(res) # maximum(res)
-                push_item!(beam, IdWeight(childID, d), sp)
-                # rand() < 1 / (sp-1) && continue
-                # sat_should_push(keys(beam), index, q, childID, d) && push!(beam, childID, d)
+            # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
+            if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
+            # if neighbors_length(index.adj, childID) > 1 && d <= Δ * covradius(res)
+                push_item!(beam, c, sp)
             end
         end
+        
+        # Δ *= 0.98f0
     end
 
     @label finish_search
@@ -79,8 +83,9 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, context::SearchGraphContext, q, res, hints; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits, vstate=getvstate(length(index), context))
+function search(bs::BeamSearch, index::SearchGraph, context::SearchGraphContext, q, res, hints; bsize::Int32=bs.bsize, Δ::Float32=bs.Δ, maxvisits::Int=bs.maxvisits, vstate::Vector{UInt64}=getvstate(length(index), context))
     # k is the number of neighbors in res
+    vstate = PtrArray(vstate)
     visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
     beam = getbeam(bsize, context)
     beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)

@@ -21,9 +21,9 @@ end
 
 #=include("testdb.jl")
 include("testresults.jl")
-include("testseq.jl")
+include("testseq.jl")=#
 include("testadj.jl")
-include("testallknn.jl")
+#=include("testallknn.jl")
 include("testhsp.jl")
 include("testneardup.jl")
 include("testfft.jl")

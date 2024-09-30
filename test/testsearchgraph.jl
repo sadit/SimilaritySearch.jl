@@ -110,7 +110,7 @@ end
         searchtime_ = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
         @test size(I) == size(D) == (ksearch, m) == size(goldI)
         recall_ = macrorecall(goldI, I)
-
+        @test recall * 0.9 < recall_ # the rebuild should be pretty similar or better than the original one
         @info "-- old vs rebuild> searchtime: $searchtime vs $searchtime_; recall: $recall vs $recall_"
     end
 
@@ -118,17 +118,29 @@ end
         tmpfile = tempname()
         @info "--- load and save!!!"
         saveindex(tmpfile, graph; meta=[1, 2, 4, 8], store_db=false)
-        let
-            G, meta = loadindex(tmpfile, database(graph); staticgraph=true)
-            @test meta == [1, 2, 4, 8]
+        let (G, meta) = loadindex(tmpfile, database(graph); staticgraph=true)
             @test G.adj isa StaticAdjacencyList
+            @test length(G) == length(graph)
+            @test length(G.adj) == length(graph.adj)
+            @test distance(G) == distance(graph)
+            @test database(G) === database(graph)
+            @test G.hints == graph.hints
+
+            for i in rand(eachindex(graph.adj), 100)
+                @test neighbors(graph.adj, i) == neighbors(G.adj, i) 
+                @test neighbors_length(graph.adj, i) == neighbors_length(G.adj, i) 
+            end
+            @test meta == [1, 2, 4, 8]
             @time run_graph(G, queries, ksearch, goldI)
         end
     end
+    # exit(0)
 
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
     dim = 4 
     n = 10^5
+    # dist = TurboSqL2Distance()
+    dist = SqL2Distance()
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)

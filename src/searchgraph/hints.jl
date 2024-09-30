@@ -198,22 +198,36 @@ end
 Indicates that hints are a small set of objects having a minimal distance between them 
 """
 mutable struct KCentersHints <: Callback
-    samplesize::Function
-    kfun::Function
+    logbase::Float32
+    powsample::Float32
+    qdiscard::Float32
 end
 
-KCentersHints(; samplesize=sqrt, kfun=n->log(1.15)) = KCentersHints(samplesize, kfun)
+KCentersHints(; logbase=1.1, powsample=1.5, qdiscard=0.1) = KCentersHints(logbase, powsample, qdiscard)
 
 function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
     n = length(index)
-    m = min(n, ceil(Int, opt.samplesize(n)))
-    s = rand(1:n, m) |> unique! |> sort!
-    k = min(ceil(Int, opt.kfun(n)), m-1)
-
-    D = SubDatabase(database(index), s)
+    k = min(n ÷ 2, ceil(Int, log(opt.logbase, n))) + 1
+    m = min(n, ceil(Int, k^opt.powsample))
+    m / n
+    D = let s = rand(1:n, m) |> unique! #|> sort!
+        degrees = neighbors_length.(Ref(index.adj), s)
+        min_, max_ = quantile(degrees, [0.25, 0.95])
+        s = [j for (i, j) in enumerate(s) if min_ <= degrees[i] <= max_]
+        sort!(s)
+        SubDatabase(database(index), s)
+    end
     A = fft(distance(index), D, k)
-    @show n, m, k, length(A.centers)
-    resize!(index.hints, k)
-    index.hints .= D.map[A.centers]
+    M = Dict(c => i for (i, c) in enumerate(A.centers))
+    count = zeros(Int, length(M))
+    for nn in A.nn
+        count[M[nn]] += 1
+    end
+    x = quantile(count, opt.qdiscard)
+    C = A.centers[count .>= x]
+
+    @show n, m, k, length(A.centers), length(C)
+    resize!(index.hints, length(C))
+    index.hints .= D.map[C]
 end
 

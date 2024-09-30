@@ -112,8 +112,9 @@ Computes the squared Euclidean's distance between `a` and `b`
 function evaluate(::SqL2Distance, a, b)
     d = zero(eltype(a))
 
-    @inbounds @simd for i in eachindex(a)
-        d += (a[i] - b[i])^2
+    @fastmath @inbounds @simd for i in eachindex(a)
+        m = a[i] - b[i]
+        d += m^2
     end
 
     d
@@ -127,7 +128,7 @@ Computes the maximum distance or Chebyshev's distance
 function evaluate(::LInftyDistance, a, b)
     d = zero(eltype(a))
 
-    @inbounds @simd for i in eachindex(a)
+    @fastmath @inbounds @simd for i in eachindex(a)
         m = abs(a[i] - b[i])
         d = max(d, m)
     end
@@ -143,7 +144,7 @@ Computes generic Minkowski's distance
 function evaluate(lp::LpDistance, a, b)
     d = zero(eltype(a))
 
-    @inbounds @simd for i in eachindex(a)
+    @fastmath @inbounds @simd for i in eachindex(a)
         m = abs(a[i] - b[i])
         d += m ^ lp.p
     end

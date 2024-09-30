@@ -131,7 +131,7 @@ AdjacencyList(adj::AdjacencyList) = AdjacencyList(deepcopy(adj.end_point))
 
 Base.@propagate_inbounds @inline function neighbors(adj::AdjacencyList, i::Integer)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? adj.end_point[i] : adj.empty_cent
+    isassigned(adj.end_point, i) ? (adj.end_point[i]) : (adj.empty_cent)
 end
 
 Base.@propagate_inbounds @inline function neighbors_length(adj::AdjacencyList, i::Integer)
@@ -231,9 +231,11 @@ Base.@propagate_inbounds @inline function neighbors(adj::StaticAdjacencyList, i:
 end
 
 Base.@propagate_inbounds @inline function neighbors_length(adj::StaticAdjacencyList, i::Integer)
-    @inbounds sp::Int64 = i == 1 ? 1 : adj.offset[i-1] + 1
-    @inbounds ep = adj.offset[i]
-    length(ep - sp + 1)
+    @inbounds if i == 1
+        adj.offset[i]
+    else
+        adj.offset[i] - adj.offset[i-1]
+    end
 end
 
 

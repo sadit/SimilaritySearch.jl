@@ -77,6 +77,15 @@ alternative whenever the triangle inequality is not needed)
 """
 evaluate(::NormalizedCosineDistance, a::T, b) where T = one(eltype(T)) - dot(a, b)
 
+function evaluate(::NormalizedCosineDistance, a::AbstractVector{Float32}, b::AbstractVector{Float32})
+    d = 0f0
+    @fastmath @inbounds @simd for i in eachindex(a, b)
+        d = muladd(a[i], b[i], d)
+    end
+
+    1f0 - d
+end
+
 
 """
     evaluate(::AngleDistance, a, b)

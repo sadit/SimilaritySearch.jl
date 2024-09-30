@@ -33,14 +33,14 @@ Appends an item into the result set
 
     if len < maxlength(res)
         push!(res.items, item)
-        sort_last_item!(WeightOrder, res.items)
+        sort_last_item!(WeightOrder, PtrArray(res.items))
         return true
     end
 
     item.weight >= maximum(res) && return false
 
     @inbounds res.items[end] = item
-    sort_last_item!(WeightOrder, res.items)
+    sort_last_item!(WeightOrder, PtrArray(res.items))
     true
 end
 
@@ -50,14 +50,14 @@ end
 
     if len < ep
         push!(res.items, item)
-        sort_last_item!(WeightOrder, view(res.items, sp:len+1))
+        sort_last_item!(WeightOrder, view(PtrArray(res.items), sp:len+1))
         return true
     end
 
     item.weight >= maximum(res) && return false
 
     @inbounds res.items[end] = item
-    sort_last_item!(WeightOrder, view(res.items, sp:len))
+    sort_last_item!(WeightOrder, view(PtrArray(res.items), sp:len))
     true
 end
 
