@@ -137,12 +137,22 @@ end
     # exit(0)
 
     @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
-    dim = 4 
+    dim = 4
+    dimfake = dim * 1
     n = 10^5
     # dist = TurboSqL2Distance()
     dist = SqL2Distance()
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
+    #=
+    db = let X = randn(Float32, dimfake, n)
+        dim < dimfake && (X[dim+1:dimfake, :] .= 0f0)
+        StrideMatrixDatabase(X)
+    end
+    queries = let X = randn(Float32, dimfake, n)
+        dim < dimfake && (X[dim+1:dimfake, :] .= 0f0)
+        StrideMatrixDatabase(X)
+    end=#
     seq = ExhaustiveSearch(; dist, db)
     goldI, goldD = searchbatch(seq, ctx, queries, ksearch)
     graph = SearchGraph(; db, dist)
@@ -150,7 +160,7 @@ end
         getcontext(graph);
         neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=1.5),
         # neighborhood = Neighborhood(filter=IdentityNeighborhood(), logbase=1.5, connect_reverse_links_factor=0.8f0),
-        hyperparameters_callback = OptimizeParameters(OptRadius(0.03)),
+        hyperparameters_callback = OptimizeParameters(OptRadius(0.03), ksearch=ksearch+2),
         #hyperparameters_callback = OptimizeParameters(MinRecall(0.99)),
         parallel_block = 16
     )
@@ -175,5 +185,17 @@ end
     @info quantile(N, [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99, 1.0])
     @info graph.algo
     @test recall >= 0.7
+
+    buildtime = @elapsed G = rebuild(graph, ctx)
+    searchtime4 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
+    recall_ = macrorecall(goldI, I)
+    searchtime5 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
+    mem = sum(map(length, G.adj.end_point)) * sizeof(eltype(G.adj.end_point[1])) / 2^20 # adj mem
+    @info "rebuild buildtime: $buildtime sec, memory: $(mem)MB, recall: $recall => $recall_"
+    @info "rebuild C> QpS: $(m/searchtime3), QpS (already compiled): $(m/searchtime5)"
+    N = [neighbors_length(G.adj, i) for i in eachindex(G.adj)]
+    @info quantile(N, [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99, 1.0])
+    @info graph.algo
+    @test recall_ >= 0.7
 end
 

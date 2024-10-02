@@ -84,7 +84,6 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
     end
 end
 
-regularization(c, space::AbstractSolutionSpace) = 0.0
 
 _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
@@ -166,7 +165,7 @@ function optimize_index!(
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch(seq, context_exhaustive_search, queries, knnlist)
-        gold = [Set(item.id for item in res) for res in knnlist]
+        gold = [Set(IdView(res)) for res in knnlist]
     end
 
     M = Ref(0.0) # max cost
@@ -193,7 +192,7 @@ function optimize_index!(
             p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
         elseif kind isa OptRadius
             r = p.radius.mean / R[]
-            round(r / kind.tol, digits=0) #+ regularization(p.conf, space)
+            round(r / kind.tol, digits=0)
         else  
             error("unknown optimization goal $kind")
         end

@@ -38,16 +38,17 @@ function main_laion(;
         qname,
         goldname,
         ksearch = 10,
-        dist = NormalizedCosineDistance()
+        dist = NormalizedCosine_asf32() #Distance()
     )
     goldI = jldopen(goldname) do f
         f["knns"][1:ksearch, :]
     end
     queries = jldopen(qname) do f
-        StrideMatrixDatabase(Float32.(f["emb"]))
+        StrideMatrixDatabase((f["emb"]))
     end
     db = jldopen(dbname) do f
-        StrideMatrixDatabase(Float32.(f["emb"]))
+        #StrideMatrixDatabase(Float32.(f["emb"]))
+        StrideMatrixDatabase((f["emb"]))
     end
     run(dist, db, queries, goldI, ksearch)
 end

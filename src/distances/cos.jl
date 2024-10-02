@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
-export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance, TurboNormalizedCosineDistance, TurboCosineDistance
+export CosineDistance, AngleDistance, NormalizedCosineDistance, NormalizedAngleDistance
+export Cosine_asf32, Angle_asf32, NormalizedCosine_asf32, NormalizedAngle_asf32
 using LinearAlgebra
 import Distances: evaluate
 
@@ -15,6 +16,7 @@ The cosine is defined as:
 The cosine distance is defined as ``1 - \\cos(u,v)``
 """
 struct CosineDistance <: SemiMetric end
+struct Cosine_asf32 <: SemiMetric end
 
 """
    AngleDistance()
@@ -26,6 +28,7 @@ The angle distance is defined as:
 
 """
 struct AngleDistance <: SemiMetric end
+struct Angle_asf32 <: SemiMetric end
 
 """
     NormalizedCosineDistance()
@@ -38,6 +41,7 @@ Similar to [`CosineDistance`](@ref) but suppose that input vectors are already n
 
 """
 struct NormalizedCosineDistance <: SemiMetric end
+struct NormalizedCosine_asf32 <: SemiMetric end
 
 
 """
@@ -51,17 +55,18 @@ Similar to [`AngleDistance`](@ref) but suppose that input vectors are already no
 
 """
 struct NormalizedAngleDistance <: SemiMetric end
+struct NormalizedAngle_asf32 <: SemiMetric end
 
 
 
-const π_2 = π / 2
+const π_2 = Float32(π / 2)
 
-function fastacos(d)
-    if d <= -1.0
+function fastacos(d::Float32)
+    if d <= -1f0
         π
-    elseif d >= 1.0
+    elseif d >= 1f0
         0.0
-    elseif d == 0  # turn around for zero vectors, in particular for denominator=0
+    elseif d == 0f0  # turn around for zero vectors, in particular for denominator=0
         π_2
     else
         acos(d)
@@ -86,6 +91,25 @@ function evaluate(::NormalizedCosineDistance, a::AbstractVector{Float32}, b::Abs
     1f0 - d
 end
 
+function dot_asf32(a, b)
+    d = 0f0
+    @fastmath @inbounds @simd for i in eachindex(a, b)
+        d = muladd(Float32(a[i]), Float32(b[i]), d)
+    end
+
+    d
+end
+
+function norm_asf32(a)
+    d = 0f0
+    @fastmath @inbounds @simd for i in eachindex(a)
+        d = muladd(Float32(a[i]), Float32(a[i]), d)
+    end
+
+    sqrt(d)
+end
+
+evaluate(::NormalizedCosine_asf32, a, b) = 1f0 - dot_asf32(a, b)
 
 """
     evaluate(::AngleDistance, a, b)
@@ -94,6 +118,7 @@ Computes the angle  between twovectors. It supposes that all vectors are normali
 
 """
 evaluate(::NormalizedAngleDistance, a, b) = fastacos(dot(a, b))
+evaluate(::NormalizedAngle_asf32, a, b) = fastacos(dot_asf32(a, b))
 
 """
     evaluate(::CosineDistance, a, b)
@@ -103,6 +128,7 @@ Please use AngleDistance if you are expecting a metric function (cosine_distance
 alternative whenever the triangle inequality is not needed)
 """
 evaluate(::CosineDistance, a, b) = one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
+evaluate(::Cosine_asf32, a, b) = 1f0 - dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b))
 
 """
     evaluate(::AngleDistance, a, b)
@@ -110,7 +136,5 @@ evaluate(::CosineDistance, a, b) = one(eltype(a)) - dot(a, b) / (norm(a) * norm(
 Computes the angle  between twovectors.
 
 """
-function evaluate(::AngleDistance, a, b)
-    d = dot(a, b) / (norm(a) * norm(b))
-    fastacos(d)
-end
+evaluate(::AngleDistance, a, b) = fastacos(dot(a, b) / (norm(a) * norm(b)))
+evaluate(::Angle_asf32, a, b) = fastacos(dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b)))
