@@ -18,8 +18,7 @@ Base.copy(N::Neighborhood;
         filter=copy(N.filter)
     ) = Neighborhood(; logbase, minsize, filter)
 
-function neighborhoodsize(N::Neighborhood, index::SearchGraph)::Int
-    n = length(index)
+function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
 end
 
@@ -39,7 +38,7 @@ the given context.
 """
 function find_neighborhood(copy_::Function, index::SearchGraph, context::SearchGraphContext, item; hints=index.hints)
     neighborhood = context.neighborhood
-    ksearch = neighborhoodsize(neighborhood, index)
+    ksearch = neighborhoodsize(neighborhood, length(index))
     res = getknnresult(ksearch, context)
     if ksearch > 0
         search(index.algo, index, context, item, res, hints)

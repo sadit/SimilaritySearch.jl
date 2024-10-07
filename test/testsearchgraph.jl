@@ -94,7 +94,7 @@ end
     )
     index!(graph, ctx)
     @test n == length(db) == length(graph)
-    optimize_index!(graph, ctx, MinRecall(0.9); queries)
+    optimize_index!(graph, ctx, MinRecall(0.9); queries, ksearch)
     searchtime = @elapsed I, D = searchbatch(graph, ctx, queries, ksearch)
     @test size(I) == size(D) == (ksearch, m) == size(goldI)
     recall = macrorecall(goldI, I)
