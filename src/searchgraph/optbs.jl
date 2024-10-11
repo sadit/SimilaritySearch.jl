@@ -36,6 +36,7 @@ mutable struct OptimizeParameters <: Callback
     initialpopulation
     params::SearchParams
     ksearch::Int32
+    queries
     numqueries::Int32
     space::BeamSearchSpace
     verbose::Bool
@@ -47,6 +48,7 @@ end
         maxiters=12,
         bsize=4,
         ksearch=10,
+        queries=nothing,
         numqueries=32,
         verbose=false,
         params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
@@ -65,6 +67,7 @@ Creates a hyperoptimization callback using the given parameters
 - `bsize`: Optimization argument that determines how many top configurations are allowed to mutate and cross.
 - `params`: The `SearchParams` arguments (if separated optimization arguments are not enough)
 - `ksearch`: The number of neighbors to be retrived by the optimization process.
+- `queries`: The queryset to be used during the optimization process.
 - `numqueries`: The number of queries to be performed during the optimization process.
 - `space`: The cofiguration search space
 
@@ -78,13 +81,14 @@ function OptimizeParameters(kind=MinRecall(0.9);
         initialpopulation=16,
         maxiters=12,
         bsize=4,
-        ksearch=10,
+        ksearch=0,
+        queries=nothing,
         numqueries=32,
         verbose=false,
         params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
         space::BeamSearchSpace=BeamSearchSpace()
     )
-    OptimizeParameters(kind, initialpopulation, params, ksearch, numqueries, space, verbose)
+    OptimizeParameters(kind, initialpopulation, params, ksearch, queries, numqueries, space, verbose)
 end
 
 optimization_space(index::SearchGraph) = BeamSearchSpace()
@@ -105,11 +109,15 @@ end
 SearchGraph's callback for adjunting search parameters
 """
 function execute_callback(index::SearchGraph, context::SearchGraphContext, opt::OptimizeParameters)
-    queries = nothing
+    if opt.ksearch == 0
+        ksearch = neighborhoodsize(context.neighborhood, length(index))
+    else
+        ksearch = opt.ksearch
+    end
     optimize_index!(index, context, opt.kind;
                     opt.space,
-                    queries,
-                    ksearch=neighborhoodsize(context.neighborhood, length(index)),
+                    ksearch,
+                    opt.queries,
                     opt.numqueries,
                     opt.initialpopulation,
                     opt.verbose,

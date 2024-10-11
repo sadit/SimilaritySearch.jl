@@ -155,8 +155,11 @@ function optimize_index!(
 
     db = database(index)
     if queries === nothing
+        @info "using $numqueries random queries from the dataset"
         sample = rand(1:length(index), numqueries) |> unique
         queries = SubDatabase(db, sample)
+    else
+        @info "using $(length(queries)) given as hyperparameter"
     end
 
     knnlist = [KnnResult(ksearch) for _ in eachindex(queries)]
@@ -219,7 +222,7 @@ function optimize_index!(
         verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
     else
         config, perf = bestlist[1]
-        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
+        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index)), perf=$perf")
         setconfig!(config, index, perf)
     end
     bestlist
