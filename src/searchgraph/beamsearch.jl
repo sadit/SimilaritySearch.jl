@@ -22,14 +22,14 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 
 ### local search algorithm
 
-function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize)
-    visited_ = approx_by_hints(index, q, hints, res, vstate)
+function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize, beam)
+    visited_ = approx_by_hints(index, q, hints, res, vstate, beam)
     
     if length(res) == 0
         _range = 1:length(index)
         for _ in 1:bsize
            objID = rand(_range)
-           visited_ += enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+           visited_ += enqueue_item!(index, q, database(index, objID), res, objID, vstate, beam)
         end
     end
 
@@ -86,7 +86,7 @@ Optional arguments (defaults to values in `bs`)
 function search(bs::BeamSearch, index::SearchGraph, context::SearchGraphContext, q, res, hints; bsize::Int32=bs.bsize, Δ::Float32=bs.Δ, maxvisits::Int=bs.maxvisits, vstate::Vector{UInt64}=getvstate(length(index), context))
     # k is the number of neighbors in res
     vstate = PtrArray(vstate)
-    visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize)
     beam = getbeam(bsize, context)
+    visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize, beam)
     beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
 end
