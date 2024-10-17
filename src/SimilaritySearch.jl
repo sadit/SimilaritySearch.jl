@@ -135,11 +135,12 @@ function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstra
     m = length(Q)
     I = Matrix{Int32}(undef, k, m)
     D = Matrix{Float32}(undef, k, m)
-    searchbatch(index, ctx, Q, I, D)
+    searchbatch!(index, ctx, Q, I, D)
+    I, D
 end
 
 """
-    searchbatch(index, ctx, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}) -> indices, distances
+    searchbatch!(index, ctx, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}, costs) -> indices, distances, costs
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 
@@ -149,30 +150,33 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 - `k`: The number of neighbors to retrieve
 - `ctx`: environment for running searches (hyperparameters and caches)
 """
-function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}) 
-    @assert size(I) == size(D)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}, costs=nothing) 
+    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
+    (length(Q) == size(I, 2) == size(D, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    (costs === nothing || length(Q) == length(costs)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
+
     minbatch = getminbatch(ctx.minbatch, length(Q))
     I_ = PtrArray(I)
     D_ = PtrArray(D)
-    if minbatch < 0
-        for i in eachindex(Q)
-            solve_single_query(index, ctx, Q, i, I_, D_)
+
+    if costs === nothing
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
+            solve_single_query!(index, ctx, Q, i, I_, D_)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            #Threads.@threads :static for i in eachindex(Q)
-            solve_single_query(index, ctx, Q, i, I_, D_)
+            costs[i] = solve_single_query!(index, ctx, Q, i, I_, D_)
         end
     end
 
-    I, D
+    I, D, costs
 end
 
-@inline function solve_single_query(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
+@inline function solve_single_query!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
     k = size(knns_, 1)
     q = @inbounds Q[i]
     res = getknnresult(k, ctx)
-    search(index, ctx, q, res)
+    r = search(index, ctx, q, res)
     _k = length(res)
     @inbounds for j in 1:_k
         u = res.items[j]
@@ -183,11 +187,13 @@ end
     for j in _k+1:k
         knns_[j, i] = zero(Int32)
     end
+
+    r.cost
 end
 
 
 """
-    searchbatch(index, context, Q, KNN::AbstractVector{KnnResult}) -> indices, distances
+    searchbatch!(index, context, Q, KNN::AbstractVector{KnnResult}, costs=nothing) -> indices, distances
 
 Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
 
@@ -195,20 +201,23 @@ Searches a batch of queries in the given index using an array of KnnResult's; ea
 - `context`: contain caches to reduce memory allocations and hyperparameters for search customization
 
 """
-function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, KNN::AbstractVector{KnnResult})
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, KNN::AbstractVector{KnnResult}, costs=nothing)
+    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
+    length(Q) == length(KNN) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    (costs === nothing || length(Q) == length(costs)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
-    if minbatch < 0
-        @inbounds for i in eachindex(Q)
+    if costs === nothing
+        @batch minbatch=minbatch per=thread for i in eachindex(Q)
             search(index, ctx, Q[i], KNN[i])
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            @inbounds search(index, ctx, Q[i], KNN[i])
+            costs[i] = search(index, ctx, Q[i], KNN[i]).cost
         end
     end
 
-    KNN
+    KNN, costs
 end
 
 """

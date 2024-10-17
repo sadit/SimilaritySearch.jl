@@ -167,7 +167,7 @@ function optimize_index!(
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
-        searchbatch(seq, context_exhaustive_search, queries, knnlist)
+        searchbatch!(seq, context_exhaustive_search, queries, knnlist)
         gold = [Set(IdView(res)) for res in knnlist]
     end
 
