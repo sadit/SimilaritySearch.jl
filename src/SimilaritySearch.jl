@@ -74,15 +74,19 @@ Gets the distance function used in the index
 """
     struct SearchResult
         res::KnnResult  # result struct
-        cost::Int  # number of distances (if algorithm allow it)
+        cost::Int32  # number of distances (if algorithm allow it)
+        eblocks::Int32 # number of evaluated blocks (whatever it means for some index)
     end
 
 Response of a typical search knn query
 """
-struct SearchResult
+Base.@kwdef struct SearchResult
     res::KnnResult
-    cost::Int
+    cost::Int32 = 0
+    eblocks::Int32 = 0
 end
+
+SearchResult(res, cost) = SearchResult(res, cost, 0)
 
 include("perf.jl")
 include("sequential-exhaustive.jl")
@@ -110,10 +114,12 @@ This function should be specialized for indexes and caches that use shared resul
     reuse!(res, k)
 end
 
+#=
 @inline function getknnresult(k::Integer)
     res = DEFAULT_CONTEXT[].knn[Threads.threadid()]
     reuse!(res, k)
 end
+=#
 
 """
     searchbatch(index, ctx, Q, k::Integer) -> indices, distances
@@ -149,27 +155,36 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 - `Q`: The set of queries
 - `k`: The number of neighbors to retrieve
 - `ctx`: environment for running searches (hyperparameters and caches)
+
+# Keyword arguments
+- `cost`: nothing or a vector like collection to store the number of distance evaluations to solve each query
+- `eblocks`: nothing or a vector like collection to store the the number of evaluated blocks for each query (the precise definition depends on the index)
+- `check_args`: activate or deactivate checking arguments, this is useful for reusing structures without using views
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}, costs=nothing) 
-    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-    (length(Q) == size(I, 2) == size(D, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    (costs === nothing || length(Q) == length(costs)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; cost=nothing, eblocks=nothing, check_args::Bool=true)
+    if check_args
+        length(Q) > 0 || throw(ArgumentError("empty set of queries"))
+        (length(Q) == size(I, 2) == size(D, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
+        (cost === nothing || length(Q) == length(cost)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
+    end
 
     minbatch = getminbatch(ctx.minbatch, length(Q))
     I_ = PtrArray(I)
     D_ = PtrArray(D)
 
-    if costs === nothing
+    if cost === nothing && eblocks === nothing
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
             solve_single_query!(index, ctx, Q, i, I_, D_)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            costs[i] = solve_single_query!(index, ctx, Q, i, I_, D_)
+            r = solve_single_query!(index, ctx, Q, i, I_, D_)
+            cost !== nothing && (cost[i] = r.cost)
+            eblocks !== nothing && (eblocks[i] = r.eblocks)
         end
     end
 
-    I, D, costs
+    I, D, cost, eblocks
 end
 
 @inline function solve_single_query!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
@@ -188,7 +203,7 @@ end
         knns_[j, i] = zero(Int32)
     end
 
-    r.cost
+    r
 end
 
 
@@ -246,15 +261,6 @@ function getminbatch(minbatch, n)
     else
         return ceil(Int, minbatch)
     end
-end
-
-getcontext() = DEFAULT_CONTEXT[]
-
-DEFAULT_CONTEXT = Ref(GenericContext())
-DEFAULT_SEARCH_GRAPH_CONTEXT = Ref(SearchGraphContext())
-function __init__()
-    DEFAULT_CONTEXT[] = GenericContext()
-    DEFAULT_SEARCH_GRAPH_CONTEXT[] = SearchGraphContext()
 end
 
 #=

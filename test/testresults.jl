@@ -35,11 +35,13 @@ end
 @testset "shifted vector-based result set" begin
     k = 10
     res = KnnResult(k)
-    V, Vsorted = create_random_array(50, k)
-    for i in eachindex(V)
+    V, Vsorted = create_random_array(1000, k)
+    @time for i in eachindex(V)
         push_item!(res, i, V[i])
     end
     
     testsorted(res, copy(Vsorted))
+    @time push_item!(res, 1, V[1])
     @test_call push_item!(res, 1, V[1])
+    @time push_item!(res, 1, V[1])
 end

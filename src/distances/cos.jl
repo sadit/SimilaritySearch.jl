@@ -61,11 +61,12 @@ struct NormalizedAngle_asf32 <: SemiMetric end
 
 const π_2 = Float32(π / 2)
 
-function fastacos(d::Float32)
+fastacos(d::AbstractFloat) = fastacos(convert(Float32, d))
+function fastacos(d::Float32)::Float32
     if d <= -1f0
         π
     elseif d >= 1f0
-        0.0
+        0f0
     elseif d == 0f0  # turn around for zero vectors, in particular for denominator=0
         π_2
     else

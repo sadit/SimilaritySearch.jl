@@ -113,7 +113,7 @@ function SearchGraphContext(;
         beam = [KnnResult(16) for _ in 1:Threads.nthreads()],
         sat = [KnnResult(16) for _ in 1:Threads.nthreads()],
         # vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
-        vstates = [Vector{UInt32}(undef, 32) for _ in 1:Threads.nthreads()],
+        vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.nthreads()],
         minbatch = 0
     )
  

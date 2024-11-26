@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 export L1Distance, L2Distance, SqL2Distance, LpDistance, LInftyDistance
-export L1_asf32, L2_asf32, SqL2_asf32, Lp_asf32, LInfty_asf32
+export L1_asf32, L2_asf32, SqL2_asf32, Lp_asf32, LInfty_asf32, IncompleteLp_asf32
 import Distances: evaluate
 
 ###################
@@ -266,5 +266,25 @@ function evaluate(lp::Lp_asf32, a, b)
     end
 
     d ^ lp.pinv
+end
+
+"""
+    IncompleteLp_asf32(p)
+
+"""
+struct IncompleteLp_asf32 <: SemiMetric
+    p::Float32
+end
+
+
+function evaluate(lp::IncompleteLp_asf32, a, b)
+    d = zero(Float32)
+
+    @fastmath @inbounds @simd for i in eachindex(a)
+        m = abs(Float32(a[i]) - Float32(b[i]))
+        d += m ^ lp.p
+    end
+
+    d
 end
 

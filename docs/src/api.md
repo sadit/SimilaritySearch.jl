@@ -63,8 +63,6 @@ LInftyDistance
 LpDistance
 ```
 
-The package implements some of these functions using the `@turbo` macro from [`LoopVectorization`](https://github.com/JuliaSIMD/LoopVectorization.jl) package, only for v1.10 and previous versions.
-
 
 ### Cosine and angle distance functions for vectors
 ```@docs

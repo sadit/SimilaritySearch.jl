@@ -5,9 +5,8 @@ using Test, JET
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
-function run_graph(G, queries, ksearch, Igold)
+function run_graph(G, ctx, queries, ksearch, Igold)
     @info typeof(G)
-    ctx = getcontext(G)
     searchtime = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
     @test_call searchbatch(G, ctx, queries, ksearch)
     recall = macrorecall(Igold, I)
@@ -58,7 +57,7 @@ end
 
     @testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
-        ctx = SearchGraphContext(getcontext(graph);
+        ctx = SearchGraphContext(
             neighborhood = Neighborhood(filter=SatNeighborhood()),
             hyperparameters_callback = OptimizeParameters(OptRadius()),
             parallel_block = 8
@@ -87,7 +86,7 @@ end
 
     @info "========================= AutoBS MinRecall ======================"
     graph = SearchGraph(; db, dist)
-    ctx = SearchGraphContext(getcontext(graph);
+    ctx = SearchGraphContext(
         neighborhood = Neighborhood(filter=SatNeighborhood()),
         hyperparameters_callback = OptimizeParameters(MinRecall(0.9)),
         parallel_block = 16
@@ -131,7 +130,7 @@ end
                 @test neighbors_length(graph.adj, i) == neighbors_length(G.adj, i) 
             end
             @test meta == [1, 2, 4, 8]
-            @time run_graph(G, queries, ksearch, goldI)
+            @time run_graph(G, ctx, queries, ksearch, goldI)
         end
     end
     # exit(0)
@@ -154,10 +153,9 @@ end
         StrideMatrixDatabase(X)
     end=#
     seq = ExhaustiveSearch(; dist, db)
-    goldI, goldD = searchbatch(seq, ctx, queries, ksearch)
+    goldI, goldD = searchbatch(seq, getcontext(seq), queries, ksearch)
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
-        getcontext(graph);
         neighborhood = Neighborhood(filter=SatNeighborhood(), logbase=1.5),
         # neighborhood = Neighborhood(filter=IdentityNeighborhood(), logbase=1.5, connect_reverse_links_factor=0.8f0),
         hyperparameters_callback = OptimizeParameters(OptRadius(0.03), ksearch=ksearch+2),
@@ -166,8 +164,8 @@ end
     )
     buildtime = @elapsed index!(graph, ctx)
     @test n == length(db) == length(graph)
-    @test_call search(graph, ctx, queries[1], KnnResult(1))
-    @test_call searchbatch(graph, ctx, queries, ksearch)
+    @test_call target_modules=(@__MODULE__,) search(graph, ctx, queries[1], KnnResult(1))
+    @test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
     optimize_index!(graph, ctx, MinRecall(0.9))
     searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
     searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
@@ -187,12 +185,12 @@ end
     @test recall >= 0.7
 
     buildtime = @elapsed G = rebuild(graph, ctx)
-    searchtime4 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
+    @time I, _ = searchbatch(G, ctx, queries, ksearch)
     recall_ = macrorecall(goldI, I)
     searchtime5 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
     mem = sum(map(length, G.adj.end_point)) * sizeof(eltype(G.adj.end_point[1])) / 2^20 # adj mem
     @info "rebuild buildtime: $buildtime sec, memory: $(mem)MB, recall: $recall => $recall_"
-    @info "rebuild C> QpS: $(m/searchtime3), QpS (already compiled): $(m/searchtime5)"
+    @info "rebuild C> QpS (already compiled): $(m/searchtime5)"
     N = [neighbors_length(G.adj, i) for i in eachindex(G.adj)]
     @info quantile(N, [0.0, 0.2, 0.4, 0.6, 0.8, 0.9, 0.95, 0.99, 1.0])
     @info graph.algo

@@ -55,10 +55,9 @@ Computes the half-space partition of the queries `Q` (possibly given as `knns`, 
 
 ## Optional keyword arguments
 - `ctx::SearchGraphContext` search context (caches)
-- `hfactor::Float32` hyperbolic parameter, hfactor=0 means for hyperplane partitions
+- `minbatch::Int`: `Polyester.@batch` parameter controlling how the multithreading is executed
 """
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix, dists::AbstractMatrix; ctx = SearchGraphContext(), hfactor::Float32=0f0, minbatch::Int=0)
-    hfactor = convert(Float32, hfactor)
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix, dists::AbstractMatrix; ctx = SearchGraphContext(), minbatch::Int=0)
     n = length(Q)
     hsp = Vector{KnnResult}(undef, n)
     minbatch = getminbatch(minbatch, n)
@@ -69,7 +68,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
         q = Q[i]
         for (objID, d) in zip(idlist, distlist)
             objID == 0 && break
-            if hsp_should_push(res, dist, X, q, convert(UInt32, objID), convert(Float32, d), hfactor)
+            if hsp_should_push(res, dist, X, q, convert(UInt32, objID), convert(Float32, d))
                 push_item!(res, objID, d)
             end
         end
@@ -80,15 +79,16 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     hsp
 end
 
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor::Float32=0f0)
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; minbatch=0)
     idx = ExhaustiveSearch(; dist, db=X)
-    knns, dists = searchbatch(idx, Q, k)
-    hsp_queries(dist, X, Q, knns, dists; ctx, hfactor)
+    ctx = getcontext(idx)
+    knns, dists = searchbatch(idx, ctx, Q, k)
+    hsp_queries(dist, X, Q, knns, dists; ctx, minbatch)
 end
 
-function hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; ctx=SearchGraphContext(), hfactor::Float32=0f0)
+function hsp_queries(idx::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer; minbatch=0)
     knns, dists = searchbatch(idx, ctx, Q, k)
-    hsp_queries(distance(idx), database(idx), Q, knns, dists; ctx, hfactor)
+    hsp_queries(distance(idx), database(idx), Q, knns, dists; ctx, minbatch)
 end
 
 function hsp_proximal_neighborhood_filter!(hsp_neighborhood::KnnResult, dist::SemiMetric, db, item, neighborhood::KnnResult; hfactor::Float32=0f0, nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)

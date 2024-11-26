@@ -7,7 +7,7 @@ using Test, JET, SimilaritySearch, LinearAlgebra
     dim, mindist = 2, 1e-4
     db = MatrixDatabase(rand(Float32, dim, 1000))
     G = SearchGraph(; db, dist)
-    ctx = getcontext(G)
+    ctx = SearchGraphContext()
     tG = @elapsed index!(G, ctx)
     tG += @elapsed i, j, d = closestpair(G, ctx; minbatch=-1)
     @test i != j
@@ -17,7 +17,9 @@ using Test, JET, SimilaritySearch, LinearAlgebra
     @test i != j
     @test d < mindist
     @show i, j, d, :parallel
-    tE = @elapsed i, j, d = closestpair(ExhaustiveSearch(; dist, db), ctx)
+    seq = ExhaustiveSearch(; dist, db)
+    ctxseq = getcontext(seq)
+    tE = @elapsed i, j, d = closestpair(seq, ctxseq)
     @info "NOTE: the exact method will be faster on small datasets due to the preprocessing step of the approximation method"
     @info "closestpair computation time", :approx => tG, :exact => tE
     

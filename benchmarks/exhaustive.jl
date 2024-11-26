@@ -1,4 +1,4 @@
-using SimilaritySearch
+using SimilaritySearch, AllocCheck
 
 function main(n, m, dim)
     db = MatrixDatabase(rand(Float32, dim, n))

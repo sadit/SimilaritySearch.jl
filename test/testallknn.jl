@@ -29,8 +29,8 @@ using Test, JET, SimilaritySearch
     @test macrorecall(eI, gI) > 0.8
     @test macrorecall(eI, pI) > 0.99
     
-    @test_call allknn(G, ctx, k)
-    @test_call allknn(E, ectx, k)
-    @test_call allknn(P, ectx, k)
+    @test_call @test_call target_modules=(@__MODULE__,) allknn(G, ctx, k)
+    @test_call @test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
+    @test_call @test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
 end
 

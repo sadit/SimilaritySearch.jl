@@ -1,5 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
+#=
 searchbatch(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer) = searchbatch(idx, getcontext(idx), Q, k)
 search(idx::AbstractSearchIndex, q, res::KnnResult) = search(idx, getcontext(idx), q, res)
 
@@ -13,4 +14,4 @@ closestpair(idx::AbstractSearchIndex; kwargs) = closestpair(idx, getcontext(idx)
 
 optimize_index!(idx::AbstractSearchIndex, kind::ErrorFunction=MinRecall(0.9); kwargs...) = optimize_index!(idx, getcontext(idx), kind; kwargs...)
 
-
+=#

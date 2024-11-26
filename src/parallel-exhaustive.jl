@@ -23,7 +23,9 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-getcontext(index::ParallelExhaustiveSearch) = DEFAULT_CONTEXT[]
+function getcontext(index::ParallelExhaustiveSearch)
+    GenericContext()
+end
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
@@ -69,7 +71,7 @@ function append_items!(ex::ParallelExhaustiveSearch, context::GenericContext, u:
     ex
 end
 
-function index!(ex::ParallelExhaustiveSearch, ctx::AbstractContext)
+function index!(ex::ParallelExhaustiveSearch, ctx::GenericContext)
     # do nothing
     ex
 end

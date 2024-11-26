@@ -23,13 +23,13 @@ Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bse
 ### local search algorithm
 
 function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, hints, vstate, bsize, beam)
-    visited_ = approx_by_hints(index, q, hints, res, vstate, beam)
+    visited_ = approx_by_hints(index, q, hints, res, vstate)
     
     if length(res) == 0
         _range = 1:length(index)
         for _ in 1:bsize
            objID = rand(_range)
-           visited_ += enqueue_item!(index, q, database(index, objID), res, objID, vstate, beam)
+           visited_ += enqueue_item!(index, q, database(index, objID), res, objID, vstate)
         end
     end
 
@@ -40,18 +40,18 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
     push_item!(beam, res[1])
     sp = 1
     dist = distance(index)
+    hops = 0
     @inbounds while sp <= length(beam)
+        hops += 1
         prev_id = beam[sp].id
         sp += 1
-        # NEIGHBROHOODMAXLEN = 64
         for childID in neighbors(index.adj, prev_id)
-            # (NEIGHBROHOODMAXLEN -= 1) == 0 && break
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
             c = IdWeight(childID, d)
             push_item!(res, c)
             visited_ += 1
-            visited_ > maxvisits && @goto finish_search
+            visited_ > maxvisits && @goto finish_search 
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
             # if neighbors_length(index.adj, childID) > 1 && d <= Δ * covradius(res)
@@ -63,7 +63,7 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
     end
 
     @label finish_search
-    SearchResult(res, visited_)
+    SearchResult(res, visited_, hops)
 end
 
 """

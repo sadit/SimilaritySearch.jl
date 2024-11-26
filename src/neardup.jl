@@ -84,7 +84,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             neardup_block!(idx, ctx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
         else
             empty!(imap)
-            searchbatch(idx, ctx, X[r], knns, dists)
+            searchbatch!(idx, ctx, X[r], knns, dists; check_args=false)
             if verbose
                 @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
