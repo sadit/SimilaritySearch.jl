@@ -119,5 +119,12 @@ Please refer to <https://github.com/sadit/SimilaritySearchDemos> and <https://gi
 It introduces a major refactoring. In particular, it makes explicit use of context objects for most functions. It also introduces simple logging procedures.
 However, we preserve compatibility in many public functions using implicit use of default context objects.
 
+## About v0.12 series
 
+Breaking changes:
+- The context objects are now required; there are no default use of them.
+- Added `ProgressMeter` for `allknn`, a small impact in the performance but pretty nice for large datasets.
+- Removes dependencies of `LoopVectorization`; we only use it for `@turbo` based distance functions; these functions can be deployed in another package.
 
+New features:
+- Distances and dataset wrappers to handle non-Float32 that are casted to Float32 just before distance computations. This could improve the performance in several high throughput setups.
