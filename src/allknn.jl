@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 export allknn
+using ProgressMeter
 
 """
     allknn(g::AbstractSearchIndex, context, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
@@ -56,19 +57,23 @@ function allknn(g::AbstractSearchIndex, context::AbstractContext, knns::Abstract
     else
         minbatch = getminbatch(context.minbatch, n)
 
-        @batch minbatch=minbatch per=thread for i in 1:n
-            res = getknnresult(k, context)
-            allknn_single_search(g, context, i, res)
-            _k = length(res)
-            #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
-            @inbounds for j in 1:_k
-                u = res.items[j]
-                knns_[j, i] = u.id
-                dists_[j, i] = u.weight
-            end
-        
-            for j in _k+1:k
-                knns_[j, i] = zero(Int32)
+        #@batch minbatch=minbatch per=thread for i in 1:n
+        P = Iterators.partition(1:n, minbatch) |> collect
+        @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
+            for i in R
+                res = getknnresult(k, context)
+                allknn_single_search(g, context, i, res)
+                _k = length(res)
+                #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
+                @inbounds for j in 1:_k
+                    u = res.items[j]
+                    knns_[j, i] = u.id
+                    dists_[j, i] = u.weight
+                end
+            
+                for j in _k+1:k
+                    knns_[j, i] = zero(Int32)
+                end
             end
         end
     end
