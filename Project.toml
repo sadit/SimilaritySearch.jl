@@ -19,6 +19,7 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StrideArraysCore = "7792a7ef-975c-4747-a70f-980b88e8d1da"
 
 [compat]
+AllocCheck = "0.2"
 Aqua = "0.8"
 Dates = "^1.0"
 Distances = "0.10"
