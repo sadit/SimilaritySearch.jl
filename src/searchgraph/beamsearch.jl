@@ -38,13 +38,16 @@ end
 
 function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
     push_item!(beam, res[1])
-    sp = 1
+    #sp = 1
     dist = distance(index)
     hops = 0
-    @inbounds while sp <= length(beam)
+    #@inbounds while sp <= length(beam)
+    @inbounds while 0 < length(beam)
         hops += 1
-        prev_id = beam[sp].id
-        sp += 1
+        #prev_id = beam[sp].id
+        #prev_id = argmin(beam)
+        prev_id = popfirst!(beam).id
+        #sp += 1
         for childID in neighbors(index.adj, prev_id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
@@ -55,7 +58,8 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
             # if neighbors_length(index.adj, childID) > 1 && d <= Δ * covradius(res)
-                push_item!(beam, c, sp)
+                #push_item!(beam, c, sp)
+                push_item!(beam, c)
             end
         end
         
