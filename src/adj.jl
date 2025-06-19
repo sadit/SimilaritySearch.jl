@@ -62,7 +62,7 @@ distribution of the items being inserted (it is expected to be really near of it
 function sort_last_item!(order::Ordering, plist::AbstractVector)
     sp = 1
     pos = N = lastindex(plist)
-    item = plist[end]
+    @inbounds item = plist[N]
 
     @inbounds while pos > sp && lt(order, item, plist[pos-1])
         pos -= 1
