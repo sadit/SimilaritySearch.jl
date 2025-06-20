@@ -36,18 +36,13 @@ function beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, 
     visited_
 end
 
-function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
+function beamsearch_inner_small_beam(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
     push_item!(beam, res[1])
-    #sp = 1
     dist = distance(index)
     hops = 0
-    #@inbounds while sp <= length(beam)
     @inbounds while 0 < length(beam)
         hops += 1
-        #prev_id = beam[sp].id
-        #prev_id = argmin(beam)
         prev_id = popfirst!(beam).id
-        #sp += 1
         for childID in neighbors(index.adj, prev_id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
@@ -57,13 +52,36 @@ function beamsearch_inner(bs::BeamSearch, index::SearchGraph, q, res::KnnResult,
             visited_ > maxvisits && @goto finish_search 
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
-            # if neighbors_length(index.adj, childID) > 1 && d <= Δ * covradius(res)
-                #push_item!(beam, c, sp)
                 push_item!(beam, c)
             end
+        end      
+    end
+
+    @label finish_search
+    SearchResult(res, visited_, hops)
+end
+
+function beamsearch_inner_large_beam(bs::BeamSearch, index::SearchGraph, q, res::KnnResult, vstate, beam, Δ::Float32, maxvisits::Int64, visited_::Int64)
+    push_item!(beam, res[1])
+    sp = 1
+    dist = distance(index)
+    hops = 0
+    @inbounds while sp <= length(beam)
+        hops += 1
+        prev_id = beam[sp].id
+        sp += 1
+        for childID in neighbors(index.adj, prev_id)
+            check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
+            d = evaluate(dist, q, database(index, childID))
+            c = IdWeight(childID, d)
+            push_item!(res, c)
+            visited_ += 1
+            visited_ > maxvisits && @goto finish_search 
+            # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
+            if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
+                push_item!(beam, c, sp)
+            end
         end
-        
-        # Δ *= 0.98f0
     end
 
     @label finish_search
@@ -92,5 +110,9 @@ function search(bs::BeamSearch, index::SearchGraph, context::SearchGraphContext,
     vstate = PtrArray(vstate)
     beam = getbeam(bsize, context)
     visited_ = beamsearch_init(bs, index, q, res, hints, vstate, bsize, beam)
-    beamsearch_inner(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
+    if bsize <= 12  # this could change with the running computer
+        beamsearch_inner_small_beam(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
+    else
+        beamsearch_inner_large_beam(bs, index, q, res, vstate, beam, Δ, maxvisits, visited_)
+    end
 end

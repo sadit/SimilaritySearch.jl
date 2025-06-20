@@ -44,7 +44,7 @@ Appends an item into the result set
     true
 end
 
-#=@inline function push_item!(res::KnnResult, item::IdWeight, sp::Int)
+@inline function push_item!(res::KnnResult, item::IdWeight, sp::Int)
     len = length(res)
     ep = maxlength(res) + sp
 
@@ -59,7 +59,7 @@ end
     @inbounds res.items[end] = item
     sort_last_item!(WeightOrder, view(PtrArray(res.items), sp:len))
     true
-end=#
+end
 
 @inline push_item!(res::KnnResult, id::Integer, dist::Real) = push_item!(res, IdWeight(id, dist))
 
