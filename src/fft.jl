@@ -3,9 +3,10 @@
 export fft
 
 """
-    fft(dist::SemiMetric, X::AbstractDatabase, k; verbose=true)
+    fft(dist::SemiMetric, X::AbstractDatabase, k; start::Int=0, verbose=true)
 
 Selects `k` items far from each other based on Farthest First Traversal algorithm.
+If `start=0` then a random starting point is selected a valid object id to `X` should be given otherwise.
 
 Returns a named tuple with the following fields:
 - `centers` contains the list of centers (indexes to ``X``)
@@ -15,14 +16,16 @@ Returns a named tuple with the following fields:
 
 Based on `enet.jl` from `KCenters.jl`
 """
-function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; verbose=true)
+function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose=true)
     N = length(X)
     centers = Int32[]
+    sizehint!(centers, k)
     dmaxlist = Float32[]
+    sizehint!(dmaxlist, k)
     nndists = Vector{Float32}(undef, N)
     fill!(nndists, typemax(Float32))
     nn = zeros(UInt32, N) 
-    imax::Int = rand(1:N)
+    imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)
     

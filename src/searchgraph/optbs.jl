@@ -9,9 +9,9 @@ Define search space for beam search autotuning
 """
 @with_kw struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 2:2:16
-    Δ = [0.8, 0.9, 0.95, 1.0, 1.05, 1.1]                  # this really depends on the dataset, be careful
-    bsize_scale = (s=1.1, p1=0.75, p2=0.75, lower=2, upper=48)  # all these are reasonably values
-    Δ_scale = (s=1.05, p1=0.75, p2=0.75, lower=0.7, upper=1.7)  # that should work in most datasets
+    Δ = 0.9:0.025:1.1                  # this really depends on the dataset, be careful
+    bsize_scale = (s=1.1, p1=0.25, p2=0.5, lower=2, upper=20)  # all these are reasonably values
+    Δ_scale = (s=1.05, p1=0.75, p2=0.75, lower=0.6, upper=1.75)  # that should work in most datasets
 end
 
 Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
