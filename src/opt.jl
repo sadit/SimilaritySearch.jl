@@ -17,13 +17,13 @@ end
 struct ParetoRecall <: ErrorFunction end
 struct ParetoRadius <: ErrorFunction end
 
-function runconfig0(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, i::Integer, res::KnnResult)
+function runconfig0(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, i::Integer, res::AbstractKnn)
     runconfig(conf, index, ctx, queries[i], res)
 end
 
 function setconfig! end
 
-function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knnlist::Vector{KnnResult}, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knnlist, queries, ksearch, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -34,18 +34,19 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
     R = [Set{Int32}() for _ in knnlist]
 
     function lossfun(conf)
-        vmin .= typemax(eltype(vmin))
-        vmax .= typemin(eltype(vmax))
-        vacc .= 0.0
+        fill!(vmin, typemax(eltype(vmin)))
+        fill!(vmax, typemin(eltype(vmax)))
+        fill!(vacc, 0.0)
         empty!(cov)
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                r_ = runconfig0(conf, index, context, queries, i, reuse!(knnlist[i], ksearch))
+                r = reuse!(knnlist[i])
+                runconfig0(conf, index, context, queries, i, r)
                 ti = Threads.threadid()
-                vmin[ti] = min(r_.cost, vmin[ti])
-                vmax[ti] = max(r_.cost, vmax[ti])
-                vacc[ti] += r_.cost
+                vmin[ti] = min(r.cost, vmin[ti])
+                vmax[ti] = max(r.cost, vmax[ti])
+                vacc[ti] += r.cost
             end
         end
 
@@ -70,7 +71,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         recall = if gold !== nothing
             for (i, res) in enumerate(knnlist)
                 empty!(R[i])
-                union!(R[i], IdView(res))
+                union!(R[i], idset(res))
             end
 
             macrorecall(gold, R)
@@ -162,13 +163,15 @@ function optimize_index!(
         @info "using $(length(queries)) given as hyperparameter"
     end
 
-    knnlist = [KnnResult(ksearch) for _ in eachindex(queries)]
+    knnlist = let M = Matrix{IdWeight}(undef, ksearch, length(queries))
+        [knn(c) for c in eachcol(M)]
+    end
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, context_exhaustive_search, queries, knnlist)
-        gold = [Set(IdView(res)) for res in knnlist]
+        gold = [idset(res) for res in knnlist]
     end
 
     M = Ref(0.0) # max cost

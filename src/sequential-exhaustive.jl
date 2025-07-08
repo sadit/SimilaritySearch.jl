@@ -26,17 +26,17 @@ end
 
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
-function push_item!(seq::ExhaustiveSearch, context::GenericContext, u)
+function push_item!(seq::ExhaustiveSearch, ctx::GenericContext, u)
     push_item!(seq.db, u)
-    context.logger !== nothing && LOG(context.logger, push_item!, seq, length(seq))
+    ctx.logger !== nothing && LOG(ctx.logger, push_item!, seq, length(seq))
     seq
 end
 
-function append_items!(seq::ExhaustiveSearch, context::GenericContext, u::AbstractDatabase)
+function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
     sp = length(seq)
     append_items!(seq.db, u)
     ep = length(seq)
-    context.logger !== nothing && LOG(context.logger, append_items!, seq, sp, ep, ep)
+    ctx.logger !== nothing && LOG(ctx.logger, append_items!, seq, sp, ep, ep)
     seq
 end
 
@@ -46,17 +46,18 @@ function index!(seq::ExhaustiveSearch, ctx::GenericContext)
 end
 
 """
-    search(seq::ExhaustiveSearch, context::GenericContext, q, res::KnnResult)
+    search(seq::ExhaustiveSearch, ctx::GenericContext, q, res)
 
 Solves the query evaluating all items in the given query.
 """
-function search(seq::ExhaustiveSearch, ctx::GenericContext, q, res::KnnResult)
+function search(seq::ExhaustiveSearch, ctx::GenericContext, q, res)
     dist = distance(seq)
     @inbounds for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)
         push_item!(res, i, d)
     end
 
-    SearchResult(res, length(seq))
+    res.cost = length(seq)
+    res
 end
 

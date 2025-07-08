@@ -66,9 +66,8 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     ϵ = convert(Float32, ϵ)
     n = length(X)
     blocksize = min(blocksize, n) 
-    res = KnnResult(k)  # should be 1, but index's setups work better on larger `k` values
-    knns = Matrix{Int32}(undef, k, blocksize)
-    dists = Matrix{Float32}(undef, k, blocksize)
+    res = knn(k)  # should be 1, but index's setups work better on larger `k` values
+    knns = Matrix{IdWeight}(undef, k, blocksize)
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
@@ -84,18 +83,19 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             neardup_block!(idx, ctx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
         else
             empty!(imap)
-            searchbatch!(idx, ctx, X[r], knns, dists; check_args=false)
+            searchbatch!(idx, ctx, X[r], knns; check_args=false)
             if verbose
                 @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
 
             for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects
-                d, nn = dists[1, i], knns[1, i]
-                if d > ϵ
+                #d, nn = knns[1, i]
+                p = knns[1, i]
+                if p.weight > ϵ
                     push!(imap, j)
                 else
-                    D[j] = d
-                    L[j] = M[nn]
+                    D[j] = p.weight
+                    L[j] = M[p.id]
                 end
             end
 
@@ -149,7 +149,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     D[i] = 0f0
 
     dist = distance(idx)
-    R = KnnResult(1)
+    R = knn(1)
     push_lock = Threads.SpinLock()
 
     for ii in 2:n

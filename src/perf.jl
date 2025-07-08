@@ -8,12 +8,13 @@ export recallscore, macrorecall
 Compute recall and precision scores from the result sets.
 """
 function recallscore(gold, res)::Float64
-    length(intersect(as_set(gold), as_set(res))) / length(gold)
+    length(intersect(idset(gold), idset(res))) / length(gold)
 end
 
-as_set(a::Set) = a
-as_set(a::AbstractVector) = Set(a)
-as_set(res::KnnResult) = Set(IdView(res))
+idset(a::Set) = a
+idset(a::AbstractVector) = Set(a)
+idset(res::Knn) = Set(IdView(res))
+idset(res::XKnn) = Set(IdView(res))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64
@@ -21,17 +22,8 @@ as_set(res::KnnResult) = Set(IdView(res))
 Computes the macro recall score using goldI as gold standard and resI as predictions;
 it expects that matrices of integers (identifiers). If `k` is given, then the results are cut to first `k`.
 """
-function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix)::Float64
-    n = size(goldI, 2)
-    s = 0.0
-    for i in 1:n
-        s += recallscore(view(goldI, :, i), view(resI, :, i))
-    end
 
-    s / n
-end
-
-function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k::Integer)::Float64
+function macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k::Integer=size(goldI, 1))::Float64
     n = size(goldI, 2)
     s = 0.0
     for i in 1:n
@@ -44,7 +36,7 @@ end
 """
     macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
 
-Computes the macro recall score using sets of results (KnnResult objects or vectors of itegers).
+Computes the macro recall score using sets of results (Knn objects or vectors of itegers).
 """
 function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
     @assert length(goldlist) == length(reslist) "$(length(goldlist)) == $(length(reslist))"

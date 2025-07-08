@@ -22,29 +22,31 @@ function closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; minbatch=0)
     end
 end
 
-function search_hint(idx::AbstractSearchIndex, ctx::AbstractContext, i::Integer)
-    res = getknnresult(2, ctx)
+function search_hint(idx::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)
+    res.len = 2
     search(idx, ctx, database(idx, i), res)
-    argmin(res) == i ? res[2] : res[1]
+    argmin(res) == i && pop_min!(res)
+    nearest(res)
 end
 
-function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer)
-    res = getknnresult(8, ctx)
+function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     vstate = getvstate(length(G), ctx)
     visit!(vstate, convert(UInt64, i))
     search(G.algo, G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
-    argmin(res) == i ? res[2] : res[1]
+    argmin(res) == i && pop_min!(res)
+    nearest(res)
 end
 
 function parallel_closestpair(idx::AbstractSearchIndex, ctx, minbatch)::Tuple{Int32,Int32,Float32}
     n = length(idx)
-    B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.nthreads()]
-
     minbatch = getminbatch(minbatch, n)
+    B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.nthreads()]
+    R = Matrix{IdWeight}(undef, 8, Threads.nthreads())
 
     @batch minbatch=minbatch per=thread for objID in 1:n
-        p = search_hint(idx, ctx, objID)
         tID = Threads.threadid()
+        res = xknn(@view R[:, tID])
+        p = search_hint(idx, ctx, objID, res)
         @inbounds if p.weight < last(B[tID])
             B[tID] = (Int32(objID), p.id, p.weight)
         end
@@ -57,9 +59,10 @@ end
 function sequential_closestpair(idx::AbstractSearchIndex, ctx)::Tuple{Int32,Int32,Float32}
     mindist = typemax(Float32)
     I = J = zero(Int32)
-
+    res = xknn(8)
     for i in eachindex(idx)
-        p = search_hint(idx, ctx, i)
+        reuse!(res)
+        p = search_hint(idx, ctx, i, res)
         if p.weight < mindist
             I, J, mindist = Int32(i), p.id, p.weight
         end

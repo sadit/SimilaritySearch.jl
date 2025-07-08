@@ -2,9 +2,10 @@
 
 export hsp_queries
 
-iterate_hsp_(hsp_neighborhood::Vector{T}) where {T<:Integer} = hsp_neighborhood
-iterate_hsp_(hsp_neighborhood::Vector{IdWeight}) = eachid(hsp_neighborhood)
-iterate_hsp_(hsp_neighborhood::KnnResult) = eachid(hsp_neighborhood)
+iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
+iterate_hsp_(h::Vector{IdWeight}) = IdView(h)
+iterate_hsp_(h::Knn) = IdView(h)
+iterate_hsp_(h::XKnn) = IdView(h)
 
 function hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32)
     @inbounds point = db[point_id]
@@ -17,15 +18,18 @@ function hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabas
     true
 end
 
-
-iterate_hsp_hyperbolic_(hsp_neighborhood::KnnResult) = eachiddist(hsp_neighborhood)
-iterate_hsp_hyperbolic_(hsp_neighborhood::Vector{IdWeight}) = eachiddist(hsp_neighborhood)
+#=
+iterate_hsp_hyperbolic_(h::Knn) = eachiddist(h)
+iterate_hsp_hyperbolic_(h::XKnn) = eachiddist(h)
+iterate_hsp_hyperbolic_(h::Vector{IdWeight}) = eachiddist(h)
 function iterate_hsp_hyperbolic_(hsp_neighborhood::Vector{T}, dist, center, db) where {T<:Integer} 
     (hsp_objID, evaluate(dist, center, db[hsp_objID]) for hsp_objID in hsp_neighborhood)
 end
+=#
 
-
-function hyperbolic_hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32, hfactor::Float32)
+#=
+error("unsuported hfactor $hfactor")
+function #hyperbolic_hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32, hfactor::Float32)
     @inbounds point = db[point_id]
     @inbounds for (hsp_objID, dist_center_hsp) in iterate_hsp_hyperbolic_(hsp_neighborhood, dist, center, db)
         dist_point_hsp = evaluate(dist, point, db[hsp_objID])
@@ -41,39 +45,37 @@ function hyperbolic_hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::Abst
     true 
 end
 
-
+=#
 
 
 """
-    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns, dists; <kwargs>)
+    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Matrix; <kwargs>)
     hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; <kwargs>)
     hsp_queries(idx::AbstractSearchIndex, Q::AbstractDatabase, k::Integer; <kwargs>)
 
 
-Computes the half-space partition of the queries `Q` (possibly given as `knns`, `dists`)
+Computes the half-space partition of the queries `Q` (possibly given as a `knns` of `IdWeight` elements)
 
 
 ## Optional keyword arguments
 - `ctx::SearchGraphContext` search context (caches)
 - `minbatch::Int`: `Polyester.@batch` parameter controlling how the multithreading is executed
 """
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix, dists::AbstractMatrix; ctx = SearchGraphContext(), minbatch::Int=0)
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix; ctx = SearchGraphContext(), minbatch::Int=0)
     n = length(Q)
-    hsp = Vector{KnnResult}(undef, n)
+    hsp = xknnset(size(knns)...)
+
     minbatch = getminbatch(minbatch, n)
     @batch minbatch=minbatch per=thread for i in 1:n
-        idlist = @view knns[:, i]
-        distlist = @view dists[:, i]
-        res = getknnresult(length(idlist), ctx)
+        plist = @view knns[:, i]
         q = Q[i]
-        for (objID, d) in zip(idlist, distlist)
-            objID == 0 && break
-            if hsp_should_push(res, dist, X, q, convert(UInt32, objID), convert(Float32, d))
-                push_item!(res, objID, d)
+        for p in plist
+            p.id == 0 && break
+            if hsp_should_push(hsp.knns[i], dist, X, q, p.id, p.weight)
+                push_item!(hsp.knns[i], p)
             end
         end
 
-        hsp[i] = KnnResult(copy(res.items), length(res))
     end
 
     hsp
@@ -82,17 +84,17 @@ end
 function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, k::Integer; minbatch=0)
     idx = ExhaustiveSearch(; dist, db=X)
     ctx = getcontext(idx)
-    knns, dists = searchbatch(idx, ctx, Q, k)
-    hsp_queries(dist, X, Q, knns, dists; ctx, minbatch)
+    knns = searchbatch(idx, ctx, Q, k)
+    hsp_queries(dist, X, Q, knns; ctx, minbatch)
 end
 
 function hsp_queries(idx::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer; minbatch=0)
-    knns, dists = searchbatch(idx, ctx, Q, k)
-    hsp_queries(distance(idx), database(idx), Q, knns, dists; ctx, minbatch)
+    knns = searchbatch(idx, ctx, Q, k)
+    hsp_queries(distance(idx), database(idx), Q, knns; ctx, minbatch)
 end
 
-function hsp_proximal_neighborhood_filter!(hsp_neighborhood::KnnResult, dist::SemiMetric, db, item, neighborhood::KnnResult; hfactor::Float32=0f0, nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)
-    push_item!(hsp_neighborhood, argmin(neighborhood), minimum(neighborhood)) 
+function hsp_proximal_neighborhood_filter!(hsp, dist::SemiMetric, db, item, neighborhood; hfactor::Float32=0f0, nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)
+    push_item!(hsp, neighborhood[1])
     prob = 1f0
     #hfactor = 0.9f0
     #hfactor_gain = 1.05f0
@@ -100,28 +102,30 @@ function hsp_proximal_neighborhood_filter!(hsp_neighborhood::KnnResult, dist::Se
         p = neighborhood[i]
         if p.weight <= nndist
             if rand(Float32) < prob
-                push_item!(hsp_neighborhood, p)
+                push_item!(hsp, p)
                 prob *= nncaptureprob # workaround for very large number of duplicates
             end
         elseif hfactor == 0f0
-            hsp_should_push(hsp_neighborhood, dist, db, item, p.id, p.weight) && push_item!(hsp_neighborhood, p.id, p.weight)
+            hsp_should_push(hsp, dist, db, item, p.id, p.weight) && push_item!(hsp, p)
         else
-            hyperbolic_hsp_should_push(hsp_neighborhood, dist, db, item, p.id, p.weight, hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
+            error("unsuported hfactor $hfactor")
+            #hyperbolic_hsp_should_push(hsp, dist, db, item, p.id, p.weight, hfactor) && push_item!(hsp, p.id, p.weight)
         end
     end
 end
 
-function hsp_distal_neighborhood_filter!(hsp_neighborhood::KnnResult, dist::SemiMetric, db, item, neighborhood::KnnResult; hfactor::Float32=0f0, nndist::Float32=1f-4)
-    push_item!(hsp_neighborhood, argmax(neighborhood), maximum(neighborhood))
+function hsp_distal_neighborhood_filter!(hsp, dist::SemiMetric, db, item, neighborhood; hfactor::Float32=0f0, nndist::Float32=1f-4)
+    push_item!(hsp, last(neighborhood))
 
     @inbounds for i in length(neighborhood)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = neighborhood[i]
         if p.weight <= nndist
-            push_item!(hsp_neighborhood, p)
+            push_item!(hsp, p)
         elseif hfactor == 0f0
-            hsp_should_push(hsp_neighborhood, dist, db, item, p.id, p.weight) && push_item!(hsp_neighborhood, p.id, p.weight)
+            hsp_should_push(hsp, dist, db, item, p.id, p.weight) && push_item!(hsp, p)
         else
-            hyperbolic_hsp_should_push(hsp_neighborhood, dist, db, item, p.id, p.weight, hfactor) && push_item!(hsp_neighborhood, p.id, p.weight)
+            error("unsuported hfactor $hfactor")
+            # hyperbolic_hsp_should_push(hsp, dist, db, item, p.id, p.weight, hfactor) && push_item!(hsp, p.id, p.weight)
         end
     end
 

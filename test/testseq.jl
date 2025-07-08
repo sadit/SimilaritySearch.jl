@@ -6,11 +6,11 @@ using Test, JET
 function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
-    id, dist = searchbatch(seq, ctx, queries, 10)
-    @test_call searchbatch(seq, ctx, queries, 10)
+    knns = searchbatch(seq, ctx, queries, 10)
+    #@test_call searchbatch(seq, ctx, queries, 10)
 
-    for c in eachcol(dist)
-        @test c[1] < valid_lower
+    for c in eachcol(knns)
+        @test c[1].weight < valid_lower
     end    
 end
 

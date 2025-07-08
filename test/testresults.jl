@@ -1,47 +1,104 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch
 using Test, JET
 
-function testsorted(res, Vsorted)
-    @info "========================", (typeof(res), length(res), maxlength(res)), length(Vsorted)
-    @show res
-    @show Vsorted
-    @info "======================== starting ============="
-    @test collect(res) == Vsorted
-    @test minimum(res) == first(Vsorted).weight
-    @test maximum(res) == last(Vsorted).weight
-    @test argmin(res) == first(Vsorted).id
-    @test argmax(res) == last(Vsorted).id
-    @show res
-    
-    @test collect(res) == Vsorted
+using SimilaritySearch, Test, Base.Order
+using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!, pop_max!
 
-    pop!(Vsorted)
-    pop!(res)
-    @test collect(res) == Vsorted
-
-    popfirst!(Vsorted)
-    popfirst!(res)
-    @test collect(res) == Vsorted
-end
-
-function create_random_array(n, k)
-    V = rand(Float32, n)
-    Vsorted = sort!([IdWeight(i, v) for (i, v) in enumerate(V)], by=x->x.weight)[1:k]
-    V, Vsorted
-end
-
-@testset "shifted vector-based result set" begin
-    k = 10
-    res = KnnResult(k)
-    V, Vsorted = create_random_array(1000, k)
-    @time for i in eachindex(V)
-        push_item!(res, i, V[i])
+@testset "heap" begin
+    for k in [7, 8, 12, 15, 16, 31, 32, 67]
+        X = rand(Float32, k)
+        heapify!(Forward, X)
+        @test isheap(Forward, X)
+        heapsort!(Forward, X)
+        @test issorted(X)
     end
-    
-    testsorted(res, copy(Vsorted))
-    @time push_item!(res, 1, V[1])
-    @test_call push_item!(res, 1, V[1])
-    @time push_item!(res, 1, V[1])
+
+end
+
+@testset "Knn" begin
+    for k in [7, 8, 12, 15, 67]
+        R = knn(k)
+        gold = IdWeight[]
+
+        for i in Int32(1):Int32(10^3)
+            p = rand(Float32)
+            # i > 7 && (p *= maximum(R))
+            push!(gold, IdWeight(i, p))
+            sort!(gold, by=x->x.weight)
+            length(gold) > k && pop!(gold)
+
+            push_item!(R, i => p)
+
+            @test minimum(x->x.weight, gold) == minimum(R)
+            @test maximum(x->x.weight, gold) == maximum(R)
+            @test argmin(x->x.weight, gold).id == argmin(R) || minimum(x->x.weight, gold) == minimum(R)
+            @test argmax(x->x.weight, gold).id == argmax(R) || maximum(x->x.weight, gold) == maximum(R)
+        end
+
+        @test sortitems!(R) == gold
+    end
+
+end
+
+@testset "XKnn" begin
+    for k in [7, 8, 12, 15, 67]
+        R = xknn(k)
+        gold = IdWeight[]
+
+        for i in Int32(1):Int32(10^3)
+            p = rand(Float32)
+            # i > 7 && (p *= maximum(R))
+            push!(gold, IdWeight(i, p))
+            sort!(gold, by=x->x.weight)
+            length(gold) > k && pop!(gold)
+
+            push_item!(R, i => p)
+
+            @test minimum(x->x.weight, gold) == minimum(R)
+            @test maximum(x->x.weight, gold) == maximum(R)
+            @test argmin(x->x.weight, gold).id == argmin(R) || minimum(x->x.weight, gold) == minimum(R)
+            @test argmax(x->x.weight, gold).id == argmax(R) || maximum(x->x.weight, gold) == maximum(R)
+            @test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+
+        end
+
+        A = collect(DistView(sortitems!(R)))
+        B = collect(DistView(gold))
+        @test sum(A .- B) < 1e-3
+
+    end
+
+end
+
+@testset "XKnn pop ops" begin
+    for k in [7, 12, 31]
+        R = xknn(k)
+        gold = IdWeight[]
+
+        for i in Int32(1):Int32(10^3)
+            p = rand(Float32)
+            # i > 7 && (p *= maximum(R))
+            push!(gold, IdWeight(i, p))
+            sort!(gold, by=x->x.weight)
+            length(gold) > k && pop!(gold)
+
+            push_item!(R, i => p)
+
+            if i % 10 == 7
+                @test pop_min!(R) == popfirst!(gold)
+                @test pop_max!(R) == pop!(gold)
+            end
+
+            @test minimum(x->x.weight, gold) == minimum(R)
+            @test maximum(x->x.weight, gold) == maximum(R)
+            @test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+            # i == 3 && break
+        end
+
+        A = collect(DistView(sortitems!(R)))
+        B = collect(DistView(gold))
+        @test sum(A .- B) < 1e-3
+    end
+
 end

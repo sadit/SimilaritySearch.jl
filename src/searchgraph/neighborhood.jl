@@ -23,7 +23,7 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood(copy_, index::SearchGraph{T}, context, item; hints=index.hints)
+    find_neighborhood(copy_, index::SearchGraph{T}, ctx, item; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 The `copy_` function forces to control how the returned KnnResult object is handled because it uses a cache result set from
@@ -33,16 +33,16 @@ the given context.
 - `copy_`: A copying function, it controls what is retrieved by the function.
 - `index`: The search index.
 - `item`: The item to be inserted.
-- `context`: context, neighborhood, and cache objects to be used
+- `ctx`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(copy_::Function, index::SearchGraph, context::SearchGraphContext, item; hints=index.hints)
-    neighborhood = context.neighborhood
+function find_neighborhood(copy_::Function, index::SearchGraph, ctx::SearchGraphContext, item; hints=index.hints)
+    neighborhood = ctx.neighborhood
     ksearch = neighborhoodsize(neighborhood, length(index))
-    res = getknnresult(ksearch, context)
+    res = getiknnresult(ksearch, ctx)
     if ksearch > 0
-        search(index.algo, index, context, item, res, hints)
-        res = neighborhoodfilter(neighborhood.filter, index, context, item, res)
+        search(index.algo, index, ctx, item, res, hints)
+        res = neighborhoodfilter(neighborhood.filter, index, ctx, item, sortitems!(res))
     end
 
     copy_(res)
@@ -53,7 +53,7 @@ end
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors)
+function connect_reverse_links(::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors)
     #maxnlen = log(neighborhood.logbase, n) 
     @inbounds for id in neighbors
         #nlen = neighbors_length(adj, id)
@@ -118,14 +118,13 @@ end
 filters `res` using the DistSAT strategy.
 """
 @inline function neighborhoodfilter(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
-    dfun = distance(index)
-    db = database(index)
     hsp_neighborhood = getsatknnresult(length(res), context)
     hsp_distal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
     hsp_neighborhood
 end
 
 @inline function neighborhoodfilter(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
+    @assert length(res) > 0
     hsp_neighborhood = getsatknnresult(length(res), context)
     hsp_proximal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
     hsp_neighborhood

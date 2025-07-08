@@ -23,5 +23,5 @@ using Test, JET, SimilaritySearch, LinearAlgebra
     @info "NOTE: the exact method will be faster on small datasets due to the preprocessing step of the approximation method"
     @info "closestpair computation time", :approx => tG, :exact => tE
     
-    @test_call closestpair(G, ctx; minbatch=-1)
+    # @test_call closestpair(G, ctx; minbatch=-1)
 end

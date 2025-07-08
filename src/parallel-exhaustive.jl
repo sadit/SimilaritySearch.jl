@@ -23,13 +23,14 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-function getcontext(index::ParallelExhaustiveSearch)
+function getctx(index::ParallelExhaustiveSearch)
     GenericContext()
 end
+
 Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(ex::ParallelExhaustiveSearch, context::GenericContext, q, res::KnnResult)
+    search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
 
 Solves the query evaluating all items in the given query.
 
@@ -37,13 +38,13 @@ Solves the query evaluating all items in the given query.
 - `ex`: the search structure
 - `q`: the query to solve
 - `res`: the result set
-- `context`: running context
+- `ctx`: running ctx
 
 """
-function search(ex::ParallelExhaustiveSearch, context::GenericContext, q, res::KnnResult)
+function search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
     dist = distance(ex)
     elock = ex.lock
-    minbatch = getminbatch(context.minbatch, length(ex))
+    minbatch = getminbatch(ctx.minbatch, length(ex))
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, database(ex, i), q)
         try
@@ -54,20 +55,21 @@ function search(ex::ParallelExhaustiveSearch, context::GenericContext, q, res::K
         end
     end
 
-    SearchResult(res, length(ex))
+    res.cost = length(ex)
+    res
 end
 
-function push_item!(ex::ParallelExhaustiveSearch, context::GenericContext, u)
+function push_item!(ex::ParallelExhaustiveSearch, ctx::GenericContext, u)
     push_item!(ex.db, u)
-    context.logger !== nothing && LOG(context.logger, push_item!, ex, length(ex))
+    ctx.logger !== nothing && LOG(ctx.logger, push_item!, ex, length(ex))
     ex
 end
 
-function append_items!(ex::ParallelExhaustiveSearch, context::GenericContext, u::AbstractDatabase)
+function append_items!(ex::ParallelExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
     sp = length(ex)
     push_item!(ex.db, u)
     ep = length(ex)
-    context.logger !== nothing && LOG(context.logger, append_items!, ex, sp, ep, ep)
+    ctx.logger !== nothing && LOG(ctx.logger, append_items!, ex, sp, ep, ep)
     ex
 end
 

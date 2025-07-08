@@ -41,12 +41,12 @@ Base.copy(G::SearchGraph;
 @inline Base.length(g::SearchGraph)::Int64 = g.len[]
 
 """
-    enqueue_item!(index::SearchGraph, q, obj, res::KnnResult, objID, vstate)
+    enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
 
 Internal function that evaluates the distance between a database object `obj` with id `objID` and the query `q`.
 It helps to evaluate, mark as visited, and enqueue in the result set.
 """
-@inline function enqueue_item!(index::SearchGraph, q, obj, res::KnnResult, objID, vstate)::Int
+@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)::Int
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
     d = evaluate(distance(index), q, database(index, objID))
     push_item!(res, objID, d)
@@ -64,10 +64,7 @@ include("hints.jl")
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, context::SearchGraphContext, q, res::KnnResult; hints=index.hints)
-    if length(index) > 0
-        search(index.algo, index, context, q, res, hints)
-    else
-        SearchResult(res, 0)
-    end
+function search(index::SearchGraph, context::SearchGraphContext, q, res; hints=index.hints)
+    length(index) > 0 && search(index.algo, index, context, q, res, hints)
+    res
 end

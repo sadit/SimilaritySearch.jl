@@ -1,11 +1,11 @@
 # This file is a part of SimilaritySearch.jl
 #
 """
-    approx_by_hints(index::SearchGraph, q, hints, res::KnnResult, vstate)
+    approx_by_hints(index::SearchGraph, q, hints, res, vstate)
 
 Approximate the result using a set of hints (the set of identifiers (integers)) behints  `hints`
 """
-function approx_by_hints(index::SearchGraph, q, hints::T, res::KnnResult, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
+function approx_by_hints(index::SearchGraph, q, hints::T, res, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
     visited = 0
     for objID in hints
         obj = database(index, objID)
@@ -30,7 +30,7 @@ end
 
 
 
-function approx_by_hints(index::SearchGraph, q, h::AdjacentStoredHints, res::KnnResult, vstate)
+function approx_by_hints(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)
     visited = 0
     for (i, objID) in enumerate(h.map)
         obj = h.hints[i]

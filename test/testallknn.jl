@@ -14,23 +14,23 @@ using Test, JET, SimilaritySearch
     @test length(G) == n
     optimize_index!(G, ctx, MinRecall(0.95))
     @test length(G) == n
-    gI, gD = allknn(G, ctx, k)
-    @test size(gI) == size(gD) == (k, n)
+    knns = allknn(G, ctx, k)
+    @test size(knns) == (k, n)
 
     E = ExhaustiveSearch(; db=X, dist)
     ectx = getcontext(E)
     
-    eI, eD = allknn(E, ectx, k)
-    @test size(eI) == size(eD) == (k, n)
+    gold_knns = allknn(E, ectx, k)
+    @test size(gold_knns) == (k, n)
 
     P = ParallelExhaustiveSearch(; db=X, dist)
-    pI, pD = allknn(P, ectx, k)
-    @test size(pI) == size(pD) == (k, n)
-    @test macrorecall(eI, gI) > 0.8
-    @test macrorecall(eI, pI) > 0.99
+    par_knns = allknn(P, ectx, k)
+    @test size(par_knns) == (k, n)
+    @test macrorecall(gold_knns, knns) > 0.8
+    @test macrorecall(gold_knns, par_knns) > 0.99
     
-    @test_call @test_call target_modules=(@__MODULE__,) allknn(G, ctx, k)
-    @test_call @test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
-    @test_call @test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
+    @test_call target_modules=(@__MODULE__,) allknn(G, ctx, k)
+    @test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
+    @test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
 end
 

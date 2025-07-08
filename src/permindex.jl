@@ -21,11 +21,11 @@ PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index,
 @inline distance(p::PermutedSearchIndex) = distance(p.index)
 @inline Base.length(p::PermutedSearchIndex) = length(p.index)
 
-function search(p::PermutedSearchIndex, ctx::AbstractContext, res::KnnResult)
+function search(p::PermutedSearchIndex, ctx::AbstractContext, res)
     out = search(p.index, ctx, q, res)
-    @inbounds for i in eachindex(res)
-        x = res[i]
-        res[i] = IdWeight(p.π[x.id], x.weight)
+    @inbounds for i in eachindex(res.items)
+        x = res.items[i]
+        res.items[i] = IdWeight(p.π[x.id], x.weight)
     end
 
     out

@@ -4,81 +4,64 @@ export allknn
 using ProgressMeter
 
 """
-    allknn(g::AbstractSearchIndex, context, k::Integer; minbatch=0, pools=getpools(g)) -> knns, dists
-    allknn(g, context, knns, dists; minbatch=0, pools=getpools(g)) -> knns, dists
+    allknn(g::AbstractSearchIndex, ctx, k::Integer; minbatch=0, pools=getpools(g)) -> knns
+    allknn(g, ctx, knns; minbatch=0, pools=getpools(g)) -> knns
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
 # Parameters:
 
 - `g`: the index
-- `context`: the index's context (caches, hyperparameters, logger, etc)
+- `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
 - Query specification and result:
    - `k`: the number of neighbors to retrieve
-   - `knns`: an uninitialized integer matrix of (k, n) size for storing the `k` nearest neighbors of the `n` elements
-   - `dists`: an uninitialized floating point matrix of (k, n) size for storing the `k` nearest distances of the `n` elements
+   - `knns`: an uninitialized IdWeight matrix of (k, n) size for storing the `k` nearest neighbors and sitances of the `n` elements
 
-- `context`: caches, hyperparameters and meta specifications, e.g., see [`SearchGraphContext`](@ref)
+- `ctx`: caches, hyperparameters and meta specifications, e.g., see [`SearchGraphContext`](@ref)
 
 # Returns:
 
-- `knns` a (k, n) matrix of identifiers; the i-th column corresponds to the i-th object in the dataset.
+- `knns` a (k, n) matrix of IdWeight elements (integers, floats); the i-th column corresponds to the i-th object in the dataset.
     Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
-- `dists` a (k, n) matrix of distances; the i-th column corresponds to the i-th object in the dataset.
-    Zero values in `knns` should be ignored in `dists`
  
 # Note:
 This function was introduced in `v0.8` series, and removes self references automatically.
 In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.    
 """
-function allknn(g::AbstractSearchIndex, context::AbstractContext, k::Integer)
+function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort=true)
     n = length(g)
-    knns = Matrix{Int32}(undef, k, n)
-    dists = Matrix{Float32}(undef, k, n)
-    allknn(g, context, knns, dists)
+    knns = Matrix{IdWeight}(undef, k, n)
+    allknn(g, ctx, knns; sort)
 end
 
-function allknn(g::AbstractSearchIndex, context::AbstractContext, knns::AbstractMatrix{Int32}, dists::AbstractMatrix{Float32})
-    k, n = size(knns, 1), length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
-    # @assert n > 0 && k > 0 && n == length(g)
+function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true)
+    m = length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
+    k, n = size(knns)
+    @assert n > 0 && n == m
+    @assert 0 < k <= n
     #knns_ = pointer(knns)
     #dists_ = pointer(dists)
-    knns_ = PtrArray(knns)
-    dists_ = PtrArray(dists)
-    if context.minbatch < 0
+    if ctx.minbatch < 0
         for i in 1:n
-            res = getknnresult(k, context)
-            allknn_single_search(g, context, i, res)
-            _k = length(res)
-            knns_[1:_k, i] .= res.id
-            _k < k && (knns_[_k+1:k] .= zero(Int32))
-            dists_[1:_k, i] .= res.dist 
+            res = knn(@view knns[:, i])
+            allknn_single_search(g, ctx, i, res)
+            sort && sortitems!(res)
         end
     else
-        minbatch = getminbatch(context.minbatch, n)
+        minbatch = getminbatch(ctx.minbatch, n)
 
         #@batch minbatch=minbatch per=thread for i in 1:n
         P = Iterators.partition(1:n, minbatch) |> collect
         @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
             for i in R
-                res = getknnresult(k, context)
-                allknn_single_search(g, context, i, res)
-                _k = length(res)
-                #unsafe_copyto_knns_and_dists!(knns_, pointer(res.id), dists_, pointer(res.dist), i, _k, k)
-                @inbounds for j in 1:_k
-                    u = res.items[j]
-                    knns_[j, i] = u.id
-                    dists_[j, i] = u.weight
-                end
-            
-                for j in _k+1:k
-                    knns_[j, i] = zero(Int32)
-                end
+                res = knn(@view knns[:, i])
+                allknn_single_search(g, ctx, i, res)
+                sort && sortitems!(res)
             end
         end
     end
     
-    knns, dists
+    knns
 end
 
 #=
@@ -95,16 +78,16 @@ end
 end=#
 
 
-function allknn_single_search(g::SearchGraph, context::SearchGraphContext, i::Integer, res::KnnResult)
+function allknn_single_search(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     cost = 0
-    vstate = getvstate(length(g), context)
+    vstate = getvstate(length(g), ctx)
     q = database(g, i)
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        cost += search(g.algo, g, context, q, res, h; vstate).cost
+        cost += search(g.algo, g, ctx, q, res, h; vstate).cost
         # length(res) == k && break
     end
 
@@ -125,9 +108,10 @@ function allknn_single_search(g::SearchGraph, context::SearchGraphContext, i::In
         end
     end=#
 
-    (; res, cost)
+    res.cost = cost
+    res
 end
 
-function allknn_single_search(g::AbstractSearchIndex, context::AbstractContext, i::Integer, res::KnnResult)
-    search(g, context, database(g, i), res,)
+function allknn_single_search(g::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)
+    search(g, ctx, database(g, i), res)
 end

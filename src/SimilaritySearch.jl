@@ -9,7 +9,7 @@ using JLD2
 
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext, 
-       SemiMetric, evaluate, search, searchbatch, getknnresult, database, distance,
+       SemiMetric, evaluate, search, searchbatch, database, distance,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
 
@@ -23,7 +23,7 @@ include("log.jl")
 
 using .AdjacencyLists
 
-include("knnresult.jl")
+include("knnresult/KnnResult.jl")
 include("io.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
@@ -33,16 +33,15 @@ include("io.jl")
 abstract type AbstractContext end
 
 struct GenericContext <: AbstractContext
-    knn::Vector{KnnResult}
     minbatch::Int
     logger
 end
 
-GenericContext(; k::Integer=32, minbatch::Integer=0, logger=InformativeLog()) =
-    GenericContext([KnnResult(k) for _ in 1:Threads.nthreads()], minbatch, logger)
+GenericContext(; minbatch::Integer=0, logger=InformativeLog()) =
+    GenericContext(minbatch, logger)
 
-GenericContext(ctx::AbstractContext; knn=ctx.knn, minbatch=ctx.minbatch, logger=ctx.logger) =
-    GenericContext(knn, minbatch, logger)
+GenericContext(ctx::AbstractContext; minbatch=ctx.minbatch, logger=ctx.logger) =
+    GenericContext(minbatch, logger)
 
 function getcontext(s::AbstractSearchIndex)
     error("Not implemented method for $s")
@@ -71,22 +70,6 @@ Gets the distance function used in the index
 """
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
-"""
-    struct SearchResult
-        res::KnnResult  # result struct
-        cost::Int32  # number of distances (if algorithm allow it)
-        eblocks::Int32 # number of evaluated blocks (whatever it means for some index)
-    end
-
-Response of a typical search knn query
-"""
-Base.@kwdef struct SearchResult
-    res::KnnResult
-    cost::Int32 = 0
-    eblocks::Int32 = 0
-end
-
-SearchResult(res, cost) = SearchResult(res, cost, 0)
 
 include("perf.jl")
 include("sequential-exhaustive.jl")
@@ -102,17 +85,6 @@ include("fft.jl")
 include("closestpair.jl")
 include("hsp.jl")
 
-
-"""
-    getknnresult(k::Integer, ctx::AbstractContext) -> KnnResult
-
-Generic function to obtain a shared result set for the same thread and avoid memory allocations.
-This function should be specialized for indexes and caches that use shared results or threads in some special way.
-"""
-@inline function getknnresult(k::Integer, ctx::AbstractContext)
-    res = ctx.knn[Threads.threadid()]
-    reuse!(res, k)
-end
 
 #=
 @inline function getknnresult(k::Integer)
@@ -139,20 +111,21 @@ Note: The final indices at each column can be `0` if the search process was unab
 """
 function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer)
     m = length(Q)
-    I = Matrix{Int32}(undef, k, m)
-    D = Matrix{Float32}(undef, k, m)
-    searchbatch!(index, ctx, Q, I, D)
-    I, D
+    knns = Matrix{IdWeight}(undef, k, m)
+    searchbatch!(index, ctx, Q, knns)
+    knns
 end
 
 """
-    searchbatch!(index, ctx, Q, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}, costs) -> indices, distances, costs
+    searchbatch!(index, ctx, Q, knns; costs, eblocks, check_args) -> knns, costs, eblocks
 
 Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
 
 # Arguments
 - `index`: The search structure
+- `ctx`: Context of the search algorithm
 - `Q`: The set of queries
+- `knns`: Matrix of outputs
 - `k`: The number of neighbors to retrieve
 - `ctx`: environment for running searches (hyperparameters and caches)
 
@@ -160,79 +133,56 @@ Searches a batch of queries in the given index and `I` and `D` as output (search
 - `cost`: nothing or a vector like collection to store the number of distance evaluations to solve each query
 - `eblocks`: nothing or a vector like collection to store the the number of evaluated blocks for each query (the precise definition depends on the index)
 - `check_args`: activate or deactivate checking arguments, this is useful for reusing structures without using views
+- `sorted`: indicates whether the output should be sorted or not.
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, I::AbstractMatrix{Int32}, D::AbstractMatrix{Float32}; cost=nothing, eblocks=nothing, check_args::Bool=true)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; cost=nothing, eblocks=nothing, check_args::Bool=true, sorted=true)
     if check_args
         length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-        (length(Q) == size(I, 2) == size(D, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
+        (length(Q) == size(knns, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
         (cost === nothing || length(Q) == length(cost)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
     end
 
     minbatch = getminbatch(ctx.minbatch, length(Q))
-    I_ = PtrArray(I)
-    D_ = PtrArray(D)
 
     if cost === nothing && eblocks === nothing
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            solve_single_query!(index, ctx, Q, i, I_, D_)
+            res = knndefault(@view knns[:, i])
+            search(index, ctx, Q[i], res)
+            sorted && sortitems!(res)
         end
     else
         @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            r = solve_single_query!(index, ctx, Q, i, I_, D_)
-            cost !== nothing && (cost[i] = r.cost)
-            eblocks !== nothing && (eblocks[i] = r.eblocks)
+            res = knndefault(@view knns[:, i])
+            search(index, ctx, Q[i], res)
+            sorted && sortitems!(res)
+            cost !== nothing && (cost[i] = res.cost)
+            eblocks !== nothing && (eblocks[i] = res.eblocks)
         end
     end
 
-    I, D, cost, eblocks
-end
-
-@inline function solve_single_query!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, i, knns_, dists_)
-    k = size(knns_, 1)
-    q = @inbounds Q[i]
-    res = getknnresult(k, ctx)
-    r = search(index, ctx, q, res)
-    _k = length(res)
-    @inbounds for j in 1:_k
-        u = res.items[j]
-        knns_[j, i] = u.id
-        dists_[j, i] = u.weight
-    end
-
-    for j in _k+1:k
-        knns_[j, i] = zero(Int32)
-    end
-
-    r
+    knns, cost, eblocks
 end
 
 
 """
-    searchbatch!(index, context, Q, KNN::AbstractVector{KnnResult}, costs=nothing) -> indices, distances
+    searchbatch!(index, ctx, Q, knns) -> knns
 
 Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
 
 # Arguments
-- `context`: contain caches to reduce memory allocations and hyperparameters for search customization
+- `ctx`: contain caches to reduce memory allocations and hyperparameters for search customization
 
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, KNN::AbstractVector{KnnResult}, costs=nothing)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-    length(Q) == length(KNN) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    (costs === nothing || length(Q) == length(costs)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
+    length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
-    if costs === nothing
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            search(index, ctx, Q[i], KNN[i])
-        end
-    else
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            costs[i] = search(index, ctx, Q[i], KNN[i]).cost
-        end
+    @batch minbatch=minbatch per=thread for i in eachindex(Q)
+        search(index, ctx, Q[i], knns[i])
     end
-
-    KNN, costs
+    
+    knns
 end
 
 """
