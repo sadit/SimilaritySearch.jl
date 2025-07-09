@@ -2,6 +2,7 @@ mutable struct Knn{VEC<:AbstractVector} <: AbstractKnn
     items::VEC
     min::IdWeight
     len::Int32
+    maxlen::Int32
     cost::Int32
     eblocks::Int32
 end
@@ -13,7 +14,7 @@ end
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::Knn) = length(res.items)
+@inline maxlength(res::Knn) = res.maxlen
 
 #@inline Base.last(res::Knn) = res.items[1]
 #@inline Base.first(res::Knn) = res.items[res.minpos]
@@ -76,12 +77,14 @@ push_item!(res::Knn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UIn
 push_item!(res::Knn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
 """
-    reuse!(res::KnnSet)
+    reuse!(res::KnnSet, maxlen=length(res.items))
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::Knn)
+@inline function reuse!(res::Knn, maxlen=length(res.items))
     res.len = 0
+    @assert maxlen <= length(res.items)
+    res.maxlen = maxlen
     res.min = IdWeight(0, 0f0)
     res.cost = res.eblocks = 0
     res

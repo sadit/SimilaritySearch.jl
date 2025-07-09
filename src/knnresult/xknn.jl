@@ -1,6 +1,7 @@
 mutable struct XKnn{VEC<:AbstractVector} <: AbstractKnn
     items::VEC
     len::Int32
+    maxlen::Int32
     cost::Int32
     eblocks::Int32
 end
@@ -58,7 +59,7 @@ end
 
 The maximum allowed cardinality (the k of Xknn)
 """
-@inline maxlength(res::XKnn) = length(res.items)
+@inline maxlength(res::XKnn) = res.maxlen
 
 @inline nearest(res::XKnn) = res.items[res.len]
 @inline Base.maximum(res::XKnn) = res.items[1].weight
@@ -129,12 +130,14 @@ end
 end
 
 """
-    reuse!(res::XKnnSet)
+    reuse!(res::XKnnSet, maxlen=length(res.items))
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::XKnn)
+@inline function reuse!(res::XKnn, maxlen=length(res.items))
     res.len = 0
+    @assert maxlen <= length(res.items)
+    res.maxlen = maxlen
     res.cost = res.eblocks = 0
     res
 end

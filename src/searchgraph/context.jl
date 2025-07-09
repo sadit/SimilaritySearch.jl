@@ -81,7 +81,7 @@ export SearchGraphContext
 can call other metric indexes that can use these shared resources (globally defined).
 
 """
-struct SearchGraphContext <: AbstractContext
+struct SearchGraphContext{KNNSET} <: AbstractContext
     logger
     neighborhood::Neighborhood
     hints_callback::Union{Nothing,Callback}
@@ -90,9 +90,9 @@ struct SearchGraphContext <: AbstractContext
     starting_callback::Int32
     parallel_block::Int32
     parallel_first_block::Int32
-    iknns::Matrix{IdWeight}
-    beam::Matrix{IdWeight}
-    sat::Matrix{IdWeight}
+    iknns::KNNSET
+    beam::KNNSET
+    sat::KNNSET
     # vstates::Vector{VisitedVerticesBits}
     vstates::Vector{Vector{UInt64}}
     minbatch::Int
@@ -109,9 +109,9 @@ function SearchGraphContext(;
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
         starting_callback=256,
-        iknns = Matrix{IdWeight}(undef, 96, Threads.nthreads()),
-        beam = Matrix{IdWeight}(undef, 32, Threads.nthreads()),
-        sat = Matrix{IdWeight}(undef, 64, Threads.nthreads()),
+        iknns = xknnset(96, Threads.nthreads()),
+        beam = xknnset(32, Threads.nthreads()),
+        sat = xknnset(64, Threads.nthreads()),
         # vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
         vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.nthreads()],
         minbatch = 0
@@ -119,8 +119,10 @@ function SearchGraphContext(;
  
     SearchGraphContext(logger, neighborhood,
                        hints_callback, hyperparameters_callback,
-                       logbase_callback, starting_callback,
-                       parallel_block, parallel_first_block,
+                       convert(Float32, logbase_callback),
+                       convert(Int32, starting_callback),
+                       convert(Int32, parallel_block),
+                       convert(Int32, parallel_first_block),
                        iknns, beam, sat, vstates, minbatch)
 end
 
@@ -155,19 +157,19 @@ end
 _knnsize(nsize::Integer, cache) = min(nsize, size(cache, 1))
 
 @inline function getbeam(nsize::Integer, context::SearchGraphContext)
-    xknn(knnview(nsize, context.beam))
+    reuse!(context.beam.knns[Threads.threadid()], nsize)    
 end
 
 @inline function getsatknnresult(nsize::Integer, context::SearchGraphContext)
-    knndefault(knnview(nsize, context.sat))
+    reuse!(context.sat.knns[Threads.threadid()], nsize)
 end
 
 @inline function getiknnresult(nsize::Integer, context::SearchGraphContext)
-    knndefault(knnview(nsize, context.iknns))
+    reuse!(context.iknns.knns[Threads.threadid()], nsize)
 end
 
 knndefault(v) = knn(v)
 
-@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
-    view(knns, 1:_knnsize(nsize, knns), i)
-end
+#@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
+#    view(knns, 1:_knnsize(nsize, knns), i)
+#end

@@ -29,6 +29,7 @@ struct IdWeight
     weight::Float32
 end
 
+
 """
     IdIntWeight(id, weight)
 
@@ -38,6 +39,9 @@ struct IdIntWeight
     id::UInt32
     weight::Int32
 end
+
+Base.zero(::Type{IdWeight}) = IdWeight(zero(UInt32), zero(Float32))
+Base.zero(::Type{IdIntWeight}) = IdWeight(zero(UInt32), zero(Int32))
 
 struct IdOrderingType <: Ordering end
 struct WeightOrderingType <: Ordering end

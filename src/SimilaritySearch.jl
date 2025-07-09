@@ -9,7 +9,7 @@ using JLD2
 
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext, 
-       SemiMetric, evaluate, search, searchbatch, database, distance,
+       SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
 
@@ -110,76 +110,41 @@ Note: The i-th column in indices and distances correspond to the i-th query in `
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
 function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer)
-    m = length(Q)
-    knns = Matrix{IdWeight}(undef, k, m)
+    knns = xknnpool(k, length(Q))
     searchbatch!(index, ctx, Q, knns)
-    knns
+    knns.matrix
 end
 
 """
-    searchbatch!(index, ctx, Q, knns; costs, eblocks, check_args) -> knns, costs, eblocks
+    searchbatch!(index, ctx, Q, knns; sorted) -> knns
 
-Searches a batch of queries in the given index and `I` and `D` as output (searches for `k=size(I, 1)`)
+Searches a batch of queries in the given index and use `knns` as output (searches for `k=size(I, 1)`)
 
 # Arguments
 - `index`: The search structure
-- `ctx`: Context of the search algorithm
+- `ctx`: Context of the search algorithm, environment for running searches (hyperparameters and caches)
 - `Q`: The set of queries
-- `knns`: Matrix of outputs
-- `k`: The number of neighbors to retrieve
-- `ctx`: environment for running searches (hyperparameters and caches)
+- `knns`: Output, it can be a raw matrix of IdWeight elements (initialized with `zeros`); a `KnnSet` or a `KnnPool`; use `KnnSet` if you also want to retrieve the search costs (e.g. for statistics)
+
 
 # Keyword arguments
-- `cost`: nothing or a vector like collection to store the number of distance evaluations to solve each query
-- `eblocks`: nothing or a vector like collection to store the the number of evaluated blocks for each query (the precise definition depends on the index)
-- `check_args`: activate or deactivate checking arguments, this is useful for reusing structures without using views
 - `sorted`: indicates whether the output should be sorted or not.
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; cost=nothing, eblocks=nothing, check_args::Bool=true, sorted=true)
-    if check_args
-        length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-        (length(Q) == size(knns, 2)) || throw(ArgumentError("the number of queries is different from the given output containers"))
-        (cost === nothing || length(Q) == length(cost)) || throw(ArgumentError("the number of queries is different from the costs output vector"))
-    end
-
-    minbatch = getminbatch(ctx.minbatch, length(Q))
-
-    if cost === nothing && eblocks === nothing
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            res = knndefault(@view knns[:, i])
-            search(index, ctx, Q[i], res)
-            sorted && sortitems!(res)
-        end
-    else
-        @batch minbatch=minbatch per=thread for i in eachindex(Q)
-            res = knndefault(@view knns[:, i])
-            search(index, ctx, Q[i], res)
-            sorted && sortitems!(res)
-            cost !== nothing && (cost[i] = res.cost)
-            eblocks !== nothing && (eblocks[i] = res.eblocks)
-        end
-    end
-
-    knns, cost, eblocks
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted=true)
+    searchbatch!(index, ctx, Q, xknnpool(knns); sorted)
+    knns
 end
 
-
-"""
-    searchbatch!(index, ctx, Q, knns) -> knns
-
-Searches a batch of queries in the given index using an array of KnnResult's; each KnnResult object can specify different `k` values.
-
-# Arguments
-- `ctx`: contain caches to reduce memory allocations and hyperparameters for search customization
-
-"""
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::Union{KnnSet,KnnPool}; sorted::Bool=false)
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
     length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
-        search(index, ctx, Q[i], knns[i])
+        # Threads.@threads :static for i in eachindex(Q)
+        res = reuse!(knns, i)
+        search(index, ctx, Q[i], res)
+        sorted && sortitems!(res)
     end
     
     knns

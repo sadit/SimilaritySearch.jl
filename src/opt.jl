@@ -31,7 +31,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
     cov = Vector{Float64}(undef, m)
-    R = [Set{Int32}() for _ in knnlist]
+    R = [Set{Int32}() for _ in knnlist.knns]
 
     function lossfun(conf)
         fill!(vmin, typemax(eltype(vmin)))
@@ -41,7 +41,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                r = reuse!(knnlist[i])
+                r = reuse!(knnlist, i)
                 runconfig0(conf, index, context, queries, i, r)
                 ti = Threads.threadid()
                 vmin[ti] = min(r.cost, vmin[ti])
@@ -52,8 +52,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
 
         searchtime /= m
 
-        for i in eachindex(knnlist)
-            res = knnlist[i]
+        for res in knnlist.knns
             if length(res) == maxlength(res)
                 push!(cov, maximum(res))
             end
@@ -69,7 +68,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         end
 
         recall = if gold !== nothing
-            for (i, res) in enumerate(knnlist)
+            for (i, res) in enumerate(knnlist.knns)
                 empty!(R[i])
                 union!(R[i], idset(res))
             end
@@ -163,15 +162,13 @@ function optimize_index!(
         @info "using $(length(queries)) given as hyperparameter"
     end
 
-    knnlist = let M = Matrix{IdWeight}(undef, ksearch, length(queries))
-        [knn(c) for c in eachcol(M)]
-    end
+    knnlist = knnset(ksearch, length(queries))
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, context_exhaustive_search, queries, knnlist)
-        gold = [idset(res) for res in knnlist]
+        gold = [idset(res) for res in knnlist.knns]
     end
 
     M = Ref(0.0) # max cost

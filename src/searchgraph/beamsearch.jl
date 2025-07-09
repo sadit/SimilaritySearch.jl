@@ -110,7 +110,7 @@ Optional arguments (defaults to values in `bs`)
 """
 function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints; bsize::Int32=bs.bsize, Δ::Float32=bs.Δ, maxvisits::Int=bs.maxvisits, vstate::Vector{UInt64}=getvstate(length(index), ctx))
     # k is the number of neighbors in res
-    vstate = vstate
+    # vstate = vstate
     beam = getbeam(bsize, ctx)
     cost = beamsearch_init(bs, index, q, res, hints, vstate)
     #if bsize <= 12  # this could change with the running computer
