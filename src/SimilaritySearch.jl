@@ -141,7 +141,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
-        # Threads.@threads :static for i in eachindex(Q)
+    # Threads.@threads :static for i in eachindex(Q)
         res = reuse!(knns, i)
         search(index, ctx, Q[i], res)
         sorted && sortitems!(res)

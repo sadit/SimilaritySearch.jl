@@ -1,6 +1,7 @@
-mutable struct XKnn{VEC<:AbstractVector} <: AbstractKnn
+struct XKnn{VEC<:AbstractVector} <: AbstractKnn
     items::VEC
-    len::Int32
+    sp::Int32
+    ep::Int32
     maxlen::Int32
     cost::Int32
     eblocks::Int32
@@ -52,7 +53,7 @@ function sort_first_item!(order::Ordering, plist, sp, ep)
     nothing
 end
 
-@inline Base.length(res::XKnn) = res.len
+@inline Base.length(res::XKnn) = res.ep - res.sp + 1
 
 """
     maxlength(res::XKnn)
@@ -61,20 +62,20 @@ The maximum allowed cardinality (the k of Xknn)
 """
 @inline maxlength(res::XKnn) = res.maxlen
 
-@inline nearest(res::XKnn) = res.items[res.len]
-@inline Base.maximum(res::XKnn) = res.items[1].weight
-@inline Base.argmax(res::XKnn) = res.items[1].id
+@inline nearest(res::XKnn) = res.items[res.sp]
+@inline Base.maximum(res::XKnn) = res.items[res.ep].weight
+@inline Base.argmax(res::XKnn) = res.items[res.ep].id
 @inline Base.minimum(res::XKnn) = nearest(res).weight
 @inline Base.argmin(res::XKnn) = nearest(res).id
 
 @inline covradius(res::XKnn)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
 
 function viewitems(res::XKnn)
-    view(res.items, 1:res.len)
+    view(res.items, res.sp:res.ep)
 end
 
-IdView(res::XKnn) = (res.items[i].id for i in 1:res.len)
-DistView(res::XKnn) = (res.items[i].weight for i in 1:res.len)
+IdView(res::XKnn) = (res.items[i].id for i in res.sp:res.ep)
+DistView(res::XKnn) = (res.items[i].weight for i in res.sp:res.ep)
 
 """
     sortitems!(res::XKnn)
@@ -83,9 +84,7 @@ Sort items and returns a view of the active items; this operations destroys the 
 To recover the required structure just apply `reverse!` on the view.
 """
 function sortitems!(res::XKnn)
-    it = viewitems(res)
-    reverse!(it)
-    it
+    viewitems(res)
 end
 
 """
@@ -97,16 +96,27 @@ Appends an item into the result set
     len = length(res)
 
     if len < maxlength(res)
-        res.len += 1
-        res.items[res.len] = item
-        sort_last_item!(RevWeightOrder, res.items, 1, res.len)
+        if res.ep == length(res.items)
+            i = 0
+            for j in res.sp:res.ep
+                i += 1
+                res.items[i] = res.items[j]
+            end
+            res.sp = 1
+            res.ep = i
+        end
+
+        res.ep += 1
+        
+        res.items[res.ep] = item
+        sort_last_item!(WeightOrder, res.items, res.sp, res.ep)
         return true
     end
 
     item.weight >= maximum(res) && return false
 
-    @inbounds res.items[1] = item
-    sort_first_item!(RevWeightOrder, res.items, 1, res.len)
+    @inbounds res.items[res.ep] = item
+    sort_last_item!(WeightOrder, res.items, res.sp, res.ep)
     true
 end
 
@@ -114,18 +124,15 @@ push_item!(res::XKnn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UI
 push_item!(res::XKnn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
 @inline function pop_min!(res::XKnn)
-    p = res.items[res.len]
-    res.len -= 1
+    p = res.items[res.sp]
+    res.sp += 1
     p
 end
 
 @inline function pop_max!(res::XKnn)
-    p = res.items[1]
-    res.len -= 1
-    for i in 1:res.len
-        res.items[i] = res.items[i+1]
-    end
-    
+    p = res.items[res.ep]
+    res.ep -= 1
+   
     p
 end
 
@@ -135,8 +142,9 @@ end
 Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::XKnn, maxlen=length(res.items))
-    res.len = 0
-    @assert maxlen <= length(res.items)
+    # @assert maxlen <= length(res.items)
+    res.sp = 1
+    res.ep = 0
     res.maxlen = maxlen
     res.cost = res.eblocks = 0
     res

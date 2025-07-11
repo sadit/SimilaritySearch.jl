@@ -7,19 +7,20 @@ using AllocCheck
 
 function run_graph(G, ctx, queries, ksearch, gold_knns)
     searchtime = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
-    # @test_call searchbatch(G, ctx, queries, ksearch)
+    @test_call searchbatch(G, ctx, queries, ksearch)
     recall = macrorecall(gold_knns, knns)
     @test recall >= 0.7
     @show recall, searchtime, length(queries) / searchtime
 end
 
 function check_graph(G, ctx, queries, ksearch)
-    res = knn(ksearch)
-    @test_call target_modules=(@__MODULE__,) search(G, ctx, queries[2], res)
+    res = xknn(ksearch)
+    @test_opt search(G, ctx, queries[2], res)
+    #@test_call target_modules=(@__MODULE__,) search(G, ctx, queries[2], res)
 
     # knns = xknnpool(ksearch, length(queries))
     @check_allocs function do_something()
-        search(G, ctx, queries[2], res)
+        search(G.algo, G, ctx, queries[2], res, G.hints)
         #searchbatch!(G, ctx, queries, knns)
     end
 
@@ -40,14 +41,43 @@ end
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
     n, m, dim = 100_000, 100, 8
-
     db = MatrixDatabase(rand(Float32, dim, n))
     queries = MatrixDatabase(rand(Float32, dim, m))
 
     dist = SqL2Distance()
-    seq = ExhaustiveSearch(dist, db)
-    goldtime = @elapsed gold_knns = searchbatch(seq, getcontext(seq), queries, ksearch)
+    seq = ExhaustiveSearch(; dist, db)
+    ectx = GenericContext()
 
+    # goldtime = @elapsed gold_knns = searchbatch(seq, ectx, queries, ksearch)
+    let res = xknn(ksearch)
+        @test_call search(seq, ectx, queries[2], res)
+        @time "SEARCH Exhaustive 1" knns = search(seq, ectx, queries[2], res)
+        reuse!(res)
+        q = queries[2]
+        @time "SEARCH Exhaustive 2" search(seq, ectx, q, res)
+        @time reuse!($res)
+        f(seq, ectx, q, res) = @time "SEARCH Exhaustive 3" search(seq, ectx, q, res)
+        f(seq, ectx, q, res)
+        reuse!(res)
+        @show typeof(seq) typeof(ectx) typeof(q) typeof(res)
+        knns = search(seq, ectx, q, res)
+        @check_allocs function do_something(seq, ectx, q, res)
+            reuse!(res)
+            knns = search(seq, ectx, q, res)
+        end
+
+        try
+            do_something(seq, ectx, q, res)
+            do_something(seq, ectx, q, res)
+        catch err
+            for (i, e) in enumerate(err.errors)
+                display("=============== $i ===========")
+                display(e)
+            end
+        end
+
+    end
+    exit(0)
     #=@testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(
@@ -133,9 +163,9 @@ end
     end
     # exit(0)
 
-    @info "#############=========== StrideMatrixDatabase with default parameters ==========###########"
+    @info "#############=========== MatrixDatabase with default parameters ==========###########"
     dim = 4
-    m = 3000
+    m = 1000
     dimfake = dim * 1
     n = 10^5
     ksearch = 8
@@ -186,9 +216,29 @@ end
 
     buildtime = @elapsed G = rebuild(graph, ctx)
 
-    # check_graph(G, ctx, queries, ksearch)
-    @time "SEARCH" knns = search(G, ctx, queries[1], xknn(ksearch))
-    @time "SEARCHBATCH" knns = searchbatch(G, ctx, queries, ksearch)
+    #check_graph(G, ctx, queries, ksearch)
+    let res = xknn(ksearch)
+        @time "SEARCH Exhaustive" knns = search(seq, ectx, queries[1], res)
+        reuse!(res)
+        @time "SEARCH Exhaustive" knns = search(seq, ectx, queries[1], res)
+    end
+    let res = xknn(ksearch)
+        @time "SEARCH SearchGraph" knns = search(G, ctx, queries[1], res)
+        reuse!(res)
+        @time "SEARCH SearchGraph" knns = search(G, ctx, queries[1], res)
+    end
+
+    knns = let knns = xknnpool(ksearch, length(queries))
+        @time "SEARCHBATCH Exhaustive" searchbatch!(G, ctx, queries, knns; sorted=false)
+        @time "SEARCHBATCH Exhaustive" searchbatch!(G, ctx, queries, knns; sorted=false)
+        knns.matrix
+    end
+
+    knns = let knns = xknnpool(ksearch, length(queries))
+        @time "SEARCHBATCH SearchGraph" searchbatch!(G, ctx, queries, knns; sorted=false)
+        @time "SEARCHBATCH SearchGraph" searchbatch!(G, ctx, queries, knns; sorted=false)
+        knns.matrix
+    end
     recall_ = macrorecall(gold_knns, knns)
     searchtime5 = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
     mem = sum(map(length, G.adj.end_point)) * sizeof(eltype(G.adj.end_point[1])) / 2^20 # adj mem

@@ -23,7 +23,7 @@ function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
-function getctx(index::ParallelExhaustiveSearch)
+function getcontext(::ParallelExhaustiveSearch)
     GenericContext()
 end
 

@@ -16,7 +16,7 @@ struct MatrixDatabase{M<:AbstractMatrix} <: AbstractDatabase
     matrix::M  # abstract matrix
 end
 
-@inline Base.eltype(db::MatrixDatabase) = AbstractVector{eltype(db.matrix)} 
+@inline Base.eltype(db::MatrixDatabase) = typeof(db[1])
 
 # @inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
 @inline Base.getindex(db::MatrixDatabase{<:DenseArray}, i::Integer) = view(db.matrix, :, i)
@@ -43,7 +43,7 @@ end
 #StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))
 StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, (size(M))))
 
-@inline Base.eltype(db::StrideMatrixDatabase) = AbstractVector{eltype(db.matrix)} 
+@inline Base.eltype(db::StrideMatrixDatabase) = typeof(view(db.matrix, :, 1))
 
 @inline Base.getindex(db::StrideMatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::StrideMatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)

@@ -38,7 +38,7 @@ struct KnnSet{KNN}
     knns::KNN
 end
 
-Base.length(s::KnnSet) = size(s.matrix, 2)
+Base.length(s::KnnSet) = length(s.knns)
 
 knnset(matrix::Matrix) = KnnSet(matrix, [knn(c) for c in eachcol(matrix)])
 knnset(k::Integer, n::Integer) = knnset(zeros(IdWeight, k, n))
@@ -46,7 +46,7 @@ knnset(k::Integer, n::Integer) = knnset(zeros(IdWeight, k, n))
 xknnset(matrix::Matrix) = KnnSet(matrix, [xknn(c) for c in eachcol(matrix)])
 xknnset(k::Integer, n::Integer) = xknnset(zeros(IdWeight, k, n))
 
-function reuse!(set::KnnSet, i::Integer, k::Integer=0)
+function reuse!(set::KnnSet, i::Int; k::Int=0)
     r = set.knns[i]
     reuse!(r, k == 0 ? r.maxlen : k)
 end
@@ -59,13 +59,13 @@ end
 
 Base.length(s::KnnPool) = size(s.matrix, 2)
 
-knnpool(matrix::Matrix; poolsize::Int=Threads.nthreads()) = KnnPool(matrix, [knn(view(matrix, :, i)) for i in 1:poolsize])
-knnpool(k::Integer, n::Integer; poolsize::Int=Threads.nthreads()) = knnpool(zeros(IdWeight, k, n); poolsize)
+knnpool(matrix::Matrix; poolsize::Int=Threads.maxthreadid()) = KnnPool(matrix, [knn(view(matrix, :, i)) for i in 1:max(poolsize, size(matrix, 2))])
+knnpool(k::Integer, n::Integer=Threads.maxthreadid(); poolsize::Int=Threads.maxthreadid()) = knnpool(zeros(IdWeight, k, n); poolsize)
 
-xknnpool(matrix::Matrix; poolsize::Int=Threads.nthreads()) = KnnPool(matrix, [xknn(view(matrix, :, i)) for i in 1:poolsize])
-xknnpool(k::Integer, n::Integer; poolsize::Int=Threads.nthreads()) = xknnpool(zeros(IdWeight, k, n); poolsize)
+xknnpool(matrix::Matrix; poolsize::Int=Threads.maxthreadid()) = KnnPool(matrix, [xknn(view(matrix, :, i)) for i in 1:1:max(poolsize, size(matrix, 2))])
+xknnpool(k::Integer, n::Integer=Threads.maxthreadid(); poolsize::Int=Threads.maxthreadid()) = xknnpool(zeros(IdWeight, k, n); poolsize)
 
-function reuse!(pool::KnnPool, i::Integer, k::Integer=size(pool.matrix, 1))
+function reuse!(pool::KnnPool, i::Int=Threads.threadid(); k::Int=size(pool.matrix, 1))
     r = pool.knns[Threads.threadid()]
     r.items = view(pool.matrix, :, i)
     reuse!(r, k)
@@ -91,7 +91,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a Xknn res
 It starts with zero items and grows with [`push_item!`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-xknn(vec::AbstractVector) = XKnn(vec, zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+xknn(vec::AbstractVector) = XKnn(vec, one(Int32), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
 xknn(k::Int) = xknn(Vector{IdWeight}(undef, k))
 
 #const xknn = xknn

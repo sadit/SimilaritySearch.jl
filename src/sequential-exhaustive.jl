@@ -14,15 +14,18 @@ struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: 
     db::DataType
 end
 
-ExhaustiveSearch(dist::SemiMetric, db::AbstractVector) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
-ExhaustiveSearch(dist::SemiMetric, db::Matrix) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
+distance(seq::ExhaustiveSearch) = seq.dist
+database(seq::ExhaustiveSearch) = seq.db
+database(seq::ExhaustiveSearch, i::Integer) = seq.db[i]
+Base.length(seq::ExhaustiveSearch) = length(seq.db)
+
+#ExhaustiveSearch(dist::SemiMetric, db::AbstractVector) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
+#ExhaustiveSearch(dist::SemiMetric, db::Matrix) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
 function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
 
-function getcontext(index::ExhaustiveSearch)
-    GenericContext()
-end
+getcontext(::ExhaustiveSearch) = GenericContext()
 
 Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(dist, db)
 
@@ -40,19 +43,16 @@ function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDa
     seq
 end
 
-function index!(seq::ExhaustiveSearch, ctx::GenericContext)
-    # do nothing
-    seq
-end
+index!(seq::ExhaustiveSearch, ::GenericContext) = seq # do nothing
 
 """
     search(seq::ExhaustiveSearch, ctx::GenericContext, q, res)
 
 Solves the query evaluating all items in the given query.
 """
-function search(seq::ExhaustiveSearch, ctx::GenericContext, q, res)
+@inline function search(seq::ExhaustiveSearch, ::GenericContext, q, res::AbstractKnn)
     dist = distance(seq)
-    @inbounds for i in eachindex(seq)
+    for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)
         push_item!(res, i, d)
     end

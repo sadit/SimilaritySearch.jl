@@ -109,11 +109,11 @@ function SearchGraphContext(;
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
         starting_callback=256,
-        iknns = xknnset(96, Threads.nthreads()),
-        beam = xknnset(32, Threads.nthreads()),
-        sat = xknnset(64, Threads.nthreads()),
+        iknns = xknnpool(96),
+        beam = xknnpool(32),
+        sat = xknnpool(64),
         # vstates = [VisitedVerticesBits(32) for _ in 1:Threads.nthreads()],
-        vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.nthreads()],
+        vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()],
         minbatch = 0
     )
  
@@ -157,15 +157,15 @@ end
 _knnsize(nsize::Integer, cache) = min(nsize, size(cache, 1))
 
 @inline function getbeam(nsize::Integer, context::SearchGraphContext)
-    reuse!(context.beam.knns[Threads.threadid()], nsize)    
+    reuse!(context.beam; k=Int(nsize))
 end
 
 @inline function getsatknnresult(nsize::Integer, context::SearchGraphContext)
-    reuse!(context.sat.knns[Threads.threadid()], nsize)
+    reuse!(context.sat; k=Int(nsize))
 end
 
 @inline function getiknnresult(nsize::Integer, context::SearchGraphContext)
-    reuse!(context.iknns.knns[Threads.threadid()], nsize)
+    reuse!(context.iknns; k=Int(nsize))
 end
 
 knndefault(v) = knn(v)

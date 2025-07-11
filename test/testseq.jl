@@ -6,10 +6,14 @@ using Test, JET
 function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
-    knns = searchbatch(seq, ctx, queries, ksearch)
-    @test_call searchbatch(seq, ctx, queries, ksearch)
+    knns = xknnpool(ksearch, length(queries))
+    @time knns = searchbatch!(seq, ctx, queries, knns)
+    fill!(knns.matrix, zero(IdWeight))
+    @time knns = searchbatch!(seq, ctx, queries, knns)
 
-    for c in eachcol(knns)
+    #@test_call target_modules=(@__MODULE__,) searchbatch(seq, ctx, queries, ksearch)
+
+    for c in eachcol(knns.matrix)
         @test c[1].weight < valid_lower
     end    
 
@@ -18,7 +22,7 @@ end
 @testset "indexing vectors with ExhaustiveSearch" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
-    db = MatrixDatabase(rand(4, 100_000))
+    db = MatrixDatabase(rand(Float32, 4, 100_000))
     queries = rand(db, 1000)
     @info typeof(db), typeof(queries)
     for (recall_lower_bound, dist) in [
@@ -73,7 +77,7 @@ end
 @testset "Normalized Cosine and Normalized Angle distances" begin
     # cosine and angle distance
     ksearch = 4
-    X = MatrixDatabase(rand(4, 1000))
+    X = MatrixDatabase(rand(Float32, 4, 1000))
     queries = rand(X, 1000)
     for c in X normalize!(c) end
 

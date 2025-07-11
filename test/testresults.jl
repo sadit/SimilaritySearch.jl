@@ -59,7 +59,8 @@ end
             @test maximum(x->x.weight, gold) == maximum(R)
             @test argmin(x->x.weight, gold).id == argmin(R) || minimum(x->x.weight, gold) == minimum(R)
             @test argmax(x->x.weight, gold).id == argmax(R) || maximum(x->x.weight, gold) == maximum(R)
-            @test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+            #@test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+            @test issorted(viewitems(R), SimilaritySearch.WeightOrder)
 
         end
 
@@ -92,7 +93,8 @@ end
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
-            @test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+            #@test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
+            @test issorted(viewitems(R), SimilaritySearch.WeightOrder)
             # i == 3 && break
         end
 
