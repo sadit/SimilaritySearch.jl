@@ -132,9 +132,6 @@ Searches a batch of queries in the given index and use `knns` as output (searche
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted::Bool=false)
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
     length(Q) == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    if costs !== nothing
-        length(Q) == length(costs) || throw(ArgumentError("the number of queries is different from the given cost output"))
-    end
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)

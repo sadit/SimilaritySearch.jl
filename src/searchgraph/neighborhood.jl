@@ -119,15 +119,13 @@ filters `res` using the DistSAT strategy.
 """
 @inline function neighborhoodfilter(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     hsp_neighborhood = getsatknnresult(length(res), context)
-    hsp_distal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
-    hsp_neighborhood
+    hsp_distal_neighborhood_filter!(hsp_neighborhood, res; sat.nndist)
 end
 
 @inline function neighborhoodfilter(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
     @assert length(res) > 0
     hsp_neighborhood = getsatknnresult(length(res), context)
-    hsp_proximal_neighborhood_filter!(hsp_neighborhood, distance(index), database(index), item, res; sat.hfactor, sat.nndist)
-    hsp_neighborhood
+    hsp_proximal_neighborhood_filter!(hsp_neighborhood, res; sat.nndist)
 end
 
 ## prunning neighborhood

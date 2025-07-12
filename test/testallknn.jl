@@ -20,6 +20,7 @@ using Test, JET, SimilaritySearch
     @time "ParallelExhaustiveSearch allknn" par_knns = allknn(P, ectx, k)
     @test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
     @test size(par_knns) == (k, n)
+    @test macrorecall(gold_knns, par_knns) > 0.99
     
     #=G = SearchGraph(; db=X, dist)
     ctx = getcontext(G)
@@ -31,8 +32,6 @@ using Test, JET, SimilaritySearch
     @time "SearchGraph allknn" knns = allknn(G, ctx, k)
     @test size(knns) == (k, n)
     @test_call target_modules=(@__MODULE__,) allknn(G, ctx, k)
-    @test macrorecall(gold_knns, knns) > 0.8
-    =#
-    @test macrorecall(gold_knns, par_knns) > 0.99
+    @test macrorecall(gold_knns, knns) > 0.8=#
 end
 

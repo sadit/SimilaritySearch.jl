@@ -67,7 +67,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     n = length(X)
     blocksize = min(blocksize, n) 
     #res = knndefault(k)  # should be 1, but index's setups work better on larger `k` values
-    knns = knnset(k, blocksize)
+    knns = Matrix{IdWeight}(undef, k, blocksize)
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
@@ -75,23 +75,30 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     imap = UInt32[]
     tmp = UInt32[]
 
-    for r in Iterators.partition(1:n, blocksize)
+    for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
             if verbose
-                @info "neardup> starting: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
+                @info "neardup> starting: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
-            neardup_block!(idx, ctx, X, r, tmp, L, D, M, ϵ; minbatch, filterblocks)
+            neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; minbatch, filterblocks)
         else
             empty!(imap)
-            length(knns) != length(r) && resize!(knns.knns, length(r)) # the last one can change its size
-            searchbatch!(idx, ctx, X[r], knns)
+            if size(knns, 2) != length(range)
+                knns_ = view(knns, :, 1:length(range)) # the last range can change its size
+                fill!(knns_, zero(IdWeight))
+                searchbatch!(idx, ctx, X[range], knns_; sorted=true)
+            else
+                fill!(knns, zero(IdWeight))
+                searchbatch!(idx, ctx, X[range], knns; sorted=true)
+            end
+            # @assert all(r -> length(r) > 0, view(knns, :, 1:length(range)))
             if verbose
-                @info "neardup> range: $(r), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
+                @info "neardup> range: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
 
-            for (i, j) in enumerate(r) # collecting non-discarded near duplicated objects
-                #d, nn = knns[1, i]
-                p = nearest(knns.knns[i])
+            for (i, j) in enumerate(range) # collecting non-discarded near duplicated objects
+                #d, nn = knns[1, i] #p = nearest(knns[i])
+                p = knns[1, i]
                 if p.weight > ϵ
                     push!(imap, j)
                 else
@@ -150,11 +157,11 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     D[i] = 0f0
 
     dist = distance(idx)
-    R = knn(1)
+    res = knndefault(1)
     push_lock = Threads.SpinLock()
 
     for ii in 2:n
-        reuse!(R)
+        R = Ref(reuse!(res))
         i = imap[ii]
         u = X[i]
         minbatch_ = getminbatch(minbatch, length(tmp))
@@ -164,13 +171,14 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
             d = evaluate(dist, u, X[j])
             try
                 lock(push_lock)
-                push_item!(R, j, d)
+                R[], _ = push_item!(R[], j, d)
             finally
                 unlock(push_lock)
             end
         end
 
-        nn, d = argmin(R), minimum(R)
+        res = R[]
+        nn, d = argmin(res), minimum(res)
         if d > ϵ
             push!(tmp, i)
             push!(M, i)
