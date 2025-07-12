@@ -43,14 +43,14 @@ function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDa
     seq
 end
 
-index!(seq::ExhaustiveSearch, ::GenericContext) = seq # do nothing
+index!(seq::ExhaustiveSearch, ::AbstractContext) = seq # do nothing
 
 """
-    search(seq::ExhaustiveSearch, ctx::GenericContext, q, res)
+    search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res)
 
 Solves the query evaluating all items in the given query.
 """
-@inline function search(seq::ExhaustiveSearch, ::GenericContext, q, res::AbstractKnn)
+@inline function search(seq::ExhaustiveSearch, ::AbstractContext, q, res::AbstractKnn)
     dist = distance(seq)
     for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)

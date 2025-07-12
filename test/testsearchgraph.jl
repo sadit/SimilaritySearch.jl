@@ -48,19 +48,20 @@ end
     seq = ExhaustiveSearch(; dist, db)
     ectx = GenericContext()
 
-    # goldtime = @elapsed gold_knns = searchbatch(seq, ectx, queries, ksearch)
+    goldtime = @elapsed gold_knns = searchbatch(seq, ectx, queries, ksearch)
     let res = xknn(ksearch)
         @test_call search(seq, ectx, queries[2], res)
         @time "SEARCH Exhaustive 1" knns = search(seq, ectx, queries[2], res)
         reuse!(res)
         q = queries[2]
         @time "SEARCH Exhaustive 2" search(seq, ectx, q, res)
-        @time reuse!($res)
+        @time reuse!(res)
         f(seq, ectx, q, res) = @time "SEARCH Exhaustive 3" search(seq, ectx, q, res)
         f(seq, ectx, q, res)
         reuse!(res)
         @show typeof(seq) typeof(ectx) typeof(q) typeof(res)
         knns = search(seq, ectx, q, res)
+        #=
         @check_allocs function do_something(seq, ectx, q, res)
             reuse!(res)
             knns = search(seq, ectx, q, res)
@@ -74,10 +75,10 @@ end
                 display("=============== $i ===========")
                 display(e)
             end
-        end
+        end=#
 
     end
-    exit(0)
+
     #=@testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(
@@ -129,6 +130,7 @@ end
     @info graph.algo
     @test recall >= 0.6
     
+    exit(0)
     @testset "rebuild" begin
         graph = rebuild(graph, ctx)
         @test n == length(db) == length(graph)

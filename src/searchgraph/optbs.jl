@@ -97,6 +97,7 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     index.algo.bsize = bs.bsize
     index.algo.Δ = bs.Δ
     index.algo.maxvisits = ceil(Int, 2perf.visited[end])
+    @assert index.algo.maxvisits > 0
 end
 
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)

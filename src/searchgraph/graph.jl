@@ -66,6 +66,5 @@ include("hints.jl")
 Solves the specified query `res` for the query object `q`.
 """
 function search(index::SearchGraph, context::SearchGraphContext, q, res; hints=index.hints)
-    length(index) > 0 && search(index.algo, index, context, q, res, hints)
-    res
+    search(index.algo, index, context, q, res, hints)
 end

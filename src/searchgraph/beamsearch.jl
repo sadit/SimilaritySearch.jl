@@ -39,6 +39,7 @@ function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::Abstrac
     dist = distance(index)
     eblocks = 0
     cost = res.cost
+    # @assert cost > 0
     @inbounds while 0 < length(beam)
         eblocks += 1
         beam, prev = pop_min!(beam)
@@ -87,7 +88,14 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
         )
     # k is the number of neighbors in res
     # vstate = vstate
-    beam = getbeam(bsize, ctx)
-    res = beamsearch_init(bs, index, q, res, hints, vstate)
-    beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
+    n = length(index)
+    if n == 0
+        res
+    else
+        beam = getbeam(bsize, ctx)
+        res = beamsearch_init(bs, index, q, res, hints, vstate)
+        res = beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
+        @assert res.cost > 0
+        res
+    end
 end
