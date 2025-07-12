@@ -1,18 +1,16 @@
 # This file is a part of SimilaritySearch.jl
 #
 """
-    approx_by_hints(index::SearchGraph, q, hints, res, vstate)
+    approx_by_hints!(index::SearchGraph, q, hints, res, vstate)
 
 Approximate the result using a set of hints (the set of identifiers (integers)) behints  `hints`
 """
-function approx_by_hints(index::SearchGraph, q, hints::T, res, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
-    visited = 0
+function approx_by_hints!(index::SearchGraph, q, hints::T, res, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
     for objID in hints
-        obj = database(index, objID)
-        visited += enqueue_item!(index, q, obj, res, objID, vstate)
+        res = enqueue_item!(index, q, database(index, objID), res, objID, vstate)
     end
 
-    visited
+    res
 end
 
 struct AdjacentStoredHints{DB<:AbstractDatabase}
@@ -28,16 +26,12 @@ function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where DB
     copy(index; hints)
 end
 
-
-
-function approx_by_hints(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)
-    visited = 0
+function approx_by_hints!(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)
     for (i, objID) in enumerate(h.map)
-        obj = h.hints[i]
-        visited += enqueue_item!(index, q, obj, res, objID, vstate)
+        res = enqueue_item!(index, q, h.hints[i], res, objID, vstate)
     end
 
-    visited
+    res
 end
 
 """

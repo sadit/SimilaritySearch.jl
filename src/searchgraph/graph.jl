@@ -46,11 +46,12 @@ Base.copy(G::SearchGraph;
 Internal function that evaluates the distance between a database object `obj` with id `objID` and the query `q`.
 It helps to evaluate, mark as visited, and enqueue in the result set.
 """
-@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)::Int
-    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
-    d = evaluate(distance(index), q, database(index, objID))
-    push_item!(res, objID, d)
-    1
+@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
+    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
+    d = evaluate(distance(index), q, obj)
+    res, _ = push_item!(res, objID, d)
+    @reset res.cost += one(res.cost)
+    res
 end
 
 include("beamsearch.jl")

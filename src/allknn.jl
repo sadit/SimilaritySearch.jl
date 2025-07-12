@@ -21,16 +21,13 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
 
 # Returns:
 
-- `knns` a (k, n) matrix of IdWeight elements (integers, floats); the i-th column corresponds to the i-th object in the dataset.
+- `knns` a (k, n) matrix of `IdWeight` elements, i.e., `zeros(IdWeight, k, n)`; the i-th column corresponds to the i-th object in the dataset.
     Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
  
-# Note:
-This function was introduced in `v0.8` series, and removes self references automatically.
-In `v0.9` the self reference is kept since removing from the algorithm introduces a considerable overhead.    
 """
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort=true)
     n = length(g)
-    knns = Matrix{IdWeight}(undef, k, n)
+    knns = zeros(IdWeight, k, n)
     allknn(g, ctx, knns; sort)
 end
 
@@ -39,12 +36,10 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     k, n = size(knns)
     @assert n > 0 && n == m
     @assert 0 < k <= n
-    #knns_ = pointer(knns)
-    #dists_ = pointer(dists)
     if ctx.minbatch < 0
         for i in 1:n
             res = knn(@view knns[:, i])
-            allknn_single_search(g, ctx, i, res)
+            res = allknn_single_search!(g, ctx, i, res)
             sort && sortitems!(res)
         end
     else
@@ -55,7 +50,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
         @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
             for i in R
                 res = knn(@view knns[:, i])
-                allknn_single_search(g, ctx, i, res)
+                res = allknn_single_search!(g, ctx, i, res)
                 sort && sortitems!(res)
             end
         end
@@ -64,21 +59,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     knns
 end
 
-#=
-@inline function unsafe_copyto_knns_and_dists!(knns, id, dists, dist, i, _k, k)
-    sp = 4*k*(i-1) + 1
-    knns = knns + sp
-    unsafe_copyto!(knns, id, _k)
-    for i in _k+1:k
-        unsafe_store!(knns, zero(Int32),  i)
-    end
-
-    dists = dists + sp
-    unsafe_copyto!(dists, dist, _k)
-end=#
-
-
-function allknn_single_search(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
+function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     cost = 0
     vstate = getvstate(length(g), ctx)
     q = database(g, i)
@@ -87,31 +68,15 @@ function allknn_single_search(g::SearchGraph, ctx::SearchGraphContext, i::Intege
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        cost += search(g.algo, g, ctx, q, res, h; vstate).cost
+        res = search(g.algo, g, ctx, q, res, h; vstate)
+        cost += res.cost
         # length(res) == k && break
     end
 
-    #=
-    Δ = 1.9f0
-    maxvisits = bs.maxvisits ÷ 2
-    bsize = 1 # ceil(Int, bs.bsize / 2)
-    search(bs, g, c, res, i, pools; vstate, Δ, maxvisits, bsize)
-    =#
-
-    # again for the same issue
-    #=if length(res) < k
-        for _ in 1:k
-            h = rand(1:length(g))
-            visited(vstate, convert(UInt64, h)) && continue
-            search(g.algo, g, q, res, h, pools; vstate)
-            length(res) == k && break
-        end
-    end=#
-
-    res.cost = cost
+    @reset res.cost = convert(typeof(res.cost), cost)
     res
 end
 
-function allknn_single_search(g::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)
+function allknn_single_search!(g::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)
     search(g, ctx, database(g, i), res)
 end

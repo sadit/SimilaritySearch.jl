@@ -23,7 +23,7 @@ end
 
 function setconfig! end
 
-function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knnlist, queries, ksearch, verbose)
+function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knns, queries, verbose)
     n = length(index)
     m = length(queries)
     nt = Threads.nthreads()
@@ -31,7 +31,7 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
     vmax = Vector{Float64}(undef, nt)
     vacc = Vector{Float64}(undef, nt)
     cov = Vector{Float64}(undef, m)
-    R = [Set{Int32}() for _ in knnlist.knns]
+    R = [Set{Int32}() for _ in knns]
 
     function lossfun(conf)
         fill!(vmin, typemax(eltype(vmin)))
@@ -41,8 +41,8 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                r = reuse!(knnlist, i)
-                runconfig0(conf, index, context, queries, i, r)
+                r = reuse!(knns[i])
+                r = runconfig0(conf, index, context, queries, i, r)
                 ti = Threads.threadid()
                 vmin[ti] = min(r.cost, vmin[ti])
                 vmax[ti] = max(r.cost, vmax[ti])
@@ -52,25 +52,23 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
 
         searchtime /= m
 
-        for res in knnlist.knns
-            if length(res) == maxlength(res)
-                push!(cov, maximum(res))
-            end
+        for r in knns
+            length(r) == maxlength(r) && push!(cov, maximum(r))
         end
 
         length(cov) <= 3 && throw(InvalidSetupError(conf, "Too few queries fetched k near neighbors"))
 
         radius = let (rmin, rmax) = extrema(cov)
-            while length(cov) < length(knnlist) # appending maximum radius to increment the mean
+            while length(cov) < length(knns) # appending maximum radius to increment the mean
                 push!(cov, rmax)  ## not so efficient but I hope that this not happens a lot
             end
             (min=rmin, mean=mean(cov), max=rmax)
         end
 
         recall = if gold !== nothing
-            for (i, res) in enumerate(knnlist.knns)
+            for (i, r) in enumerate(knns)
                 empty!(R[i])
-                union!(R[i], idset(res))
+                union!(R[i], idset(r))
             end
 
             macrorecall(gold, R)
@@ -93,7 +91,7 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         context::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        context_exhaustive_search=GenericContext(context),
+        ctx=GenericContext(context),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -139,7 +137,7 @@ function optimize_index!(
         context::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        context_exhaustive_search=GenericContext(context),
+        ctx=GenericContext(context),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -162,13 +160,14 @@ function optimize_index!(
         @info "using $(length(queries)) given as hyperparameter"
     end
 
-    knnlist = knnset(ksearch, length(queries))
+    knnsmatrix = zeros(IdWeight, ksearch, length(queries))
+    knns = [xknn(c) for c in eachcol(knnsmatrix)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
-        searchbatch!(seq, context_exhaustive_search, queries, knnlist)
-        gold = [idset(res) for res in knnlist.knns]
+        searchbatch!(seq, ctx, queries, knns)
+        gold = [idset(viewitems(c)) for c in knns]
     end
 
     M = Ref(0.0) # max cost
@@ -182,7 +181,7 @@ function optimize_index!(
         end
     end
 
-    getperformance = create_error_function(index, context, gold, knnlist, queries, ksearch, verbose)
+    getperformance = create_error_function(index, context, gold, knns, queries, verbose)
 
     function getcost(p)
         p = last(p)

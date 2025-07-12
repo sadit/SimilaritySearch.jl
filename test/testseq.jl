@@ -6,14 +6,13 @@ using Test, JET
 function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
-    knns = xknnpool(ksearch, length(queries))
+    knns = zeros(IdWeight, ksearch, length(queries))
     @time knns = searchbatch!(seq, ctx, queries, knns)
-    fill!(knns.matrix, zero(IdWeight))
+    fill!(knns, zero(IdWeight))
     @time knns = searchbatch!(seq, ctx, queries, knns)
-
     #@test_call target_modules=(@__MODULE__,) searchbatch(seq, ctx, queries, ksearch)
 
-    for c in eachcol(knns.matrix)
+    for c in eachcol(knns)
         @test c[1].weight < valid_lower
     end    
 

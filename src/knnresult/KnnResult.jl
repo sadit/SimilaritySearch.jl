@@ -4,7 +4,6 @@
 
 # export AbstractResult
 export AbstractKnn, Knn, knn, XKnn, xknn, IdWeight
-export knnset, xknnset, KnnSet, knnpool, xknnpool, KnnPool
 export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView
 
 abstract type AbstractKnn end
@@ -32,44 +31,6 @@ include("xknn.jl")
 
 IdView(res::AbstractVector{IdWeight}) = (res[i].id for i in eachindex(res))
 DistView(res::AbstractVector{IdWeight}) = (res[i].weight for i in eachindex(res))
-
-struct KnnSet{KNN}
-    matrix::Matrix{IdWeight}
-    knns::KNN
-end
-
-Base.length(s::KnnSet) = length(s.knns)
-
-knnset(matrix::Matrix) = KnnSet(matrix, [knn(c) for c in eachcol(matrix)])
-knnset(k::Integer, n::Integer) = knnset(zeros(IdWeight, k, n))
-
-xknnset(matrix::Matrix) = KnnSet(matrix, [xknn(c) for c in eachcol(matrix)])
-xknnset(k::Integer, n::Integer) = xknnset(zeros(IdWeight, k, n))
-
-function reuse!(set::KnnSet, i::Int; k::Int=0)
-    r = set.knns[i]
-    reuse!(r, k == 0 ? r.maxlen : k)
-end
-
-
-struct KnnPool{KNN}
-    matrix::Matrix{IdWeight}
-    knns::KNN
-end
-
-Base.length(s::KnnPool) = size(s.matrix, 2)
-
-knnpool(matrix::Matrix; poolsize::Int=Threads.maxthreadid()) = KnnPool(matrix, [knn(view(matrix, :, i)) for i in 1:max(poolsize, size(matrix, 2))])
-knnpool(k::Integer, n::Integer=Threads.maxthreadid(); poolsize::Int=Threads.maxthreadid()) = knnpool(zeros(IdWeight, k, n); poolsize)
-
-xknnpool(matrix::Matrix; poolsize::Int=Threads.maxthreadid()) = KnnPool(matrix, [xknn(view(matrix, :, i)) for i in 1:1:max(poolsize, size(matrix, 2))])
-xknnpool(k::Integer, n::Integer=Threads.maxthreadid(); poolsize::Int=Threads.maxthreadid()) = xknnpool(zeros(IdWeight, k, n); poolsize)
-
-function reuse!(pool::KnnPool, i::Int=Threads.threadid(); k::Int=size(pool.matrix, 1))
-    r = pool.knns[Threads.threadid()]
-    r.items = view(pool.matrix, :, i)
-    reuse!(r, k)
-end
 
 """
     knn(ksearch)

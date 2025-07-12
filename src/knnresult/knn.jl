@@ -1,4 +1,4 @@
-mutable struct Knn{VEC<:AbstractVector} <: AbstractKnn
+struct Knn{VEC<:AbstractVector} <: AbstractKnn
     items::VEC
     min::IdWeight
     len::Int32
@@ -16,8 +16,6 @@ The maximum allowed cardinality (the k of knn)
 """
 @inline maxlength(res::Knn) = res.maxlen
 
-#@inline Base.last(res::Knn) = res.items[1]
-#@inline Base.first(res::Knn) = res.items[res.minpos]
 @inline Base.maximum(res::Knn) = res.items[1].weight
 @inline Base.argmax(res::Knn) = res.items[1].id
 @inline nearest(res::Knn) = res.min
@@ -54,23 +52,27 @@ Appends an item into the result set
 @inline function push_item!(res::Knn, item::IdWeight)
     p = length(res)
 
+    len = res.len
+    min = res.min
     if p < maxlength(res)
-        res.len += 1
-        res.items[res.len] = item
-        heapfix_up!(WeightOrder, res.items, res.len)
-        if res.len == 1 || lt(WeightOrder, item, res.min)
-            res.min = item
+        len += one(res.len)
+        res.items[len] = item
+        heapfix_up!(WeightOrder, res.items, len)
+        if len == one(res.len) || lt(WeightOrder, item, min)
+            min = item
         end
-        return true
+
+        return Knn(res.items, min, len, res.maxlen, res.cost, res.eblocks), true
     end
 
-    item.weight >= maximum(res) && return false
+    item.weight >= maximum(res) && return res, false
     res.items[1] = item
-    heapfix_down!(WeightOrder, res.items, res.len)
-    if lt(WeightOrder, item, res.min)
-        res.min = item
+    heapfix_down!(WeightOrder, res.items, len)
+    if lt(WeightOrder, item, min)
+        min = item
     end
-    true
+
+    Knn(res.items, min, len, res.maxlen, res.cost, res.eblocks), true
 end
 
 push_item!(res::Knn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
@@ -82,10 +84,6 @@ push_item!(res::Knn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first
 Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::Knn, maxlen=length(res.items))
-    res.len = 0
     @assert maxlen <= length(res.items)
-    res.maxlen = maxlen
-    res.min = IdWeight(0, 0f0)
-    res.cost = res.eblocks = 0
-    res
+    Knn(res.items, zero(IdWeight), zero(Int32), Int32(maxlen), zero(Int32), zero(Int32))
 end

@@ -13,6 +13,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
 
+using Accessors
 
 include("distances/Distances.jl")
 
@@ -110,9 +111,8 @@ Note: The i-th column in indices and distances correspond to the i-th query in `
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
 function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer)
-    knns = xknnpool(k, length(Q))
-    searchbatch!(index, ctx, Q, knns)
-    knns.matrix
+    knns = zeros(IdWeight, k, length(Q))
+    searchbatch!(index, ctx, Q, knns; sorted=true)
 end
 
 """
@@ -124,27 +124,37 @@ Searches a batch of queries in the given index and use `knns` as output (searche
 - `index`: The search structure
 - `ctx`: Context of the search algorithm, environment for running searches (hyperparameters and caches)
 - `Q`: The set of queries
-- `knns`: Output, it can be a raw matrix of IdWeight elements (initialized with `zeros`); a `KnnSet` or a `KnnPool`; use `KnnSet` if you also want to retrieve the search costs (e.g. for statistics)
-
+- `knns`: Output, a matrix of IdWeight elements (initialized with `zeros`); an array of KnnAbstract elements, use this form to retrieve search costs.
 
 # Keyword arguments
 - `sorted`: indicates whether the output should be sorted or not.
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted=true)
-    searchbatch!(index, ctx, Q, xknnpool(knns); sorted)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted::Bool=false)
+    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
+    length(Q) == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    if costs !== nothing
+        length(Q) == length(costs) || throw(ArgumentError("the number of queries is different from the given cost output"))
+    end
+    minbatch = getminbatch(ctx.minbatch, length(Q))
+
+    @batch minbatch=minbatch per=thread for i in eachindex(Q)
+    # Threads.@threads :static for i in eachindex(Q)
+        res = xknn(view(knns, :, i))
+        res = search(index, ctx, Q[i], res)
+        sorted && sortitems!(res)
+    end
+    
     knns
 end
 
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::Union{KnnSet,KnnPool}; sorted::Bool=false)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
     length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx.minbatch, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     # Threads.@threads :static for i in eachindex(Q)
-        res = reuse!(knns, i)
-        search(index, ctx, Q[i], res)
-        sorted && sortitems!(res)
+        knns[i] = search(index, ctx, Q[i], knns[i])
     end
     
     knns
@@ -178,34 +188,4 @@ function getminbatch(minbatch, n)
     end
 end
 
-#=
-using PrecompileTools
-@setup_workload begin
-    X = rand(Float32, 2, 64)
-    Q = rand(Float32, 2, 8)
-    k = 8
-    for c in eachcol(X) normalize!(c) end
-    for c in eachcol(Q) normalize!(c) end
-    
-    @compile_workload begin
-        for (db, queries) in [(MatrixDatabase(X), MatrixDatabase(Q)),
-                              (StrideMatrixDatabase(X), StrideMatrixDatabase(Q))
-                             ]
-            for dist in [L1Distance(), L2Distance(), SqL2Distance(), CosineDistance(), NormalizedCosineDistance(), TurboL2Distance(), TurboSqL2Distance(), TurboCosineDistance(), TurboNormalizedCosineDistance()]
-                G = SearchGraph(; dist, db)  
-                E = ExhaustiveSearch(; dist, db)  
-                for idx in [G, E]
-                    ctx = getcontext(idx)
-                    index!(idx, ctx)
-                    knns, dists = searchbatch(idx, ctx, queries, k)
-
-                    #knns, dists = allknn(idx, ctx, k)
-                    #closestpair(idx, ctx)
-                    hsp_queries(idx, queries, k)
-                end 
-            end
-        end
-    end
-end
-=#
 end  # end SimilaritySearch module

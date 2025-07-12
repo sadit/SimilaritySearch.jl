@@ -54,10 +54,10 @@ Solves the query evaluating all items in the given query.
     dist = distance(seq)
     for i in eachindex(seq)
         d = evaluate(dist, database(seq, i), q)
-        push_item!(res, i, d)
+        res, _ = push_item!(res, i, d)
     end
 
-    res.cost = length(seq)
+    @reset res.cost = convert(typeof(res.cost), length(seq))
     res
 end
 

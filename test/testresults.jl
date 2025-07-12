@@ -16,6 +16,7 @@ using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!, pop_max!
 
 end
 
+
 @testset "Knn" begin
     for k in [7, 8, 12, 15, 67]
         R = knn(k)
@@ -28,7 +29,7 @@ end
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
 
-            push_item!(R, i => p)
+            R, _ = push_item!(R, i => p)
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
@@ -53,7 +54,7 @@ end
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
 
-            push_item!(R, i => p)
+            R, _ = push_item!(R, i => p)
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
@@ -84,11 +85,13 @@ end
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
 
-            push_item!(R, i => p)
+            R, _ = push_item!(R, i => p)
 
             if i % 10 == 7
-                @test pop_min!(R) == popfirst!(gold)
-                @test pop_max!(R) == pop!(gold)
+                R, p = pop_min!(R)
+                @test p == popfirst!(gold)
+                R, p = pop_max!(R)
+                @test p == pop!(gold)
             end
 
             @test minimum(x->x.weight, gold) == minimum(R)

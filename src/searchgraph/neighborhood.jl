@@ -41,7 +41,7 @@ function find_neighborhood(copy_::Function, index::SearchGraph, ctx::SearchGraph
     ksearch = neighborhoodsize(neighborhood, length(index))
     res = getiknnresult(ksearch, ctx)
     if ksearch > 0
-        search(index.algo, index, ctx, item, res, hints)
+        res = search(index.algo, index, ctx, item, res, hints)
         res = neighborhoodfilter(neighborhood.filter, index, ctx, item, sortitems!(res))
     end
 

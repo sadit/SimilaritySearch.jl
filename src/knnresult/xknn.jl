@@ -18,13 +18,13 @@ function sort_last_item!(order::Ordering, plist, sp, ep)
     @inbounds item = plist[ep]
 
     @inbounds while pos > sp && lt(order, item, plist[pos-1])
-        pos -= 1
+        pos -= one(pos)
     end
 
     @inbounds if pos < ep
         while pos < ep
             plist[ep] = plist[ep-1]
-            ep -= 1
+            ep -= one(ep)
         end
 
         plist[ep] = item
@@ -38,13 +38,13 @@ function sort_first_item!(order::Ordering, plist, sp, ep)
     @inbounds item = plist[sp]
 
     @inbounds while sp < ep && lt(order, item, plist[ep])
-        ep -= 1
+        ep -= one(ep)
     end
 
     @inbounds if sp < ep
         while sp < ep
             plist[sp] = plist[sp+1]
-            sp += 1
+            sp += one(sp)
         end
 
         plist[sp] = item
@@ -95,29 +95,29 @@ Appends an item into the result set
 @inline function push_item!(res::XKnn, item::IdWeight)
     len = length(res)
 
+    sp, ep = res.sp, res.ep
     if len < maxlength(res)
-        if res.ep == length(res.items)
-            i = 0
-            for j in res.sp:res.ep
-                i += 1
+        if ep == length(res.items)
+            i = zero(res.sp)
+            for j in sp:ep
+                i += one(res.sp)
                 res.items[i] = res.items[j]
             end
-            res.sp = 1
-            res.ep = i
+            sp = one(res.sp)
+            ep = i
         end
 
-        res.ep += 1
+        ep += one(ep)
         
-        res.items[res.ep] = item
-        sort_last_item!(WeightOrder, res.items, res.sp, res.ep)
-        return true
+        res.items[ep] = item
+        sort_last_item!(WeightOrder, res.items, sp, ep)
+        return XKnn(res.items, sp, ep, res.maxlen, res.cost, res.eblocks), true
     end
 
-    item.weight >= maximum(res) && return false
-
+    item.weight >= maximum(res) && return res, false
     @inbounds res.items[res.ep] = item
     sort_last_item!(WeightOrder, res.items, res.sp, res.ep)
-    true
+    res, true
 end
 
 push_item!(res::XKnn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
@@ -125,15 +125,14 @@ push_item!(res::XKnn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.firs
 
 @inline function pop_min!(res::XKnn)
     p = res.items[res.sp]
-    res.sp += 1
-    p
+    @reset res.sp += one(res.sp)
+    res, p
 end
 
 @inline function pop_max!(res::XKnn)
     p = res.items[res.ep]
-    res.ep -= 1
-   
-    p
+    @reset res.ep -= one(res.ep)
+    res, p
 end
 
 """
@@ -143,9 +142,5 @@ Returns a result set and a new initial state; reuse the memory buffers
 """
 @inline function reuse!(res::XKnn, maxlen=length(res.items))
     # @assert maxlen <= length(res.items)
-    res.sp = 1
-    res.ep = 0
-    res.maxlen = maxlen
-    res.cost = res.eblocks = 0
-    res
+    XKnn(res.items, one(Int32), zero(Int32), Int32(maxlen), zero(Int32), zero(Int32))
 end
