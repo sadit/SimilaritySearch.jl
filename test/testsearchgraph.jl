@@ -55,7 +55,20 @@ end
         reuse!(res)
         q = queries[2]
         @time "SEARCH Exhaustive 2" search(seq, ectx, q, res)
-        @time reuse!(res)
+        @check_allocs function f(res)
+            reuse!(res)
+        end
+
+        try
+            f(res)
+            f(res)
+        catch err
+            for (i, e) in enumerate(err.errors)
+                display("=============== $i ===========")
+                display(e)
+            end
+        end
+        exit(0)
         f(seq, ectx, q, res) = @time "SEARCH Exhaustive 3" search(seq, ectx, q, res)
         f(seq, ectx, q, res)
         reuse!(res)
