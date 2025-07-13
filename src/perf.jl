@@ -12,9 +12,9 @@ function recallscore(gold, res)::Float64
 end
 
 idset(a::Set) = a
-idset(a::AbstractVector) = Set(a)
-idset(res::Knn) = Set(IdView(res))
-idset(res::XKnn) = Set(IdView(res))
+idset(a::AbstractVector{IdWeight}) = Set{Int32}(IdView(a))
+idset(a::AbstractVector{<:Integer}) = Set{Int32}(a)
+idset(res::AbstractKnn) = Set{Int32}(IdView(res))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k=size(goldI, 1))::Float64

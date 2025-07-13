@@ -34,8 +34,8 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     res
 end
 
-function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam, Δ::Float32, maxvisits::Int64)
-    res, _ = push_item!(beam, nearest(res))
+function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam::XKnn, Δ::Float32, maxvisits::Int64)
+    beam, _ = push_item!(beam, nearest(res))
     dist = distance(index)
     eblocks = 0
     cost = res.cost
@@ -90,12 +90,20 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
     # vstate = vstate
     n = length(index)
     if n == 0
-        res
+        nothing
+    elseif n < 64
+        dist = distance(index)
+        for i in 1:n
+            d = evaluate(dist, q, database(index, i))
+            res, _ = push_item!(res, i, d)
+        end
+
+        @reset res.cost = convert(typeof(res.cost), n)
     else
         beam = getbeam(bsize, ctx)
         res = beamsearch_init(bs, index, q, res, hints, vstate)
         res = beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
-        @assert res.cost > 0
-        res
     end
+
+    res
 end

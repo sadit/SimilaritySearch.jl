@@ -37,12 +37,11 @@ the given context.
 - `hints`: Search hints
 """
 function find_neighborhood(copy_::Function, index::SearchGraph, ctx::SearchGraphContext, item; hints=index.hints)
-    neighborhood = ctx.neighborhood
-    ksearch = neighborhoodsize(neighborhood, length(index))
+    ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     res = getiknnresult(ksearch, ctx)
     if ksearch > 0
         res = search(index.algo, index, ctx, item, res, hints)
-        res = neighborhoodfilter(neighborhood.filter, index, ctx, item, sortitems!(res))
+        res = neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res))
     end
 
     copy_(res)
@@ -73,17 +72,16 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
 end
 
 """
-    SatNeighborhood(hfactor::Float32=0f0, nndist::Float32=1f-4)
+    SatNeighborhood(nndist::Float32=1f-4)
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
 """
 struct SatNeighborhood <: NeighborhoodFilter
-    hfactor::Float32
     nndist::Float32
 end
 
-SatNeighborhood(; hfactor::AbstractFloat=0f0, nndist::AbstractFloat=1f-4) = SatNeighborhood(convert(Float32, hfactor), convert(Float32, nndist)) 
+SatNeighborhood(; nndist::AbstractFloat=1f-4) = SatNeighborhood(convert(Float32, nndist)) 
 
 """
     DistalSatNeighborhood()
@@ -92,11 +90,10 @@ New items are connected with a small set of items computed with a Distal SAT lik
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
 """
 struct DistalSatNeighborhood <: NeighborhoodFilter
-    hfactor::Float32
     nndist::Float32
 end
 
-DistalSatNeighborhood(; hfactor::AbstractFloat=0f0, nndist::AbstractFloat=1f-4) = DistalSatNeighborhood(convert(Float32, hfactor), convert(Float32, nndist)) 
+DistalSatNeighborhood(; nndist::AbstractFloat=1f-4) = DistalSatNeighborhood(convert(Float32, nndist)) 
 
 """
     struct IdentityNeighborhood
@@ -108,24 +105,23 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function neighborhoodfilter(::IdentityNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
+function neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res)
     res
 end
 
 """
-    filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, context)
+    filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, ctx)
 
 filters `res` using the DistSAT strategy.
 """
-@inline function neighborhoodfilter(sat::DistalSatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
-    hsp_neighborhood = getsatknnresult(length(res), context)
-    hsp_distal_neighborhood_filter!(hsp_neighborhood, res; sat.nndist)
+@inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res)
+    hsp = getsatknnresult(length(res), ctx)
+    hsp_distal_neighborhood_filter!(hsp, distance(G), database(G), center, res; sat.nndist)
 end
 
-@inline function neighborhoodfilter(sat::SatNeighborhood, index::SearchGraph, context::SearchGraphContext, item, res)
-    @assert length(res) > 0
-    hsp_neighborhood = getsatknnresult(length(res), context)
-    hsp_proximal_neighborhood_filter!(hsp_neighborhood, res; sat.nndist)
+@inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res)
+    hsp = getsatknnresult(length(res), ctx)
+    hsp_proximal_neighborhood_filter!(hsp, distance(G), database(G), center, res; sat.nndist)
 end
 
 ## prunning neighborhood

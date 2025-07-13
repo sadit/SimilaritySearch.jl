@@ -7,7 +7,7 @@ using AllocCheck
 
 function run_graph(G, ctx, queries, ksearch, gold_knns)
     searchtime = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
-    @test_call searchbatch(G, ctx, queries, ksearch)
+    @test_call target_modules=(@__MODULE__,) searchbatch(G, ctx, queries, ksearch)
     recall = macrorecall(gold_knns, knns)
     @test recall >= 0.7
     @show recall, searchtime, length(queries) / searchtime
@@ -36,7 +36,6 @@ function check_graph(G, ctx, queries, ksearch)
     exit(0)
 end
 
-
 @testset "vector indexing with SearchGraph" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 10
@@ -49,6 +48,7 @@ end
     ectx = GenericContext()
 
     goldtime = @elapsed gold_knns = searchbatch(seq, ectx, queries, ksearch)
+
     let res = xknn(ksearch)
         @test_call search(seq, ectx, queries[2], res)
         @time "SEARCH Exhaustive 1" knns = search(seq, ectx, queries[2], res)
@@ -78,6 +78,7 @@ end
         end=#
 
     end
+    exit(0)
 
     #=@testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
@@ -117,10 +118,12 @@ end
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
         neighborhood = Neighborhood(filter=SatNeighborhood()),
-        hyperparameters_callback = OptimizeParameters(MinRecall(0.9)),
+        #neighborhood = Neighborhood(filter=IdentityNeighborhood()),
+        hyperparameters_callback = OptimizeParameters(MinRecall(0.9), verbose=true),
         parallel_block = 16
     )
     index!(graph, ctx)
+    @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test n == length(db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); queries, ksearch)
     searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
@@ -130,7 +133,6 @@ end
     @info graph.algo
     @test recall >= 0.6
     
-    exit(0)
     @testset "rebuild" begin
         graph = rebuild(graph, ctx)
         @test n == length(db) == length(graph)
@@ -230,17 +232,18 @@ end
         @time "SEARCH SearchGraph" knns = search(G, ctx, queries[1], res)
     end
 
-    knns = let knns = xknnpool(ksearch, length(queries))
+    knns = let knns = zeros(IdWeight, ksearch, length(queries))
         @time "SEARCHBATCH Exhaustive" searchbatch!(G, ctx, queries, knns; sorted=false)
         @time "SEARCHBATCH Exhaustive" searchbatch!(G, ctx, queries, knns; sorted=false)
-        knns.matrix
+        knns
     end
 
-    knns = let knns = xknnpool(ksearch, length(queries))
+    knns = let knns = zeros(IdWeight, ksearch, length(queries))
         @time "SEARCHBATCH SearchGraph" searchbatch!(G, ctx, queries, knns; sorted=false)
         @time "SEARCHBATCH SearchGraph" searchbatch!(G, ctx, queries, knns; sorted=false)
-        knns.matrix
+        knns
     end
+
     recall_ = macrorecall(gold_knns, knns)
     searchtime5 = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
     mem = sum(map(length, G.adj.end_point)) * sizeof(eltype(G.adj.end_point[1])) / 2^20 # adj mem

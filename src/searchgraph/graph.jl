@@ -61,10 +61,10 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    search(index::SearchGraph, context::SearchGraphContext, q, res; hints=index.hints
+    search(index::SearchGraph, context::SearchGraphContext, q, res
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, context::SearchGraphContext, q, res; hints=index.hints)
-    search(index.algo, index, context, q, res, hints)
+function search(index::SearchGraph, context::SearchGraphContext, q, res::AbstractKnn)
+    search(index.algo, index, context, q, res, index.hints)
 end

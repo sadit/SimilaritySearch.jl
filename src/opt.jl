@@ -17,36 +17,23 @@ end
 struct ParetoRecall <: ErrorFunction end
 struct ParetoRadius <: ErrorFunction end
 
-function runconfig0(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, i::Integer, res::AbstractKnn)
-    runconfig(conf, index, ctx, queries[i], res)
-end
 
 function setconfig! end
 
-function create_error_function(index::AbstractSearchIndex, context::AbstractContext, gold, knns, queries, verbose)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries, verbose)
     n = length(index)
     m = length(queries)
-    nt = Threads.nthreads()
-    vmin = Vector{Float64}(undef, nt)
-    vmax = Vector{Float64}(undef, nt)
-    vacc = Vector{Float64}(undef, nt)
+    cost = zeros(Int, m)
     cov = Vector{Float64}(undef, m)
     R = [Set{Int32}() for _ in knns]
 
     function lossfun(conf)
-        fill!(vmin, typemax(eltype(vmin)))
-        fill!(vmax, typemin(eltype(vmax)))
-        fill!(vacc, 0.0)
         empty!(cov)
         
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
-                r = reuse!(knns[i])
-                r = runconfig0(conf, index, context, queries, i, r)
-                ti = Threads.threadid()
-                vmin[ti] = min(r.cost, vmin[ti])
-                vmax[ti] = max(r.cost, vmax[ti])
-                vacc[ti] += r.cost
+                knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
+                cost[i] = r.cost
             end
         end
 
@@ -68,16 +55,30 @@ function create_error_function(index::AbstractSearchIndex, context::AbstractCont
         recall = if gold !== nothing
             for (i, r) in enumerate(knns)
                 empty!(R[i])
-                union!(R[i], idset(r))
+                union!(R[i], IdView(r))
             end
 
             macrorecall(gold, R)
         else
             nothing
         end
+        
+        if recall < 0.3
+            @info "RECALL BAJO!! recall: $recall, #objects: $(length(index)), #queries: $(length(queries))"
+            @info cov
+            for (g, r) in zip(gold, R)
+                @show g, r
+            end
 
-        visited = (min=minimum(vmin), mean=sum(vacc)/m, max=maximum(vmax))
-        verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime per query, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
+            for p in knns
+                @show collect(Int32, IdView(p))
+            end
+
+            @show quantile(neighbors_length.(Ref(index.adj), 1:length(index)), 0:0.1:1.0)
+        end
+
+        visited = (min=minimum(cost), mean=mean(cost), max=maximum(cost))
+        verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
         (; visited, radius, recall, searchtime, conf)
     end
 end
@@ -88,10 +89,10 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
 """
     optimize_index!(
         index::AbstractSearchIndex,
-        context::AbstractContext,
+        ctx::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        ctx=GenericContext(context),
+        ctx=GenericContext(ctx),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -110,7 +111,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 
 # Arguments
 - `index`: the index to be optimized
-- `context`: index context
+- `ctx`: index ctx
 - `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()` or `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time)
 
 # Keyword arguments
@@ -134,10 +135,9 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 """
 function optimize_index!(
         index::AbstractSearchIndex,
-        context::AbstractContext,
+        ctx::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        ctx=GenericContext(context),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -166,8 +166,8 @@ function optimize_index!(
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
-        searchbatch!(seq, ctx, queries, knns)
-        gold = [idset(viewitems(c)) for c in knns]
+        knns = searchbatch!(seq, ctx, queries, knns)
+        gold = [idset(c) for c in knns]
     end
 
     M = Ref(0.0) # max cost
@@ -181,7 +181,7 @@ function optimize_index!(
         end
     end
 
-    getperformance = create_error_function(index, context, gold, knns, queries, verbose)
+    getperformance = create_error_function(index, ctx, gold, knns, queries, verbose)
 
     function getcost(p)
         p = last(p)
@@ -216,14 +216,16 @@ function optimize_index!(
     end
 
     bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence)
-   
+    
     if length(bestlist) == 0
         verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
     else
         config, perf = bestlist[1]
-        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index)), perf=$perf")
+        @assert perf.recall > 0 
+        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
         setconfig!(config, index, perf)
     end
+
     bestlist
 end
 

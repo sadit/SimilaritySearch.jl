@@ -100,7 +100,7 @@ end
 
 function SearchGraphContext(;
         logger=InformativeLog(),
-        neighborhood=Neighborhood(SatNeighborhood(; hfactor=0f0, nndist=3f-3)),
+        neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
         #hints_callback=DisjointHints(),
         hints_callback=KCentersHints(; logbase=1.2),
         #hints_callback=EpsilonHints(quantile=1/64),
@@ -171,7 +171,7 @@ end
     xknn(view(context.iknns, 1:nsize, Threads.threadid()))
 end
 
-knndefault(v) = knn(v)
+knndefault(v) = xknn(v)
 
 #@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
 #    view(knns, 1:_knnsize(nsize, knns), i)
