@@ -12,25 +12,24 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 
 - `g`: The search index to be rebuild.
 - `context`: The context to run the procedure, it can differ from the original one.
-- `minbatch`: controls how the multithreading is made, see [`getminbatch`](@ref)
 
 """
-function rebuild(g::SearchGraph, context::SearchGraphContext)
+function rebuild(g::SearchGraph, ctx::SearchGraphContext)
     n = length(g)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     reverse = Vector{Vector{UInt32}}(undef, n)
-    minbatch = context.minbatch < 0 ? n : getminbatch(context.minbatch, n)
+    minbatch = ctx.minbatch < 0 ? n : getminbatch(ctx, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds direct[i] = find_neighborhood(collect ∘ IdView, g, context, database(g, i); hints=first(neighbors(g.adj, i))) 
+        @inbounds direct[i] = find_neighborhood(collect ∘ IdView, g, ctx, database(g, i); hints=first(neighbors(g.adj, i))) 
         # @info length(direct[i]) neighbors_length(g.adj, i) 
         reverse[i] = Vector{UInt32}(undef, 0)
     end
 
-    rebuild_connect_reverse_links!(context.neighborhood, direct, reverse, g.adj.locks, 1, length(g), minbatch)
+    rebuild_connect_reverse_links!(ctx.neighborhood, direct, reverse, g.adj.locks, 1, length(g), minbatch)
     G = copy(g; adj=AdjacencyList(direct), hints=copy(g.hints), algo=copy(g.algo))
-    execute_callbacks(G, context, force=true)
+    execute_callbacks(G, ctx, force=true)
     G
 end
 

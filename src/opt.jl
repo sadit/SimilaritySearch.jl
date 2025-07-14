@@ -31,7 +31,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         empty!(cov)
         
         searchtime = @elapsed begin
-            @batch minbatch=getminbatch(0, m) per=thread for i in 1:m
+            @batch minbatch=getminbatch(ctx, m) per=thread for i in 1:m
                 knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
                 cost[i] = r.cost
             end
@@ -121,11 +121,9 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 - `queries_ksearch`: the number of neighbors to retrieve for `queries`
 - `queries_size`: if `queries===nothing` then a sample of the already indexed database is used, `queries_size` is the size of the sample.
 - `initialpopulation`: the initial sample for the optimization procedure
-- `minbatch`: controls how multithreading is used for evaluating configurations, see [`getminbatch`](@ref)
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
     Alternatively, you can pass some keywords arguments to `SearchParams`, and use the rest of default values:
     - `initialpopulation=16`: initial sample
-    - `minbatch=0`: minimum batch size (`Polyester` multithreading, `0` chooses the size based on the input)
     - `maxpopulation=16`: population upper limit
     - `bsize=4`: beam size (top best elements used by select, mutate and crossing operations.)
     - `mutbsize=16`: number of mutated new elements in each iteration

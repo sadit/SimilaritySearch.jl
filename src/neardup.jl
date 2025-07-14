@@ -133,10 +133,9 @@ end
 - `D` nearest neighbors distances of the input database to non-near dups
 - `M` maps of `idx` to the input database
 - `ϵ` radius to consider objects as near dups
-- `minbatch` argument for the `@batch` macro (Polyester multithreading)
 - `filterblocks` if true it performs neardup in blocks
 """
-function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, imap, tmp, L, D, M, ϵ; filterblocks::Bool)
     if !filterblocks
         append_items!(idx, ctx, X[imap])
         for i in imap
@@ -164,7 +163,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         R = Ref(reuse!(res))
         i = imap[ii]
         u = X[i]
-        minbatch_ = getminbatch(minbatch, length(tmp))
+        minbatch_ = getminbatch(ctx, length(tmp))
 
         @batch minbatch=minbatch_ per=thread for jj in eachindex(tmp)
             j = tmp[jj]

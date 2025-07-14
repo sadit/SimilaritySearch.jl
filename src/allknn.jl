@@ -43,7 +43,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
             sort && sortitems!(res)
         end
     else
-        minbatch = getminbatch(ctx.minbatch, n)
+        minbatch = getminbatch(ctx, n)
 
         #@batch minbatch=minbatch per=thread for i in 1:n
         P = Iterators.partition(1:n, minbatch) |> collect

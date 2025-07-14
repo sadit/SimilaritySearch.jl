@@ -44,7 +44,7 @@ Solves the query evaluating all items in the given query.
 function search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
     dist = distance(ex)
     elock = ex.lock
-    minbatch = getminbatch(ctx.minbatch, length(ex))
+    minbatch = getminbatch(ctx, length(ex))
     R = Ref(res)
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, database(ex, i), q)

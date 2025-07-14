@@ -46,7 +46,7 @@ GenericContext(ctx::AbstractContext; minbatch=ctx.minbatch, verbose=false, logge
     GenericContext(minbatch, verbose, logger)
 
 """
-    getminbatch(minbatch, n::Int=0)
+    getminbatch(minbatch::Int, n::Int=0)
     getminbatch(ctx::GenericContext, n::Int=0)
 
 Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
@@ -59,7 +59,7 @@ the thread is used (in minibatches).
   - Set `minbatch=-1` to avoid parallelism.
 
 """
-function getminbatch(minbatch, n::Int=0)
+function getminbatch(minbatch::Int, n::Int=0)
     minbatch < 0 && return n
     nt = Threads.nthreads()
     if minbatch == 0
@@ -166,7 +166,7 @@ Searches a batch of queries in the given index and use `knns` as output (searche
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted::Bool=false)
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
     length(Q) == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(ctx.minbatch, length(Q))
+    minbatch = getminbatch(ctx, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     #Threads.@threads :static for i in eachindex(Q)
@@ -182,7 +182,7 @@ end
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
     length(Q) > 0 || throw(ArgumentError("empty set of queries"))
     length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(ctx.minbatch, length(Q))
+    minbatch = getminbatch(ctx, length(Q))
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     # Threads.@threads :static for i in eachindex(Q)
