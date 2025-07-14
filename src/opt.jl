@@ -20,7 +20,7 @@ struct ParetoRadius <: ErrorFunction end
 
 function setconfig! end
 
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries, verbose)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
     n = length(index)
     m = length(queries)
     cost = zeros(Int, m)
@@ -75,10 +75,11 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             end
 
             @show quantile(neighbors_length.(Ref(index.adj), 1:length(index)), 0:0.1:1.0)
+            exit(0)
         end
 
         visited = (min=minimum(cost), mean=mean(cost), max=maximum(cost))
-        verbose && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
+        verbose(ctx) && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
         (; visited, radius, recall, searchtime, conf)
     end
 end
@@ -103,15 +104,14 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         crossbsize=8,
         tol=-1.0,
         maxiters=16,
-        verbose=false,
-        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose)
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose=verbose(ctx))
     )
 
 Tries to configure the `index` to achieve the specified performance (`kind`). The optimization procedure is an stochastic search over the configuration space yielded by `kind` and `queries`.
 
 # Arguments
 - `index`: the index to be optimized
-- `ctx`: index ctx
+- `ctx`: index ctx (caches and general hyperparameters)
 - `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()` or `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time)
 
 # Keyword arguments
@@ -131,7 +131,6 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
     - `mutbsize=16`: number of mutated new elements in each iteration
     - `crossbsize=8`: number of new elements from crossing operation.
     - `maxiters=16`: maximum number of iterations.
-    - `verbose`: controls if the procedure is verbose or not
 """
 function optimize_index!(
         index::AbstractSearchIndex,
@@ -147,17 +146,16 @@ function optimize_index!(
         mutbsize=16,
         crossbsize=8,
         maxiters=16,
-        verbose=false,
-        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose)
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx))
     )
 
     db = database(index)
     if queries === nothing
-        @info "using $numqueries random queries from the dataset"
+        verbose(ctx) && @info "using $numqueries random queries from the dataset"
         sample = rand(1:length(index), numqueries) |> unique
         queries = SubDatabase(db, sample)
     else
-        @info "using $(length(queries)) given as hyperparameter"
+        verbose(ctx) && @info "using $(length(queries)) given as hyperparameter"
     end
 
     knnsmatrix = zeros(IdWeight, ksearch, length(queries))
@@ -181,7 +179,7 @@ function optimize_index!(
         end
     end
 
-    getperformance = create_error_function(index, ctx, gold, knns, queries, verbose)
+    getperformance = create_error_function(index, ctx, gold, knns, queries)
 
     function getcost(p)
         p = last(p)
@@ -218,11 +216,11 @@ function optimize_index!(
     bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence)
     
     if length(bestlist) == 0
-        verbose && println(stderr, "== WARN optimization failure; unable to find usable configurations")
+        verbose(ctx) && println(stderr, "== WARN optimization failure; unable to find usable configurations")
     else
         config, perf = bestlist[1]
         @assert perf.recall > 0 
-        verbose && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
+        verbose(ctx) && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
         setconfig!(config, index, perf)
     end
 

@@ -211,7 +211,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCen
         sort!(s)
         SubDatabase(database(index), s)
     end
-    A = fft(distance(index), D, k)
+    A = fft(distance(index), D, k; ctx.verbose)
     M = Dict(c => i for (i, c) in enumerate(A.centers))
     count = zeros(Int, length(M))
     for nn in A.nn
@@ -220,7 +220,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCen
     x = quantile(count, opt.qdiscard)
     C = A.centers[count .>= x]
 
-    @show n, m, k, length(A.centers), length(C)
+    verbose(ctx) && @info "KCentersHints: n=$n, m=$m, k=$k, numcenters=$(length(A.centers)), C=$(length(C))"
     resize!(index.hints, length(C))
     index.hints .= D.map[C]
 end

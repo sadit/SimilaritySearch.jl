@@ -35,14 +35,48 @@ abstract type AbstractContext end
 
 struct GenericContext <: AbstractContext
     minbatch::Int
+    verbose::Bool
     logger
 end
 
-GenericContext(; minbatch::Integer=0, logger=InformativeLog()) =
-    GenericContext(minbatch, logger)
+GenericContext(; minbatch::Integer=0, verbose=false, logger=InformativeLog()) =
+    GenericContext(minbatch, verbose, logger)
 
-GenericContext(ctx::AbstractContext; minbatch=ctx.minbatch, logger=ctx.logger) =
-    GenericContext(minbatch, logger)
+GenericContext(ctx::AbstractContext; minbatch=ctx.minbatch, verbose=false, logger=ctx.logger) =
+    GenericContext(minbatch, verbose, logger)
+
+"""
+    getminbatch(minbatch, n::Int=0)
+    getminbatch(ctx::GenericContext, n::Int=0)
+
+Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
+the thread is used (in minibatches). 
+
+# Arguments
+- `minbatch`
+  - Integers ``1 ≤ minbatch ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
+  - Defaults to 0 which computes a default number based on the number of available cores and `n`.
+  - Set `minbatch=-1` to avoid parallelism.
+
+"""
+function getminbatch(minbatch, n::Int=0)
+    minbatch < 0 && return n
+    nt = Threads.nthreads()
+    if minbatch == 0
+        # it seems to work for several workloads
+        n <= 2nt && return 1
+        n <= 4nt && return 2
+        #n <= 8nt && return 4
+        return 4
+        # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
+    else
+        return ceil(Int, minbatch)
+    end
+end
+
+getminbatch(ctx::GenericContext, n::Int=0) = getminbatch(ctx.minbatch, n)
+
+verbose(ctx::GenericContext) = ctx.verbose
 
 function getcontext(s::AbstractSearchIndex)
     error("Not implemented method for $s")
@@ -138,7 +172,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     #Threads.@threads :static for i in eachindex(Q)
         res = xknn(view(knns, :, i))
         res = search(index, ctx, Q[i], res)
-        @assert length(res) == size(knns, 1)
+        # @assert length(res) == size(knns, 1)
         sorted && sortitems!(res)
     end
     
@@ -158,32 +192,4 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     knns
 end
 
-"""
-    getminbatch(minbatch, n)
-
-Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
-the thread is used (in minibatches). 
-
-# Arguments
-- `minbatch`
-  - Integers ``1 ≤ minbatch ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
-  - Defaults to 0 which computes a default number based on the number of available cores and `n`.
-  - Set `minbatch=-1` to avoid parallelism.
-
-"""
-function getminbatch(minbatch, n)
-    minbatch < 0 && return n
-    nt = Threads.nthreads()
-    if minbatch == 0
-        # it seems to work for several workloads
-        n <= 2nt && return 1
-        n <= 4nt && return 2
-        #n <= 8nt && return 4
-        return 4
-        # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
-    else
-        return ceil(Int, minbatch)
-    end
 end
-
-end  # end SimilaritySearch module

@@ -34,12 +34,15 @@ end
 mutable struct OptimizeParameters <: Callback
     kind::ErrorFunction
     initialpopulation
-    params::SearchParams
+    maxiters::Int
+    bsize::Int
+    mutbsize::Int
+    crossbsize::Int
+    maxpopulation::Int
     ksearch::Int32
     queries
     numqueries::Int32
     space::BeamSearchSpace
-    verbose::Bool
 end
 
 """
@@ -47,11 +50,12 @@ end
         initialpopulation=16,
         maxiters=12,
         bsize=4,
+        mutbsize=4bsize,
+        crossbsize=2bsize,
+        maxpopulation=initialpopulation,
         ksearch=10,
         queries=nothing,
         numqueries=32,
-        verbose=false,
-        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
         space::BeamSearchSpace=BeamSearchSpace()
     )
 
@@ -65,7 +69,9 @@ Creates a hyperoptimization callback using the given parameters
 - `initialpopulation`: Optimization argument that determines the initial number of configurations.
 - `maxiters`: Optimization argument that determines the number of iterations.
 - `bsize`: Optimization argument that determines how many top configurations are allowed to mutate and cross.
-- `params`: The `SearchParams` arguments (if separated optimization arguments are not enough)
+- `mutbsize`: Number of elements to be generated from mutation
+- `crossbsize`: Number of elements to be generated from crossing
+- `maxpopulation`: The maximum size that the population can be
 - `ksearch`: The number of neighbors to be retrived by the optimization process.
 - `queries`: The queryset to be used during the optimization process.
 - `numqueries`: The number of queries to be performed during the optimization process.
@@ -81,14 +87,15 @@ function OptimizeParameters(kind=MinRecall(0.9);
         initialpopulation=16,
         maxiters=12,
         bsize=4,
-        ksearch=0,
+        mutbsize=4bsize,
+        crossbsize=2bsize,
+        maxpopulation=initialpopulation,
+        ksearch=10,
         queries=nothing,
         numqueries=32,
-        verbose=false,
-        params=SearchParams(; maxpopulation=initialpopulation, bsize, mutbsize=4bsize, crossbsize=2bsize, maxiters, verbose),
         space::BeamSearchSpace=BeamSearchSpace()
     )
-    OptimizeParameters(kind, initialpopulation, params, ksearch, queries, numqueries, space, verbose)
+    OptimizeParameters(kind, initialpopulation, maxiters, bsize, mutbsize, crossbsize, maxpopulation, ksearch, queries, numqueries, space)
 end
 
 optimization_space(index::SearchGraph) = BeamSearchSpace()
@@ -105,22 +112,23 @@ function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, 
 end
 
 """
-    execute_callback(index::SearchGraph, context::SearchGraphContext, opt::OptimizeParameters)
+    execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
 
 SearchGraph's callback for adjunting search parameters
 """
-function execute_callback(index::SearchGraph, context::SearchGraphContext, opt::OptimizeParameters)
+function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
     if opt.ksearch == 0
-        ksearch = neighborhoodsize(context.neighborhood, length(index))
+        ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     else
         ksearch = opt.ksearch
     end
-    optimize_index!(index, context, opt.kind;
+
+    params = SearchParams(; opt.maxpopulation, opt.bsize, opt.mutbsize, opt.crossbsize, opt.maxiters, verbose=verbose(ctx))
+    optimize_index!(index, ctx, opt.kind;
                     opt.space,
                     ksearch,
                     opt.queries,
                     opt.numqueries,
                     opt.initialpopulation,
-                    opt.verbose,
-                    opt.params)
+                    params)
 end

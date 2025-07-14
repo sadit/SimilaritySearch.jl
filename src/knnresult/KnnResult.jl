@@ -41,7 +41,7 @@ It starts with zero items and grows with [`push_item!`](@ref) calls until `ksear
 size is reached. After this only the smallest items based on distance are preserved.
 """
 knn(vec::AbstractVector) = Knn(vec, IdWeight(Int32(0), 0f0), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
-knn(k::Int) = knn(Vector{IdWeight}(undef, k))
+knn(k::Int) = knn(zeros(IdWeight, k))
 
 
 """
@@ -53,7 +53,7 @@ It starts with zero items and grows with [`push_item!`](@ref) calls until `ksear
 size is reached. After this only the smallest items based on distance are preserved.
 """
 xknn(vec::AbstractVector) = XKnn(vec, one(Int32), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
-xknn(k::Int) = xknn(Vector{IdWeight}(undef, k))
+xknn(k::Int) = xknn(zeros(IdWeight, k))
 
 #const xknn = xknn
 #end

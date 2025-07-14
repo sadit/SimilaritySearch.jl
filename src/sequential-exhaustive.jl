@@ -52,8 +52,11 @@ Solves the query evaluating all items in the given query.
 """
 @inline function search(seq::ExhaustiveSearch, ::AbstractContext, q, res::AbstractKnn)
     dist = distance(seq)
-    for i in eachindex(seq)
-        d = evaluate(dist, database(seq, i), q)
+    db = database(seq)
+    n = length(db)
+    i = 0
+    while (i+=1) <= n
+        d = evaluate(dist, db[i], q)
         res, _ = push_item!(res, i, d)
     end
 
