@@ -27,7 +27,7 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     if length(res) == 0
         n = length(index)
         for objID in 1:ceil(Int, log(2, 1+n))
-           res = enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+           enqueue_item!(index, q, database(index, objID), res, objID, vstate)
         end
     end
     
@@ -35,31 +35,30 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
 end
 
 function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam::XKnn, Δ::Float32, maxvisits::Int64)
-    beam, _ = push_item!(beam, nearest(res))
+    push_item!(beam, nearest(res))
     dist = distance(index)
-    eblocks = 0
-    cost = res.cost
-    # @assert cost > 0
+    costevals, costblocks = 0, 0
+
     @inbounds while 0 < length(beam)
-        eblocks += 1
-        beam, prev = pop_min!(beam)
+        costblocks += 1
+        prev = pop_min!(beam)
         for childID in neighbors(index.adj, prev.id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
             c = IdWeight(childID, d)
-            res, _ = push_item!(res, c)
-            cost += one(cost)
-            cost > maxvisits && @goto finish_search 
+            push_item!(res, c)
+            costevals += 1
+            costevals > maxvisits && @goto finish_search 
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
-                beam, _ = push_item!(beam, c)
+                push_item!(beam, c)
             end
         end
     end
 
     @label finish_search
-    @reset res.eblocks = convert(typeof(res.eblocks), eblocks)
-    @reset res.cost = convert(typeof(res.cost), cost)
+    res.costevals += costevals
+    res.costblocks += costblocks
     res
 end
 
@@ -95,14 +94,14 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
         dist = distance(index)
         for i in 1:n
             d = evaluate(dist, q, database(index, i))
-            res, _ = push_item!(res, i, d)
+            push_item!(res, i, d)
         end
 
-        @reset res.cost = convert(typeof(res.cost), n)
+        res.costevals = n
     else
         beam = getbeam(bsize, ctx)
-        res = beamsearch_init(bs, index, q, res, hints, vstate)
-        res = beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
+        beamsearch_init(bs, index, q, res, hints, vstate)
+        beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
     end
 
     res

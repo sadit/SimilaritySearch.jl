@@ -45,18 +45,19 @@ function search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
     dist = distance(ex)
     elock = ex.lock
     minbatch = getminbatch(ctx, length(ex))
-    R = Ref(res)
+    
     @batch minbatch=minbatch per=thread for i in eachindex(ex)
         d = evaluate(dist, database(ex, i), q)
         try
             lock(elock)
-            R[], _ = push_item!(R[], i, d)
+            push_item!(res, i, d)
         finally
             unlock(elock)
         end
     end
-    res = R[]
-    @reset res.cost = convert(typeof(res.cost), length(ex))
+    
+    res.costevals = length(ex)
+    res.costblocks = 0
     res
 end
 

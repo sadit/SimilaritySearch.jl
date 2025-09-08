@@ -40,7 +40,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
         for p in plist
             p.id == 0 && break
             if hsp_should_push(hsp[i], dist, X, q, p.id, p.weight)
-                hsp[i], _ = push_item!(hsp[i], p)
+                push_item!(hsp[i], p)
             end
         end
 
@@ -50,17 +50,17 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
 end
 
 function hsp_proximal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)
-    hsp, _ = push_item!(hsp, neighborhood[1])
+    push_item!(hsp, neighborhood[1])
     prob = 1f0
     for i in 2:length(neighborhood)
         p = neighborhood[i]
         if p.weight <= nndist
             if rand(Float32) < prob
-                hsp, _ = push_item!(hsp, p)
+                push_item!(hsp, p)
                 prob *= nncaptureprob # workaround for very large number of duplicates
             end
         elseif hsp_should_push(hsp, dist, db, center, p.id, p.weight)
-            hsp, _ = push_item!(hsp, p)
+            push_item!(hsp, p)
         end
     end
 
@@ -68,14 +68,14 @@ function hsp_proximal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, ne
 end
 
 function hsp_distal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4)
-    hsp, _ = push_item!(hsp, last(neighborhood))
+    push_item!(hsp, last(neighborhood))
 
     @inbounds for i in length(neighborhood)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
         p = neighborhood[i]
         if p.weight <= nndist
-            hsp, _ = push_item!(hsp, p)
+            push_item!(hsp, p)
         elseif hsp_should_push(hsp, dist, db, center, p.id, p.weight)
-            hsp, _ = push_item!(hsp, p)
+            push_item!(hsp, p)
         end
     end
 

@@ -7,7 +7,7 @@ Approximate the result using a set of hints (the set of identifiers (integers)) 
 """
 function approx_by_hints!(index::SearchGraph, q, hints::T, res, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
     for objID in hints
-        res = enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+        enqueue_item!(index, q, database(index, objID), res, objID, vstate)
     end
 
     res
@@ -28,7 +28,7 @@ end
 
 function approx_by_hints!(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)
     for (i, objID) in enumerate(h.map)
-        res = enqueue_item!(index, q, h.hints[i], res, objID, vstate)
+        enqueue_item!(index, q, h.hints[i], res, objID, vstate)
     end
 
     res

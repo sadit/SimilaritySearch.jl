@@ -61,7 +61,7 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
 end
 
 function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
-        k::Int=8, blocksize::Int=256, filterblocks=true, minbatch::Int=0, verbose::Bool=true)
+        k::Int=8, blocksize::Int=256, filterblocks=true, verbose::Bool=true)
 
     ϵ = convert(Float32, ϵ)
     n = length(X)
@@ -80,7 +80,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             if verbose
                 @info "neardup> starting: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
-            neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; minbatch, filterblocks)
+            neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; filterblocks)
         else
             empty!(imap)
             if size(knns, 2) != length(range)
@@ -108,7 +108,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             end
 
             if length(imap) > 0
-                neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch, filterblocks)
+                neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; filterblocks)
             end
         end 
     end
@@ -121,7 +121,7 @@ end
 
 
 """
-    neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; minbatch::Int, filterblocks::Bool)
+    neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; filterblocks::Bool)
 
 # Arguments:
 - `idx` the output index
@@ -160,23 +160,22 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     push_lock = Threads.SpinLock()
 
     for ii in 2:n
-        R = Ref(reuse!(res))
+        reuse!(res)
         i = imap[ii]
         u = X[i]
-        minbatch_ = getminbatch(ctx, length(tmp))
+        minbatch = getminbatch(ctx, length(tmp))
 
-        @batch minbatch=minbatch_ per=thread for jj in eachindex(tmp)
+        @batch minbatch=minbatch per=thread for jj in eachindex(tmp)
             j = tmp[jj]
             d = evaluate(dist, u, X[j])
             try
                 lock(push_lock)
-                R[], _ = push_item!(R[], j, d)
+                push_item!(res, j, d)
             finally
                 unlock(push_lock)
             end
         end
 
-        res = R[]
         nn, d = argmin(res), minimum(res)
         if d > ϵ
             push!(tmp, i)

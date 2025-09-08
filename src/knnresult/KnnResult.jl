@@ -29,6 +29,12 @@ include("heap.jl")
 include("knn.jl")
 include("xknn.jl")
 
+@inline covradius(res::AbstractKnn)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
+@inline Base.maximum(res::AbstractKnn) = frontier(res).weight
+@inline Base.argmax(res::AbstractKnn) = frontier(res).id
+@inline Base.minimum(res::AbstractKnn) = nearest(res).weight
+@inline Base.argmin(res::AbstractKnn) = nearest(res).id
+
 IdView(res::AbstractVector{IdWeight}) = (res[i].id for i in eachindex(res))
 DistView(res::AbstractVector{IdWeight}) = (res[i].weight for i in eachindex(res))
 
@@ -40,7 +46,7 @@ Creates a priority queue with fixed capacity (`ksearch`) representing a knn resu
 It starts with zero items and grows with [`push_item!`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-knn(vec::AbstractVector) = Knn(vec, IdWeight(Int32(0), 0f0), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+knn(vec::AbstractVector) = Knn(vec, zero(IdWeight), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
 knn(k::Int) = knn(zeros(IdWeight, k))
 
 

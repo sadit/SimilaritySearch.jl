@@ -171,7 +171,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     #Threads.@threads :static for i in eachindex(Q)
         res = xknn(view(knns, :, i))
-        res = search(index, ctx, Q[i], res)
+        search(index, ctx, Q[i], res)
         # @assert length(res) == size(knns, 1)
         sorted && sortitems!(res)
     end
@@ -186,7 +186,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     # Threads.@threads :static for i in eachindex(Q)
-        knns[i] = search(index, ctx, Q[i], knns[i])
+        search(index, ctx, Q[i], knns[i])
     end
     
     knns

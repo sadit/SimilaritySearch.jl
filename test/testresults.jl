@@ -24,12 +24,19 @@ end
 
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
+            @assert sort!(collect(viewitems(R)), by=x->x.weight) == gold
             # i > 7 && (p *= maximum(R))
             push!(gold, IdWeight(i, p))
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
 
-            R, _ = push_item!(R, i => p)
+            #@show "======================="
+            #@show "PRE", gold, sort!(collect(viewitems(R)), by=x->x.weight), i => p
+            #@show R.min, R.len, R.maxlen
+            push_item!(R, i => p)
+            #@show "POS", gold, sort!(collect(viewitems(R)), by=x->x.weight), i => p
+            #@show R.min, R.len, R.maxlen
+            @assert sort!(collect(viewitems(R)), by=x->x.weight) == gold
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
@@ -50,11 +57,15 @@ end
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
             # i > 7 && (p *= maximum(R))
+            @assert collect(viewitems(R)) == gold
             push!(gold, IdWeight(i, p))
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
-
-            R, _ = push_item!(R, i => p)
+            #@show "======================="
+            #@show "PRE" gold, collect(viewitems(R)), i => p
+            push_item!(R, i => p)
+            #@show "POS" gold, collect(viewitems(R)), i => p
+            @assert collect(viewitems(R)) == gold
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
@@ -62,7 +73,6 @@ end
             @test argmax(x->x.weight, gold).id == argmax(R) || maximum(x->x.weight, gold) == maximum(R)
             #@test issorted(viewitems(R), SimilaritySearch.RevWeightOrder)
             @test issorted(viewitems(R), SimilaritySearch.WeightOrder)
-
         end
 
         A = collect(DistView(sortitems!(R)))
@@ -70,7 +80,6 @@ end
         @test sum(A .- B) < 1e-3
 
     end
-
 end
 
 @testset "XKnn pop ops" begin
@@ -81,16 +90,18 @@ end
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
             # i > 7 && (p *= maximum(R))
+            @assert collect(viewitems(R)) == gold
             push!(gold, IdWeight(i, p))
             sort!(gold, by=x->x.weight)
             length(gold) > k && pop!(gold)
 
-            R, _ = push_item!(R, i => p)
+            push_item!(R, i => p)
+            @assert collect(viewitems(R)) == gold
 
             if i % 10 == 7
-                R, p = pop_min!(R)
+                p = pop_min!(R)
                 @test p == popfirst!(gold)
-                R, p = pop_max!(R)
+                p = pop_max!(R)
                 @test p == pop!(gold)
             end
 

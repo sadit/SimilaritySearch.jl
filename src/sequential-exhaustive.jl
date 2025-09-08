@@ -57,10 +57,11 @@ Solves the query evaluating all items in the given query.
     i = 0
     while (i+=1) <= n
         d = evaluate(dist, db[i], q)
-        res, _ = push_item!(res, i, d)
+        push_item!(res, i, d)
     end
 
-    @reset res.cost = convert(typeof(res.cost), length(seq))
+    res.costevals = n
+    res.costblocks = 0
     res
 end
 

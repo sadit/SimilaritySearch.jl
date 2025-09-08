@@ -25,7 +25,7 @@ end
 function search_hint(idx::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)
     res = search(idx, ctx, database(idx, i), res)
     if argmin(res) == i
-        res, _ = pop_min!(res)
+        pop_min!(res)
     end
     nearest(res)
 end
@@ -35,7 +35,7 @@ function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     visit!(vstate, convert(UInt64, i))
     res = search(G.algo, G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
     if argmin(res) == i
-        res, _ = pop_min!(res)
+        pop_min!(res)
     end
     nearest(res)
 end
