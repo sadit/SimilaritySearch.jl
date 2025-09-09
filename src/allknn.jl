@@ -38,7 +38,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     @assert 0 < k <= n
     if ctx.minbatch < 0
         for i in 1:n
-            res = knn(@view knns[:, i])
+            res = xknn(@view knns[:, i])
             res = allknn_single_search!(g, ctx, i, res)
             sort && sortitems!(res)
         end
@@ -49,7 +49,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
         P = Iterators.partition(1:n, minbatch) |> collect
         @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
             for i in R
-                res = knn(@view knns[:, i])
+                res = xknn(@view knns[:, i])
                 res = allknn_single_search!(g, ctx, i, res)
                 sort && sortitems!(res)
             end
@@ -60,7 +60,6 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
 end
 
 function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
-    cost = 0
     vstate = getvstate(length(g), ctx)
     q = database(g, i)
     # visit!(vstate, i)
@@ -72,7 +71,6 @@ function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integ
         # length(res) == k && break
     end
 
-    res.cost = costevals
     res
 end
 

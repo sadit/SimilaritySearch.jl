@@ -12,23 +12,23 @@ function main()
     @info "this benchmark is intended to work with multithreading enabled julia sessions"
     db = create_database()
     dist = NormalizedCosineDistance()
-    k = 32
+    k = 8
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
                              hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
                              logger=nothing,
                              parallel_block=128
                             )
-    goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), ctx, k)
+    goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
     @info "----- computing search graph"
     H = SearchGraph(; db, dist)
     index!(H, ctx)
     optimize_index!(H, ctx, ksearch=k)
-    searchtime = @elapsed hI, hD = allknn(H, ctx, k)
+    searchtime = @elapsed knns = allknn(H, ctx, k)
     n = length(db)
     @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
     @info "searchgraph:" (; n, searchtime, qps=n / searchtime)
-    @info "recall:" macrorecall(gI, hI)
+    @info "recall:" macrorecall(gold_knns, knns)
 end
 
 main()

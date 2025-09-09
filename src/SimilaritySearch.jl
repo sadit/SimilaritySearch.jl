@@ -13,8 +13,6 @@ export AbstractSearchIndex, AbstractContext, GenericContext,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
 
-using Accessors
-
 include("distances/Distances.jl")
 
 include("db/db.jl")
