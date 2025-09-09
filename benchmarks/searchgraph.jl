@@ -1,6 +1,6 @@
 using JLD2, SimilaritySearch, SimilaritySearch.AdjacencyLists, Statistics, StatsBase
 
-function run(dist, db, queries, goldI, ksearch; nndist=0.01f0, logbase=1.3)
+function run(dist, db, queries, gold, ksearch; nndist=0.01f0, logbase=1.3)
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
         neighborhood = Neighborhood(; filter=SatNeighborhood(; nndist), logbase),
@@ -11,15 +11,15 @@ function run(dist, db, queries, goldI, ksearch; nndist=0.01f0, logbase=1.3)
     )
     @time "INDEXING" index!(graph, ctx)
     @time "INDEX OPT" optimize_index!(graph, ctx, MinRecall(0.9))
-    searchtime = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
-    searchtime2 = @elapsed I, _ = searchbatch(graph, ctx, queries, ksearch)
-    recall = macrorecall(goldI, I)
+    searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
+    searchtime2 = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
+    recall = macrorecall(gold, knns)
     G = matrixhints(graph, StrideMatrixDatabase)
-    searchtime3 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
-    searchtime4 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
-    recall_ = macrorecall(goldI, I)
+    searchtime3 = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
+    searchtime4 = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
+    recall_ = macrorecall(gold, knns)
     @assert recall == recall_
-    searchtime5 = @elapsed I, _ = searchbatch(G, ctx, queries, ksearch)
+    searchtime5 = @elapsed knns = searchbatch(G, ctx, queries, ksearch)
     mem = sum(map(length, graph.adj.end_point)) * sizeof(eltype(graph.adj.end_point[1])) / 2^20 # adj mem
     m = length(queries)
     @show length(db) length(queries) mem recall
@@ -33,27 +33,7 @@ function run(dist, db, queries, goldI, ksearch; nndist=0.01f0, logbase=1.3)
     graph
 end
 
-function main_laion(;
-        dbname,
-        qname,
-        goldname,
-        ksearch = 10,
-        dist = NormalizedCosine_asf32() #Distance()
-    )
-    goldI = jldopen(goldname) do f
-        f["knns"][1:ksearch, :]
-    end
-    queries = jldopen(qname) do f
-        StrideMatrixDatabase((f["emb"]))
-    end
-    db = jldopen(dbname) do f
-        #StrideMatrixDatabase(Float32.(f["emb"]))
-        StrideMatrixDatabase((f["emb"]))
-    end
-    run(dist, db, queries, goldI, ksearch)
-end
-
-function main_randn(;
+function main(;
         dim = 4,
         n = 10^5,
         m = 100,
@@ -63,6 +43,8 @@ function main_randn(;
     db = StrideMatrixDatabase(randn(Float32, dim, n))
     queries = StrideMatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
-    goldI, goldD = searchbatch(seq, queries, ksearch)
-    run(dist, db, queries, goldI, ksearch)
+    gold = searchbatch(seq, GenericContext(), queries, ksearch)
+    run(dist, db, queries, gold, ksearch)
 end
+
+main()

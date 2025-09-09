@@ -7,33 +7,35 @@ function benchmark(res, n)
     popfirst_ = pop_ = 0
     for i in 3:n
         if length(res) > 0 && rand() < 0.001
-            pop!(res)
+            pop_max!(res)
             pop_ += 1
         end
 
-        if length(res) > 0 && rand() < 0.001
-            popfirst!(res)
+        #=if length(res) > 0 && rand() < 0.001
+            pop_min!(res)
             popfirst_ += 1
-        end
+        end=#
 
         # push!(res, i, rand())
-        push_item!(res, i, 3 * maximum(res) * rand())
+        push_item!(res, i, rand())
     end
 
     #@info "finished", pop_, popfirst_
     res
 end
 
-function main()
-    ksearch = 10
+function main(pqueue_, k)
     n = 1000
-    res = KnnResult(ksearch)
+    res = pqueue_(k)
 
-    @timev benchmark(res, n)
+    # @timev "warming k=$k pqueue=$pqueue_ n=$n" benchmark(res, n)
 
     n = 30_000_000
-    res = KnnResult(ksearch)
-    @timev benchmark(res, n)
+    res = pqueue_(k)
+    @timev "!!!!!!! k=$k pqueue=$pqueue_ n=$n" benchmark(res, n)
 end
 
-main()
+for k in [10, 100, 1000]
+    main(knn, k)
+    main(xknn, k)
+end

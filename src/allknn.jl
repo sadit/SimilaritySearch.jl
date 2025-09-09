@@ -4,13 +4,13 @@ export allknn
 using ProgressMeter
 
 """
-    allknn(g::AbstractSearchIndex, ctx, k::Integer; minbatch=0, pools=getpools(g)) -> knns
-    allknn(g, ctx, knns; minbatch=0, pools=getpools(g)) -> knns
+    allknn([pqueue ,]g::AbstractSearchIndex, ctx, k::Integer; minbatch=0, pools=getpools(g)) -> knns
+    allknn([pqueue ,]g, ctx, knns; minbatch=0, pools=getpools(g)) -> knns
 
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
 # Parameters:
-
+- `pqueue`: priority queue method (`xknn` is better for very small number of neighbors and `knn` for larger ones)
 - `g`: the index
 - `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
 - Query specification and result:
@@ -26,19 +26,27 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
  
 """
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort=true)
+    allknn(knn, g, ctx, k; sort)
+end
+
+function allknn(pqueue::Function, g::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort=true)
     n = length(g)
     knns = zeros(IdWeight, k, n)
-    allknn(g, ctx, knns; sort)
+    allknn(pqueue, g, ctx, knns; sort)
 end
 
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true)
+    allknn(knn, g, ctx, knns; sort)
+end
+
+function allknn(pqueue::Function, g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true)
     m = length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
     k, n = size(knns)
     @assert n > 0 && n == m
     @assert 0 < k <= n
     if ctx.minbatch < 0
         for i in 1:n
-            res = xknn(@view knns[:, i])
+            res = pqueue(@view knns[:, i])
             res = allknn_single_search!(g, ctx, i, res)
             sort && sortitems!(res)
         end
@@ -49,7 +57,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
         P = Iterators.partition(1:n, minbatch) |> collect
         @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
             for i in R
-                res = xknn(@view knns[:, i])
+                res = pqueue(@view knns[:, i])
                 res = allknn_single_search!(g, ctx, i, res)
                 sort && sortitems!(res)
             end

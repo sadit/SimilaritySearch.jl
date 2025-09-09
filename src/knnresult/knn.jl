@@ -72,6 +72,16 @@ end
 push_item!(res::Knn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
 push_item!(res::Knn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
+@inline function pop_max!(res::Knn)
+    p = res.items[1]
+    len = res.len
+    heapswap!(res.items, 1, len)
+    len -= 1
+    heapfix_down!(WeightOrder, res.items, len)
+    res.len = len
+    p
+end
+
 """
     reuse!(res::KnnSet, maxlen=length(res.items))
 

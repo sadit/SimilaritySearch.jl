@@ -4,7 +4,7 @@
 
 # export AbstractResult
 export AbstractKnn, Knn, knn, XKnn, xknn, IdWeight
-export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView
+export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView, pop_max!
 
 abstract type AbstractKnn end
 #=struct IdWeight

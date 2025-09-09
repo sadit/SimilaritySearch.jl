@@ -142,7 +142,6 @@ end
     xknn(view(context.iknns, 1:nsize, Threads.threadid()))
 end
 
-knndefault(v) = xknn(v)
 
 #@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
 #    view(knns, 1:_knnsize(nsize, knns), i)

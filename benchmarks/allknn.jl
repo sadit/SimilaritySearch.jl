@@ -14,17 +14,18 @@ function main()
     dist = NormalizedCosineDistance()
     k = 8
     @info "----- computing gold standard"
+    pqueue_ = knn
     ctx = SearchGraphContext(
                              hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
                              logger=nothing,
                              parallel_block=128
                             )
-    goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
-    @info "----- computing search graph"
+    goldsearchtime = @elapsed gold_knns = allknn(pqueue_, ExhaustiveSearch(; db, dist), ctx, k)
+    @info "----- computing search graph with k=$k pqueue=$pqueue_"
     H = SearchGraph(; db, dist)
     index!(H, ctx)
     optimize_index!(H, ctx, ksearch=k)
-    searchtime = @elapsed knns = allknn(H, ctx, k)
+    searchtime = @elapsed knns = allknn(pqueue_, H, ctx, k)
     n = length(db)
     @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
     @info "searchgraph:" (; n, searchtime, qps=n / searchtime)

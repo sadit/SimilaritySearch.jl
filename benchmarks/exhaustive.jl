@@ -11,5 +11,5 @@ end
 @info "warming"
 main(100, 10, 3)
 @info "large benchmark"
-I, D = main(100_000, 1000, 3)
-size(I), size(D)
+knns = main(100_000, 1000, 3)
+size(knns)
