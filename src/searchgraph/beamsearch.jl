@@ -11,13 +11,19 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 - `Δ`: Soft margin for accepting elements into the beam
 - `maxvisits`: MAximum visits while searching, useful for early stopping without convergence
 """
-@with_kw mutable struct BeamSearch <: LocalSearchAlgorithm
-    bsize::Int32 = 4  # size of the search beam
-    Δ::Float32 = 1.0  # soft-margin for accepting an element into the beam
-    maxvisits::Int64 = 1000_000 # maximum visits by search, useful for early stopping without convergence, very high by default
+mutable struct BeamSearch <: LocalSearchAlgorithm
+    bsize::Int32  # size of the search beam
+    Δ::Float32  # soft-margin for accepting an element into the beam
+    maxvisits::Int64 # maximum visits by search, useful for early stopping without convergence, very high by default
+
+    BeamSearch(; bsize=4, Δ=1.0, maxvisits=10^6) = new(bsize, Δ, maxvisits)
 end
 
-Base.copy(bsearch::BeamSearch; bsize=bsearch.bsize, Δ=bsearch.Δ, maxvisits=bsearch.maxvisits) =
+function Base.show(io::IO, bs::BeamSearch)
+    print(io, "BeamSearch(bsize=", bs.bsize, ", Δ=", bs.Δ, ", maxvisits=", bs.maxvisits, ")")
+end
+
+Base.copy(bs::BeamSearch; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits) =
     BeamSearch(; bsize, Δ, maxvisits)
 
 ### local search algorithm

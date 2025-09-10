@@ -99,13 +99,13 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             @inbounds adj.end_point[i] = find_neighborhood(collect ∘ IdView, index, ctx, database(index, i))
         end
 
+        LOG(ctx.logger, :add_vertex!, index, ctx, sp, ep)
         # connecting neighbors
         connect_reverse_links(ctx.neighborhood, index.adj, sp, ep)
         index.len[] = ep
 
         # apply callbacks
         execute_callbacks(index, ctx, sp, ep)
-        ctx.logger !== nothing && LOG(ctx.logger, append_items!, index, sp, ep, n)
         sp = ep + 1
     end
 end
@@ -167,11 +167,11 @@ Arguments:
     neighbors = find_neighborhood(collect ∘ IdView, index, ctx, item)
     add_vertex!(index.adj, neighbors)
     n = index.len[] = length(index.adj)
+    LOG(ctx.logger, :add_vertex!, index, ctx, n, n)
     if n > 1 
         connect_reverse_links(ctx.neighborhood, index.adj, n, neighbors)
         execute_callbacks(index, ctx)
     end
     
-    ctx.logger !== nothing && LOG(ctx.logger, push_item!, index, n)
     index
 end

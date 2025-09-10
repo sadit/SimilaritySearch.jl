@@ -66,7 +66,6 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     ϵ = convert(Float32, ϵ)
     n = length(X)
     blocksize = min(blocksize, n) 
-    #res = knndefault(k)  # should be 1, but index's setups work better on larger `k` values
     knns = Matrix{IdWeight}(undef, k, blocksize)
 
     L = zeros(Int32, n)

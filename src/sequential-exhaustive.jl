@@ -31,7 +31,8 @@ Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(di
 
 function push_item!(seq::ExhaustiveSearch, ctx::GenericContext, u)
     push_item!(seq.db, u)
-    ctx.logger !== nothing && LOG(ctx.logger, push_item!, seq, length(seq))
+    n = length(seq)
+    LOG(ctx.logger, :push_item!, seq, ctx, n, n)
     seq
 end
 
@@ -39,11 +40,16 @@ function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDa
     sp = length(seq)
     append_items!(seq.db, u)
     ep = length(seq)
-    ctx.logger !== nothing && LOG(ctx.logger, append_items!, seq, sp, ep, ep)
+    LOG(ctx.logger, :append_items!, seq, ctx, sp, ep)
     seq
 end
 
-index!(seq::ExhaustiveSearch, ::AbstractContext) = seq # do nothing
+function index!(seq::ExhaustiveSearch, ::AbstractContext)
+    # do nothing
+    n = length(seq)
+    LOG(ctx.logger, :index!, seq, ctx, n, n)
+    seq
+end 
 
 """
     search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res)

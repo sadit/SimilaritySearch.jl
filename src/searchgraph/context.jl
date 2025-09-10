@@ -50,7 +50,7 @@ can call other metric indexes that can use these shared resources (globally defi
 
 """
 struct SearchGraphContext{KnnType} <: AbstractContext
-    logger
+    logger::AbstractLog
     minbatch::Int
     verbose::Bool
     neighborhood::Neighborhood
@@ -65,9 +65,9 @@ struct SearchGraphContext{KnnType} <: AbstractContext
 end
 
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
-        logger=InformativeLog(),
+        logger=LogList(AbstractLog[InformativeLog(1.0)]),
         minbatch = 0,
-        verbose = false,
+        verbose = true,
         neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
         hints_callback=KCentersHints(; logbase=1.2),
         hyperparameters_callback=OptimizeParameters(),

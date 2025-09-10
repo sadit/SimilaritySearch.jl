@@ -8,10 +8,17 @@ using Polyester
 using JLD2
 
 import Base: push!, append!
-export AbstractSearchIndex, AbstractContext, GenericContext, 
+export AbstractSearchIndex, AbstractContext, GenericContext,
        SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
        getcontext, getminbatch, saveindex, loadindex,
        SearchResult, push_item!, append_items!, IdWeight
+
+abstract type AbstractContext end
+function searchbatch! end
+function search end
+function push_item! end
+function append_items! end
+function index! end
 
 include("distances/Distances.jl")
 
@@ -82,15 +89,13 @@ Gets the distance function used in the index
 """
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
-abstract type AbstractContext end
-
 struct GenericContext{KnnType} <: AbstractContext
     minbatch::Int
     verbose::Bool
     logger
 end
 
-GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; minbatch::Integer=0, verbose::Bool=false, logger=InformativeLog()) =
+GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; minbatch::Integer=0, verbose::Bool=true, logger=InformativeLog()) =
     GenericContext{KnnType}(minbatch, verbose, logger)
 
 getcontext(s::AbstractSearchIndex) = error("Not implemented method for $s")
@@ -113,13 +118,6 @@ include("fft.jl")
 include("closestpair.jl")
 include("hsp.jl")
 
-
-#=
-@inline function getknnresult(k::Integer)
-    res = DEFAULT_CONTEXT[].knn[Threads.threadid()]
-    reuse!(res, k)
-end
-=#
 
 """
     searchbatch(index, ctx, Q, k::Integer) -> indices, distances
