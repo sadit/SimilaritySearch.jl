@@ -49,7 +49,7 @@ export SearchGraphContext
 can call other metric indexes that can use these shared resources (globally defined).
 
 """
-struct SearchGraphContext <: AbstractContext
+struct SearchGraphContext{KnnType} <: AbstractContext
     logger
     minbatch::Int
     verbose::Bool
@@ -60,14 +60,11 @@ struct SearchGraphContext <: AbstractContext
     starting_callback::Int32
     parallel_block::Int32
     parallel_first_block::Int32
-    iknns::Matrix{IdWeight}
-    beam::Matrix{IdWeight}
-    sat::Matrix{IdWeight}
-    # vstates::Vector{VisitedVerticesBits}
+    knns::Matrix{IdWeight}
     vstates::Vector{Vector{UInt64}}
 end
 
-function SearchGraphContext(;
+function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         logger=InformativeLog(),
         minbatch = 0,
         verbose = false,
@@ -78,23 +75,20 @@ function SearchGraphContext(;
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
         starting_callback=256,
-        iknns = zeros(IdWeight, 96, Threads.maxthreadid()),
-        beam = zeros(IdWeight, 32, Threads.maxthreadid()),
-        sat = zeros(IdWeight, 64, Threads.maxthreadid()),
+        knns = zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
         vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
-
     )
  
-    SearchGraphContext(logger, minbatch, verbose, neighborhood,
+    SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
                        hints_callback, hyperparameters_callback,
                        convert(Float32, logbase_callback),
                        convert(Int32, starting_callback),
                        convert(Int32, parallel_block),
                        convert(Int32, parallel_first_block),
-                       iknns, beam, sat, vstates)
+                       knns, vstates)
 end
 
-function SearchGraphContext(ctx::SearchGraphContext;
+function SearchGraphContext(ctx::SearchGraphContext{KnnType};
         logger=ctx.logger,
         minbatch=ctx.minbatch,
         verbose=ctx.verbose,
@@ -105,43 +99,41 @@ function SearchGraphContext(ctx::SearchGraphContext;
         parallel_first_block=ctx.parallel_first_block,
         logbase_callback=ctx.logbase_callback,
         starting_callback=ctx.starting_callback,
-        iknns =  ctx.iknns,
-        beam = ctx.beam,
-        sat = ctx.sat,
-        vstates = ctx.vstates
-    )
+        knns=ctx.knns,
+        vstates=ctx.vstates
+    ) where KnnType
  
-    SearchGraphContext(logger, minbatch, verbose, neighborhood,
+    SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
                        hints_callback, hyperparameters_callback,
                        logbase_callback, starting_callback,
                        parallel_block, parallel_first_block,
-                       iknns, beam, sat, vstates)
+                       knns, vstates)
 end
 
 getminbatch(ctx::SearchGraphContext, n::Int=0) = getminbatch(ctx.minbatch, n)
 verbose(ctx::SearchGraphContext) = ctx.verbose
-
+knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 
 # we use a static scheduler so,i.e., we use Polyester
-@inline function getvstate(len::Integer, context::SearchGraphContext)
-    reuse!(context.vstates[Threads.threadid()], len)
+@inline function getvstate(len::Integer, ctx::SearchGraphContext)
+    reuse!(ctx.vstates[Threads.threadid()], len)
 end
 
-@inline function getbeam(nsize::Integer, context::SearchGraphContext)
-    nsize = min(nsize, size(context.beam, 2))
-    xknn(view(context.beam, 1:nsize, Threads.threadid()))
+@inline function getknnbuffer(ctx::SearchGraphContext{KnnType}, pos, nsize::Integer) where KnnType
+    nsize = min(nsize, size(ctx.knns, 2))
+    colID = (Threads.threadid()-1) * 3 + pos
+    knnqueue(KnnType, view(ctx.knns, 1:nsize, colID))
 end
 
-@inline function getsatknnresult(nsize::Integer, context::SearchGraphContext)
-    nsize = min(nsize, size(context.sat, 2))
-    xknn(view(context.sat, 1:nsize, Threads.threadid()))
+@inline function getbeam(nsize::Integer, ctx::SearchGraphContext)
+    pos = 1
+    nsize = min(nsize, size(ctx.knns, 2))
+    colID = (Threads.threadid()-1) * 3 + pos
+    knnqueue(KnnSorted, view(ctx.knns, 1:nsize, colID))
 end
 
-@inline function getiknnresult(nsize::Integer, context::SearchGraphContext)
-    nsize = min(nsize, size(context.iknns, 2))
-    xknn(view(context.iknns, 1:nsize, Threads.threadid()))
-end
-
+@inline getsatknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 2, nsize)
+@inline getiknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 3, nsize)
 
 #@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
 #    view(knns, 1:_knnsize(nsize, knns), i)

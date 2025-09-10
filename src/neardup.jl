@@ -156,7 +156,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     D[i] = 0f0
 
     dist = distance(idx)
-    res = knndefault(1)
+    res = knnqueue(ctx, 1)
     push_lock = Threads.SpinLock()
 
     for ii in 2:n
@@ -176,15 +176,16 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
             end
         end
 
-        nn, d = argmin(res), minimum(res)
-        if d > ϵ
-            push!(tmp, i)
-            push!(M, i)
-            L[i] = i
-            D[i] = 0f0
-        else
-            L[i] = nn
-            D[i] = d
+        let nn = nearest(res) 
+            if nn.weight > ϵ
+                push!(tmp, i)
+                push!(M, i)
+                L[i] = i
+                D[i] = 0f0
+            else
+                L[i] = nn.id
+                D[i] = nn.weight
+            end
         end
     end
 

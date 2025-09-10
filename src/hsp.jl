@@ -4,8 +4,7 @@ export hsp_queries
 
 iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
 iterate_hsp_(h::Vector{IdWeight}) = IdView(h)
-iterate_hsp_(h::Knn) = IdView(h)
-iterate_hsp_(h::XKnn) = IdView(h)
+iterate_hsp_(h::AbstractKnn) = IdView(h)
 
 function hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32)
     @inbounds point = db[point_id]
@@ -31,7 +30,8 @@ Computes the half-space partition of the queries `Q` (possibly given as a `knns`
 function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix; minbatch::Int=0)
     n = length(Q)
     matrix = zeros(IdWeight, size(knns)...)
-    hsp = [xknn(c) for c in eachcol(matrix)]
+    # KnnSorted iteration is made in ascending order but it is not required here, so it can be changed if we expect a very high hsp
+    hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)] 
     minbatch = getminbatch(minbatch, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
@@ -49,7 +49,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     matrix, hsp
 end
 
-function hsp_proximal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)
+function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4, nncaptureprob::Float32=0.5f0)
     push_item!(hsp, neighborhood[1])
     prob = 1f0
     for i in 2:length(neighborhood)
@@ -67,7 +67,7 @@ function hsp_proximal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, ne
     hsp
 end
 
-function hsp_distal_neighborhood_filter!(hsp, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4)
+function hsp_distal_neighborhood_filter!(hsp::AbstractKnn, dist::SemiMetric, db, center, neighborhood; nndist::Float32=1f-4)
     push_item!(hsp, last(neighborhood))
 
     @inbounds for i in length(neighborhood)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods

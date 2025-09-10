@@ -157,7 +157,7 @@ function optimize_index!(
     end
 
     knnsmatrix = zeros(IdWeight, ksearch, length(queries))
-    knns = [xknn(c) for c in eachcol(knnsmatrix)]
+    knns = [knnqueue(ctx, c) for c in eachcol(knnsmatrix)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]

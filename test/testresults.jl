@@ -3,7 +3,7 @@
 using Test, JET
 
 using SimilaritySearch, Test, Base.Order
-using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!, pop_max!
+using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!
 
 @testset "heap" begin
     for k in [7, 8, 12, 15, 16, 31, 32, 67]
@@ -17,9 +17,9 @@ using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!, pop_max!
 end
 
 
-@testset "Knn" begin
+@testset "KnnHeap" begin
     for k in [7, 8, 12, 15, 67]
-        R = knn(k)
+        R = knnqueue(KnnHeap, k)
         gold = IdWeight[]
 
         for i in Int32(1):Int32(10^3)
@@ -51,7 +51,7 @@ end
 
 @testset "XKnn" begin
     for k in [7, 8, 12, 15, 67]
-        R = xknn(k)
+        R = knnqueue(KnnSorted, k)
         gold = IdWeight[]
 
         for i in Int32(1):Int32(10^3)
@@ -84,7 +84,7 @@ end
 
 @testset "XKnn pop ops" begin
     for k in [7, 12, 31]
-        R = xknn(k)
+        R = knnqueue(KnnSorted, k)
         gold = IdWeight[]
 
         for i in Int32(1):Int32(10^3)

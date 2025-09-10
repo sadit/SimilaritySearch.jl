@@ -22,26 +22,12 @@ include("log.jl")
 
 using .AdjacencyLists
 
-include("knnresult/KnnResult.jl")
+include("pqueue/pqueue.jl")
 include("io.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
-
-abstract type AbstractContext end
-
-struct GenericContext <: AbstractContext
-    minbatch::Int
-    verbose::Bool
-    logger
-end
-
-GenericContext(; minbatch::Integer=0, verbose=false, logger=InformativeLog()) =
-    GenericContext(minbatch, verbose, logger)
-
-GenericContext(ctx::AbstractContext; minbatch=ctx.minbatch, verbose=false, logger=ctx.logger) =
-    GenericContext(minbatch, verbose, logger)
 
 """
     getminbatch(minbatch::Int, n::Int=0)
@@ -72,13 +58,6 @@ function getminbatch(minbatch::Int, n::Int=0)
     end
 end
 
-getminbatch(ctx::GenericContext, n::Int=0) = getminbatch(ctx.minbatch, n)
-
-verbose(ctx::GenericContext) = ctx.verbose
-
-function getcontext(s::AbstractSearchIndex)
-    error("Not implemented method for $s")
-end
 
 """
     database(index)
@@ -102,6 +81,22 @@ Gets the i-th object from the indexed database
 Gets the distance function used in the index
 """
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
+
+abstract type AbstractContext end
+
+struct GenericContext{KnnType} <: AbstractContext
+    minbatch::Int
+    verbose::Bool
+    logger
+end
+
+GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; minbatch::Integer=0, verbose::Bool=false, logger=InformativeLog()) =
+    GenericContext{KnnType}(minbatch, verbose, logger)
+
+getcontext(s::AbstractSearchIndex) = error("Not implemented method for $s")
+knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
+getminbatch(ctx::GenericContext, n::Int=0) = getminbatch(ctx.minbatch, n)
+verbose(ctx::GenericContext) = ctx.verbose
 
 
 include("perf.jl")
@@ -168,7 +163,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
 
     @batch minbatch=minbatch per=thread for i in eachindex(Q)
     #Threads.@threads :static for i in eachindex(Q)
-        res = xknn(view(knns, :, i))
+        res = knnqueue(ctx, view(knns, :, i))
         search(index, ctx, Q[i], res)
         # @assert length(res) == size(knns, 1)
         sorted && sortitems!(res)

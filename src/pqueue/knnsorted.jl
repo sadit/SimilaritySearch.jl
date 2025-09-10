@@ -1,4 +1,4 @@
-mutable struct XKnn{VEC<:AbstractVector} <: AbstractKnn
+mutable struct KnnSorted{VEC<:AbstractVector} <: AbstractKnn
     const items::VEC
     sp::Int32
     ep::Int32
@@ -53,42 +53,42 @@ function sort_first_item!(order::Ordering, plist, sp, ep)
     nothing
 end
 
-@inline Base.length(res::XKnn) = res.ep - res.sp + 1
+@inline Base.length(res::KnnSorted) = res.ep - res.sp + 1
 
 """
-    maxlength(res::XKnn)
+    maxlength(res::KnnSorted)
 
-The maximum allowed cardinality (the k of Xknn)
+The maximum allowed cardinality (the k of knnSorted)
 """
-@inline maxlength(res::XKnn) = res.maxlen
+@inline maxlength(res::KnnSorted) = res.maxlen
 
-@inline nearest(res::XKnn) = res.items[res.sp]
-@inline frontier(res::XKnn) = res.items[res.ep]
+@inline nearest(res::KnnSorted) = res.items[res.sp]
+@inline frontier(res::KnnSorted) = res.items[res.ep]
 
 
-function viewitems(res::XKnn)
+function viewitems(res::KnnSorted)
     view(res.items, res.sp:res.ep)
 end
 
-IdView(res::XKnn) = (p.id for p in viewitems(res))
-DistView(res::XKnn) = (p.weight for p in viewitems(res))
+IdView(res::KnnSorted) = (p.id for p in viewitems(res))
+DistView(res::KnnSorted) = (p.weight for p in viewitems(res))
 
 """
-    sortitems!(res::XKnn)
+    sortitems!(res::KnnSorted)
 
 Sort items and returns a view of the active items; this operations destroys the internal structure.
 To recover the required structure just apply `reverse!` on the view.
 """
-function sortitems!(res::XKnn)
+function sortitems!(res::KnnSorted)
     viewitems(res)
 end
 
 """
-    push_item!(res::XKnn, p::IdWeight)
+    push_item!(res::KnnSorted, p::IdWeight)
 
 Appends an item into the result set
 """
-@inline function push_item!(res::XKnn, item::IdWeight)
+@inline function push_item!(res::KnnSorted, item::IdWeight)
     len = length(res)
     sp, ep = res.sp, res.ep
 
@@ -117,17 +117,17 @@ Appends an item into the result set
     true
 end
 
-push_item!(res::XKnn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
-push_item!(res::XKnn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
+push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
+push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
-@inline function pop_min!(res::XKnn)
+@inline function pop_min!(res::KnnSorted)
     sp = res.sp
     p = res.items[sp]
     res.sp = sp + one(sp)
     p
 end
 
-@inline function pop_max!(res::XKnn)
+@inline function pop_max!(res::KnnSorted)
     ep = res.ep
     p = res.items[ep]
     res.ep = ep - one(ep)
@@ -139,7 +139,7 @@ end
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::XKnn, maxlen=length(res.items))
+@inline function reuse!(res::KnnSorted, maxlen=length(res.items))
     # @assert maxlen <= length(res.items)
     res.sp = 1
     res.ep = 0

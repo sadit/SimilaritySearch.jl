@@ -34,7 +34,7 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     res
 end
 
-function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam::XKnn, Δ::Float32, maxvisits::Int64)
+function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam::KnnSorted, Δ::Float32, maxvisits::Int64)
     push_item!(beam, nearest(res))
     dist = distance(index)
     costevals, costblocks = 0, 0

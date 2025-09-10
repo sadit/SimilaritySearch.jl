@@ -1,4 +1,4 @@
-mutable struct Knn{VEC<:AbstractVector} <: AbstractKnn
+mutable struct KnnHeap{VEC<:AbstractVector} <: AbstractKnn
     const items::VEC
     min::IdWeight
     len::Int32
@@ -7,44 +7,44 @@ mutable struct Knn{VEC<:AbstractVector} <: AbstractKnn
     costblocks::Int32
 end
 
-@inline Base.length(res::Knn) = res.len
+@inline Base.length(res::KnnHeap) = res.len
 
 """
-    maxlength(res::Knn)
+    maxlength(res::KnnHeap)
 
 The maximum allowed cardinality (the k of knn)
 """
-@inline maxlength(res::Knn) = res.maxlen
-@inline frontier(res::Knn) = res.items[1]
-@inline nearest(res::Knn) = res.min
+@inline maxlength(res::KnnHeap) = res.maxlen
+@inline frontier(res::KnnHeap) = res.items[1]
+@inline nearest(res::KnnHeap) = res.min
 
 
-function viewitems(res::Knn)
+function viewitems(res::KnnHeap)
     view(res.items, 1:res.len)
 end
 
-IdView(res::Knn) = (res.items[i].id for i in 1:res.len)
-DistView(res::Knn) = (res.items[i].weight for i in 1:res.len)
+IdView(res::KnnHeap) = (res.items[i].id for i in 1:res.len)
+DistView(res::KnnHeap) = (res.items[i].weight for i in 1:res.len)
 
 
 """
-    sortitems!(res::Knn)
+    sortitems!(res::KnnHeap)
 
 Sort items and returns a view of the active items; this operations destroys the internal heap structure.
 It is possible to give the heap structure without calling `heapify!` just applying `reverse!` on the view.
 """
-function sortitems!(res::Knn)
+function sortitems!(res::KnnHeap)
     it = viewitems(res)
     heapsort!(WeightOrder, it)
     it
 end
 
 """
-    push_item!(res::Knn, p::IdWeight)
+    push_item!(res::KnnHeap, p::IdWeight)
 
 Appends an item into the result set
 """
-@inline function push_item!(res::Knn, item::IdWeight)
+@inline function push_item!(res::KnnHeap, item::IdWeight)
     len = res.len
 
     if length(res) < maxlength(res)
@@ -69,10 +69,10 @@ Appends an item into the result set
     true
 end
 
-push_item!(res::Knn, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
-push_item!(res::Knn, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
+push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
+push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
-@inline function pop_max!(res::Knn)
+@inline function pop_max!(res::KnnHeap)
     p = res.items[1]
     len = res.len
     heapswap!(res.items, 1, len)
@@ -87,7 +87,7 @@ end
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::Knn, maxlen=length(res.items))
+@inline function reuse!(res::KnnHeap, maxlen=length(res.items))
     @assert maxlen <= length(res.items)
     res.min = zero(IdWeight)
     res.len = 0

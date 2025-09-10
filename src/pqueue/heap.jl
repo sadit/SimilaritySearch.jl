@@ -1,3 +1,5 @@
+# a simple heap for KnnHeap
+
 heapparent(i) = i>>1
 heapleft(i) = 2i
 #heapright(i) = heapleft(i)+1
