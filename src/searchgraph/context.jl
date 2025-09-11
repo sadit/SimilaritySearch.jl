@@ -2,23 +2,20 @@
 export SearchGraphContext
 
 """
-    SearchGraphContext(;
-        logger=InformativeLog(),
-        verbose::Bool=false,
-        minbatch::Int = 0,
-        neighborhood=Neighborhood(),
-        hints_callback=DisjointHints(),
+function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
+        logger=LogList(AbstractLog[InformativeLog(1.0)]),
+        minbatch = 0,
+        verbose=false,
+        neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
+        hints_callback=KCentersHints(; logbase=1.2),
         hyperparameters_callback=OptimizeParameters(),
-        parallel_block=get_parallel_block(),
+        parallel_block=4Threads.nthreads(),
         parallel_first_block=parallel_block,
         logbase_callback=1.5,
-        starting_callback=8,
-        iknns = zeros(IdWeight, 96, Threads.maxthreadid()),
-        beam = zeros(IdWeight, 32, Threads.maxthreadid()),
-        sat = zeros(IdWeight, 64, Threads.maxthreadid()),
+        starting_callback=256,
+        knns = zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
         vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
-    )
-    
+    )    
 
 # Arguments
 - `logger`: how to handle and log events, mostly for insertions for now
@@ -29,9 +26,7 @@ export SearchGraphContext
 - `starting_callback`: When to start to run callbacks, minimum length to do it
 - `parallel_block`: the size of the block that is processed in parallel
 - `parallel_first_block`: the size of the first block that is processed in parallel
-- `iknns`: insertion result cache
-- `beam`: beam cache
-- `sat`: sat's neighborhood result cache
+- `knns`: Knn queues cache for insertions
 - `vstates`: visited vertices cache 
 - `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
 - `verbose`: controls the number of output messages
