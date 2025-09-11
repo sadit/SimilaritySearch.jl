@@ -10,3 +10,15 @@ function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::Search
         end
     end
 end
+
+#=
+struct StorageLog<IOType>
+    neighborsfile::String
+    databasefile::String
+    nfile::IOType
+    dfile::IOType
+end
+
+function LOG(log::IncrementalStorageLog)
+end
+=#

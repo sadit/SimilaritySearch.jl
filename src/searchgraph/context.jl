@@ -67,7 +67,7 @@ end
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         logger=LogList(AbstractLog[InformativeLog(1.0)]),
         minbatch = 0,
-        verbose = true,
+        verbose=false,
         neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
         hints_callback=KCentersHints(; logbase=1.2),
         hyperparameters_callback=OptimizeParameters(),
