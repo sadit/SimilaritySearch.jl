@@ -1,14 +1,24 @@
 # This file is a part of SimilaritySearch.jl
 
-function LOG(logger::InformativeLog, ::typeof(push_item!), index::SearchGraph, n::Integer)
-    if rand() < logger.push_prob
-        N = neighbors(index.adj, n)
-        println(stderr, "push_item! n=$(length(index)), neighborhood=$(length(N)), $(string(index.algo)), $(Dates.now())")
+function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::SearchGraphContext, sp::Int, ep::Int)
+    timed_log_fun(log) do 
+        n = length(index)
+        println(stderr, "LOG $event sp=$sp ep=$ep n=$n $(index.algo) $(Dates.now())")
+        if event === :add_vertex!
+            x = quantile(length.(index.adj.end_point[sp:ep]), 0:0.25:1.0)
+            println(stderr, "LOG n.size quantiles:", x)
+        end
     end
 end
 
-function LOG(logger::InformativeLog, ::typeof(append_items!), index::SearchGraph, sp::Integer, ep::Integer, n::Integer)
-    if rand() < logger.append_prob
-        println(stderr, "append_items! sp=$sp, ep=$ep, n=$(length(index)), $(string(index.algo)), $(Dates.now())")
-    end
+#=
+struct StorageLog<IOType>
+    neighborsfile::String
+    databasefile::String
+    nfile::IOType
+    dfile::IOType
 end
+
+function LOG(log::IncrementalStorageLog)
+end
+=#

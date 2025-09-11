@@ -4,7 +4,6 @@ authors = ["Eric S. Tellez <donsadit@gmail.com>"]
 version = "0.12.3"
 
 [deps]
-Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
 AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
@@ -22,7 +21,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StrideArraysCore = "7792a7ef-975c-4747-a70f-980b88e8d1da"
 
 [compat]
-Accessors = "0.1.42"
 Aqua = "0.8"
 Dates = "^1.0"
 Distances = "0.10"

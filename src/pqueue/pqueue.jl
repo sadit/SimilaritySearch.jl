@@ -2,9 +2,9 @@
 
 #module KnnResult
 
-# export AbstractResult
-export AbstractKnn, Knn, knn, XKnn, xknn, IdWeight
-export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView
+# export AbstractKnnQueueesult
+export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdWeight
+export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView, pop_max!
 
 abstract type AbstractKnn end
 #=struct IdWeight
@@ -26,34 +26,29 @@ const RevWeightOrder = RevWeightOrderingType()
 @inline lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
 
 include("heap.jl")
-include("knn.jl")
-include("xknn.jl")
+include("knnheap.jl")
+include("knnsorted.jl")
+
+@inline covradius(res::AbstractKnn)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
+@inline Base.maximum(res::AbstractKnn) = frontier(res).weight
+@inline Base.argmax(res::AbstractKnn) = frontier(res).id
+@inline Base.minimum(res::AbstractKnn) = nearest(res).weight
+@inline Base.argmin(res::AbstractKnn) = nearest(res).id
 
 IdView(res::AbstractVector{IdWeight}) = (res[i].id for i in eachindex(res))
 DistView(res::AbstractVector{IdWeight}) = (res[i].weight for i in eachindex(res))
 
 """
-    knn(ksearch)
-    knn(vec)
+    knnqueue(::{KnnHeap,KnnSorted}, vec::AbstractVector)
+    knnqueue(::{KnnHeap,KnnSorted}, ksearch::Int)
 
 Creates a priority queue with fixed capacity (`ksearch`) representing a knn result set.
 It starts with zero items and grows with [`push_item!`](@ref) calls until `ksearch`
 size is reached. After this only the smallest items based on distance are preserved.
 """
-knn(vec::AbstractVector) = Knn(vec, IdWeight(Int32(0), 0f0), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
-knn(k::Int) = knn(zeros(IdWeight, k))
-
-
-"""
-    Xknn(ksearch)
-    Xknn(vec)
-
-Creates a priority queue with fixed capacity (`ksearch`) representing a Xknn result set.
-It starts with zero items and grows with [`push_item!`](@ref) calls until `ksearch`
-size is reached. After this only the smallest items based on distance are preserved.
-"""
-xknn(vec::AbstractVector) = XKnn(vec, one(Int32), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
-xknn(k::Int) = xknn(zeros(IdWeight, k))
+knnqueue(::Type{KnnHeap}, vec::AbstractVector) = KnnHeap(vec, zero(IdWeight), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+knnqueue(::Type{KnnSorted}, vec::AbstractVector) = KnnSorted(vec, one(Int32), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn} = knnqueue(T, zeros(IdWeight, k))
 
 #const xknn = xknn
 #end

@@ -33,7 +33,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         searchtime = @elapsed begin
             @batch minbatch=getminbatch(ctx, m) per=thread for i in 1:m
                 knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
-                cost[i] = r.cost
+                cost[i] = r.costevals
             end
         end
 
@@ -157,7 +157,7 @@ function optimize_index!(
     end
 
     knnsmatrix = zeros(IdWeight, ksearch, length(queries))
-    knns = [xknn(c) for c in eachcol(knnsmatrix)]
+    knns = [knnqueue(ctx, c) for c in eachcol(knnsmatrix)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]

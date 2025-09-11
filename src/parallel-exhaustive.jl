@@ -27,54 +27,56 @@ function getcontext(::ParallelExhaustiveSearch)
     GenericContext()
 end
 
-Base.copy(ex::ParallelExhaustiveSearch; dist=ex.dist, db=ex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
+Base.copy(pex::ParallelExhaustiveSearch; dist=pex.dist, db=pex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
+    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
 
 Solves the query evaluating all items in the given query.
 
 # Arguments
-- `ex`: the search structure
+- `pex`: the search structure
 - `q`: the query to solve
 - `res`: the result set
 - `ctx`: running ctx
 
 """
-function search(ex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
-    dist = distance(ex)
-    elock = ex.lock
-    minbatch = getminbatch(ctx, length(ex))
-    R = Ref(res)
-    @batch minbatch=minbatch per=thread for i in eachindex(ex)
-        d = evaluate(dist, database(ex, i), q)
+function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
+    dist = distance(pex)
+    elock = pex.lock
+    minbatch = getminbatch(ctx, length(pex))
+    
+    @batch minbatch=minbatch per=thread for i in eachindex(pex)
+        d = evaluate(dist, database(pex, i), q)
         try
             lock(elock)
-            R[], _ = push_item!(R[], i, d)
+            push_item!(res, i, d)
         finally
             unlock(elock)
         end
     end
-    res = R[]
-    @reset res.cost = convert(typeof(res.cost), length(ex))
+    
+    res.costevals = length(pex)
+    res.costblocks = 0
     res
 end
 
-function push_item!(ex::ParallelExhaustiveSearch, ctx::GenericContext, u)
-    push_item!(ex.db, u)
-    ctx.logger !== nothing && LOG(ctx.logger, push_item!, ex, length(ex))
-    ex
+function push_item!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u)
+    push_item!(pex.db, u)
+    LOG(ctx.logger, :push_item!, pex, ctx, length(pex),  length(pex))
+    pex
 end
 
-function append_items!(ex::ParallelExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
-    sp = length(ex)
-    push_item!(ex.db, u)
-    ep = length(ex)
-    ctx.logger !== nothing && LOG(ctx.logger, append_items!, ex, sp, ep, ep)
-    ex
+function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
+    sp = length(pex)
+    append_items!(pex.db, u)
+    ep = length(pex)
+    LOG(ctx.logger, :append_items!, pex, ctx, sp, e)
+    pex
 end
-
-function index!(ex::ParallelExhaustiveSearch, ::GenericContext)
+    
+function index!(pex::ParallelExhaustiveSearch, ::GenericContext)
     # do nothing
-    ex
+    LOG(ctx.logger, :index!, pex, ctx, length(pex), length(pex))
+    pex
 end

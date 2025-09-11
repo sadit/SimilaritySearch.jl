@@ -10,7 +10,6 @@ using ProgressMeter
 Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
 
 # Parameters:
-
 - `g`: the index
 - `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
 - Query specification and result:
@@ -36,23 +35,15 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     k, n = size(knns)
     @assert n > 0 && n == m
     @assert 0 < k <= n
-    if ctx.minbatch < 0
-        for i in 1:n
-            res = knn(@view knns[:, i])
+    minbatch = getminbatch(ctx, n)
+
+    #@batch minbatch=minbatch per=thread for i in 1:n
+    P = Iterators.partition(1:n, minbatch) |> collect
+    @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
+        for i in R
+            res = knnqueue(ctx, @view knns[:, i])
             res = allknn_single_search!(g, ctx, i, res)
             sort && sortitems!(res)
-        end
-    else
-        minbatch = getminbatch(ctx, n)
-
-        #@batch minbatch=minbatch per=thread for i in 1:n
-        P = Iterators.partition(1:n, minbatch) |> collect
-        @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
-            for i in R
-                res = knn(@view knns[:, i])
-                res = allknn_single_search!(g, ctx, i, res)
-                sort && sortitems!(res)
-            end
         end
     end
     
@@ -60,7 +51,6 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
 end
 
 function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
-    cost = 0
     vstate = getvstate(length(g), ctx)
     q = database(g, i)
     # visit!(vstate, i)
@@ -68,12 +58,10 @@ function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integ
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        res = search(g.algo, g, ctx, q, res, h; vstate)
-        cost += res.cost
+        search(g.algo, g, ctx, q, res, h; vstate)
         # length(res) == k && break
     end
 
-    @reset res.cost = convert(typeof(res.cost), cost)
     res
 end
 

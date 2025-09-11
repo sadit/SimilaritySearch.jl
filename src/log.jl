@@ -1,24 +1,51 @@
 # This file is part of SimilaritySearch.jl
 
 
-export InformativeLog, LOG
+export AbstractLog, InformativeLog, LOG
 
-"""
-    InformativeLog(; append_prob=0.01, push_prob=0.0001)
+abstract type AbstractLog end
 
-Informative logger. It generates an output with some given probability
-"""
-Base.@kwdef struct InformativeLog
-    append_prob = 0.01
-    push_prob = 0.0001
+struct LogList <: AbstractLog
+    list::Vector{AbstractLog}
+
+    LogList() = new(AbstractLog[InformativeLog()])
+    LogList(v) = new(v)
 end
 
-function LOG(logger::InformativeLog, ::typeof(append_items!), index::AbstractSearchIndex, sp::Integer, ep::Integer, n::Integer)
-    rand() < logger.append_prob && println(stderr, "append_items ", (sp=sp, ep=ep, n=n), " ", Dates.now())
+function LOG(log::LogList, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Int, ep::Int)
+    for log in log.list
+        LOG(log, event, index, ctx, sp, ep)
+    end
 end
 
-function LOG(logger::InformativeLog, ::typeof(push_item!), index::AbstractSearchIndex, n::Integer)
-    if rand() < logger.push_prob
-        println(stderr, "push_item n=$(length(index)), $(string(index.algo)), $(Dates.now())")
+
+"""
+
+Informative log. It generates an output each some seconds
+"""
+struct InformativeLog <: AbstractLog
+    dt::Float64
+    last::Ref{Float64}
+    lock::Threads.SpinLock
+
+    InformativeLog(dt::Float64=1.0) = new(dt, Ref(0.0), Threads.SpinLock())
+end
+
+function timed_log_fun(fun::Function, log::InformativeLog)
+    if trylock(log.lock)
+        now = time()
+        if log.last[] + log.dt < now
+            fun()
+            log.last[] = now
+        end
+
+        unlock(log.lock)
+    end
+end
+
+function LOG(log::InformativeLog, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Int, ep::Int)
+    timed_log_fun(log) do 
+        n = length(index)
+        println(stderr, "LOG $event $(typeof(index)) sp=$sp ep=$ep n=$n $(Dates.now())")
     end
 end

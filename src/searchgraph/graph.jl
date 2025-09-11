@@ -49,8 +49,8 @@ It helps to evaluate, mark as visited, and enqueue in the result set.
 @inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
     d = evaluate(distance(index), q, obj)
-    res, _ = push_item!(res, objID, d)
-    @reset res.cost += one(res.cost)
+    push_item!(res, objID, d)
+    res.costevals += 1
     res
 end
 

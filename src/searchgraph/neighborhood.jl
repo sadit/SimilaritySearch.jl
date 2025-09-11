@@ -23,28 +23,26 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood(copy_, index::SearchGraph{T}, ctx, item; hints=index.hints)
+    find_neighborhood(index::SearchGraph{T}, ctx, item; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
-The `copy_` function forces to control how the returned KnnResult object is handled because it uses a cache result set from
-the given context. 
 
 # Arguments
-- `copy_`: A copying function, it controls what is retrieved by the function.
 - `index`: The search index.
 - `item`: The item to be inserted.
 - `ctx`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(copy_::Function, index::SearchGraph, ctx::SearchGraphContext, item; hints=index.hints)
+function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item; hints=index.hints)
     ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     res = getiknnresult(ksearch, ctx)
     if ksearch > 0
-        res = search(index.algo, index, ctx, item, res, hints)
-        res = neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res))
+        search(index.algo, index, ctx, item, res, hints)
+        output = getsatknnresult(length(res), ctx)
+        return neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
+    else
+        return res  # empty set
     end
-
-    copy_(res)
 end
 
 """
@@ -105,7 +103,7 @@ Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res)
+function neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output)
     res
 end
 
@@ -114,14 +112,12 @@ end
 
 filters `res` using the DistSAT strategy.
 """
-@inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res)
-    hsp = getsatknnresult(length(res), ctx)
-    hsp_distal_neighborhood_filter!(hsp, distance(G), database(G), center, res; sat.nndist)
+@inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
+    hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res; sat.nndist)
 end
 
-@inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res)
-    hsp = getsatknnresult(length(res), ctx)
-    hsp_proximal_neighborhood_filter!(hsp, distance(G), database(G), center, res; sat.nndist)
+@inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
+    hsp_proximal_neighborhood_filter!(output, distance(G), database(G), center, res; sat.nndist)
 end
 
 ## prunning neighborhood

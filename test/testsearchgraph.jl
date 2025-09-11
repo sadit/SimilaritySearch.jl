@@ -6,7 +6,7 @@ using AllocCheck
 #
 
 function check_graph(G, ctx, queries, ksearch)
-    res = xknn(ksearch)
+    res = knnqueue(ctx, ksearch)
     @test_opt search(G, ctx, queries[2], res)
     #@test_call target_modules=(@__MODULE__,) search(G, ctx, queries[2], res)
 
@@ -46,7 +46,7 @@ function prepare_benchmark(Database;
 
     B = (; dist, db, queries, ksearch, n, m, dim, gold=(; knns=gold_knns, searchtime))
 
-    let res = xknn(ksearch), q = queries[2], ectx=ectx, seq=seq
+    let res = knnqueue(ectx, ksearch), q = queries[2], ectx=ectx, seq=seq
         @test_call target_modules=(@__MODULE__,) search(seq, ectx, queries[2], res)
         @time "SEARCH Exhaustive 1" search(seq, ectx, q, res)
         @time "SEARCH Exhaustive 2" search(seq, ectx, q, res)

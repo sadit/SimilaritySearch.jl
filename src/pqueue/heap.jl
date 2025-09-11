@@ -1,6 +1,8 @@
+# This file is a part of SimilaritySearch.jl
+# a simple heap for KnnHeap
+
 heapparent(i) = i>>1
 heapleft(i) = 2i
-#heapright(i) = heapleft(i)+1
 
 function heapfix_up!(order, A, i)
     @inbounds while (p = heapparent(i)) > 0
