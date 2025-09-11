@@ -22,7 +22,8 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext)
     minbatch = ctx.minbatch < 0 ? n : getminbatch(ctx, n)
 
     @batch minbatch=minbatch per=thread for i in 1:n
-        @inbounds direct[i] = find_neighborhood(collect ∘ IdView, g, ctx, database(g, i); hints=first(neighbors(g.adj, i))) 
+        neighborhood = find_neighborhood(g, ctx, database(g, i); hints=first(neighbors(g.adj, i))) 
+        @inbounds direct[i] = collect(IdView(neighborhood))
         # @info length(direct[i]) neighbors_length(g.adj, i) 
         reverse[i] = Vector{UInt32}(undef, 0)
     end

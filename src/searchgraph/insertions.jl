@@ -96,7 +96,8 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         # searching neighbors 
 	    @batch minbatch=getminbatch(ctx, ep-sp+1) per=thread for i in sp:ep
-            @inbounds adj.end_point[i] = find_neighborhood(collect ∘ IdView, index, ctx, database(index, i))
+            neighborhood = find_neighborhood(index, ctx, database(index, i))
+            @inbounds adj.end_point[i] = collect(IdView(neighborhood))
         end
 
         LOG(ctx.logger, :add_vertex!, index, ctx, sp, ep)
@@ -164,7 +165,7 @@ Arguments:
     push_db::Bool
 )
     push_db && push_item!(index.db, item)
-    neighbors = find_neighborhood(collect ∘ IdView, index, ctx, item)
+    neighbors = find_neighborhood(index, ctx, item) |> IdView |> collect
     add_vertex!(index.adj, neighbors)
     n = index.len[] = length(index.adj)
     LOG(ctx.logger, :add_vertex!, index, ctx, n, n)
