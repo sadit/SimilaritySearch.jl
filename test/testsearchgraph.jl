@@ -1,11 +1,11 @@
 using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
 using Test, JET
-using AllocCheck
+#using AllocCheck
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
-function check_graph(G, ctx, queries, ksearch)
+#=function check_graph(G, ctx, queries, ksearch)
     res = knnqueue(ctx, ksearch)
     @test_opt search(G, ctx, queries[2], res)
     #@test_call target_modules=(@__MODULE__,) search(G, ctx, queries[2], res)
@@ -26,7 +26,7 @@ function check_graph(G, ctx, queries, ksearch)
     end
 
     exit(0)
-end
+end =#
 
 function prepare_benchmark(Database;
         ksearch::Int = 8,
