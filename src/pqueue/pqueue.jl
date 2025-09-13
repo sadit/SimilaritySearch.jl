@@ -4,9 +4,12 @@
 
 # export AbstractKnnQueueesult
 export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdWeight
-export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, DistView, IdView, pop_max!
+export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, nearest, frontier
+export DistView, IdView
 
-abstract type AbstractKnn end
+abstract type AbstractKnn
+end
+
 #=struct IdWeight
     id::UInt32
     weight::Float32
