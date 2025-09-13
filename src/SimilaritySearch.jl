@@ -100,9 +100,8 @@ GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; minbatch::Integer=0, verb
 
 getcontext(s::AbstractSearchIndex) = error("Not implemented method for $s")
 knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
-getminbatch(ctx::GenericContext, n::Int=0) = getminbatch(ctx.minbatch, n)
 verbose(ctx::GenericContext) = ctx.verbose
-
+getminbatch(ctx::AbstractContext, n::Int=0) = getminbatch(ctx.minbatch, n)
 
 include("perf.jl")
 include("sequential-exhaustive.jl")

@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
-version = "0.12.3"
+version = "0.13.0"
 
 [deps]
 AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
@@ -25,7 +25,7 @@ Aqua = "0.8"
 Dates = "^1.0"
 Distances = "0.10"
 JET = "0.9,0.10"
-JLD2 = "0.5"
+JLD2 = "^0.5"
 LinearAlgebra = "^1.0"
 Parameters = "0.12"
 Polyester = "0.7"
