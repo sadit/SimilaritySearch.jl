@@ -22,8 +22,7 @@ end
 function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where DBType<:AbstractDatabase
     h = Vector{Int32}(index.hints)
     s = SubDatabase(database(index), h)
-    hints = AdjacentStoredHints(DBType(s), h)
-    copy(index; hints)
+    @reset index.hints = AdjacentStoredHints(DBType(s), h)
 end
 
 function approx_by_hints!(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)

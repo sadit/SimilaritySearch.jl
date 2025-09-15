@@ -8,8 +8,8 @@ The adjancency list is always saved as `StaticAdjacencyList`, so it must changed
 """
 function serializeindex(file, parent::String, index::SearchGraph, meta, options::Dict)
     adj = StaticAdjacencyList(index.adj)
-    I = copy(index; adj)
-    file[joinpath(parent, "index")] = I
+    @reset index.adj = adj
+    file[joinpath(parent, "index")] = index
 end
 
 """
@@ -22,5 +22,5 @@ Loads a SearchGraph index
 """
 function restoreindex(file, parent::String, index::SearchGraph, meta, options::Dict; staticgraph=false)
     adj = staticgraph ? index.adj : AdjacencyList(index.adj)
-    copy(index; adj)
+    @reset index.adj = adj
 end

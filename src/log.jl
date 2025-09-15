@@ -1,6 +1,6 @@
 # This file is part of SimilaritySearch.jl
 
-
+using Dates
 export AbstractLog, InformativeLog, LOG
 
 abstract type AbstractLog end

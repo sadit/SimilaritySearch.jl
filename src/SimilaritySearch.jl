@@ -5,6 +5,7 @@ abstract type AbstractSearchIndex end
 
 using Parameters
 using Polyester
+using Accessors
 using JLD2
 
 import Base: push!, append!

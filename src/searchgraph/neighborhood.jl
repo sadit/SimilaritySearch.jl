@@ -1,22 +1,13 @@
 # This file is a part of SimilaritySearch.jl
 
 """
-    Neighborhood(filter::NeighborhoodFilter;
-        logbase=2,
-        minsize=2)
+    Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
 
 Convenience constructor, see Neighborhood struct.
 """
-function Neighborhood(filter::NeighborhoodFilter;
-    logbase=2,
-    minsize=2)
+function Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
     Neighborhood(; logbase, minsize, filter)
 end
-
-Base.copy(N::Neighborhood;
-        logbase=N.logbase, minsize=N.minsize,
-        filter=copy(N.filter)
-    ) = Neighborhood(; logbase, minsize, filter)
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
@@ -37,7 +28,7 @@ function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item; hi
     ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     res = getiknnresult(ksearch, ctx)
     if ksearch > 0
-        search(index.algo, index, ctx, item, res, hints)
+        search(index.algo[], index, ctx, item, res, hints)
         output = getsatknnresult(length(res), ctx)
         return neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
     else

@@ -58,7 +58,7 @@ function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integ
     
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
-        search(g.algo, g, ctx, q, res, h; vstate)
+        search(g.algo[], g, ctx, q, res, h; vstate)
         # length(res) == k && break
     end
 

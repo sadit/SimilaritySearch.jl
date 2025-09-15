@@ -26,11 +26,11 @@ end
 function saveindex(file::JLD2.JLDFile, index::AbstractSearchIndex; meta=nothing, store_db=true, parent="/")
     db = database(index)
     uses_stride_matrix_database = database(index) isa StrideMatrixDatabase
-    index = copy(index; db=MatrixDatabase(zeros(Float32, 2, 2))) # the database is replaced in any case to handle it here and serializeindex forget about it
+    @reset index.db = MatrixDatabase(zeros(Float32, 2, 2)) # the database is replaced in any case to handle it here and serializeindex forget about it
 
     if store_db
         stores_database = true
-        db = uses_stride_matrix_database ? Matrix(db) : db
+        db = uses_stride_matrix_database ? MatrixDatabase(db) : db
     else
         stores_database = false
         db = nothing
@@ -62,7 +62,7 @@ end
 
 Called on loading to restore any value on the index that depends on the new instance (i.e., datasets, pointers, etc.)
 """
-restoreindex(file, parent, index::AbstractSearchIndex, meta, options::Dict; kwargs...) = index
+restoreindex(file, parent::String, index::AbstractSearchIndex, meta, options::Dict; kwargs...) = index
 
 """
     loadindex(filename::AbstractString, db::Union{Nothing,AbstractDatabase}=nothing; kwargs...)
@@ -89,15 +89,15 @@ function loadindex(f::JLD2.JLDFile, db::Union{Nothing,AbstractDatabase}=nothing;
         if options["stores_database"]
             db = f[joinpath(parent, "db")]
             if options["uses_stride_matrix_database"]
-                db = copy(index; db=StrideMatrixDatabase(database(index)))
+                @reset index.db = StrideMatrixDatabase(database(index))
+            else
+                @reset index.db = db
             end
-
-            index = copy(index; db)
         else
             @warn "the database was not stored and was not passed to loadindex"
         end
     else
-        index = copy(index; db)
+        @reset index.db = db
     end
 
     index, meta
