@@ -107,7 +107,8 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
 end
 
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
-    search(bs, index, ctx, q, res, index.hints; maxvisits = 2index.algo[].maxvisits)
+    @reset bs.maxvisits = 2index.algo[].maxvisits
+    search(bs, index, ctx, q, res, index.hints)
 end
 
 """

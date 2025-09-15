@@ -14,7 +14,9 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     res
 end
 
-function beamsearch_inner_beam(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, vstate, beam::KnnSorted, Δ::Float32, maxvisits::Int64)
+function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, vstate)
+    Δ, maxvisits = bs.Δ, bs.maxvisits
+    beam = getbeam(bs.bsize, ctx)
     push_item!(beam, nearest(res))
     dist = distance(index)
     costevals, costblocks = 0, 0
@@ -60,9 +62,6 @@ Optional arguments (defaults to values in `bs`)
 
 """
 function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints;
-        bsize::Int32=bs.bsize,
-        Δ::Float32=bs.Δ,
-        maxvisits::Int=bs.maxvisits,
         vstate::Vector{UInt64}=getvstate(length(index), ctx)
         )
     # k is the number of neighbors in res
@@ -79,9 +78,8 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
 
         res.costevals = n
     else
-        beam = getbeam(bsize, ctx)
         beamsearch_init(bs, index, q, res, hints, vstate)
-        beamsearch_inner_beam(bs, index, q, res, vstate, beam, Δ, maxvisits)
+        beamsearch_inner_beam(bs, index, ctx, q, res, vstate)
     end
 
     res
