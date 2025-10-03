@@ -117,7 +117,7 @@ include("neardup.jl")
 include("fft.jl")
 include("closestpair.jl")
 include("hsp.jl")
-
+include("rerank.jl")
 
 """
     searchbatch(index, ctx, Q, k::Integer) -> indices, distances
