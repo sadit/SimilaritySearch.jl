@@ -64,18 +64,21 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         end
         
         if recall < 0.3
-            @info "RECALL BAJO!! recall: $recall, #objects: $(length(index)), #queries: $(length(queries))"
-            @info cov
-            for (g, r) in zip(gold, R)
+            @warn "OPT low recal> recall: $recall, #objects: $(length(index)), #queries: $(length(queries))"
+            @show cov
+            #=for (g, r) in zip(gold, R)
                 @show g, r
-            end
+            end=#
 
-            for p in knns
-                @show collect(Int32, IdView(p))
-            end
+            #=for p in knns
+                @show collect(Int32, I  IdView(p))
+            end=#
+            #=for p in knns
+                @show collect(Float32, DistView(p))
+            end=#
 
-            @show quantile(neighbors_length.(Ref(index.adj), 1:length(index)), 0:0.1:1.0)
-            exit(0)
+            #@show quantile(neighbors_length.(Ref(index.adj), 1:length(index)), 0:0.1:1.0)
+            #exit(0)
         end
 
         visited = (min=minimum(cost), mean=mean(cost), max=maximum(cost))
