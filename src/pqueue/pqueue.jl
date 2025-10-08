@@ -43,10 +43,10 @@ Base.convert(::Type{T}, v::IdWeight) where {T<:AbstractFloat} = convert(T, v.wei
 
 IdView(res::AbstractVector{IdWeight}) = (p.id for p in res)
 DistView(res::AbstractVector{IdWeight}) = (p.weight for p in res)
-IdView(res::AbstractVector{<:Integer}) = (UInt32(p) for p in res)
-DistView(res::AbstractVector{<:AbstractFloat}) = (Float32(p) for p in res)
-IdView(res::KnnHeap) = (res.items[i].id for i in 1:res.len)
-DistView(res::KnnHeap) = (res.items[i].weight for i in 1:res.len)
+#IdView(res::AbstractVector{<:Integer}) = (UInt32(p) for p in res)
+#DistView(res::AbstractVector{<:AbstractFloat}) = (Float32(p) for p in res)
+IdView(res::KnnHeap) = (p.id for p in viewitems(res))
+DistView(res::KnnHeap) = (p.weight for p in viewitems(res))
 IdView(res::KnnSorted) = (p.id for p in viewitems(res))
 DistView(res::KnnSorted) = (p.weight for p in viewitems(res))
 
