@@ -24,7 +24,7 @@ end
 
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
-            @assert sort!(collect(viewitems(R)), by=x->x.weight) == gold
+            @test sort!(collect(viewitems(R)), by=x->x.weight) == gold
             # i > 7 && (p *= maximum(R))
             push!(gold, IdWeight(i, p))
             sort!(gold, by=x->x.weight)
@@ -36,7 +36,7 @@ end
             push_item!(R, i => p)
             #@show "POS", gold, sort!(collect(viewitems(R)), by=x->x.weight), i => p
             #@show R.min, R.len, R.maxlen
-            @assert sort!(collect(viewitems(R)), by=x->x.weight) == gold
+            @test sort!(collect(viewitems(R)), by=x->x.weight) == gold
 
             @test minimum(x->x.weight, gold) == minimum(R)
             @test maximum(x->x.weight, gold) == maximum(R)
