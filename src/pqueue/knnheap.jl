@@ -23,10 +23,6 @@ function viewitems(res::KnnHeap)
     view(res.items, 1:res.len)
 end
 
-IdView(res::KnnHeap) = (res.items[i].id for i in 1:res.len)
-DistView(res::KnnHeap) = (res.items[i].weight for i in 1:res.len)
-
-
 """
     sortitems!(res::KnnHeap)
 

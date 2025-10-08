@@ -48,4 +48,3 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
 
     (; centers, nn, dists=nndists, dmax)
 end
-

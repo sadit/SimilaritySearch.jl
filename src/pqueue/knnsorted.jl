@@ -70,9 +70,6 @@ function viewitems(res::KnnSorted)
     view(res.items, res.sp:res.ep)
 end
 
-IdView(res::KnnSorted) = (p.id for p in viewitems(res))
-DistView(res::KnnSorted) = (p.weight for p in viewitems(res))
-
 """
     sortitems!(res::KnnSorted)
 

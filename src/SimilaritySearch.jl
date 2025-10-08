@@ -130,14 +130,14 @@ Searches a batch of queries in the given index (searches for k neighbors).
 - `Q`: The set of queries
 - `k`: The number of neighbors to retrieve
 - `context`: caches, hyperparameters, and meta data (defaults to `getcontext(index)`)
-
+- `sorted=true`: ensures that the results are sorted by distance.
 
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
-function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer)
+function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer; sorted::Bool=true)
     knns = zeros(IdWeight, k, length(Q))
-    searchbatch!(index, ctx, Q, knns; sorted=true)
+    searchbatch!(index, ctx, Q, knns; sorted)
 end
 
 """
