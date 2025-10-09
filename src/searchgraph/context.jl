@@ -60,49 +60,49 @@ struct SearchGraphContext{KnnType} <: AbstractContext
 end
 
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
-        logger=LogList(AbstractLog[InformativeLog(1.0)]),
-        minbatch = 0,
-        verbose=false,
-        neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
-        hints_callback=KCentersHints(; logbase=1.2),
-        hyperparameters_callback=OptimizeParameters(),
-        parallel_block=4Threads.nthreads(),
-        parallel_first_block=parallel_block,
-        logbase_callback=1.5,
-        starting_callback=256,
-        knns = zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
-        vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
-    )
- 
+    logger=LogList(AbstractLog[InformativeLog(1.0)]),
+    minbatch=0,
+    verbose=false,
+    neighborhood=Neighborhood(SatNeighborhood(; nndist=3.0f-3)),
+    hints_callback=KCentersHints(; logbase=1.2),
+    hyperparameters_callback=OptimizeParameters(),
+    parallel_block=4Threads.nthreads(),
+    parallel_first_block=parallel_block,
+    logbase_callback=1.5,
+    starting_callback=256,
+    knns=zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
+    vstates=[Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
+)
+
     SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
-                       hints_callback, hyperparameters_callback,
-                       convert(Float32, logbase_callback),
-                       convert(Int32, starting_callback),
-                       convert(Int32, parallel_block),
-                       convert(Int32, parallel_first_block),
-                       knns, vstates)
+        hints_callback, hyperparameters_callback,
+        convert(Float32, logbase_callback),
+        convert(Int32, starting_callback),
+        convert(Int32, parallel_block),
+        convert(Int32, parallel_first_block),
+        knns, vstates)
 end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType};
-        logger=ctx.logger,
-        minbatch=ctx.minbatch,
-        verbose=ctx.verbose,
-        neighborhood=ctx.neighborhood,
-        hints_callback=ctx.hints_callback,
-        hyperparameters_callback=ctx.hyperparameters_callback,
-        parallel_block=ctx.parallel_block,
-        parallel_first_block=ctx.parallel_first_block,
-        logbase_callback=ctx.logbase_callback,
-        starting_callback=ctx.starting_callback,
-        knns=ctx.knns,
-        vstates=ctx.vstates
-    ) where KnnType
- 
+    logger=ctx.logger,
+    minbatch=ctx.minbatch,
+    verbose=ctx.verbose,
+    neighborhood=ctx.neighborhood,
+    hints_callback=ctx.hints_callback,
+    hyperparameters_callback=ctx.hyperparameters_callback,
+    parallel_block=ctx.parallel_block,
+    parallel_first_block=ctx.parallel_first_block,
+    logbase_callback=ctx.logbase_callback,
+    starting_callback=ctx.starting_callback,
+    knns=ctx.knns,
+    vstates=ctx.vstates
+) where {KnnType}
+
     SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
-                       hints_callback, hyperparameters_callback,
-                       logbase_callback, starting_callback,
-                       parallel_block, parallel_first_block,
-                       knns, vstates)
+        hints_callback, hyperparameters_callback,
+        logbase_callback, starting_callback,
+        parallel_block, parallel_first_block,
+        knns, vstates)
 end
 
 getminbatch(ctx::SearchGraphContext, n::Int=0) = getminbatch(ctx.minbatch, n)
@@ -114,16 +114,17 @@ knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnq
     reuse!(ctx.vstates[Threads.threadid()], len)
 end
 
-@inline function getknnbuffer(ctx::SearchGraphContext{KnnType}, pos, nsize::Integer) where KnnType
-    nsize = min(nsize, size(ctx.knns, 2))
-    colID = (Threads.threadid()-1) * 3 + pos
+@inline function getknnbuffer(ctx::SearchGraphContext{KnnType}, pos, nsize::Integer) where {KnnType}
+    nsize = min(nsize, size(ctx.knns, 1))
+    colID = (Threads.threadid() - 1) * 3 + pos
+
     knnqueue(KnnType, view(ctx.knns, 1:nsize, colID))
 end
 
 @inline function getbeam(nsize::Integer, ctx::SearchGraphContext)
     pos = 1
     nsize = min(nsize, size(ctx.knns, 2))
-    colID = (Threads.threadid()-1) * 3 + pos
+    colID = (Threads.threadid() - 1) * 3 + pos
     knnqueue(KnnSorted, view(ctx.knns, 1:nsize, colID))
 end
 
