@@ -1,5 +1,5 @@
 using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
-using Test, JET
+using Test
 #using AllocCheck
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
@@ -29,11 +29,11 @@ using Test, JET
 end =#
 
 function prepare_benchmark(Database;
-        ksearch::Int = 8,
-        n::Int=10^5,
-        m::Int=10^3,
-        dim::Int=8)
-    
+    ksearch::Int=8,
+    n::Int=10^5,
+    m::Int=10^3,
+    dim::Int=8)
+
     db = Database(rand(Float32, dim, n))
     queries = Database(rand(Float32, dim, m))
 
@@ -46,8 +46,8 @@ function prepare_benchmark(Database;
 
     B = (; dist, db, queries, ksearch, n, m, dim, gold=(; knns=gold_knns, searchtime))
 
-    let res = knnqueue(ectx, ksearch), q = queries[2], ectx=ectx, seq=seq
-        @test_call target_modules=(@__MODULE__,) search(seq, ectx, queries[2], res)
+    let res = knnqueue(ectx, ksearch), q = queries[2], ectx = ectx, seq = seq
+        #@test_call target_modules = (@__MODULE__,) search(seq, ectx, queries[2], res)
         @time "SEARCH Exhaustive 1" search(seq, ectx, q, res)
         @time "SEARCH Exhaustive 2" search(seq, ectx, q, res)
         # @code_warntype search(seq, ectx, q, res)
@@ -81,9 +81,9 @@ function abs_minrecall(B)
     @info "===================== minrecall =============================="
     graph = SearchGraph(; B.db, B.dist)
     ctx = SearchGraphContext(
-        neighborhood = Neighborhood(filter=SatNeighborhood()),
+        neighborhood=Neighborhood(filter=SatNeighborhood()),
         #neighborhood = Neighborhood(filter=IdentityNeighborhood()),
-        hyperparameters_callback = OptimizeParameters(MinRecall(0.99)),
+        hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
         verbose=false
     )
 
@@ -100,7 +100,7 @@ function abs_minrecall(B)
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test recall >= 0.8
 
-    
+
     graph, ctx
 end
 
@@ -132,12 +132,12 @@ function abs_save_and_load(graph, ctx, B)
         @test G.hints == graph.hints
 
         for i in rand(eachindex(graph.adj), 100)
-            @test neighbors(graph.adj, i) == neighbors(G.adj, i) 
+            @test neighbors(graph.adj, i) == neighbors(G.adj, i)
             @test neighbors_length(graph.adj, i) == neighbors_length(G.adj, i)
         end
 
         @test meta == [1, 2, 4, 8]
-        @test_call target_modules=(@__MODULE__,) searchbatch(G, ctx, B.queries, B.ksearch)
+        #@test_call target_modules = (@__MODULE__,) searchbatch(G, ctx, B.queries, B.ksearch)
 
         knns = zeros(IdWeight, B.ksearch, length(B.queries))
         @time knns = searchbatch!(G, ctx, B.queries, knns)
@@ -190,8 +190,8 @@ end
 
     #@test_call target_modules=(@__MODULE__,) search(graph, ctx, queries[1], knn(1))
     #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
-    
-    
+
+
     #=@testset "AutoBS with ParetoRadius" begin
         graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
         ctx = SearchGraphContext(

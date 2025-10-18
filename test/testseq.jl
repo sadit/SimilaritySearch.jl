@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch, Distances, LinearAlgebra
-using Test, JET
+using Test
 
 function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)

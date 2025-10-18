@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, JET, SimilaritySearch, StatsBase
+using Test, SimilaritySearch, StatsBase
 
 @testset "HSP" begin
     k = 32

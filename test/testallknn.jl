@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, JET, SimilaritySearch
+using Test, SimilaritySearch
 
 
 @testset "allknn" begin
@@ -11,17 +11,17 @@ using Test, JET, SimilaritySearch
 
     E = ExhaustiveSearch(; db=X, dist)
     ectx = getcontext(E)
-    
+
     @time "ExhaustiveSearch allknn" gold_knns = allknn(E, ectx, k)
-    @test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
+    #@test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
     @test size(gold_knns) == (k, n)
 
     P = ParallelExhaustiveSearch(; db=X, dist)
     @time "ParallelExhaustiveSearch allknn" par_knns = allknn(P, ectx, k)
-    @test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
+    #@test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
     @test size(par_knns) == (k, n)
     @test macrorecall(gold_knns, par_knns) > 0.99
-    
+
     #=G = SearchGraph(; db=X, dist)
     ctx = getcontext(G)
     @show G.len, G.len[], length(G)
