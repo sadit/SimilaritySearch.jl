@@ -6,13 +6,12 @@ abstract type AbstractSearchIndex end
 using Parameters
 using Polyester
 using Accessors
-using JLD2
 
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
-       SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
-       getcontext, getminbatch, saveindex, loadindex,
-       SearchResult, push_item!, append_items!, IdWeight
+    SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
+    getcontext, getminbatch,
+    SearchResult, push_item!, append_items!, IdWeight
 
 abstract type AbstractContext end
 function searchbatch! end
@@ -31,7 +30,6 @@ include("log.jl")
 using .AdjacencyLists
 
 include("pqueue/pqueue.jl")
-include("io.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
@@ -159,14 +157,14 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     length(Q) == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx, length(Q))
 
-    @batch minbatch=minbatch per=thread for i in eachindex(Q)
-    #Threads.@threads :static for i in eachindex(Q)
+    @batch minbatch = minbatch per = thread for i in eachindex(Q)
+        #Threads.@threads :static for i in eachindex(Q)
         res = knnqueue(ctx, view(knns, :, i))
         search(index, ctx, Q[i], res)
         # @assert length(res) == size(knns, 1)
         sorted && sortitems!(res)
     end
-    
+
     knns
 end
 
@@ -175,11 +173,11 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx, length(Q))
 
-    @batch minbatch=minbatch per=thread for i in eachindex(Q)
-    # Threads.@threads :static for i in eachindex(Q)
+    @batch minbatch = minbatch per = thread for i in eachindex(Q)
+        # Threads.@threads :static for i in eachindex(Q)
         search(index, ctx, Q[i], knns[i])
     end
-    
+
     knns
 end
 

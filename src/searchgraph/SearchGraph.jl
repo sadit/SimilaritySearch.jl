@@ -97,10 +97,10 @@ It supports callbacks to adjust parameters as insertions are made.
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 """
 @with_kw struct SearchGraph{DIST<:SemiMetric,
-                            DB<:AbstractDatabase,
-                            ADJ<:AbstractAdjacencyList,
-                            HINTS,
-                           } <: AbstractSearchIndex
+    DB<:AbstractDatabase,
+    ADJ<:AbstractAdjacencyList,
+    HINTS,
+} <: AbstractSearchIndex
     dist::DIST = SqL2Distance()
     db::DB = VectorDatabase()
     adj::ADJ = AdjacencyLists.AdjacencyList(UInt32)
@@ -147,4 +147,3 @@ include("log.jl")
 include("callbacks.jl")
 include("rebuild.jl")
 include("insertions.jl")
-include("io.jl")
