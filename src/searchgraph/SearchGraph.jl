@@ -105,7 +105,7 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     db::DB = VectorDatabase()
     adj::ADJ = AdjacencyLists.AdjacencyList(UInt32)
     hints::HINTS = UInt32[]
-    algo::Ref{BeamSearch} = BeamSearch()
+    algo::Ref{BeamSearch} = Ref(BeamSearch())
     len::Ref{Int64} = Ref(zero(Int64))
 end
 

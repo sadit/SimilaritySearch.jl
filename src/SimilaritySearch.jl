@@ -11,7 +11,7 @@ import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
     SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
     getcontext, getminbatch,
-    SearchResult, push_item!, append_items!, IdWeight
+    SearchResult, push_item!, append_items!, IdWeight, StaticAdjacencyList, AdjacencyList
 
 abstract type AbstractContext end
 function searchbatch! end
@@ -21,14 +21,13 @@ function append_items! end
 function index! end
 
 include("distances/Distances.jl")
-
 include("db/db.jl")
 include("distsample.jl")
 include("adj.jl")
-include("log.jl")
 
 using .AdjacencyLists
 
+include("log.jl")
 include("pqueue/pqueue.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
