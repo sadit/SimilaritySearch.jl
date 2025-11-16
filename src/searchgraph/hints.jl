@@ -38,7 +38,7 @@ end
 
 Indicates that hints are a random sample of the dataset
 """
-@with_kw mutable struct RandomHints <: Callback
+@kwdef mutable struct RandomHints <: Callback
     logbase::Float32 = 1.1
 end
 
@@ -67,7 +67,7 @@ end
 
 Indicates that hints are a small disjoint (untouched neighbors) subsample 
 """
-@with_kw mutable struct DisjointHints <: Callback
+@kwdef mutable struct DisjointHints <: Callback
     logbase::Float32 = 1.1
 end
 
@@ -96,7 +96,7 @@ end
 
 Indicates that hints are selected to have a disjoint neighborhood
 """
-@with_kw struct KDisjointHints <: Callback
+@kwdef struct KDisjointHints <: Callback
     logbase::Float32 = 1.1
     disjoint::Int32 = 3
     expansion::Int32 = 4

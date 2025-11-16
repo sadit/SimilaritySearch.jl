@@ -50,7 +50,7 @@ struct CosineDistanceSet <: SemiMetric end
 
 Computes the size the intersections of `a` and `b`, specified as ordered sequences.
 """
-function intersectionsize(a, b, o=Forward)
+function intersectionsize(a::AbstractVector, b::AbstractVector, o=Forward)
     len_a::Int = length(a)
     len_b::Int = length(b)
     ia::Int = ib::Int = 1
@@ -68,6 +68,23 @@ function intersectionsize(a, b, o=Forward)
     end
 
     intersection_size
+end
+
+function intersectionsize_(a::Dict, b::Dict)
+    i = 0
+    for k in keys(a)
+        haskey(b, k) && (i += 1)
+    end
+
+    i
+end
+
+function intersectionsize(a::Dict, b::Dict)
+    if length(a) < length(b)
+        intersectionsize_(a, b)
+    else
+        intersectionsize_(b, a)
+    end
 end
 
 """

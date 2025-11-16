@@ -46,12 +46,20 @@ for \$out\$  elements in the current index.
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
 """
-@with_kw struct Neighborhood{NFILTER<:NeighborhoodFilter}
-    logbase::Float32 = 2
-    minsize::Int32 = 2
+@kwdef struct Neighborhood{NFILTER<:NeighborhoodFilter}
+    logbase::Float32 = 2f0
+    minsize::Int32 = Int32(2)
     filter::NFILTER = SatNeighborhood()
 end
 
+"""
+    Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
+
+Convenience constructor, see Neighborhood struct.
+"""
+function Neighborhood(filter::NeighborhoodFilter; logbase::AbstractFloat=2f0, minsize::Integer=2)
+    Neighborhood(convert(Float32, logbase), convert(Int32, minsize), filter)
+end
 ########################### SearchGraphContext
 
 include("visitedvertices.jl")
@@ -77,10 +85,9 @@ end
 BeamSearch(; bsize=4, Δ=1.0, maxvisits=10^6) = BeamSearch(Int32(bsize), Float32(Δ), Int64(maxvisits))
 
 function Base.show(io::IO, bs::BeamSearch)
+    println(io, BeamSearch)
     print(io, "BeamSearch(bsize=", bs.bsize, ", Δ=", bs.Δ, ", maxvisits=", bs.maxvisits, ")")
 end
-
-
 
 
 ### Basic operations on the index
@@ -96,7 +103,7 @@ It supports callbacks to adjust parameters as insertions are made.
 
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 """
-@with_kw struct SearchGraph{DIST<:SemiMetric,
+@kwdef struct SearchGraph{DIST<:SemiMetric,
     DB<:AbstractDatabase,
     ADJ<:AbstractAdjacencyList,
     HINTS,
@@ -107,6 +114,17 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
     hints::HINTS = UInt32[]
     algo::Ref{BeamSearch} = Ref(BeamSearch())
     len::Ref{Int64} = Ref(zero(Int64))
+end
+
+function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
+    println(io, prefix, "SearchGraph:")
+    prefix = prefix * indent
+    println(io, prefix, "dist: ", index.dist)
+    println(io, prefix, "length: ", index.len[])
+    println(io, prefix, "algo: ", index.algo[])
+    println(io, prefix, "adj: ", typeof(index.adj))
+    println(io, prefix, "hints: ", length(index.hints))
+    show(io, prefix, index.db; prefix, indent)
 end
 
 @inline Base.length(g::SearchGraph)::Int64 = g.len[]

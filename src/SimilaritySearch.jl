@@ -3,7 +3,6 @@
 module SimilaritySearch
 abstract type AbstractSearchIndex end
 
-using Parameters
 using Polyester
 using Accessors
 
@@ -104,6 +103,16 @@ getminbatch(ctx::AbstractContext, n::Int=0) = getminbatch(ctx.minbatch, n)
 include("perf.jl")
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")
+
+
+function Base.show(io::IO, idx::AbstractSearchIndex; prefix="", indent="  ")
+    println(io, prefix, typeof(idx),":")
+    prefix = prefix * indent
+    println(io, prefix, "dist: ", typeof(idx.dist))
+    println(io, prefix, "length: ", length(idx))
+    show(io, database(idx); prefix, indent)
+end
+
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
 include("permindex.jl")

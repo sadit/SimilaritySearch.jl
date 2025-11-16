@@ -1,13 +1,5 @@
 # This file is a part of SimilaritySearch.jl
 
-"""
-    Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
-
-Convenience constructor, see Neighborhood struct.
-"""
-function Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
-    Neighborhood(; logbase, minsize, filter)
-end
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
@@ -147,7 +139,7 @@ Selects `SatNeighborhood` or `DistalSatNeighborhood` for each vertex. Defaults t
 
 - `k`: the threshold size to apply the Sat reduction, i.e., neighbors larger than `k` will be pruned.
 """
-@with_kw struct SatPruning <: NeighborhoodPruning
+@kwdef struct SatPruning <: NeighborhoodPruning
     k::Int
     kind = DistalSatNeighborhood() ## DistalSatNeighborhood, SatNeighborhood    
 end

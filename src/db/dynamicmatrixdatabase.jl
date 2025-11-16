@@ -10,6 +10,14 @@ struct DynamicMatrixDatabase{DType,Dim} <: AbstractDatabase
     data::Vector{DType}
 end
 
+function show(io::IO, db::DynamicMatrixDatabase{DType,Dim}; prefix="", indent="  ") where {DType,Dim}
+    println(io, prefix, "DynamicMatrixDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "length: ", length(db))
+    println(io, prefix, "dim:", Dim)
+end
+
 #
 # Dynamic matrix-like dataset, i.e., columns are objects. Stored as a large vector to support appending items
 #

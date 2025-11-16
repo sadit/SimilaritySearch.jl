@@ -34,6 +34,15 @@ If the storage backend support it, it is possible to use vector operations, for 
 """
 abstract type AbstractDatabase end
 
+
+function show(io::IO, db::AbstractDatabase; prefix="", indent="  ") 
+    println(io, prefix, "AbstractDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "type: ", typeof(db))
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "length: ", length(db))
+end
+
 include("dynamicmatrixdatabase.jl")
 include("matrixdatabase.jl")
 include("vectordatabase.jl")

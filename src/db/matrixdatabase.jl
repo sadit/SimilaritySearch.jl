@@ -16,6 +16,13 @@ struct MatrixDatabase{M<:AbstractMatrix} <: AbstractDatabase
     matrix::M  # abstract matrix
 end
 
+function show(io::IO, db::MatrixDatabase; prefix="", indent="  ")
+    println(io, prefix, "MatrixDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "size: ", size(db.matrix))
+end
+
 @inline Base.eltype(db::MatrixDatabase) = typeof(db[1])
 
 # @inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
@@ -38,6 +45,13 @@ Wraps a matrix object into a `StrideArray` and wrap it as a database. Please see
 """
 struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
     matrix::M
+end
+
+function show(io::IO, db::StrideMatrixDatabase; prefix="", indent="  ")
+    println(io, prefix, "StrideMatrixDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "size: ", size(db.matrix))
 end
 
 #StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))

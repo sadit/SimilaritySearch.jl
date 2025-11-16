@@ -12,6 +12,13 @@ struct VectorDatabase{V} <: AbstractDatabase
     vecs::V  # abstract vector or something that looks like a vector
 end
 
+function show(io::IO, db::VectorDatabase; prefix="", indent="  ")
+    println(io, prefix, "VectorDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "length: ", length(db))
+end
+
 @inline Base.eltype(db::VectorDatabase) = eltype(db.vecs)
 
 """

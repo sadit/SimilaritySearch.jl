@@ -6,11 +6,11 @@ import SearchModels: combine, mutate
 export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius
 
 abstract type ErrorFunction end
-@with_kw struct MinRecall <: ErrorFunction
+@kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
 end
 
-@with_kw struct OptRadius <: ErrorFunction
+@kwdef struct OptRadius <: ErrorFunction
     tol::Float32 = 0.1
 end
 
@@ -29,9 +29,9 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 
     function lossfun(conf)
         empty!(cov)
-        
+
         searchtime = @elapsed begin
-            @batch minbatch=getminbatch(ctx, m) per=thread for i in 1:m
+            @batch minbatch = getminbatch(ctx, m) per = thread for i in 1:m
                 knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
                 cost[i] = r.costevals
             end
@@ -62,7 +62,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         else
             nothing
         end
-        
+
         if recall < 0.3
             @warn "OPT low recal> recall: $recall, #objects: $(length(index)), #queries: $(length(queries))"
             @show cov
@@ -134,21 +134,21 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
     - `maxiters=16`: maximum number of iterations.
 """
 function optimize_index!(
-        index::AbstractSearchIndex,
-        ctx::AbstractContext,
-        kind::ErrorFunction=MinRecall(0.9);
-        space::AbstractSolutionSpace=optimization_space(index),
-        queries=nothing,
-        ksearch=10,
-        numqueries=64,
-        initialpopulation=16,
-        maxpopulation=16,
-        bsize=4,
-        mutbsize=16,
-        crossbsize=8,
-        maxiters=16,
-        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx))
-    )
+    index::AbstractSearchIndex,
+    ctx::AbstractContext,
+    kind::ErrorFunction=MinRecall(0.9);
+    space::AbstractSolutionSpace=optimization_space(index),
+    queries=nothing,
+    ksearch=10,
+    numqueries=64,
+    initialpopulation=16,
+    maxpopulation=16,
+    bsize=4,
+    mutbsize=16,
+    crossbsize=8,
+    maxiters=16,
+    params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx))
+)
 
     db = database(index)
     if queries === nothing
@@ -185,7 +185,7 @@ function optimize_index!(
     function getcost(p)
         p = last(p)
         cost = p.visited.mean / M[]
-        if kind isa ParetoRecall 
+        if kind isa ParetoRecall
             cost^2 + (1.0 - p.recall)^2
         elseif kind isa ParetoRadius
             _kfun(cost) + _kfun(p.radius.mean / R[])
@@ -194,15 +194,15 @@ function optimize_index!(
         elseif kind isa OptRadius
             r = p.radius.mean / R[]
             round(r / kind.tol, digits=0)
-        else  
+        else
             error("unknown optimization goal $kind")
         end
     end
-    
+
     function sort_by_best(space, params, population)
-        if kind isa OptRadius 
+        if kind isa OptRadius
             sort!(population, by=getcost)
-            sort!(view(population, 1:params.bsize), by=p->p.second.visited.mean)
+            sort!(view(population, 1:params.bsize), by=p -> p.second.visited.mean)
         else
             sort!(population, by=getcost)
         end
@@ -215,12 +215,12 @@ function optimize_index!(
     end
 
     bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence)
-    
+
     if length(bestlist) == 0
         verbose(ctx) && println(stderr, "== WARN optimization failure; unable to find usable configurations")
     else
         config, perf = bestlist[1]
-        @assert perf.recall > 0 
+        @assert perf.recall > 0
         verbose(ctx) && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
         setconfig!(config, index, perf)
     end

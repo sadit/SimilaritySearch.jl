@@ -7,7 +7,7 @@ export BeamSearchSpace
 
 Define search space for beam search autotuning
 """
-@with_kw struct BeamSearchSpace <: AbstractSolutionSpace
+@kwdef struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 2:2:16
     Δ = 0.9:0.025:1.1                  # this really depends on the dataset, be careful
     bsize_scale = (s=1.1, p1=0.25, p2=0.5, lower=2, upper=20)  # all these are reasonably values

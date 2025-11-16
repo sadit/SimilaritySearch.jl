@@ -7,6 +7,14 @@ struct SubDatabase{DBType<:AbstractDatabase,RType} <: AbstractDatabase
     map::RType
 end
 
+function show(io::IO, db::SubDatabase; prefix="", indent="  ")
+    println(io, prefix, "SubDatabase:")
+    prefix = prefix * indent
+    println(io, prefix, "eltype: ", eltype(db))
+    println(io, prefix, "length: ", length(db))
+    println(io, prefix, "parent-type: ", typeof(db.parent))
+end
+
 @inline Base.getindex(S::SubDatabase, i::Integer) = @inbounds S.parent[S.map[i]]
 @inline Base.length(S::SubDatabase) = length(S.map)
 @inline Base.eachindex(S::SubDatabase) = eachindex(S.map)
