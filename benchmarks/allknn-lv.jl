@@ -1,13 +1,13 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, LoopVectorization, LinearAlgebra, Random
+using SimilaritySearch, FixedSizeArrays, LoopVectorization, LinearAlgebra, Random
 
 struct NormalizedCosineDistanceLV{Dim} <: SemiMetric
 end
 
 function SimilaritySearch.evaluate(::NormalizedCosineDistanceLV{Dim}, u::AbstractVector{T}, v::AbstractVector{T}) where {Dim,T}
     d = zero(T)
-    @turbo unroll=2 thread=1 for i in 1:Dim
+    @turbo unroll = 4 thread = 1 for i in 1:Dim
         d = muladd(u[i], v[i], d)
         # d += u[i] * v[i]
     end
@@ -15,43 +15,48 @@ function SimilaritySearch.evaluate(::NormalizedCosineDistanceLV{Dim}, u::Abstrac
     one(T) - d
 end
 
-function create_database(dim=100, filled=8, n=100_000)
+function create_database(dim, n)
+    rng = Xoshiro(n)
+    #X = Matrix{Float32}(undef, dim, n)
+    X = FixedSizeMatrix{Float32}(undef, dim, n)
+    rand!(rng, X)
+    #=rand!(rng, X)
     X = zeros(Float32, dim, n)
     for i in 1:n
         rand!(view(X, 1:filled, i))
+    end=#
+
+    for c in eachcol(X)
+        normalize!(c)
     end
-    
-    for c in eachcol(X) normalize!(c) end
     #MatrixDatabase(X), NormalizedCosineDistanceLV{dim}()
-    StrideMatrixDatabase(X), NormalizedCosineDistanceLV{dim}()   # slow compilation, fast computation
+    MatrixDatabase(X), NormalizedCosineDistanceLV{dim}()   # slow compilation, fast computation
 end
 
-function main()
+#using SimilaritySearch, FixedSizeArrays, LinearAlgebra, Random
+
+
+function main(dim, n, k)
     @info "this benchmark is intended to work with multithreading enabled julia sessions"
-    db, dist = create_database(8, 8)
-    k = 32
-    ctx = SearchGraphContext(
-                             hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
-                             logger=nothing,
-                             parallel_block=256
-                            )
+    db, dist = create_database(dim, n)
     @info "----- computing gold standard"
-    GC.enable(false)
-    goldsearchtime = @elapsed gI, gD = allknn(ExhaustiveSearch(; db, dist), ctx, k)
-    GC.enable(true)
-    @info "----- computing search graph"
+    ctx = SearchGraphContext(
+        hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
+        parallel_block=1024
+    )
+    goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
+    @info "----- computing search graph with k=$k"
     H = SearchGraph(; db, dist)
     index!(H, ctx)
     optimize_index!(H, ctx, ksearch=k)
-    # prune!(RandomPruning(12), H)
     GC.enable(false)
-    searchtime = @elapsed hI, hD = allknn(H, ctx, k)
+    searchtime = @elapsed knns = allknn(H, ctx, k; sort=false, progress=nothing)
     GC.enable(true)
     n = length(db)
-    @info "gold:" (; n, goldsearchtime, qps=n/goldsearchtime)
+    @info "gold:" (; n, goldsearchtime, qps=n / goldsearchtime)
     @info "searchgraph:" (; n, searchtime, qps=n / searchtime)
-    @info "recall:" macrorecall(gI, hI)
-    H
+    @info "recall:" macrorecall(gold_knns, knns)
 end
 
-main()
+main(8, 10^3, 8)
+main(8, 10^5, 8)

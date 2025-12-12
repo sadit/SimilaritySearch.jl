@@ -1,12 +1,13 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, FixedSizeArrays, LinearAlgebra, Random
+#using SimilaritySearch, FixedSizeArrays, LinearAlgebra, Random
+using SimilaritySearch, LinearAlgebra, Random
 
 
-function create_database(n)
+function create_database(dim, n)
     rng = Xoshiro(n)
-    # X = Matrix{Float32}(undef, 8, n)
-    X = FixedSizeMatrix{Float32}(undef, 8, n)
+    X = Matrix{Float32}(undef, dim, n)
+    #X = FixedSizeMatrix{Float32}(undef, dim, n)
     rand!(rng, X)
     for c in eachcol(X)
         normalize!(c)
@@ -15,15 +16,14 @@ function create_database(n)
     MatrixDatabase(X)
 end
 
-function main(n)
-    @info "this benchmark is intended to work with multithreading enabled julia sessions"
-    db = create_database(n)
+function run(dim, n, k)
+    @info "=========================== dim=$dim n=$n k=$k ============================"
+    db = create_database(dim, n)
     dist = NormalizedCosineDistance()
-    k = 8
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
-        hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
-        parallel_block=256
+        hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
+        parallel_block=1024
     )
     goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
     @info "----- computing search graph with k=$k"
@@ -39,5 +39,9 @@ function main(n)
     @info "recall:" macrorecall(gold_knns, knns)
 end
 
-main(10^3)
-main(10^5)
+#function @main(ARGS)
+begin
+    run(8, 10^3, 8)
+    run(8, 10^5, 8)
+    #    return 0
+end

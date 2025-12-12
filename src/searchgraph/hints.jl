@@ -202,8 +202,9 @@ KCentersHints(; logbase=1.1, powsample=1.5, qdiscard=0.1) = KCentersHints(logbas
 function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
     n = length(index)
     k = min(n ÷ 2, ceil(Int, log(opt.logbase, n))) + 1
+    @assert n > k
     m = min(n, ceil(Int, k^opt.powsample))
-    m / n
+    #m / n
     D = let s = rand(1:n, m) |> unique! #|> sort!
         degrees = neighbors_length.(Ref(index.adj), s)
         min_, max_ = quantile(degrees, [0.25, 0.95])
@@ -212,6 +213,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCen
         SubDatabase(database(index), s)
     end
     A = fft(distance(index), D, k; ctx.verbose)
+    # @show A unique(A.nn)
     M = Dict(c => i for (i, c) in enumerate(A.centers))
     count = zeros(Int, length(M))
     for nn in A.nn
