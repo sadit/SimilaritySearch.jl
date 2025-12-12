@@ -47,7 +47,7 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
 
 """
 @kwdef struct Neighborhood{NFILTER<:NeighborhoodFilter}
-    logbase::Float32 = 2f0
+    logbase::Float32 = 2.0f0
     minsize::Int32 = Int32(2)
     filter::NFILTER = SatNeighborhood()
 end
@@ -57,7 +57,7 @@ end
 
 Convenience constructor, see Neighborhood struct.
 """
-function Neighborhood(filter::NeighborhoodFilter; logbase::AbstractFloat=2f0, minsize::Integer=2)
+function Neighborhood(filter::NeighborhoodFilter; logbase::AbstractFloat=2.0f0, minsize::Integer=2)
     Neighborhood(convert(Float32, logbase), convert(Int32, minsize), filter)
 end
 ########################### SearchGraphContext
@@ -123,8 +123,8 @@ function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
     println(io, prefix, "length: ", index.len[])
     println(io, prefix, "algo: ", index.algo[])
     println(io, prefix, "adj: ", typeof(index.adj))
-    println(io, prefix, "hints: ", length(index.hints))
-    show(io, prefix, index.db; prefix, indent)
+    println(io, prefix, "hints: ", typeof(index.hints), ", length: ", length(index.hints))
+    show(io, index.db; prefix, indent)
 end
 
 @inline Base.length(g::SearchGraph)::Int64 = g.len[]

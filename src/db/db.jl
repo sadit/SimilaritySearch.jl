@@ -35,7 +35,7 @@ If the storage backend support it, it is possible to use vector operations, for 
 abstract type AbstractDatabase end
 
 
-function show(io::IO, db::AbstractDatabase; prefix="", indent="  ") 
+function show(io::IO, db::AbstractDatabase; prefix="", indent="  ")
     println(io, prefix, "AbstractDatabase:")
     prefix = prefix * indent
     println(io, prefix, "type: ", typeof(db))
@@ -104,7 +104,8 @@ An index iterator of `db`
 A subset of `db` (using a collection of indexes `lst`)
 """
 @inline Base.getindex(db::AbstractDatabase, lst::AbstractVector) = SubDatabase(db, lst)
-@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{Bool}) = SubDatabase(db, lst .== true)
+@inline Base.getindex(db::AbstractDatabase, lst::AbstractVector{Bool}) = SubDatabase(db, findall(lst))
+@inline Base.getindex(db::AbstractDatabase, lst::BitArray) = SubDatabase(db, findall(lst))
 
 #
 # Generic functions
@@ -134,7 +135,7 @@ Base.convert(::Type{AbstractDatabase}, M::AbstractMatrix) = MatrixDatabase(M)
 Base.convert(::Type{AbstractDatabase}, M::Vector) = VectorDatabase(M)
 Base.convert(::Type{AbstractDatabase}, M::Vector{Any}) = VectorDatabase(typeof(first(M)).(M))
 Base.convert(::Type{AbstractDatabase}, M::AbstractVector) = VectorDatabase(typeof(first(M)).(M))
-Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where T = M.data
+Base.convert(::Type{<:AbstractVector}, M::VectorDatabase{T}) where {T} = M.data
 Base.convert(::Type{<:AbstractVector}, M::AbstractDatabase) = collect(M)
 
 """
@@ -148,7 +149,11 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 """
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 MatrixDatabase(V::StrideMatrixDatabase) = MatrixDatabase(V.matrix)
-MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
+function MatrixDatabase(V::AbstractDatabase)
+    @assert length(V) > 0 "copy empty datasets is not allowed"
+    MatrixDatabase(hcat(V...))
+end
+#MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
 StrideMatrixDatabase(V::MatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::StrideMatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::AbstractDatabase) = StrideMatrixDatabase(hcat(V...))

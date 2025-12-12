@@ -14,10 +14,10 @@ struct ExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: 
     db::DataType
 end
 
-distance(seq::ExhaustiveSearch) = seq.dist
-database(seq::ExhaustiveSearch) = seq.db
-database(seq::ExhaustiveSearch, i::Integer) = seq.db[i]
-Base.length(seq::ExhaustiveSearch) = length(seq.db)
+@inline distance(seq::ExhaustiveSearch) = seq.dist
+@inline database(seq::ExhaustiveSearch) = seq.db
+@inline database(seq::ExhaustiveSearch, i::Integer) = seq.db[i]
+@inline Base.length(seq::ExhaustiveSearch) = length(seq.db)
 
 #ExhaustiveSearch(dist::SemiMetric, db::AbstractVector) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
 #ExhaustiveSearch(dist::SemiMetric, db::Matrix) = ExhaustiveSearch(dist, convert(AbstractDatabase, db))
@@ -49,7 +49,7 @@ function index!(seq::ExhaustiveSearch, ::AbstractContext)
     n = length(seq)
     LOG(ctx.logger, :index!, seq, ctx, n, n)
     seq
-end 
+end
 
 """
     search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res)
@@ -61,7 +61,7 @@ Solves the query evaluating all items in the given query.
     db = database(seq)
     n = length(db)
     i = 0
-    while (i+=1) <= n
+    while (i += 1) <= n
         d = evaluate(dist, db[i], q)
         push_item!(res, i, d)
     end

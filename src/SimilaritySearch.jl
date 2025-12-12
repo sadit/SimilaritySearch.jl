@@ -34,32 +34,28 @@ include("pqueue/pqueue.jl")
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
 
 """
-    getminbatch(minbatch::Int, n::Int=0)
-    getminbatch(ctx::GenericContext, n::Int=0)
+    getminbatch(ctx::GenericContext, n::Int)
+    getminbatch(n::Int, nt::Int, expnt::Int)
 
-Used by functions that use parallelism based on `Polyester.jl` minibatches specify how many queries (or something else) are solved per thread whenever
-the thread is used (in minibatches). 
+Used by functions that use parallelism on ``n / (nt * expnt)`` blocks; each block is processed by a single thread
 
 # Arguments
-- `minbatch`
-  - Integers ``1 ≤ minbatch ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
-  - Defaults to 0 which computes a default number based on the number of available cores and `n`.
-  - Set `minbatch=-1` to avoid parallelism.
+- `ctx`: The search context
+- `n`: the number of elements to process
+- `nt`: number of threads to use
+- `expnt`: expansion factor for nt (larger numbers decrease the batch size thus increasing the number of batches/blocks to process)
+
+Notes on `expnt`
+  - Integers ``1 ≤ expnt ≤ n`` are valid values (where n is the number of objects to process, i.e., queries)
+  - `expnt == 0` uses a small default value of `8`
+  - `expnt < 0` makes `getminbatch` returns `n` (defines a large block, i.e., single thread)
 
 """
-function getminbatch(minbatch::Int, n::Int=0)
-    minbatch < 0 && return n
-    nt = Threads.nthreads()
-    if minbatch == 0
-        # it seems to work for several workloads
-        n <= 2nt && return 1
-        n <= 4nt && return 2
-        #n <= 8nt && return 4
-        return 4
-        # n <= 2nt ? 2 : min(4, ceil(Int, n / nt))
-    else
-        return ceil(Int, minbatch)
-    end
+function getminbatch(n::Int, nt::Int, expnt::Int)
+    expnt < 0 && return n # defines a single thread for the loop
+    n == 0 && return 4 # n==0 is a non sense, but return some valid value to avoid errors in range specifications
+    expnt = expnt == 0 ? 4 : expnt # just a nice good value
+    return ceil(Int, n / (expnt * nt))
 end
 
 
@@ -87,18 +83,21 @@ Gets the distance function used in the index
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
 struct GenericContext{KnnType} <: AbstractContext
-    minbatch::Int
+    expnt::Int
     verbose::Bool
     logger
 end
 
-GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; minbatch::Integer=0, verbose::Bool=true, logger=InformativeLog()) =
-    GenericContext{KnnType}(minbatch, verbose, logger)
+GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; expnt::Integer=0, verbose::Bool=true, logger=InformativeLog()) =
+    GenericContext{KnnType}(expnt, verbose, logger)
+
+function getminbatch(ctx::GenericContext, n::Int)
+    getminbatch(n, Threads.nthreads(), ctx.expnt)
+end
 
 getcontext(s::AbstractSearchIndex) = error("Not implemented method for $s")
 knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 verbose(ctx::GenericContext) = ctx.verbose
-getminbatch(ctx::AbstractContext, n::Int=0) = getminbatch(ctx.minbatch, n)
 
 include("perf.jl")
 include("sequential-exhaustive.jl")
@@ -106,7 +105,7 @@ include("parallel-exhaustive.jl")
 
 
 function Base.show(io::IO, idx::AbstractSearchIndex; prefix="", indent="  ")
-    println(io, prefix, typeof(idx),":")
+    println(io, prefix, typeof(idx), ":")
     prefix = prefix * indent
     println(io, prefix, "dist: ", typeof(idx.dist))
     println(io, prefix, "length: ", length(idx))
@@ -161,29 +160,35 @@ Searches a batch of queries in the given index and use `knns` as output (searche
 - `sorted`: indicates whether the output should be sorted or not.
 """
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted::Bool=false)
-    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-    length(Q) == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(ctx, length(Q))
+    m = length(Q)
+    m > 0 || throw(ArgumentError("empty set of queries"))
+    m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    minbatch = getminbatch(ctx, m)
 
-    @batch minbatch = minbatch per = thread for i in eachindex(Q)
-        #Threads.@threads :static for i in eachindex(Q)
-        res = knnqueue(ctx, view(knns, :, i))
-        search(index, ctx, Q[i], res)
-        # @assert length(res) == size(knns, 1)
-        sorted && sortitems!(res)
+    # @show m, minbatch
+
+    Threads.@threads :static for j in 1:minbatch:m
+        @inbounds for i in j:min(m, j + minbatch - 1)
+            res = knnqueue(ctx, view(knns, :, i))
+            search(index, ctx, Q[i], res)
+            sorted && sortitems!(res)
+        end
     end
 
     knns
 end
 
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
-    length(Q) > 0 || throw(ArgumentError("empty set of queries"))
-    length(Q) == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(ctx, length(Q))
+    m = length(Q)
+    m > 0 || throw(ArgumentError("empty set of queries"))
+    m == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    minbatch = getminbatch(ctx, m)
 
-    @batch minbatch = minbatch per = thread for i in eachindex(Q)
-        # Threads.@threads :static for i in eachindex(Q)
-        search(index, ctx, Q[i], knns[i])
+    # @batch minbatch = minbatch per = thread for i in eachindex(Q)
+    Threads.@threads :static for j in 1:minbatch:m
+        @inbounds for i in j:min(m, j + minbatch - 1)
+            search(index, ctx, Q[i], knns[i])
+        end
     end
 
     knns

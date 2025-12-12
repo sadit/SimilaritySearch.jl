@@ -61,13 +61,13 @@ struct NormalizedAngle_asf32 <: SemiMetric end
 
 const π_2 = Float32(π / 2)
 
-fastacos(d::AbstractFloat) = fastacos(convert(Float32, d))
-function fastacos(d::Float32)::Float32
-    if d <= -1f0
+@inline fastacos(d::AbstractFloat) = fastacos(convert(Float32, d))
+@inline function fastacos(d::Float32)::Float32
+    if d <= -1.0f0
         π
-    elseif d >= 1f0
-        0f0
-    elseif d == 0f0  # turn around for zero vectors, in particular for denominator=0
+    elseif d >= 1.0f0
+        0.0f0
+    elseif d == 0.0f0  # turn around for zero vectors, in particular for denominator=0
         π_2
     else
         acos(d)
@@ -81,19 +81,19 @@ Computes the cosine distance between two vectors, it expects normalized vectors.
 Please use NormalizedAngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-evaluate(::NormalizedCosineDistance, a::T, b) where T = one(eltype(T)) - dot(a, b)
+@inline evaluate(::NormalizedCosineDistance, a::T, b) where {T} = one(eltype(T)) - dot(a, b)
 
-function evaluate(::NormalizedCosineDistance, a::AbstractVector{Float32}, b::AbstractVector{Float32})
-    d = 0f0
+@inline function evaluate(::NormalizedCosineDistance, a::AbstractVector{Float32}, b::AbstractVector{Float32})
+    d = 0.0f0
     @fastmath @inbounds @simd for i in eachindex(a, b)
         d = muladd(a[i], b[i], d)
     end
 
-    1f0 - d
+    1.0f0 - d
 end
 
-function dot_asf32(a, b)
-    d = 0f0
+@inline function dot_asf32(a, b)
+    d = 0.0f0
     @fastmath @inbounds @simd for i in eachindex(a, b)
         d = muladd(Float32(a[i]), Float32(b[i]), d)
     end
@@ -101,8 +101,8 @@ function dot_asf32(a, b)
     d
 end
 
-function norm_asf32(a)
-    d = 0f0
+@inline function norm_asf32(a)
+    d = 0.0f0
     @fastmath @inbounds @simd for i in eachindex(a)
         d = muladd(Float32(a[i]), Float32(a[i]), d)
     end
@@ -110,7 +110,7 @@ function norm_asf32(a)
     sqrt(d)
 end
 
-evaluate(::NormalizedCosine_asf32, a, b) = 1f0 - dot_asf32(a, b)
+@inline evaluate(::NormalizedCosine_asf32, a, b) = 1.0f0 - dot_asf32(a, b)
 
 """
     evaluate(::AngleDistance, a, b)
@@ -118,8 +118,8 @@ evaluate(::NormalizedCosine_asf32, a, b) = 1f0 - dot_asf32(a, b)
 Computes the angle  between twovectors. It supposes that all vectors are normalized
 
 """
-evaluate(::NormalizedAngleDistance, a, b) = fastacos(dot(a, b))
-evaluate(::NormalizedAngle_asf32, a, b) = fastacos(dot_asf32(a, b))
+@inline evaluate(::NormalizedAngleDistance, a, b) = fastacos(dot(a, b))
+@inline evaluate(::NormalizedAngle_asf32, a, b) = fastacos(dot_asf32(a, b))
 
 """
     evaluate(::CosineDistance, a, b)
@@ -128,8 +128,8 @@ Computes the cosine distance between two vectors.
 Please use AngleDistance if you are expecting a metric function (cosine_distance is a faster
 alternative whenever the triangle inequality is not needed)
 """
-evaluate(::CosineDistance, a, b) = one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
-evaluate(::Cosine_asf32, a, b) = 1f0 - dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b))
+@inline evaluate(::CosineDistance, a, b) = one(eltype(a)) - dot(a, b) / (norm(a) * norm(b))
+@inline evaluate(::Cosine_asf32, a, b) = 1.0f0 - dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b))
 
 """
     evaluate(::AngleDistance, a, b)
@@ -137,5 +137,5 @@ evaluate(::Cosine_asf32, a, b) = 1f0 - dot_asf32(a, b) / (norm_asf32(a) * norm_a
 Computes the angle  between twovectors.
 
 """
-evaluate(::AngleDistance, a, b) = fastacos(dot(a, b) / (norm(a) * norm(b)))
-evaluate(::Angle_asf32, a, b) = fastacos(dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b)))
+@inline evaluate(::AngleDistance, a, b) = fastacos(dot(a, b) / (norm(a) * norm(b)))
+@inline evaluate(::Angle_asf32, a, b) = fastacos(dot_asf32(a, b) / (norm_asf32(a) * norm_asf32(b)))

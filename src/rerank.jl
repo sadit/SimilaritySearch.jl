@@ -21,9 +21,13 @@ function rerank!(dist::SemiMetric, db::AbstractDatabase, q, res::AbstractVector{
 end
 
 function rerank!(dist::SemiMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdWeight})
-    @batch minbatch = 4 per = thread for qID in eachindex(queries)
-        res = view(knns, :, qID)
-        rerank!(dist, db, queries[qID], res)
+    m = length(queries)
+    minbatch = getminbatch(m, Threads.nthreads(), 0)
+    Threads.@threads :static for j in 1:minbatch:m
+        for i in j:min(m, j + minbatch - 1)
+            res = view(knns, :, i)
+            rerank!(dist, db, queries[i], res)
+        end
     end
 
     knns

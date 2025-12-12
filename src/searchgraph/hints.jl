@@ -5,7 +5,7 @@
 
 Approximate the result using a set of hints (the set of identifiers (integers)) behints  `hints`
 """
-function approx_by_hints!(index::SearchGraph, q, hints::T, res, vstate) where T<:Union{AbstractVector,Tuple,Integer,Set}
+function approx_by_hints!(index::SearchGraph, q, hints::T, res, vstate) where {T<:Union{AbstractVector,Tuple,Integer,Set}}
     for objID in hints
         enqueue_item!(index, q, database(index, objID), res, objID, vstate)
     end
@@ -16,13 +16,14 @@ end
 struct AdjacentStoredHints{DB<:AbstractDatabase}
     hints::DB
     map::Vector{Int32}
-
 end
 
-function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where DBType<:AbstractDatabase
+Base.length(A::AdjacentStoredHints) = length(A.hints)
+
+function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where {DBType<:AbstractDatabase}
     h = Vector{Int32}(index.hints)
     s = SubDatabase(database(index), h)
-    @reset index.hints = AdjacentStoredHints(DBType(s), h)
+    @set index.hints = AdjacentStoredHints(DBType(s), h)
 end
 
 function approx_by_hints!(index::SearchGraph, q, h::AdjacentStoredHints, res, vstate)
@@ -76,7 +77,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Disj
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
     meansize = mean(length(neighbors(index.adj, i)) for i in 1:n)
-    res = KnnResult(m)
+    res = knnqueue(ctx, m)
     for i in 1:n
         push_item!(res, i, abs(length(neighbors(index.adj, i)) - meansize))
     end
@@ -112,7 +113,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KDis
     m = ceil(Int, log(opt.logbase, length(index)))
     sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
     m = min(length(sample), m)
-    sort!(sample, by=i->length(neighbors(index.adj, i)), rev=true)
+    sort!(sample, by=i -> length(neighbors(index.adj, i)), rev=true)
     IType = eltype(index.hints)
     visited = Set{IType}()
     empty!(index.hints)
@@ -152,12 +153,12 @@ mutable struct EpsilonHints <: Callback
     maxsize::Function
 end
 
-EpsilonHints(; quantile=0.01, epsilon=0f0, minepsilon=1e-5, samplesize=sqrt, maxsize=x->log(1.1, x)) =
+EpsilonHints(; quantile=0.01, epsilon=0.0f0, minepsilon=1e-5, samplesize=sqrt, maxsize=x -> log(1.1, x)) =
     EpsilonHints(convert(Float32, epsilon),
-                 convert(Float32, minepsilon), 
-                 convert(Float32, quantile),
-                 samplesize,
-                 maxsize)
+        convert(Float32, minepsilon),
+        convert(Float32, quantile),
+        samplesize,
+        maxsize)
 
 function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
     n = length(index)
@@ -180,7 +181,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Epsi
         shuffle!(v)
         resize!(v, max_)
     end
-    
+
     resize!(index.hints, length(v))
     index.hints .= v
 end
@@ -217,7 +218,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCen
         count[M[nn]] += 1
     end
     x = quantile(count, opt.qdiscard)
-    C = A.centers[count .>= x]
+    C = A.centers[count.>=x]
 
     verbose(ctx) && @info "KCentersHints: n=$n, m=$m, k=$k, numcenters=$(length(A.centers)), C=$(length(C))"
     resize!(index.hints, length(C))

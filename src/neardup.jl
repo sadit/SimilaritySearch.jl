@@ -3,7 +3,7 @@
 export neardup
 
 """
-    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), minbatch=0, filterblocks=true, verbose=true)
+    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), filterblocks=true, verbose=true)
     neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
@@ -25,7 +25,6 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 # Keyword arguments
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
 - `blocksize`: the number of items processed at the time
-- `minbatch`: argument to control `@batch` macro (see `Polyester` package multithreading)
 - `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), otherwise, it supposes that blocks are free of neardups (e.g., randomized order).
 - `verbose`: controls the verbosity of the function
 
@@ -60,12 +59,12 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
     (; R..., centers)
 end
 
-function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; 
-        k::Int=8, blocksize::Int=256, filterblocks=true, verbose::Bool=true)
+function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
+    k::Int=8, blocksize::Int=256, filterblocks=true, verbose::Bool=true)
 
     ϵ = convert(Float32, ϵ)
     n = length(X)
-    blocksize = min(blocksize, n) 
+    blocksize = min(blocksize, n)
     knns = Matrix{IdWeight}(undef, k, blocksize)
 
     L = zeros(Int32, n)
@@ -109,7 +108,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             if length(imap) > 0
                 neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; filterblocks)
             end
-        end 
+        end
     end
     if verbose
         @info "neardup> finished current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
@@ -140,7 +139,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         for i in imap
             push!(M, i)
             L[i] = i
-            D[i] = 0f0
+            D[i] = 0.0f0
         end
 
         return
@@ -152,7 +151,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     push!(tmp, i)
     push!(M, i)
     L[i] = i
-    D[i] = 0f0
+    D[i] = 0.0f0
 
     dist = distance(idx)
     res = knnqueue(ctx, 1)
@@ -164,23 +163,25 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         u = X[i]
         minbatch = getminbatch(ctx, length(tmp))
 
-        @batch minbatch=minbatch per=thread for jj in eachindex(tmp)
-            j = tmp[jj]
-            d = evaluate(dist, u, X[j])
-            try
-                lock(push_lock)
-                push_item!(res, j, d)
-            finally
-                unlock(push_lock)
+        Threads.@threads :static for j in firstindex(tmp):minbatch:lastindex(tmp)
+            for jj in j:min(lastindex(tmp), j + minbatch - 1)
+                j = tmp[jj]
+                d = evaluate(dist, u, X[j])
+                try
+                    lock(push_lock)
+                    push_item!(res, j, d)
+                finally
+                    unlock(push_lock)
+                end
             end
         end
 
-        let nn = nearest(res) 
+        let nn = nearest(res)
             if nn.weight > ϵ
                 push!(tmp, i)
                 push!(M, i)
                 L[i] = i
-                D[i] = 0f0
+                D[i] = 0.0f0
             else
                 L[i] = nn.id
                 D[i] = nn.weight

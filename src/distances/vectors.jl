@@ -25,11 +25,11 @@ struct L1Distance <: SemiMetric end
 
 Computes the Manhattan's distance between `a` and `b`
 """
-function evaluate(::L1Distance, a, b)
+@inline function evaluate(::L1Distance, a, b)
     d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i in eachindex(a, b)
-	    m = a[i] - b[i]
+        m = a[i] - b[i]
         d += ifelse(m > 0, m, -m)
     end
 
@@ -42,7 +42,7 @@ end
 """
 struct L1_asf32 <: SemiMetric end
 
-function evaluate(::L1_asf32, a, b)
+@inline function evaluate(::L1_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a, b)
@@ -75,7 +75,7 @@ struct L2Distance <: SemiMetric end
     
 Computes the Euclidean's distance betweem `a` and `b`
 """
-function evaluate(::L2Distance, a, b)
+@inline function evaluate(::L2Distance, a, b)
     d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -91,7 +91,7 @@ end
 """
 struct L2_asf32 <: SemiMetric end
 
-function evaluate(::L2_asf32, a, b)
+@inline function evaluate(::L2_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -125,7 +125,7 @@ struct SqL2Distance <: SemiMetric end
 
 Computes the squared Euclidean's distance between `a` and `b`
 """
-function evaluate(::SqL2Distance, a, b)
+@inline function evaluate(::SqL2Distance, a, b)
     d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -142,7 +142,7 @@ end
 """
 struct SqL2_asf32 <: SemiMetric end
 
-function evaluate(::SqL2_asf32, a, b)
+@inline function evaluate(::SqL2_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -175,7 +175,7 @@ struct LInftyDistance <: SemiMetric end
 
 Computes the maximum distance or Chebyshev's distance
 """
-function evaluate(::LInftyDistance, a, b)
+@inline function evaluate(::LInftyDistance, a, b)
     d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -192,7 +192,7 @@ end
 """
 struct LInfty_asf32 <: SemiMetric end
 
-function evaluate(::LInfty_asf32, a, b)
+@inline function evaluate(::LInfty_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a)
@@ -226,7 +226,7 @@ struct LpDistance <: SemiMetric
     pinv::Float32
 end
 
-LpDistance(p) = LpDistance(p, 1f0/p)
+@inline LpDistance(p) = LpDistance(p, 1.0f0 / p)
 
 
 """
@@ -234,15 +234,15 @@ LpDistance(p) = LpDistance(p, 1f0/p)
 
 Computes generic Minkowski's distance
 """
-function evaluate(lp::LpDistance, a, b)
+@inline function evaluate(lp::LpDistance, a, b)
     d = zero(eltype(a))
 
     @fastmath @inbounds @simd for i in eachindex(a)
         m = abs(a[i] - b[i])
-        d += m ^ lp.p
+        d += m^lp.p
     end
 
-    d ^ lp.pinv
+    d^lp.pinv
 end
 
 """
@@ -255,17 +255,17 @@ struct Lp_asf32 <: SemiMetric
     pinv::Float32
 end
 
-Lp_asf32(p) = Lp_asf32(p, 1f0/p)
+@inline Lp_asf32(p) = Lp_asf32(p, 1.0f0 / p)
 
-function evaluate(lp::Lp_asf32, a, b)
+@inline function evaluate(lp::Lp_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a)
         m = abs(Float32(a[i]) - Float32(b[i]))
-        d += m ^ lp.p
+        d += m^lp.p
     end
 
-    d ^ lp.pinv
+    d^lp.pinv
 end
 
 """
@@ -277,12 +277,12 @@ struct IncompleteLp_asf32 <: SemiMetric
 end
 
 
-function evaluate(lp::IncompleteLp_asf32, a, b)
+@inline function evaluate(lp::IncompleteLp_asf32, a, b)
     d = zero(Float32)
 
     @fastmath @inbounds @simd for i in eachindex(a)
         m = abs(Float32(a[i]) - Float32(b[i]))
-        d += m ^ lp.p
+        d += m^lp.p
     end
 
     d

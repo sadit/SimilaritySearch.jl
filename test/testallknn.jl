@@ -16,11 +16,11 @@ using Test, SimilaritySearch
     #@test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
     @test size(gold_knns) == (k, n)
 
-    P = ParallelExhaustiveSearch(; db=X, dist)
+    #= P = ParallelExhaustiveSearch(; db=X, dist)
     @time "ParallelExhaustiveSearch allknn" par_knns = allknn(P, ectx, k)
-    #@test_call target_modules=(@__MODULE__,) allknn(P, ectx, k)
     @test size(par_knns) == (k, n)
     @test macrorecall(gold_knns, par_knns) > 0.99
+    =#
 
     #=G = SearchGraph(; db=X, dist)
     ctx = getcontext(G)

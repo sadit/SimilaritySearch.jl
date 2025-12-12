@@ -24,18 +24,17 @@ function benchmark(res, n)
     res
 end
 
-function main(pqueue_, k)
-    n = 1000
-    res = pqueue_(k)
-
-    # @timev "warming k=$k pqueue=$pqueue_ n=$n" benchmark(res, n)
-
-    n = 30_000_000
-    res = pqueue_(k)
-    @timev "!!!!!!! k=$k pqueue=$pqueue_ n=$n" benchmark(res, n)
+function main(pqtype, n, k)
+    res = knnqueue(pqtype, k)
+    @time benchmark(res, n)
 end
 
-for k in [10, 100, 1000]
-    main(knn, k)
-    main(xknn, k)
+for pqtype in [KnnSorted, KnnHeap]
+    @info "================= type=$pqtype ================="
+    for n in [100, 10^6]
+        for k in [10, 100, 1000, 10000]
+            @info "=== type=$pqtype n=$n k=$k ==="
+            main(pqtype, n, k)
+        end
+    end
 end

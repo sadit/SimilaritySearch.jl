@@ -33,7 +33,7 @@ struct GenericLevenshteinDistance <: SemiMetric
 end
 
 GenericLevenshteinDistance(; icost=1, dcost=1, rcost=1) =
-    GenericLevenshteinDistance(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.nthreads()])
+    GenericLevenshteinDistance(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.maxthreadid()])
 
 """
     LevenshteinDistance()
@@ -60,7 +60,7 @@ function common_prefix(a, b)
     i = 1
     min_len = min(len_a, len_b)
     @inbounds while i <= min_len && a[i] == b[i]
-    	i += 1
+        i += 1
     end
 
     i - 1
@@ -92,7 +92,7 @@ function evaluate(lev::GenericLevenshteinDistance, a, b)
     blen == 0 && return alen
 
     C = lev.Cpool[Threads.threadid()]
-    resize!(C, blen+1)
+    resize!(C, blen + 1)
     @inbounds for i in 0:blen
         C[i+1] = i
     end
@@ -107,7 +107,7 @@ function evaluate(lev::GenericLevenshteinDistance, a, b)
             cost = a[i] == b[j] ? 0 : lev.rcost
             C[j] = prevA
             j += 1
-            prevA = min(C[j]+lev.dcost, prevA+lev.icost, prevC+cost)
+            prevA = min(C[j] + lev.dcost, prevA + lev.icost, prevC + cost)
             prevC = C[j]
         end
 

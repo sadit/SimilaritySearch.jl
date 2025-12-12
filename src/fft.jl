@@ -24,22 +24,25 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
     sizehint!(dmaxlist, k)
     nndists = Vector{Float32}(undef, N)
     fill!(nndists, typemax(Float32))
-    nn = zeros(UInt32, N) 
+    nn = zeros(UInt32, N)
     imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)
-    
+    minbatch = getminbatch(N, Threads.nthreads(), 0)
+
     @inbounds for i in 1:k
         push!(dmaxlist, dmax)
         push!(centers, imax)
         verbose && println(stderr, "computing farthest point $(length(centers)), dmax: $dmax, imax: $imax, n: $(length(X))")
 
         pivot = X[imax]
-        @batch minbatch=getminbatch(0, N) for i in 1:N
-            d = evaluate(dist, X[i], pivot)
-            if d < nndists[i]
-                nndists[i] = d
-                nn[i] = imax
+        Threads.@threads :static for j in 1:minbatch:N
+            for i in j:min(N, j + minbatch - 1)
+                d = evaluate(dist, X[i], pivot)
+                if d < nndists[i]
+                    nndists[i] = d
+                    nn[i] = imax
+                end
             end
         end
 

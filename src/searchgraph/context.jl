@@ -4,7 +4,7 @@ export SearchGraphContext
 """
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         logger=LogList(AbstractLog[InformativeLog(1.0)]),
-        minbatch = 0,
+        expnt=0,
         verbose=false,
         neighborhood=Neighborhood(SatNeighborhood(; nndist=3f-3)),
         hints_callback=KCentersHints(; logbase=1.2),
@@ -28,7 +28,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 - `parallel_first_block`: the size of the first block that is processed in parallel
 - `knns`: Knn queues cache for insertions
 - `vstates`: visited vertices cache 
-- `minbatch`: Minimum number of queries solved per each thread, see [`getminbatch`](@ref)
+- `expnt`: Increases the number of batches to be processed by this number (the base is the number of threads)
 - `verbose`: controls the number of output messages
 
 #Notes
@@ -46,7 +46,7 @@ can call other metric indexes that can use these shared resources (globally defi
 """
 struct SearchGraphContext{KnnType} <: AbstractContext
     logger::AbstractLog
-    minbatch::Int
+    expnt::Int
     verbose::Bool
     neighborhood::Neighborhood
     hints_callback::Union{Nothing,Callback}
@@ -61,7 +61,7 @@ end
 
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
     logger=LogList(AbstractLog[InformativeLog(1.0)]),
-    minbatch=0,
+    expnt=0,
     verbose=false,
     neighborhood=Neighborhood(SatNeighborhood(; nndist=0.003f0)),
     hints_callback=KCentersHints(; logbase=1.2),
@@ -74,7 +74,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
     vstates=[Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
 )
 
-    SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
+    SearchGraphContext{KnnType}(logger, expnt, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
@@ -85,7 +85,7 @@ end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType};
     logger=ctx.logger,
-    minbatch=ctx.minbatch,
+    expnt=ctx.expnt,
     verbose=ctx.verbose,
     neighborhood=ctx.neighborhood,
     hints_callback=ctx.hints_callback,
@@ -98,14 +98,14 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType};
     vstates=ctx.vstates
 ) where {KnnType}
 
-    SearchGraphContext{KnnType}(logger, minbatch, verbose, neighborhood,
+    SearchGraphContext{KnnType}(logger, expnt, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block, parallel_first_block,
         knns, vstates)
 end
 
-getminbatch(ctx::SearchGraphContext, n::Int=0) = getminbatch(ctx.minbatch, n)
+getminbatch(ctx::SearchGraphContext, n::Int) = getminbatch(n, Threads.nthreads(), ctx.expnt)
 verbose(ctx::SearchGraphContext) = ctx.verbose
 knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 

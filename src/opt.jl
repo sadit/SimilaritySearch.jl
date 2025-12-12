@@ -31,9 +31,12 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         empty!(cov)
 
         searchtime = @elapsed begin
-            @batch minbatch = getminbatch(ctx, m) per = thread for i in 1:m
-                knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
-                cost[i] = r.costevals
+            minbatch = getminbatch(ctx, m)
+            Threads.@threads :static for j in 1:minbatch:m
+                for i in j:min(m, j + minbatch - 1)
+                    knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
+                    cost[i] = r.costevals
+                end
             end
         end
 

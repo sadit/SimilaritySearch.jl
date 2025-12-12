@@ -9,7 +9,7 @@ using Test, SimilaritySearch, LinearAlgebra
     G = SearchGraph(; db, dist)
     ctx = SearchGraphContext()
     tG = @elapsed index!(G, ctx)
-    tG += @elapsed i, j, d = closestpair(G, ctx; minbatch=-1)
+    tG += @elapsed i, j, d = closestpair(G, ctx)
     @test i != j
     @test d < mindist
     @show i, j, d

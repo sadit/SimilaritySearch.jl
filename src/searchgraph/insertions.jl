@@ -17,10 +17,10 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 
 """
 function append_items!(
-        index::SearchGraph,
-        ctx::SearchGraphContext,
-        db::AbstractDatabase;
-    )
+    index::SearchGraph,
+    ctx::SearchGraphContext,
+    db::AbstractDatabase;
+)
     db = convert(AbstractDatabase, db)
     append_items!(index.db, db)
 
@@ -93,11 +93,14 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
     resize!(adj, n)
     while sp <= n
         ep = min(n, sp + ctx.parallel_block)
+        minbatch = getminbatch(ctx, ep - sp + 1)
 
         # searching neighbors 
-	    @batch minbatch=getminbatch(ctx, ep-sp+1) per=thread for i in sp:ep
-            neighborhood = find_neighborhood(index, ctx, database(index, i))
-            @inbounds adj.end_point[i] = collect(IdView(neighborhood))
+        Threads.@threads :static for j in sp:minbatch:ep
+            for i in j:min(ep, j + minbatch - 1)
+                neighborhood = find_neighborhood(index, ctx, database(index, i))
+                @inbounds adj.end_point[i] = collect(IdView(neighborhood))
+            end
         end
 
         LOG(ctx.logger, :add_vertex!, index, ctx, sp, ep)
@@ -130,11 +133,11 @@ Arguments:
 
 """
 @inline function push_item!(
-        index::SearchGraph,
-        ctx::SearchGraphContext,
-        item;
-        push_db=true,
-    )
+    index::SearchGraph,
+    ctx::SearchGraphContext,
+    item;
+    push_db=true,
+)
 
     push_item!(index, ctx, item, push_db)
 end
@@ -169,10 +172,10 @@ Arguments:
     add_vertex!(index.adj, neighbors)
     n = index.len[] = length(index.adj)
     LOG(ctx.logger, :add_vertex!, index, ctx, n, n)
-    if n > 1 
+    if n > 1
         connect_reverse_links(ctx.neighborhood, index.adj, n, neighbors)
         execute_callbacks(index, ctx)
     end
-    
+
     index
 end

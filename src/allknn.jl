@@ -4,19 +4,19 @@ export allknn
 using ProgressMeter
 
 """
-    allknn(g::AbstractSearchIndex, ctx, k::Integer; minbatch=0, pools=getpools(g)) -> knns
-    allknn(g, ctx, knns; minbatch=0, pools=getpools(g)) -> knns
+    allknn(index, ctx, k::Integer; minbatch=0, sort=true, show_progress=true) -> knns
 
-Computes all the k nearest neighbors (all vs all) using the index `g`. It removes self references.
+Computes all the k nearest neighbors (all vs all) using the given index. User must remove self references
 
 # Parameters:
-- `g`: the index
+- `index`: the index
 - `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
 - Query specification and result:
    - `k`: the number of neighbors to retrieve
    - `knns`: an uninitialized IdWeight matrix of (k, n) size for storing the `k` nearest neighbors and sitances of the `n` elements
 
-- `ctx`: caches, hyperparameters and meta specifications, e.g., see [`SearchGraphContext`](@ref)
+- `sort`: ensures that result set is presented in ascending order by distance
+- `show_progress`: enables or disables progress bar
 
 # Returns:
 
@@ -24,29 +24,49 @@ Computes all the k nearest neighbors (all vs all) using the index `g`. It remove
     Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
  
 """
-function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort=true)
+function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
+    sort::Bool=true,
+    progress=Progress(length(g); desc="allknn", dt=4),
+    minbatch::Int=0,
+)
     n = length(g)
     knns = zeros(IdWeight, k, n)
-    allknn(g, ctx, knns; sort)
+    allknn(g, ctx, knns; sort, progress)
 end
 
-function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true)
+
+function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix;
+    sort::Bool=true,
+    progress=nothing,
+    minbatch::Int=0
+)
     m = length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
     k, n = size(knns)
-    @assert n > 0 && n == m
+    @assert n > 0 "invalid assertion n > 0"
+    @assert n == m "invalid assertion n == m"
     @assert 0 < k <= n
     minbatch = getminbatch(ctx, n)
-
-    #@batch minbatch=minbatch per=thread for i in 1:n
-    P = Iterators.partition(1:n, minbatch) |> collect
-    @showprogress desc="allknn" dt=4 Threads.@threads :static for R in P
-        for i in R
+    #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
+    let progress = progress
+        Threads.@threads :static for j in 1:minbatch:n
+            for i in j:min(n, j + minbatch - 1)
+                res = knnqueue(ctx, @view knns[:, i])
+                allknn_single_search!(g, ctx, i, res)
+                sort && sortitems!(res)
+                progress !== nothing && next!(progress)
+            end
+        end
+    end
+    #=
+        progress = Progress(n, desc="allknn", dt=4)
+        @batch per = thread minbatch = minbatch for i in 1:n
             res = knnqueue(ctx, @view knns[:, i])
             res = allknn_single_search!(g, ctx, i, res)
             sort && sortitems!(res)
+            next!(progress)
         end
-    end
-    
+    end=#
+
     knns
 end
 
@@ -55,7 +75,7 @@ function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integ
     q = database(g, i)
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
-    
+
     for h in neighbors(g.adj, i) # hints
         visited(vstate, convert(UInt64, h)) && continue
         search(g.algo[], g, ctx, q, res, h; vstate)

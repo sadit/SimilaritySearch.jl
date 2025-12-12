@@ -47,8 +47,11 @@ end
 Internal function to connect reverse links after an insertion batch
 """
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
-    @batch minbatch=getminbatch(0, ep-sp+1) per=thread for i in sp:ep
-        connect_reverse_links(neighborhood, adj, i, neighbors(adj, i))
+    minbatch = getminbatch(ep - sp + 1, Threads.nthreads(), 0)
+    Threads.@threads :static for j in sp:minbatch:ep
+        for i in j:min(ep, j + minbatch - 1)
+            connect_reverse_links(neighborhood, adj, i, neighbors(adj, i))
+        end
     end
 end
 
@@ -62,7 +65,7 @@ struct SatNeighborhood <: NeighborhoodFilter
     nndist::Float32
 end
 
-SatNeighborhood(; nndist::AbstractFloat=1f-4) = SatNeighborhood(convert(Float32, nndist)) 
+SatNeighborhood(; nndist::AbstractFloat=1.0f-4) = SatNeighborhood(convert(Float32, nndist))
 
 """
     DistalSatNeighborhood()
@@ -74,7 +77,7 @@ struct DistalSatNeighborhood <: NeighborhoodFilter
     nndist::Float32
 end
 
-DistalSatNeighborhood(; nndist::AbstractFloat=1f-4) = DistalSatNeighborhood(convert(Float32, nndist)) 
+DistalSatNeighborhood(; nndist::AbstractFloat=1.0f-4) = DistalSatNeighborhood(convert(Float32, nndist))
 
 """
     struct IdentityNeighborhood
@@ -198,7 +201,7 @@ Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
 """
 function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
     dist = distance(index)
-    
+
     @batch minbatch=getminbatch(0, length(index)) per=thread for i in eachindex(index.adj)
         L = neighbors(index.adj, i)
         if length(L) > r.k
@@ -207,7 +210,7 @@ function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
             for objID in L
                 push_item!(res, objID, evaluate(dist, c, database(index, objID)))
             end
-           
+
             empty!(L)
             neighborhoodfilter(r.kind, index, context, c, res, L)
         end

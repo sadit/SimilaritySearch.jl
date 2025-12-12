@@ -13,27 +13,29 @@ end
 Sorts the last push in place. It implements insertion sort that it is efficient due to the expected
 distribution of the items being inserted (it is expected to be really near of its sorted position)
 """
-function sort_last_item!(order::Ordering, plist, sp, ep)
-    pos = ep
+@inline function sort_last_item!(order::Ordering, plist, sp, ep)
+    sp == ep && return nothing # only one element, sorted
     @inbounds item = plist[ep]
+    i = ep - 1
+    @inbounds lt(order, plist[i], item) && return nothing # already sorted
 
-    @inbounds while pos > sp && lt(order, item, plist[pos-1])
-        pos -= one(pos)
-    end
-
-    @inbounds if pos < ep
-        while pos < ep
-            plist[ep] = plist[ep-1]
-            ep -= one(ep)
+    @inbounds while i >= sp
+        p = plist[i]
+        if lt(order, item, p)
+            plist[i+1] = p
+        else
+            plist[i+1] = item
+            return nothing
         end
 
-        plist[ep] = item
+        i -= 1
     end
 
+    @inbounds plist[sp] = item
     nothing
 end
 
-function sort_first_item!(order::Ordering, plist, sp, ep)
+#=@inline function sort_first_item!(order::Ordering, plist, sp, ep)
     # pos = sp
     @inbounds item = plist[sp]
 
@@ -51,7 +53,7 @@ function sort_first_item!(order::Ordering, plist, sp, ep)
     end
 
     nothing
-end
+end=#
 
 @inline Base.length(res::KnnSorted) = res.ep - res.sp + 1
 
@@ -62,13 +64,11 @@ The maximum allowed cardinality (the k of knnSorted)
 """
 @inline maxlength(res::KnnSorted) = res.maxlen
 
-@inline nearest(res::KnnSorted) = res.items[res.sp]
-@inline frontier(res::KnnSorted) = res.items[res.ep]
+@inline nearest(res::KnnSorted) = @inbounds res.items[res.sp]
+@inline frontier(res::KnnSorted) = @inbounds res.items[res.ep]
 
 
-function viewitems(res::KnnSorted)
-    view(res.items, res.sp:res.ep)
-end
+@inline viewitems(res::KnnSorted) = view(res.items, res.sp:res.ep)
 
 """
     sortitems!(res::KnnSorted)
@@ -76,9 +76,7 @@ end
 Sort items and returns a view of the active items; this operations destroys the internal structure.
 To recover the required structure just apply `reverse!` on the view.
 """
-function sortitems!(res::KnnSorted)
-    viewitems(res)
-end
+@inline sortitems!(res::KnnSorted) = viewitems(res)
 
 """
     push_item!(res::KnnSorted, p::IdWeight)
@@ -89,14 +87,14 @@ Appends an item into the result set
     len = length(res)
     sp, ep = res.sp, res.ep
 
-    if len < maxlength(res)
+    @inbounds if len < maxlength(res)
         if ep == length(res.items)
             i = zero(sp)
             for j in sp:ep
                 i += one(sp)
                 res.items[i] = res.items[j]
             end
-            
+
             sp = res.sp = one(sp)
             ep = res.ep = i
         end
@@ -114,19 +112,19 @@ Appends an item into the result set
     true
 end
 
-push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
-push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
+@inline push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
+@inline push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
 
 @inline function pop_min!(res::KnnSorted)
     sp = res.sp
-    p = res.items[sp]
+    @inbounds p = res.items[sp]
     res.sp = sp + one(sp)
     p
 end
 
 @inline function pop_max!(res::KnnSorted)
     ep = res.ep
-    p = res.items[ep]
+    @inbounds p = res.items[ep]
     res.ep = ep - one(ep)
     p
 end

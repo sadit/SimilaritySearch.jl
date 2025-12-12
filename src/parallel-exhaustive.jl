@@ -44,18 +44,21 @@ Solves the query evaluating all items in the given query.
 function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
     dist = distance(pex)
     elock = pex.lock
-    minbatch = getminbatch(ctx, length(pex))
-    
-    @batch minbatch=minbatch per=thread for i in eachindex(pex)
-        d = evaluate(dist, database(pex, i), q)
-        try
-            lock(elock)
-            push_item!(res, i, d)
-        finally
-            unlock(elock)
+    n = length(pex)
+    minbatch = getminbatch(ctx, n)
+
+    Threads.@threads :static for j in 1:minbatch:n
+        for i in j:min(n, j + minbatch - 1)
+            d = evaluate(dist, database(pex, i), q)
+            try
+                lock(elock)
+                push_item!(res, i, d)
+            finally
+                unlock(elock)
+            end
         end
     end
-    
+
     res.costevals = length(pex)
     res.costblocks = 0
     res
@@ -63,7 +66,7 @@ end
 
 function push_item!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u)
     push_item!(pex.db, u)
-    LOG(ctx.logger, :push_item!, pex, ctx, length(pex),  length(pex))
+    LOG(ctx.logger, :push_item!, pex, ctx, length(pex), length(pex))
     pex
 end
 
@@ -74,7 +77,7 @@ function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::Ab
     LOG(ctx.logger, :append_items!, pex, ctx, sp, e)
     pex
 end
-    
+
 function index!(pex::ParallelExhaustiveSearch, ::GenericContext)
     # do nothing
     LOG(ctx.logger, :index!, pex, ctx, length(pex), length(pex))
