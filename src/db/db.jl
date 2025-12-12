@@ -43,12 +43,11 @@ function show(io::IO, db::AbstractDatabase; prefix="", indent="  ")
     println(io, prefix, "length: ", length(db))
 end
 
-include("dynamicmatrixdatabase.jl")
 include("matrixdatabase.jl")
 include("vectordatabase.jl")
 include("subdatabase.jl")
 
-export AbstractDatabase, MatrixDatabase, StrideMatrixDatabase, DynamicMatrixDatabase, VectorDatabase, SubDatabase
+export AbstractDatabase, MatrixDatabase, StrideMatrixDatabase, BlockMatrixDatabase, VectorDatabase, SubDatabase
 
 """
     view(db::AbstractDatabase, map)
@@ -149,20 +148,13 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 """
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 MatrixDatabase(V::StrideMatrixDatabase) = MatrixDatabase(V.matrix)
+
 function MatrixDatabase(V::AbstractDatabase)
     @assert length(V) > 0 "copy empty datasets is not allowed"
     MatrixDatabase(hcat(V...))
 end
+
 #MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
 StrideMatrixDatabase(V::MatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::StrideMatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::AbstractDatabase) = StrideMatrixDatabase(hcat(V...))
-
-"""
-    DynamicMatrixDatabase(M::MatrixDatabase)
-
-Creates a `DynamicMatrixDatabase` from a `MatrixDatabase`, copies internal data.
-Please see [`AbstractDatabase`](@ref) for general usage.
-"""
-DynamicMatrixDatabase(M::MatrixDatabase) = DynamicMatrixDatabase{eltype{M.matrix},size(M.matrix, 1)}(copy(vec(M.matrix)))
-DynamicMatrixDatabase(M::StrideMatrixDatabase) = DynamicMatrixDatabase{eltype{M.matrix},size(M.matrix, 1)}(copy(vec(M.matrix)))

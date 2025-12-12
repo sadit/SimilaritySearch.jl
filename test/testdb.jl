@@ -2,15 +2,16 @@
 using Test, SimilaritySearch, SparseArrays, LinearAlgebra
 
 @testset "test database abstractions" begin
-    X = rand(4, 100)
+    X = rand(Float32, 4, 100)
     A = MatrixDatabase(X)
     B = VectorDatabase(X)
-    C = DynamicMatrixDatabase(X)
+    C = BlockMatrixDatabase(X)
     D = B[1:100]
     @test D isa SubDatabase
     @test X === A.matrix
-    @test X !== B.vecs
-    @test X !== C.data
+    @test X == hcat(B.vecs...)
+    @test X[:, 1:100] == C.blocks[1][:, 1:100]
+    @test X == hcat(C...)
     @test length.([A, B, C, D]) == [100, 100, 100, 100]
     @test collect(A) == collect(B) == collect(C) == collect(D)
     for i in rand(1:100, 10)
@@ -27,7 +28,7 @@ using Test, SimilaritySearch, SparseArrays, LinearAlgebra
     A[2] = [1, 2, 3, 4]
     @test A[2] == [1, 2, 3, 4]
     B[1] = [1, 2]
-    @test typeof(B[1]) == Vector{Float64}
+    @test typeof(B[1]) == Vector{Float32}
     @test B[1] == [1, 2]
 
     A = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZαβγδι"
