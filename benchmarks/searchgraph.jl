@@ -1,11 +1,11 @@
 using SimilaritySearch, SimilaritySearch.AdjacencyLists, Statistics, StatsBase
 
-function run(dist, db, queries, gold, ksearch; nndist=0.01f0, logbase=1.3f0)
+function run(dist, db, queries, gold, ksearch; logbase=1.3f0, ksearch=32)
     graph = SearchGraph(; db, dist)
     ctx = SearchGraphContext(
-        neighborhood=Neighborhood(; filter=SatNeighborhood(; nndist), logbase),
+        neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
-        parallel_block=256
+        parallel_block=8192
     )
     @time "INDEXING" index!(graph, ctx)
     @time "INDEX OPT" optimize_index!(graph, ctx, MinRecall(0.9))
@@ -35,7 +35,7 @@ function main(n, m;
     queries = MatrixDatabase(randn(Float32, dim, m))
     seq = ExhaustiveSearch(; dist, db)
     gold = searchbatch(seq, GenericContext(), queries, ksearch)
-    run(dist, db, queries, gold, ksearch)
+    run(dist, db, queries, gold; ksearch)
 end
 
 @info "===================== WARMING ======================"

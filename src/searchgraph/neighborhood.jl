@@ -6,21 +6,28 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood(index::SearchGraph{T}, ctx, item; hints=index.hints)
+    find_neighborhood(index::SearchGraph{T}, ctx, item, blockrange=1:-1; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 
 # Arguments
 - `index`: The search index.
 - `item`: The item to be inserted.
+- `blockrange`: Extra block range for parallel insertions, defaults to an empty range
 - `ctx`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item; hints=index.hints)
+function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, blockrange=1:-1; hints=index.hints)
     ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     res = getiknnresult(ksearch, ctx)
     if ksearch > 0
         search(index.algo[], index, ctx, item, res, hints)
+        for i in blockrange  # interblock neighbors
+            d = evaluate(distance(index), item, database(index, i))
+            d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
+            push_item!(res, i, d)
+        end
+
         output = getsatknnresult(length(res), ctx)
         return neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
     else
@@ -56,16 +63,12 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
 end
 
 """
-    SatNeighborhood(nndist::Float32=1f-4)
+    SatNeighborhood()
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
 """
-struct SatNeighborhood <: NeighborhoodFilter
-    nndist::Float32
-end
-
-SatNeighborhood(; nndist::AbstractFloat=1.0f-4) = SatNeighborhood(convert(Float32, nndist))
+struct SatNeighborhood <: NeighborhoodFilter end
 
 """
     DistalSatNeighborhood()
@@ -73,11 +76,7 @@ SatNeighborhood(; nndist::AbstractFloat=1.0f-4) = SatNeighborhood(convert(Float3
 New items are connected with a small set of items computed with a Distal SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
 """
-struct DistalSatNeighborhood <: NeighborhoodFilter
-    nndist::Float32
-end
-
-DistalSatNeighborhood(; nndist::AbstractFloat=1.0f-4) = DistalSatNeighborhood(convert(Float32, nndist))
+struct DistalSatNeighborhood <: NeighborhoodFilter end
 
 """
     struct IdentityNeighborhood
@@ -85,13 +84,10 @@ DistalSatNeighborhood(; nndist::AbstractFloat=1.0f-4) = DistalSatNeighborhood(co
 It does not modifies the given neighborhood
 """
 struct IdentityNeighborhood <: NeighborhoodFilter end
-Base.copy(::IdentityNeighborhood) = IdentityNeighborhood()
 
 ## functions
 
-function neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output)
-    res
-end
+neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output) = res
 
 """
     filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, ctx)
@@ -99,11 +95,11 @@ end
 filters `res` using the DistSAT strategy.
 """
 @inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
-    hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res; sat.nndist)
+    hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res; ctx.neighborhood.neardup)
 end
 
 @inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
-    hsp_proximal_neighborhood_filter!(output, distance(G), database(G), center, res; sat.nndist)
+    hsp_proximal_neighborhood_filter!(output, distance(G), database(G), center, res; ctx.neighborhood.neardup)
 end
 
 ## prunning neighborhood

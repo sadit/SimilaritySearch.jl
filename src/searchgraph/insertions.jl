@@ -97,8 +97,9 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         # searching neighbors 
         Threads.@threads :static for j in sp:minbatch:ep
-            for i in j:min(ep, j + minbatch - 1)
-                neighborhood = find_neighborhood(index, ctx, database(index, i))
+            sp_, ep_ = j, min(ep, j + minbatch - 1)
+            for i in sp_:ep_
+                neighborhood = find_neighborhood(index, ctx, database(index, i), sp_:ep_)
                 @inbounds adj.end_point[i] = collect(IdView(neighborhood))
             end
         end

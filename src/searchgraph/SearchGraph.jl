@@ -34,14 +34,17 @@ Postprocessing of a neighborhood using some criteria. Called from `find_neighbor
 abstract type NeighborhoodFilter end
 
 """
-    Neighborhood(; logbase=2, minsize=2, filter=SatNeighborhood())
+    Neighborhood(; logbase=2, minsize=2, neardup=1f-3, filter=SatNeighborhood())
     
-Determines the size of the neighborhood, \$k\$ is adjusted as a callback, and it is intended to affect previously inserted vertices.
-The neighborhood is designed to consider two components \$k=in+out\$, i.e. _in_coming and _out_going edges for each vertex.
-- The \$out\$ size is computed as \$minsize + \\log(logbase, n)\$ where \$n\$ is the current number of indexed elements; this is computed searching
-for \$out\$  elements in the current index.
-- The \$in\$ size is unbounded.
-- filter is intended to postprocess neighbors (after search process, i.e., once out edges are computed); do not change \$k\$ but always must return a copy of the filterd result set.
+Determines the size of the neighborhood; it is adjusted as a callback exponentially.
+More detailed, the insertion algorithm searches for ``log_\\text{logbase}(N) + minsize)`` in the index where ``N`` is the size of the index/dataset,
+then these neighbors are filtered with `filter`. The algorithms use `neardup` to discard proximal items to be part of a neighborhood.
+
+## Parameters
+- `logbase=2`: logarithmic base to determine the number of neighbors to retrieve
+- `minsize=2`: minimum number of elements to retrieve
+- `neardup=1f-3`: distance to identify an element as duplicate (neardups could be ignored from neighborhoods)
+- `filter=SatNeighborhood()`: strategy to reduce the number of neighbors
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
@@ -49,17 +52,10 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
 @kwdef struct Neighborhood{NFILTER<:NeighborhoodFilter}
     logbase::Float32 = 2.0f0
     minsize::Int32 = Int32(2)
+    neardup::Float32 = 1.0f-3
     filter::NFILTER = SatNeighborhood()
 end
 
-"""
-    Neighborhood(filter::NeighborhoodFilter; logbase=2, minsize=2)
-
-Convenience constructor, see Neighborhood struct.
-"""
-function Neighborhood(filter::NeighborhoodFilter; logbase::AbstractFloat=2.0f0, minsize::Integer=2)
-    Neighborhood(convert(Float32, logbase), convert(Int32, minsize), filter)
-end
 ########################### SearchGraphContext
 
 include("visitedvertices.jl")

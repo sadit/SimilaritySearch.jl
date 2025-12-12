@@ -1,12 +1,17 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, LinearAlgebra
+using SimilaritySearch, FixedSizeArrays, LinearAlgebra, Random
+
 
 function create_database(n)
-    X = rand(Float32, 8, n)
+    rng = Xoshiro(n)
+    # X = Matrix{Float32}(undef, 8, n)
+    X = FixedSizeMatrix{Float32}(undef, 8, n)
+    rand!(rng, X)
     for c in eachcol(X)
         normalize!(c)
     end
+
     MatrixDatabase(X)
 end
 
@@ -18,7 +23,7 @@ function main(n)
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
         hyperparameters_callback=OptimizeParameters(MinRecall(0.9)),
-        parallel_block=128
+        parallel_block=256
     )
     goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
     @info "----- computing search graph with k=$k"
