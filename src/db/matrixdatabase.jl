@@ -107,12 +107,12 @@ end
 
 @inline function Base.getindex(db::BlockMatrixDatabase{Dim,NumType,NumBits}, i::Integer) where {Dim,NumType,NumBits}
     b, i = _get_block_and_pos(NumBits, i)
-    view(db.blocks[b], :, i)
+    @inbounds view(db.blocks[b], :, i)
 end
 
 @inline function Base.setindex!(db::BlockMatrixDatabase{Dim,NumType,NumBits}, value, i::Integer) where {Dim,NumType,NumBits}
     b, i = _get_block_and_pos(NumBits, i)
-    db.blocks[b][:, i] .= value
+    @inbounds db.blocks[b][:, i] .= value
 end
 
 @inline function push_item!(db::BlockMatrixDatabase{Dim,NumType,NumBits}, v::AbstractVector) where {Dim,NumType,NumBits}
@@ -121,10 +121,10 @@ end
     # @show b, i, n, Dim, NumType, NumBits, length(db), length(db.blocks), size(db.blocks[1])
     if i == 1
         M = Matrix{NumType}(undef, Dim, 1 << NumBits)
-        M[:, 1] .= v
+        @inbounds M[:, 1] .= v
         push!(db.blocks, M)
     else
-        db.blocks[b][:, i] .= v
+        @inbounds db.blocks[b][:, i] .= v
     end
 
     db.len[] += 1
