@@ -150,13 +150,14 @@ function optimize_index!(
     mutbsize=16,
     crossbsize=8,
     maxiters=16,
-    params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx))
+    params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx)),
+    rng=Random.default_rng()
 )
 
     db = database(index)
     if queries === nothing
         verbose(ctx) && @info "using $numqueries random queries from the dataset"
-        sample = rand(1:length(index), numqueries) |> unique
+        sample = rand(rng, 1:length(index), numqueries) |> unique
         queries = SubDatabase(db, sample)
     else
         verbose(ctx) && @info "using $(length(queries)) given as hyperparameter"
@@ -217,7 +218,7 @@ function optimize_index!(
         abs(getcost(prev) - getcost(curr)) <= 1e-3
     end
 
-    bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence)
+    bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence, parallel=:none)
 
     if length(bestlist) == 0
         verbose(ctx) && println(stderr, "== WARN optimization failure; unable to find usable configurations")

@@ -3,7 +3,6 @@
 module SimilaritySearch
 abstract type AbstractSearchIndex end
 
-using Polyester
 using Accessors
 
 import Base: push!, append!

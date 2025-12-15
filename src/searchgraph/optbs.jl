@@ -17,7 +17,7 @@ end
 Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
 Base.isequal(a::BeamSearch, b::BeamSearch) = a.bsize == b.bsize && a.Δ == b.Δ && a.maxvisits == b.maxvisits
 Base.eltype(::BeamSearchSpace) = BeamSearch
-Base.rand(space::BeamSearchSpace) = BeamSearch(bsize=rand(space.bsize), Δ=rand(space.Δ))
+Base.rand(rng::AbstractRNG, space::BeamSearchSpace) = BeamSearch(bsize=rand(rng, space.bsize), Δ=rand(rng, space.Δ))
 
 function combine(a::BeamSearch, b::BeamSearch)
     bsize = ceil(Int, (a.bsize + b.bsize) / 2)
@@ -84,17 +84,17 @@ Creates a hyperoptimization callback using the given parameters
 for more details
 """
 function OptimizeParameters(kind=MinRecall(0.9);
-        initialpopulation=16,
-        maxiters=12,
-        bsize=4,
-        mutbsize=4bsize,
-        crossbsize=2bsize,
-        maxpopulation=initialpopulation,
-        ksearch=10,
-        queries=nothing,
-        numqueries=32,
-        space::BeamSearchSpace=BeamSearchSpace()
-    )
+    initialpopulation=16,
+    maxiters=12,
+    bsize=4,
+    mutbsize=4bsize,
+    crossbsize=2bsize,
+    maxpopulation=initialpopulation,
+    ksearch=10,
+    queries=nothing,
+    numqueries=32,
+    space::BeamSearchSpace=BeamSearchSpace()
+)
     OptimizeParameters(kind, initialpopulation, maxiters, bsize, mutbsize, crossbsize, maxpopulation, ksearch, queries, numqueries, space)
 end
 
@@ -125,10 +125,10 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Opti
 
     params = SearchParams(; opt.maxpopulation, opt.bsize, opt.mutbsize, opt.crossbsize, opt.maxiters, verbose=verbose(ctx))
     optimize_index!(index, ctx, opt.kind;
-                    opt.space,
-                    ksearch,
-                    opt.queries,
-                    opt.numqueries,
-                    opt.initialpopulation,
-                    params)
+        opt.space,
+        ksearch,
+        opt.queries,
+        opt.numqueries,
+        opt.initialpopulation,
+        params)
 end

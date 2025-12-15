@@ -109,7 +109,6 @@ getminbatch(ctx::SearchGraphContext, n::Int) = getminbatch(n, Threads.nthreads()
 verbose(ctx::SearchGraphContext) = ctx.verbose
 knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 
-# we use a static scheduler so,i.e., we use Polyester
 @inline function getvstate(len::Integer, ctx::SearchGraphContext)
     reuse!(ctx.vstates[Threads.threadid()], len)
 end
