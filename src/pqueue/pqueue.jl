@@ -6,9 +6,9 @@
 export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdWeight
 export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, nearest, frontier
 export DistView, IdView
+export distance_evaluations, block_evaluations
 
-abstract type AbstractKnn
-end
+abstract type AbstractKnn end
 
 #=struct IdWeight
     id::UInt32
@@ -40,19 +40,65 @@ include("knnsorted.jl")
 
 Base.convert(::Type{T}, v::IdWeight) where {T<:Integer} = convert(T, v.id)
 Base.convert(::Type{T}, v::IdWeight) where {T<:AbstractFloat} = convert(T, v.weight)
+Base.convert(::Type{T}, v::AbstractVector{IdWeight}) where {T<:Vector{<:Integer}} = T(IdView(v))
+Base.convert(::Type{T}, v::AbstractVector{IdWeight}) where {T<:Vector{<:AbstractFloat}} = T(DistView(v))
+function Base.convert(::Type{T}, v::AbstractMatrix{IdWeight}) where {T<:Matrix{<:Integer}}
+    X = T(undef, size(v))
+    V = IdView(v)
+    for i in eachindex(X)
+        X[i] = V[i]
+    end
+    X
+end
 
-IdView(res::AbstractVector{IdWeight}) = (p.id for p in res)
-DistView(res::AbstractVector{IdWeight}) = (p.weight for p in res)
-#IdView(res::AbstractVector{<:Integer}) = (UInt32(p) for p in res)
-#DistView(res::AbstractVector{<:AbstractFloat}) = (Float32(p) for p in res)
-IdView(res::KnnHeap) = (p.id for p in viewitems(res))
-DistView(res::KnnHeap) = (p.weight for p in viewitems(res))
-IdView(res::KnnSorted) = (p.id for p in viewitems(res))
-DistView(res::KnnSorted) = (p.weight for p in viewitems(res))
+function Base.convert(::Type{T}, v::AbstractMatrix{IdWeight}) where {T<:Matrix{<:AbstractFloat}}
+    X = T(undef, size(v))
+    V = DistView(v)
+    for i in eachindex(X)
+        X[i] = V[i]
+    end
+    X
+end
 
+struct IdView{ARR}
+    A::ARR
+end
 
-#IdView(res::AbstractVector{IdWeight}) = (res[i].id for i in eachindex(res))
-#DistView(res::AbstractVector{IdWeight}) = (res[i].weight for i in eachindex(res))
+Base.length(res::IdView) = length(res.A)
+Base.size(res::IdView) = size(res.A)
+Base.firstindex(res::IdView) = 1
+Base.lastindex(res::IdView) = length(res)
+Base.eachindex(res::IdView) = firstindex(res):lastindex(res)
+Base.getindex(res::IdView{<:AbstractMatrix{IdWeight}}, i...) = res.A[i...].id
+Base.getindex(res::IdView{<:AbstractVector{IdWeight}}, i::Integer) = res.A[i].id
+Base.getindex(res::IdView{<:AbstractVector{<:Integer}}, i::Integer) = res.A[i]
+Base.getindex(res::IdView{<:KnnHeap}, i::Integer) = res.A.items[i].id
+Base.getindex(res::IdView{<:KnnSorted}, i::Integer) = res.A.items[res.A.sp+i-1].id
+
+struct DistView{ARR}
+    A::ARR
+end
+
+Base.length(res::DistView) = length(res.A)
+Base.size(res::DistView) = size(res.A)
+Base.firstindex(res::DistView) = 1
+Base.lastindex(res::DistView) = length(res)
+Base.eachindex(res::DistView) = firstindex(res):lastindex(res)
+Base.getindex(res::DistView{<:AbstractMatrix{IdWeight}}, i...) = res.A[i...].weight
+Base.getindex(res::DistView{<:AbstractVector{IdWeight}}, i::Integer) = res.A[i].weight
+Base.getindex(res::DistView{<:AbstractVector{<:AbstractFloat}}, i::Integer) = Float32(res.A[i])
+Base.getindex(res::DistView{<:KnnHeap}, i::Integer) = res.A.items[i].weight
+Base.getindex(res::DistView{<:KnnSorted}, i::Integer) = res.A.items[res.A.sp+i-1].weight
+
+function Base.iterate(res::T, state::Int=1) where {T<:Union{<:IdView,<:DistView}}
+    n = length(res)
+    if n == 0 || state > n
+        nothing
+    else
+        res[state], state + 1
+    end
+end
+
 
 """
     knnqueue(::{KnnHeap,KnnSorted}, vec::AbstractVector)

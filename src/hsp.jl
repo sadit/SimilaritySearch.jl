@@ -6,11 +6,27 @@ iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
 iterate_hsp_(h::Vector{IdWeight}) = IdView(h)
 iterate_hsp_(h::AbstractKnn) = IdView(h)
 
-function hsp_should_push(hsp_neighborhood, dist::SemiMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32)
+function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
     @inbounds point = db[point_id]
+    #=if factor == 1.0f0
+        @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
+            hsp_obj = db[hsp_objID]
+            dist_point_hsp = evaluate(dist, point, hsp_obj)
+            dist_point_hsp < dist_center_point && return false
+        end
+    else
+        f = Float32(factor)
+        @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
+            hsp_obj = db[hsp_objID]
+            dist_point_hsp = evaluate(dist, point, hsp_obj)
+            f * dist_point_hsp < dist_center_point && return false
+            f = (f + 1.0f0) * 0.5f0
+        end
+    end=#
     @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
         hsp_obj = db[hsp_objID]
         dist_point_hsp = evaluate(dist, point, hsp_obj)
+        # f * dist_point_hsp < dist_center_point && return false
         dist_point_hsp < dist_center_point && return false
     end
 
@@ -48,9 +64,9 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     matrix, hsp
 end
 
-function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::SemiMetric, db, center, neighborhood; neardup::Float32=1.0f-4, neardupcaptureprob::Float32=0.5f0)
+function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, center, neighborhood; neardup::Float32=1.0f-4, neardupcaptureprob::Float32=0.5f0)
     push_item!(hsp, neighborhood[1])
-    prob = 1.0f0
+    prob = 1.0f0 # ignore near duplicates with some prob
     for i in 2:length(neighborhood)
         p = neighborhood[i]
         if p.weight <= neardup
@@ -66,14 +82,13 @@ function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::SemiMetric, d
     hsp
 end
 
-function hsp_distal_neighborhood_filter!(hsp::AbstractKnn, dist::SemiMetric, db, center, neighborhood; neardup::Float32=1.0f-4)
+function hsp_distal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, center, neighborhood)
     push_item!(hsp, last(neighborhood))
 
-    @inbounds for i in length(neighborhood)-1:-1:1  # DistSat => works a little better but produces larger neighborhoods
+    # prob = 1f0
+    @inbounds for i in length(neighborhood)-1:-1:1  # DistSat produces larger neighborhoods
         p = neighborhood[i]
-        if p.weight <= neardup
-            push_item!(hsp, p)
-        elseif hsp_should_push(hsp, dist, db, center, p.id, p.weight)
+        if hsp_should_push(hsp, dist, db, center, p.id, p.weight)
             push_item!(hsp, p)
         end
     end

@@ -1,49 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
-export JaccardDistance, DiceDistance, IntersectionDissimilarity, CosineDistanceSet
+export JaccardDistance, DiceDistance, IntersectionDissimilarity, CosineDistanceSet, RogersTanimotoDistance
 import Distances: evaluate
 using Base.Order
-
-"""
-    JaccardDistance()
-
-The Jaccard distance is defined as
-
-```math
-J(u, v) = \\frac{|u \\cap v|}{|u \\cup v|}
-```
-"""
-struct JaccardDistance <: SemiMetric end
-
-"""
-    DiceDistance()
-
-The Dice distance is defined as
-
-```math
-D(u, v) = \\frac{2 |u \\cap v|}{|u| + |v|}
-```
-"""
-struct DiceDistance <: SemiMetric end
-
-"""
-    IntersectionDissimilarity()
-
-The intersection dissimilarity uses the size of the intersection as a mesuare of similarity as follows:
-
-```math
-I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
-```
-"""
-struct IntersectionDissimilarity <: SemiMetric end
-
-"""
-    CosineDistanceSet()
-
-The cosine distance for very sparse binary vectors represented as
-sorted lists of positive integers where ones occur.
-"""
-struct CosineDistanceSet <: SemiMetric end
 
 """
     intersectionsize(a, b, o=Forward)
@@ -97,6 +56,17 @@ function unionsize(a, b, isize)
 end
 
 """
+    JaccardDistance()
+
+The Jaccard distance is defined as
+
+```math
+J(u, v) = \\frac{|u \\cap v|}{|u \\cup v|}
+```
+"""
+struct JaccardDistance <: SemiMetric end
+
+"""
     evaluate(::JaccardDistance, a, b)
 
 Computes the Jaccard's distance of `a` and `b` both sets specified as
@@ -106,6 +76,18 @@ function evaluate(::JaccardDistance, a, b)
     isize = intersectionsize(a, b)
     1.0 - isize / unionsize(a, b, isize)
 end
+
+"""
+    DiceDistance()
+
+The Dice distance is defined as
+
+```math
+D(u, v) = \\frac{2 |u \\cap v|}{|u| + |v|}
+```
+"""
+struct DiceDistance <: SemiMetric end
+
 
 """
     evaluate(::DiceDistance, a, b)
@@ -118,6 +100,46 @@ function evaluate(::DiceDistance, a, b)
     1.0 - 2 * i / (length(a) + length(b))
 end
 
+struct RogersTanimotoDistance <: SemiMetric
+    σ::Int
+end
+
+function evaluate(rt::RogersTanimotoDistance, a, b)
+    o = Forward
+    len_a::Int = length(a)
+    len_b::Int = length(b)
+    ia::Int = ib::Int = 1
+    _tt, _tf, _ft = 0, 0, 0
+
+    @inbounds while ia <= len_a && ib <= len_b
+        if lt(o, a[ia], b[ib])
+            ia += 1
+            _tf += 1
+        elseif lt(o, b[ib], a[ia])
+            ib += 1
+            _ft += 1
+        else
+            ia += 1
+            ib += 1
+            _tt += 1
+        end
+    end
+
+    _ff = rt.σ - _tt - _tf - _ft
+
+    1 - (_tt + _ff) / (_tt + _ff + 2 * (_tf + _ft))
+end
+
+"""
+    IntersectionDissimilarity()
+
+The intersection dissimilarity uses the size of the intersection as a mesuare of similarity as follows:
+
+```math
+I(u, v) = 1 - \\frac{|u \\cap v|}{\\max \\{|u|, |v|\\}}
+```
+"""
+struct IntersectionDissimilarity <: SemiMetric end
 
 """
     evaluate(::IntersectionDissimilarity, a, b)
@@ -128,6 +150,14 @@ function evaluate(::IntersectionDissimilarity, a, b)
     i = intersectionsize(a, b)
     return 1.0 - i / max(length(a), length(b))
 end
+
+"""
+    CosineDistanceSet()
+
+The cosine distance for very sparse binary vectors represented as
+sorted lists of positive integers where ones occur.
+"""
+struct CosineDistanceSet <: SemiMetric end
 
 """
     evaluate(::CosineDistanceSet, a, b)

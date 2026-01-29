@@ -49,11 +49,18 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
         Threads.@threads :static for j in 1:minbatch:n
-            for i in j:min(n, j + minbatch - 1)
-                res = knnqueue(ctx, @view knns[:, i])
+            m_ = min(m, j + minbatch - 1)
+            res = knnqueue(ctx, view(knns, :, j))
+            allknn_single_search!(g, ctx, j, res)
+            sort && sortitems!(res)
+            progress !== nothing && next!(progress)
+            i = j + 1
+            @inbounds while i <= m_
+                reuse!(res, view(knns, :, i))
                 allknn_single_search!(g, ctx, i, res)
                 sort && sortitems!(res)
                 progress !== nothing && next!(progress)
+                i += 1
             end
         end
     end

@@ -1,11 +1,16 @@
 mutable struct KnnSorted{VEC<:AbstractVector} <: AbstractKnn
-    const items::VEC
+    items::VEC
     sp::Int32
     ep::Int32
     maxlen::Int32
-    costevals::Int32
-    costblocks::Int32
+    costdist::Int32
+    costblk::Int32
 end
+
+@inline distance_evaluations(res::KnnSorted) = res.costdist
+@inline block_evaluations(res::KnnSorted) = res.costblk
+@inline add_distance_evaluations!(res::KnnSorted, v) = (res.costdist += v)
+@inline add_block_evaluations!(res::KnnSorted, v) = (res.costblk += v)
 
 """
     sort_last_item!(order::Ordering, plist)
@@ -134,12 +139,17 @@ end
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::KnnSorted, maxlen=length(res.items))
+@inline function reuse!(res::KnnSorted, maxlen::Integer=length(res.items))
     # @assert maxlen <= length(res.items)
     res.sp = 1
     res.ep = 0
     res.maxlen = maxlen
-    res.costevals = 0
-    res.costblocks = 0
+    res.costdist = 0
+    res.costblk = 0
     res
+end
+
+@inline function reuse!(res::KnnSorted{T}, items::T, maxlen::Integer=length(items)) where {T}
+    res.items = items
+    reuse!(res, maxlen)
 end

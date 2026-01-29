@@ -4,14 +4,14 @@ import Base: push!
 export ParallelExhaustiveSearch, search
 
 
-struct ParallelExhaustiveSearch{DistanceType<:SemiMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
+struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
     lock::Threads.SpinLock
 end
 
-ParallelExhaustiveSearch(dist::SemiMetric, db::AbstractVecOrMat) = ParallelExhaustiveSearch(dist, convert(AbstractDatabase, db))
-ParallelExhaustiveSearch(dist::SemiMetric, db::AbstractDatabase) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
+ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat) = ParallelExhaustiveSearch(dist, convert(AbstractDatabase, db))
+ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
     ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
@@ -59,8 +59,7 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
         end
     end
 
-    res.costevals = length(pex)
-    res.costblocks = 0
+    add_distance_evaluations!(res, length(pex))
     res
 end
 
@@ -74,7 +73,7 @@ function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::Ab
     sp = length(pex)
     append_items!(pex.db, u)
     ep = length(pex)
-    LOG(ctx.logger, :append_items!, pex, ctx, sp, e)
+    LOG(ctx.logger, :append_items!, pex, ctx, sp, ep)
     pex
 end
 

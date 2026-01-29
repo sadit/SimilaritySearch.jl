@@ -4,7 +4,7 @@ export neardup
 
 """
     neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), filterblocks=true, verbose=true)
-    neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
+    neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
 
 Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
 and items being near than `ϵ` to some element in `idx` will be ignored.
@@ -37,7 +37,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
-function neardup(dist::SemiMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
+function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
     dist_ = DistanceWithIdentifiers(dist, X)
     X_ = VectorDatabase(UInt32[])
     if recall < 1.0

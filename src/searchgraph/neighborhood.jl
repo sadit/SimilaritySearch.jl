@@ -1,5 +1,6 @@
 # This file is a part of SimilaritySearch.jl
-
+export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, KCentersNeighborhood
+export find_neighborhood
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
@@ -63,12 +64,26 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
 end
 
 """
+    struct IdentityNeighborhood
+
+It does not modifies the given neighborhood
+"""
+struct IdentityNeighborhood <: NeighborhoodFilter end
+
+neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output) = res
+
+"""
     SatNeighborhood()
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
 """
 struct SatNeighborhood <: NeighborhoodFilter end
+
+@inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
+    hsp_proximal_neighborhood_filter!(output, distance(G), database(G), center, res; ctx.neighborhood.neardup)
+end
+
 
 """
     DistalSatNeighborhood()
@@ -78,16 +93,6 @@ It starts with `k` near items that are filterd to a small neighborhood due to th
 """
 struct DistalSatNeighborhood <: NeighborhoodFilter end
 
-"""
-    struct IdentityNeighborhood
-
-It does not modifies the given neighborhood
-"""
-struct IdentityNeighborhood <: NeighborhoodFilter end
-
-## functions
-
-neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output) = res
 
 """
     filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, ctx)
@@ -95,122 +100,21 @@ neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContex
 filters `res` using the DistSAT strategy.
 """
 @inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
-    hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res; ctx.neighborhood.neardup)
+    hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res)
 end
 
-@inline function neighborhoodfilter(sat::SatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
-    hsp_proximal_neighborhood_filter!(output, distance(G), database(G), center, res; ctx.neighborhood.neardup)
-end
 
-## prunning neighborhood
-#=
+struct KCentersNeighborhood <: NeighborhoodFilter end
 
-"""
-    NeighborhoodPruning
-
-Abstract data type for neighborhood pruning strategies
-"""
-abstract type NeighborhoodPruning end
-
-"""
-    RandomPruning(k)
-
-Selects `k` random edges for each vertex
-"""
-struct RandomPruning <: NeighborhoodPruning
-    k::Int
-end
-
-"""
-    KeepNearestPruning(k)
-
-Kept `k` nearest neighbor edges for each vertex
-"""
-struct KeepNearestPruning <: NeighborhoodPruning
-    k::Int
-end
-
-"""
-    SatPruning(k; kind=DistalSatNeighborhood())
-    SatPruning(k)
-
-Selects `SatNeighborhood` or `DistalSatNeighborhood` for each vertex. Defaults to `DistalSatNeighborhood`.
-
-- `k`: the threshold size to apply the Sat reduction, i.e., neighbors larger than `k` will be pruned.
-"""
-@kwdef struct SatPruning <: NeighborhoodPruning
-    k::Int
-    kind = DistalSatNeighborhood() ## DistalSatNeighborhood, SatNeighborhood    
-end
-
-SatPruning(k) = SatPruning(k, DistalSatNeighborhood())
-
-"""
-    prune!(r::RandomPruning, index::SearchGraph, context::SearchGraphContext)
-
-Randomly prunes each neighborhood
-
-# Arguments
-
-"""
-function prune!(r::RandomPruning, index::SearchGraph, context::SearchGraphContext)
-    n = length(index)
-    minbatch = getminbatch(minbatch, n)
-
-    @batch minbatch=getminbatch(0, n) per=thread for i in 1:n
-        @inbounds L = neighbors(index.adj, i)
-        if length(L) > r.k
-            shuffle!(L)
-            resize!(L, r.k)
-        end
+@inline function neighborhoodfilter(N::KCentersNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
+    S = SubDatabase(database(G), IdView(res))
+    k = ceil(Int, log2(length(res)))
+    k = min(16, k)
+    C = fft(distance(G), S, k; threads=false, verbose=false)
+    for i in C.centers
+        push_item!(output, res[i])
     end
+
+    output
 end
 
-"""
-    prune!(r::KeepNearestPruning, index::SearchGraph, context::SearchGraphContext)
-
-Selects `k` nearest neighbors among the available neighbors
-"""
-function prune!(r::KeepNearestPruning, index::SearchGraph, context::SearchGraphContext)
-    dist = distance(index)
-    Threads.@threads for i in eachindex(index.adj)
-        @inbounds L = neighbors(index.adj, i)
-        if length(L) > r.k
-            res = getknnresult(r.k, context)
-            @inbounds c = database(index, i)
-            @inbounds for objID in L
-                push_item!(res, objID, evaluate(dist, c, database(index, objID)))
-            end
-
-            resize!(L, length(res))
-            for i in eachindex(res)
-                @inbounds L[i] = res[i].id
-            end
-        end
-    end
-end
-
-"""
-    prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
-
-Select the SatNeighborhood or DistalSatNeighborhood from available neihghbors
-"""
-function prune!(r::SatPruning, index::SearchGraph, context::SearchGraphContext)
-    dist = distance(index)
-
-    @batch minbatch=getminbatch(0, length(index)) per=thread for i in eachindex(index.adj)
-        L = neighbors(index.adj, i)
-        if length(L) > r.k
-            res = getknnresult(length(L), context)
-            c = database(index, i)
-            for objID in L
-                push_item!(res, objID, evaluate(dist, c, database(index, objID)))
-            end
-
-            empty!(L)
-            neighborhoodfilter(r.kind, index, context, c, res, L)
-        end
-    end
-end
-
-=#

@@ -6,12 +6,10 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     res = approx_by_hints!(index, q, hints, res, vstate)
     if length(res) == 0
         n = length(index)
-        for objID in 1:ceil(Int, log(2, 1+n))
-           enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+        for objID in 1:ceil(Int, log(2, 1 + n))
+            enqueue_item!(index, q, database(index, objID), res, objID, vstate)
         end
     end
-    
-    res
 end
 
 function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, vstate)
@@ -19,7 +17,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     beam = getbeam(bs.bsize, ctx)
     push_item!(beam, nearest(res))
     dist = distance(index)
-    costevals, costblocks = 0, 0
+    costdists, costblocks = 0, 0
 
     @inbounds while 0 < length(beam)
         costblocks += 1
@@ -29,8 +27,8 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             d = evaluate(dist, q, database(index, childID))
             c = IdWeight(childID, d)
             push_item!(res, c)
-            costevals += 1
-            costevals > maxvisits && @goto finish_search 
+            costdists += 1
+            costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
                 push_item!(beam, c)
@@ -39,9 +37,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     end
 
     @label finish_search
-    res.costevals += costevals
-    res.costblocks += costblocks
-    res
+    costdists, costblocks
 end
 
 """
@@ -62,8 +58,8 @@ Optional arguments (defaults to values in `bs`)
 
 """
 function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints;
-        vstate::Vector{UInt64}=getvstate(length(index), ctx)
-        )
+    vstate::Vector{UInt64}=getvstate(length(index), ctx)
+)
     # k is the number of neighbors in res
     # vstate = vstate
     n = length(index)
@@ -76,10 +72,12 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
             push_item!(res, i, d)
         end
 
-        res.costevals = n
+        add_distance_evaluations!(res, n)
     else
         beamsearch_init(bs, index, q, res, hints, vstate)
-        beamsearch_inner_beam(bs, index, ctx, q, res, vstate)
+        costdists, costblocks = beamsearch_inner_beam(bs, index, ctx, q, res, vstate)
+        add_distance_evaluations!(res, costdists)
+        add_block_evaluations!(res, costblocks)
     end
 
     res

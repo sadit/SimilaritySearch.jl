@@ -7,7 +7,7 @@ using Accessors
 
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
-    SemiMetric, evaluate, search, searchbatch, searchbatch!, database, distance,
+    search, searchbatch, searchbatch!, database, distance,
     getcontext, getminbatch,
     SearchResult, push_item!, append_items!, IdWeight, StaticAdjacencyList, AdjacencyList
 
@@ -165,12 +165,17 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
 
     # @show m, minbatch
-
     Threads.@threads :static for j in 1:minbatch:m
-        @inbounds for i in j:min(m, j + minbatch - 1)
-            res = knnqueue(ctx, view(knns, :, i))
+        m_ = min(m, j + minbatch - 1)
+        res = knnqueue(ctx, view(knns, :, j))
+        search(index, ctx, Q[j], res)
+        sorted && sortitems!(res)
+        i = j + 1
+        @inbounds while i <= m_
+            reuse!(res, view(knns, :, i))
             search(index, ctx, Q[i], res)
             sorted && sortitems!(res)
+            i += 1
         end
     end
 

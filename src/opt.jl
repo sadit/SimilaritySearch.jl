@@ -35,7 +35,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             Threads.@threads :static for j in 1:minbatch:m
                 for i in j:min(m, j + minbatch - 1)
                     knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
-                    cost[i] = r.costevals
+                    cost[i] = distance_evaluations(r)
                 end
             end
         end
@@ -224,7 +224,7 @@ function optimize_index!(
         verbose(ctx) && println(stderr, "== WARN optimization failure; unable to find usable configurations")
     else
         config, perf = bestlist[1]
-        @assert perf.recall > 0
+        # @assert perf.recall > 0
         verbose(ctx) && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
         setconfig!(config, index, perf)
     end

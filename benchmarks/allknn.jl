@@ -13,7 +13,7 @@ function create_database(dim, n)
         normalize!(c)
     end
 
-    MatrixDatabase(X)
+    StrideMatrixDatabase(X)
 end
 
 function run(dim, n, k)

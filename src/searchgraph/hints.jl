@@ -213,8 +213,8 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCen
         SubDatabase(database(index), s)
     end
     A = fft(distance(index), D, k; ctx.verbose)
-    # @show A unique(A.nn)
     M = Dict(c => i for (i, c) in enumerate(A.centers))
+    # @show A unique(A.nn) D.map
     count = zeros(Int, length(M))
     for nn in A.nn
         count[M[nn]] += 1

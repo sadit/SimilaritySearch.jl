@@ -1,11 +1,16 @@
 mutable struct KnnHeap{VEC<:AbstractVector} <: AbstractKnn
-    const items::VEC
+    items::VEC
     min::IdWeight
     len::Int32
     maxlen::Int32
-    costevals::Int32
-    costblocks::Int32
+    costdist::Int32
+    costblk::Int32
 end
+:$
+@inline distance_evaluations(res::KnnHeap) = res.costdist
+@inline blocks_evaluations(res::KnnHeap) = res.costblk
+@inline add_distance_evaluations!(res::KnnHeap, v) = (res.costdist += v)
+@inline add_blocks_evaluations!(res::KnnHeap, v) = (res.costblk += v)
 
 @inline Base.length(res::KnnHeap) = res.len
 
@@ -83,12 +88,16 @@ end
 
 Returns a result set and a new initial state; reuse the memory buffers
 """
-@inline function reuse!(res::KnnHeap, maxlen=length(res.items))
+@inline function reuse!(res::KnnHeap, maxlen::Int=length(res.items))
     @assert maxlen <= length(res.items)
-    res.min = zero(IdWeight)
+    res.min = zero(idweight)
     res.len = 0
     res.maxlen = maxlen
-    res.costevals = 0
-    res.costblocks = 0
+    res.costdist = 0
+    res.costblk = 0
     res
+end
+@inline function reuse!(res::KnnHeap{T}, items::T, maxlen::Int=length(items)) where T
+    res.items = items
+    reuse!(res, maxlen)
 end

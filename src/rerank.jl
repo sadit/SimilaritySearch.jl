@@ -2,7 +2,7 @@
 
 export rerank!
 
-function rerank!(dist::SemiMetric, db::AbstractDatabase, q, res::AbstractVector{IdWeight})
+function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractVector{IdWeight})
     m = 0
     for i in eachindex(res)
         p = res[i]
@@ -20,7 +20,7 @@ function rerank!(dist::SemiMetric, db::AbstractDatabase, q, res::AbstractVector{
     res
 end
 
-function rerank!(dist::SemiMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdWeight})
+function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdWeight})
     m = length(queries)
     minbatch = getminbatch(m, Threads.nthreads(), 0)
     Threads.@threads :static for j in 1:minbatch:m
@@ -33,7 +33,7 @@ function rerank!(dist::SemiMetric, db::AbstractDatabase, queries::AbstractDataba
     knns
 end
 
-function rerank!(dist::SemiMetric, db::AbstractDatabase, q, res::AbstractKnn)
+function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractKnn)
     rerank!(dist, db, q, viewitems(res))
 end
 

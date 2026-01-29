@@ -14,7 +14,7 @@ export distsample_ut, distsample
     - `prob`: sampling probability (on the upper triangle pairwise distance matrix)
     - `samplesize`: if samplesize is given, the it ignores the given probability and computes the necessary `prob` to achieve a value close to `samplesize` 
 """
-function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64 = 0.01, samplesize=0)
+function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64=0.01, samplesize=0)
     n = length(X)
     S = Float32[]
     if samplesize > 0
@@ -25,7 +25,7 @@ function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64 = 0.
     end
 
     for i = 1:n
-        for j = (i + 1):(n - 1)
+        for j = (i+1):(n-1)
             if rand() <= prob
                 push!(S, evaluate(dist, X[i], X[j]))
             end
@@ -36,7 +36,7 @@ function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64 = 0.
 end
 
 """
-    distsample(dist::SemiMetric, X::AbstractDatabase; samplesize=sqrt(|X|))
+    distsample(dist::PreMetric, X::AbstractDatabase; samplesize=sqrt(|X|))
     
     Computes a sample of the pairwise distance matrix. 
     Returns anarray of size `samplesize`
@@ -45,12 +45,12 @@ end
     - `X`: input database
     - `samplesize`: the size of the sample
 """
-function distsample(dist::SemiMetric, X::AbstractDatabase; samplesize=ceil(Int, sqrt(length(X))))
+function distsample(dist::PreMetric, X::AbstractDatabase; samplesize=ceil(Int, sqrt(length(X))))
     n = length(X)
     S = Vector{Float32}(undef, samplesize)
 
     Threads.@threads :static for i in 1:samplesize
-        u, v = rand(1:n), rand(1:n) 
+        u, v = rand(1:n), rand(1:n)
         S[i] = evaluate(dist, X[u], X[v])
     end
 

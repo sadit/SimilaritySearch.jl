@@ -2,11 +2,9 @@
 
 export LocalSearchAlgorithm, SearchGraph, SearchGraphContext
 export index!, push_item!
-export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood
-export find_neighborhood
 export BeamSearch, BeamSearchSpace, Callback
 export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, AdjacentStoredHints, matrixhints
-export RandomPruning, KeepNearestPruning, SatPruning, prune!
+#export RandomPruning, KeepNearestPruning, SatPruning, prune!
 
 """
     get_parallel_block()
@@ -56,6 +54,10 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     filter::NFILTER = SatNeighborhood()
 end
 
+function Base.show(io::IO, n::Neighborhood)
+    print(io, "Neighborhood(logbase=", n.logbase, ", minsize=", n.minsize, ", neardup=", n.neardup, ", filter=", n.filter, ")")
+end
+
 ########################### SearchGraphContext
 
 include("visitedvertices.jl")
@@ -81,7 +83,6 @@ end
 BeamSearch(; bsize=4, Δ=1.0, maxvisits=10^6) = BeamSearch(Int32(bsize), Float32(Δ), Int64(maxvisits))
 
 function Base.show(io::IO, bs::BeamSearch)
-    println(io, BeamSearch)
     print(io, "BeamSearch(bsize=", bs.bsize, ", Δ=", bs.Δ, ", maxvisits=", bs.maxvisits, ")")
 end
 
@@ -99,7 +100,7 @@ It supports callbacks to adjust parameters as insertions are made.
 
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
 """
-@kwdef struct SearchGraph{DIST<:SemiMetric,
+@kwdef struct SearchGraph{DIST<:PreMetric,
     DB<:AbstractDatabase,
     ADJ<:AbstractAdjacencyList,
     HINTS,
@@ -135,7 +136,7 @@ It helps to evaluate, mark as visited, and enqueue in the result set.
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
     d = evaluate(distance(index), q, obj)
     push_item!(res, objID, d)
-    res.costevals += 1
+    add_distance_evaluations!(res, 1)
     res
 end
 

@@ -1,6 +1,7 @@
 #module Dist
-import Distances: evaluate, SemiMetric
-export evaluate, SemiMetric  # reexporting
+import Distances: evaluate
+using Distances: PreMetric, SemiMetric
+export evaluate, PreMetric, SemiMetric  # reexporting
 
 include("bits.jl")
 include("sets.jl")
