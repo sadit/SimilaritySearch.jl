@@ -14,19 +14,24 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 - `context`: The context to run the procedure, it can differ from the original one.
 
 """
-function rebuild(g::SearchGraph, ctx::SearchGraphContext)
+function rebuild(g::SearchGraph, ctx::SearchGraphContext;
+    progress=Progress(length(g); desc="rebuild", dt=4)
+)
     n = length(g)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     reverse = Vector{Vector{UInt32}}(undef, n)
     minbatch = getminbatch(ctx, n)
 
-    Threads.@threads :static for j in 1:minbatch:n
-        @inbounds for i in j:min(n, j + minbatch - 1)
-            neighborhood = find_neighborhood(g, ctx, database(g, i); hints=first(neighbors(g.adj, i)))
-            direct[i] = collect(IdView(neighborhood))
-            # @info length(direct[i]) neighbors_length(g.adj, i) 
-            reverse[i] = UInt32[]
+    let progress = progress
+        Threads.@threads :static for j in 1:minbatch:n
+            @inbounds for i in j:min(n, j + minbatch - 1)
+                neighborhood = find_neighborhood(g, ctx, database(g, i); hints=first(neighbors(g.adj, i)))
+                progress !== nothing && next!(progress)
+                direct[i] = collect(IdView(neighborhood))
+                # @info length(direct[i]) neighbors_length(g.adj, i) 
+                reverse[i] = UInt32[]
+            end
         end
     end
 
