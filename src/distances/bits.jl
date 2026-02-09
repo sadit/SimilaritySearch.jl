@@ -56,21 +56,21 @@ function evaluate(::BinaryRogersTanimotoDistance, a, b)::Float32
     1f0 - Float32(tt + ff) / Float32(tt + ff + 2 * (tf + ft))
 end
 
-export BinaryRusselRaoDissimilarity
+export BinaryRussellRaoDissimilarity
 
 """
-   BinaryRusselRaoDissimilarity()
+   BinaryRussellRaoDissimilarity()
    
 """
-struct BinaryRusselRaoDissimilarity <: SemiMetric end
+struct BinaryRussellRaoDissimilarity <: SemiMetric end
 
 """
-    evaluate(::BinaryRusselRaoDissimilarity, a, b)
-    evaluate(::BinaryRusselRaoDissimilarity, a::AbstractVector, b::AbstractVector) where {T<:Unsigned}
+    evaluate(::BinaryRussellRaoDissimilarity, a, b)
+    evaluate(::BinaryRussellRaoDissimilarity, a::AbstractVector, b::AbstractVector) where {T<:Unsigned}
 
-Computes the Russel Rao dissimilarity
+Computes the Russell Rao dissimilarity
 """
-function evaluate(::BinaryRusselRaoDissimilarity, a, b)::Float32
+function evaluate(::BinaryRussellRaoDissimilarity, a, b)::Float32
     
     tt = 0
     n = length(a) * 64

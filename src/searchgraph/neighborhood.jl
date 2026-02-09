@@ -46,7 +46,7 @@ Internal function to connect reverse links after an insertion
 function connect_reverse_links(::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
     #maxnlen = log(neighborhood.logbase, nodeID) 
     for relID in neighbors
-        relID == nodeID && continue  # avoid self references
+        relID == nodeID && continue  # avoid self references (it is here to handle distance functions with d(x, x) != 0)
         add_edge!(adj, relID, nodeID)
     end
 end
@@ -58,7 +58,8 @@ Internal function to connect reverse links after an insertion batch
 """
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
     minbatch = getminbatch(ep - sp + 1, Threads.nthreads(), 0)
-    Threads.@threads :static for j in sp:minbatch:ep
+    #Threads.@threads :static for j in sp:minbatch:ep
+    @batch per=thread minbatch=4 for j in sp:minbatch:ep
         for nodeID in j:min(ep, j + minbatch - 1)
             connect_reverse_links(neighborhood, adj, nodeID, neighbors(adj, nodeID))
         end

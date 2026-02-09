@@ -19,26 +19,10 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 function append_items!(
     index::SearchGraph,
     ctx::SearchGraphContext,
-    db::AbstractDatabase;
+    items::AbstractDatabase;
 )
-    db = convert(AbstractDatabase, db)
-    append_items!(index.db, db)
-
-    ctx.parallel_block == 1 && return _sequential_append_items_loop!(index, ctx)
-    n = length(index) + length(db)
-    m = 0
-
-    parallel_first_block = min(ctx.parallel_first_block, n)
-
-    @inbounds while length(index) < parallel_first_block
-        m += 1
-        push_item!(index, ctx, db[m], false)
-    end
-
-    sp = length(index) + 1
-    sp > n && return index
-
-    _parallel_append_items_loop!(index, ctx, sp, n)
+    append_items!(index.db, items)
+    index!(index, ctx)
     index
 end
 
@@ -56,24 +40,12 @@ The arguments are the same than `append_items!` function but using the internal 
 """
 function index!(index::SearchGraph, ctx::SearchGraphContext)
     @assert length(index) == 0 && length(index.db) > 0
-    ctx.parallel_block == 1 && return _sequential_append_items_loop!(index, ctx)
-
-    m = 0
-    db = database(index)
-    n = length(db)
-
-    parallel_first_block = min(ctx.parallel_first_block, n)
-
-    @show parallel_first_block
-    @inbounds while length(index) < parallel_first_block
-        m += 1
-        push_item!(index, ctx, db[m], false)
+    if ctx.parallel_block == 1 || Threads.nthreads() == 1
+        _sequential_append_items_loop!(index, ctx)
+    else
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, length(db))
     end
 
-    sp = length(index) + 1
-    sp > n && return index
-
-    _parallel_append_items_loop!(index, ctx, sp, n)
     index
 end
 
