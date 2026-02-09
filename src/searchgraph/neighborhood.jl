@@ -3,7 +3,7 @@ export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhoo
 export find_neighborhood
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
-    n == 0 ? 0 : ceil(Int, N.minsize + log(N.logbase, n))
+    n == 0 ? N.minsize : ceil(Int, N.minsize + log(N.logbase, n))
 end
 
 """
@@ -19,23 +19,29 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 - `hints`: Search hints
 """
 function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, blockrange=1:-1; hints=index.hints)
-    ksearch = neighborhoodsize(ctx.neighborhood, length(index))
+    n = length(index)
+    ksearch = neighborhoodsize(ctx.neighborhood, n + length(blockrange))
     res = getiknnresult(ksearch, ctx)
-    if ksearch > 0
-        search(index.algo[], index, ctx, item, res, hints)
+
+    n > 0 && search(index.algo[], index, ctx, item, res, hints)
+
+    if length(blockrange) > 1
         for i in blockrange  # interblock neighbors
             d = evaluate(distance(index), item, database(index, i))
             d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
             push_item!(res, i, d)
         end
-
-        #n_ = length(res)
-        output = getsatknnresult(length(res), ctx)
-        neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
-        #output
-    else
-        return res  # empty set
     end
+
+    #n_ = length(res)
+    output = getsatknnresult(length(res), ctx)
+    #@info :res => length(res) => blockrange => n
+    if length(res) > 0 ## only normal on length(blockrange) == 0 && n == 0
+        neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
+    else
+        output
+    end
+    #output
 end
 
 """
@@ -43,11 +49,16 @@ end
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
-    #maxnlen = log(neighborhood.logbase, nodeID) 
+function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
+    connect_reverse_links(neighborhood, adj, nodeID, neighbors) do relID
+        relID != nodeID    # avoid loops and weird behaviours, i.e., distance functions with d(x, x) != 0)
+    end
+end
+
+function connect_reverse_links(mustconnect::Function, ::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
+    #@info nodeID => reinterpret(Int32, neighbors)
     for relID in neighbors
-        relID == nodeID && continue  # avoid self references (it is here to handle distance functions with d(x, x) != 0)
-        add_edge!(adj, relID, nodeID)
+        mustconnect(relID) && add_edge!(adj, relID, nodeID)
     end
 end
 
@@ -57,12 +68,17 @@ end
 Internal function to connect reverse links after an insertion batch
 """
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
-    minbatch = getminbatch(ep - sp + 1, Threads.nthreads(), 0)
-    #Threads.@threads :static for j in sp:minbatch:ep
-    @batch per=thread minbatch=4 for j in sp:minbatch:ep
-        for nodeID in j:min(ep, j + minbatch - 1)
-            connect_reverse_links(neighborhood, adj, nodeID, neighbors(adj, nodeID))
+    # The double step algorithm is to avoid weird race conditions
+    Threads.@threads :static for nodeID in sp:ep  # connect all elements smaller than sp:ep
+        connect_reverse_links(neighborhood, adj, nodeID, neighbors(adj, nodeID)) do relID
+            relID < sp
         end
+    end
+
+    L = neighbors_length.(Ref(adj), sp:ep)  # to avoid loop for 'secondary' links
+    for (i, nodeID) in enumerate(sp:ep)  # connect all elements smaller than sp:ep
+        N = neighbors(adj, nodeID)
+        connect_reverse_links(neighborhood, adj, nodeID, view(N, 1:L[i]))
     end
 end
 

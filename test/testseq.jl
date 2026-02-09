@@ -7,9 +7,9 @@ function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
     knns = zeros(IdWeight, ksearch, length(queries))
-    @time "$dist" knns = searchbatch!(seq, ctx, queries, knns)
+    @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
     fill!(knns, zero(IdWeight))
-    @time "$dist" knns = searchbatch!(seq, ctx, queries, knns)
+    @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
     #@test_call target_modules=(@__MODULE__,) searchbatch(seq, ctx, queries, ksearch)
 
     for c in eachcol(knns)
@@ -92,5 +92,6 @@ end
     queries = rand(db, 100)
     test_seq(db, queries, BinaryHammingDistance(), ksearch)
     test_seq(db, queries, BinaryRogersTanimotoDistance(), ksearch)
+    # test_seq(db, queries, BinaryRussellRaoDissimilarity(), ksearch)
 end
 

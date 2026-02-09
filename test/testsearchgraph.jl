@@ -1,6 +1,7 @@
 using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
 using Test
 #using AllocCheck
+
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #

@@ -39,43 +39,35 @@ The arguments are the same than `append_items!` function but using the internal 
 
 """
 function index!(index::SearchGraph, ctx::SearchGraphContext)
-    @assert length(index) == 0 && length(index.db) > 0
+    @assert length(database(index)) > 0
+
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
-        _sequential_append_items_loop!(index, ctx)
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, length(database(index)))
     else
-        _parallel_append_items_loop!(index, ctx, length(index) + 1, length(db))
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, length(database(index)))
     end
 
     index
 end
 
-function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext)
-    i = length(index)
-    db = index.db
-    n = length(db)
-    @inbounds while i < n
-        i += 1
-        push_item!(index, ctx, db[i], false)
+function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n)
+    @inbounds while sp <= n
+        push_item!(index, ctx, database(index, sp), false)
+        sp += 1
     end
-
-    index
 end
 
 function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n)
     adj = index.adj
     resize!(adj, n)
+    
     while sp <= n
         ep = min(n, sp + ctx.parallel_block)
         minbatch = getminbatch(ctx, ep - sp + 1)
-
         # searching neighbors
-        #Threads.@threads :static for j in sp:minbatch:ep
-        @batch per=thread minbatch=4 for j in sp:minbatch:ep
-            sp_, ep_ = j, min(ep, j + minbatch - 1)
-            for i in sp_:ep_
-                neighborhood = find_neighborhood(index, ctx, database(index, i), sp_:ep_)
-                @inbounds adj.end_point[i] = collect(UInt32, IdView(neighborhood))
-            end
+        @batch per=thread minbatch=minbatch for i in sp:ep
+            neighborhood = find_neighborhood(index, ctx, database(index, i), sp:ep)
+            @inbounds adj.end_point[i] = collect(UInt32, IdView(neighborhood))
         end
 
         LOG(ctx.logger, :add_vertex!, index, ctx, sp, ep)

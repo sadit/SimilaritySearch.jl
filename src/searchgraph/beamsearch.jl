@@ -64,7 +64,7 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
     # vstate = vstate
     n = length(index)
     if n == 0
-        nothing
+        res
     elseif n < 64
         dist = distance(index)
         for i in 1:n

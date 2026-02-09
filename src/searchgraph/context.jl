@@ -10,7 +10,6 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         hints_callback=KCentersHints(; logbase=1.2),
         hyperparameters_callback=OptimizeParameters(),
         parallel_block=4Threads.nthreads(),
-        parallel_first_block=parallel_block,
         logbase_callback=1.5,
         starting_callback=256,
         knns = zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
@@ -25,7 +24,6 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 - `logbase_callback`: A log base to control when to run callbacks
 - `starting_callback`: When to start to run callbacks, minimum length to do it
 - `parallel_block`: the size of the block that is processed in parallel
-- `parallel_first_block`: the size of the first block that is processed in parallel
 - `knns`: Knn queues cache for insertions
 - `vstates`: visited vertices cache 
 - `expnt`: Increases the number of batches to be processed by this number (the base is the number of threads)
@@ -38,8 +36,6 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 - `parallel_block`: The number of elements that the multithreading algorithm process at once,
     it is important to be larger that the number of available threads but not so large since the quality of the search graph could degrade (a few times the number of threads is enough).
     If `parallel_block=1` the algorithm becomes sequential.
-- `parallel_first_block`: The number of sequential appends before running parallel.
-- Parallel doesn't trigger callbacks inside blocks.
 - `A set of caches to alleviate memory allocations in `SearchGraph` construction and searching. Relevant on multithreading scenarious where distance functions, `evaluate`
 can call other metric indexes that can use these shared resources (globally defined).
 
@@ -54,7 +50,6 @@ struct SearchGraphContext{KnnType} <: AbstractContext
     logbase_callback::Float32
     starting_callback::Int32
     parallel_block::Int32
-    parallel_first_block::Int32
     knns::Matrix{IdWeight}
     vstates::Vector{Vector{UInt64}}
 end
@@ -67,7 +62,6 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
     hints_callback=KCentersHints(; logbase=1.2),
     hyperparameters_callback=OptimizeParameters(),
     parallel_block=4Threads.nthreads(),
-    parallel_first_block=parallel_block,
     logbase_callback=1.5,
     starting_callback=256,
     knns=zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
@@ -79,7 +73,6 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
-        convert(Int32, parallel_first_block),
         knns, vstates)
 end
 
@@ -91,7 +84,6 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType};
     hints_callback=ctx.hints_callback,
     hyperparameters_callback=ctx.hyperparameters_callback,
     parallel_block=ctx.parallel_block,
-    parallel_first_block=ctx.parallel_first_block,
     logbase_callback=ctx.logbase_callback,
     starting_callback=ctx.starting_callback,
     knns=ctx.knns,
@@ -101,7 +93,7 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType};
     SearchGraphContext{KnnType}(logger, expnt, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
-        parallel_block, parallel_first_block,
+        parallel_block,
         knns, vstates)
 end
 

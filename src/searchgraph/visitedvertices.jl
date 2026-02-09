@@ -12,11 +12,11 @@ end
 end=#
 
 
-function reuse!(v::Vector{UInt64}, n::Integer)
-    let n = convert(UInt64, n), m = _b64block(n), B = v
+function reuse!(B::Vector{UInt64}, n::Integer)
+    n > 0 && let n = convert(UInt64, n), m = _b64block(n)
         m > length(B) && resize!(B, m)
         fill!(B, zero(UInt64))
-        v
+        B
     end
 end
 
