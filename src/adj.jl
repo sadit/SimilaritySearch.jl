@@ -146,7 +146,7 @@ end
 Base.@propagate_inbounds @inline function add_edge!(adj::AdjacencyList{EndPointType}, i::Integer, end_point, order=nothing) where EndPointType
     i == 0 && return adj
     @inbounds lock(adj.locks[i])
-
+    # @info Int(i) => end_point, neighbors_length(adj, i)
     try
         if isassigned(adj.end_point, i)
             @inbounds list = adj.end_point[i]

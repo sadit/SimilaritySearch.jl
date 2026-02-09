@@ -127,7 +127,7 @@ function evaluate(rt::RogersTanimotoDistance, a, b)
 
     _ff = rt.σ - _tt - _tf - _ft
 
-    1 - (_tt + _ff) / (_tt + _ff + 2 * (_tf + _ft))
+    1f0 - Float32(_tt + _ff) / Float32(_tt + _ff + 2 * (_tf + _ft))
 end
 
 """

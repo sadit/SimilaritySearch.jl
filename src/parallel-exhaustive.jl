@@ -47,7 +47,8 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     n = length(pex)
     minbatch = getminbatch(ctx, n)
 
-    Threads.@threads :static for j in 1:minbatch:n
+    #Threads.@threads :static for j in 1:minbatch:n
+    @batch per=thread minbatch=4 for j in 1:minbatch:n
         for i in j:min(n, j + minbatch - 1)
             d = evaluate(dist, database(pex, i), q)
             try

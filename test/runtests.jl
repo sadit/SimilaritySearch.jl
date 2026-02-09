@@ -9,8 +9,8 @@ if VERSION == v"1.10"
     Aqua.test_ambiguities([SimilaritySearch])
 end
 
-function create_sequence(dim, sort)
-    s = rand(1:10, dim)
+function create_sequence(dim, sort, range=1:10)
+    s = rand(range, dim)
     if sort
         sort!(s)
         s = unique(s)

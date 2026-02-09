@@ -25,7 +25,6 @@ function append_items!(
     append_items!(index.db, db)
 
     ctx.parallel_block == 1 && return _sequential_append_items_loop!(index, ctx)
-
     n = length(index) + length(db)
     m = 0
 
@@ -64,6 +63,8 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
     n = length(db)
 
     parallel_first_block = min(ctx.parallel_first_block, n)
+
+    @show parallel_first_block
     @inbounds while length(index) < parallel_first_block
         m += 1
         push_item!(index, ctx, db[m], false)
@@ -95,12 +96,13 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         ep = min(n, sp + ctx.parallel_block)
         minbatch = getminbatch(ctx, ep - sp + 1)
 
-        # searching neighbors 
-        Threads.@threads :static for j in sp:minbatch:ep
+        # searching neighbors
+        #Threads.@threads :static for j in sp:minbatch:ep
+        @batch per=thread minbatch=4 for j in sp:minbatch:ep
             sp_, ep_ = j, min(ep, j + minbatch - 1)
             for i in sp_:ep_
                 neighborhood = find_neighborhood(index, ctx, database(index, i), sp_:ep_)
-                @inbounds adj.end_point[i] = collect(IdView(neighborhood))
+                @inbounds adj.end_point[i] = collect(UInt32, IdView(neighborhood))
             end
         end
 
@@ -137,7 +139,7 @@ Arguments:
     index::SearchGraph,
     ctx::SearchGraphContext,
     item;
-    push_db=true,
+    push_db::Bool=true,
 )
 
     push_item!(index, ctx, item, push_db)

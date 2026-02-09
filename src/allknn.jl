@@ -48,7 +48,8 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     minbatch = getminbatch(ctx, n)
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
-        Threads.@threads :static for j in 1:minbatch:n
+        #Threads.@threads :static for j in 1:minbatch:n
+        @batch per=thread minbatch=4 for j in 1:minbatch:n
             m_ = min(m, j + minbatch - 1)
             res = knnqueue(ctx, view(knns, :, j))
             allknn_single_search!(g, ctx, j, res)

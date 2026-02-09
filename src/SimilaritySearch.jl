@@ -2,7 +2,7 @@
 
 module SimilaritySearch
 abstract type AbstractSearchIndex end
-
+using Polyester
 using Accessors
 
 import Base: push!, append!
@@ -165,7 +165,9 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
 
     # @show m, minbatch
-    Threads.@threads :static for j in 1:minbatch:m
+    #Threads.@threads :static for j in 1:minbatch:m
+
+    @batch per=thread minbatch=4 for j in 1:minbatch:m
         m_ = min(m, j + minbatch - 1)
         res = knnqueue(ctx, view(knns, :, j))
         search(index, ctx, Q[j], res)
@@ -189,7 +191,8 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
 
     # @batch minbatch = minbatch per = thread for i in eachindex(Q)
-    Threads.@threads :static for j in 1:minbatch:m
+    @batch per=thread minbatch=4 for j in 1:minbatch:m
+    #Threads.@threads :static for j in 1:minbatch:m
         @inbounds for i in j:min(m, j + minbatch - 1)
             search(index, ctx, Q[i], knns[i])
         end

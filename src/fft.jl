@@ -39,7 +39,8 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
 
         pivot = X[imax]
         if threads
-            Threads.@threads :static for j in 1:minbatch:N
+            #Threads.@threads :static for j in 1:minbatch:N
+            @batch per=thread minbatch=4 for j in 1:minbatch:N
                 for i in j:min(N, j + minbatch - 1)
                     d = evaluate(dist, X[i], pivot)
                     if d < nndists[i]

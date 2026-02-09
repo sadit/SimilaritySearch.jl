@@ -29,23 +29,25 @@ function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, bl
             push_item!(res, i, d)
         end
 
+        #n_ = length(res)
         output = getsatknnresult(length(res), ctx)
-        return neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
+        neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
+        #output
     else
         return res  # empty set
     end
 end
 
 """
-    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, n::integer, neighbors::KnnResult)
+    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, nodeID::integer, neighbors::KnnResult)
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(::Neighborhood, adj::AbstractAdjacencyList, n::Integer, neighbors)
-    #maxnlen = log(neighborhood.logbase, n) 
-    @inbounds for id in neighbors
-        #nlen = neighbors_length(adj, id)
-        add_edge!(adj, id, n)
+function connect_reverse_links(::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
+    #maxnlen = log(neighborhood.logbase, nodeID) 
+    for relID in neighbors
+        relID == nodeID && continue  # avoid self references
+        add_edge!(adj, relID, nodeID)
     end
 end
 
@@ -57,8 +59,8 @@ Internal function to connect reverse links after an insertion batch
 function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
     minbatch = getminbatch(ep - sp + 1, Threads.nthreads(), 0)
     Threads.@threads :static for j in sp:minbatch:ep
-        for i in j:min(ep, j + minbatch - 1)
-            connect_reverse_links(neighborhood, adj, i, neighbors(adj, i))
+        for nodeID in j:min(ep, j + minbatch - 1)
+            connect_reverse_links(neighborhood, adj, nodeID, neighbors(adj, nodeID))
         end
     end
 end
