@@ -78,7 +78,9 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
     L = neighbors_length.(Ref(adj), sp:ep)  # to avoid loop for 'secondary' links
     for (i, nodeID) in enumerate(sp:ep)  # connect all elements smaller than sp:ep
         N = neighbors(adj, nodeID)
-        connect_reverse_links(neighborhood, adj, nodeID, view(N, 1:L[i]))
+        connect_reverse_links(neighborhood, adj, nodeID, view(N, 1:L[i])) do relID
+            sp <= relID && relID != nodeID
+        end
     end
 end
 

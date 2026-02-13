@@ -31,6 +31,9 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
+                #=if length(beam) > 0 && minimum(beam) ≈ c.weight
+                    pop_min!(beam)  # REMOVE THIS AFTER TEST
+                end=#
                 push_item!(beam, c)
             end
         end

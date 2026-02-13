@@ -93,7 +93,7 @@ Appends an item into the result set
     sp, ep = res.sp, res.ep
 
     @inbounds if len < maxlength(res)
-        if ep == length(res.items)
+        if ep == length(res.items)  # reorganizing the queue (shift data to the beginning)
             i = zero(sp)
             for j in sp:ep
                 i += one(sp)
