@@ -1,9 +1,10 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, Distances, LinearAlgebra
-using Test
+using SimilaritySearch
+const Dist = SimilaritySearch.Dist
+using LinearAlgebra, Test
 
-function test_seq(db, queries, dist::SemiMetric, ksearch, valid_lower=1e-3)
+function test_seq(db, queries, dist::Dist.SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
     knns = zeros(IdWeight, ksearch, length(queries))
@@ -25,14 +26,14 @@ end
     queries = rand(db, 100)
     @info typeof(db), typeof(queries)
     for (recall_lower_bound, dist) in [
-        (1.0, L2Distance()), # 1.0 -> metric, < 1.0 if dist is not a metric
-        (1.0, L1Distance()),
-        (1.0, LInftyDistance()),
-        (1.0, SqL2Distance()),
-        (1.0, LpDistance(3.0)),
-        (0.1, LpDistance(0.5)),
-        (1.0, AngleDistance()),
-        (1.0, CosineDistance())
+        (1.0, Dist.L2()), # 1.0 -> metric, < 1.0 if dist is not a metric
+        (1.0, Dist.L1()),
+        (1.0, Dist.LInfty()),
+        (1.0, Dist.SqL2()),
+        (1.0, Dist.Lp(3.0)),
+        (0.1, Dist.Lp(0.5)),
+        (1.0, Dist.Angle()),
+        (1.0, Dist.Cosine())
     ]
         test_seq(db, queries, dist, ksearch)
     end
@@ -47,10 +48,10 @@ end
     
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for dist in [
-        CommonPrefixDissimilarity(),
-        LevenshteinDistance(),
-        LcsDistance(),
-        StringHammingDistance()
+        Dist.Seqs.CommonPrefix(),
+        Dist.Seqs.Levenshtein(),
+        Dist.Seqs.LCS(),
+        Dist.Seqs.StringHamming()
     ]
         test_seq(db, queries, dist, ksearch)
     end
@@ -66,10 +67,10 @@ end
 
     # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
     for dist in [
-        JaccardDistance(),
-        DiceDistance(),
-        IntersectionDissimilarity(),
-        RogersTanimotoDistance(σ)
+        Dist.Sets.Jaccard(),
+        Dist.Sets.Dice(),
+        Dist.Sets.Intersection(),
+        Dist.Sets.RogersTanimoto(σ)
     ]
         test_seq(db, queries, dist, ksearch)
     end
@@ -82,16 +83,16 @@ end
     queries = rand(X, 100)
     for c in X normalize!(c) end
 
-    test_seq(X, queries, NormalizedAngleDistance(), ksearch)
-    test_seq(X, queries, NormalizedCosineDistance(), ksearch)
+    test_seq(X, queries, Dist.NormAngle(), ksearch)
+    test_seq(X, queries, Dist.NormCosine(), ksearch)
 end
 
 @testset "Binary distances" begin
     ksearch = 4
     db = MatrixDatabase(rand(UInt64, 8, 1000))
     queries = rand(db, 100)
-    test_seq(db, queries, BinaryHammingDistance(), ksearch)
-    test_seq(db, queries, BinaryRogersTanimotoDistance(), ksearch)
+    test_seq(db, queries, Dist.Bits.Hamming(), ksearch)
+    test_seq(db, queries, Dist.Bits.RogersTanimoto(), ksearch)
     # test_seq(db, queries, BinaryRussellRaoDissimilarity(), ksearch)
 end
 

@@ -3,7 +3,7 @@
 using Test, SimilaritySearch, LinearAlgebra
 
 @testset "neardup single block" begin
-    dist = CosineDistance()
+    dist = SimilaritySearch.Dist.Cosine()
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
@@ -17,7 +17,7 @@ using Test, SimilaritySearch, LinearAlgebra
 end
 
 @testset "neardup small block" begin 
-    dist = CosineDistance()
+    dist = SimilaritySearch.Dist.Cosine()
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
@@ -31,7 +31,7 @@ end
 end
 
 @testset "neardup small block with filterblocks=false" begin
-    dist = CosineDistance()
+    dist = SimilaritySearch.Dist.Cosine()
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
@@ -45,7 +45,7 @@ end
 end
 
 @testset "neardup small block with filterblocks=false" begin
-    dist = CosineDistance()
+    dist = SimilaritySearch.Dist.Cosine()
     X = MatrixDatabase(rand(Float32, 4, 100))
     ϵ = 0.1
     D = neardup(dist, X, ϵ; blocksize=16, filterblocks=true)

@@ -4,7 +4,7 @@ using Test, SimilaritySearch, StatsBase
 
 @testset "HSP" begin
     k = 32
-    dist = L2Distance()
+    dist = SimilaritySearch.Dist.L2()
     n = 1000
     db = MatrixDatabase(rand(Float32, 2, n))
     E = ExhaustiveSearch(; dist, db)

@@ -1,53 +1,14 @@
 # This file is a part of SimilaritySearch.jl
 
-export CommonPrefixDissimilarity, GenericLevenshteinDistance, StringHammingDistance, LevenshteinDistance, LcsDistance
+export CommonPrefix, Levenshtein, Hamming, LCS
 
 """
-    CommonPrefixDissimilarity()
+    CommonPrefix()
 
 Uses the common prefix as a measure of dissimilarity between two strings
 """
-struct CommonPrefixDissimilarity <: SemiMetric
+struct CommonPrefix <: SemiMetric
 end
-
-"""
-    StringHammingDistance()
-
-The hamming distance counts the differences between two equally sized strings
-"""
-struct StringHammingDistance <: SemiMetric
-end
-
-"""
-    GenericLevenshteinDistance(;icost, dcost, rcost)
-
-The levenshtein distance measures the minimum number of edit operations to convert one string into another.
-The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
-"""
-struct GenericLevenshteinDistance <: SemiMetric
-    icost::Int32 # insertion cost
-    dcost::Int32 # deletion cost
-    rcost::Int32 # replace cost
-
-    Cpool::Vector{Vector{Int16}}
-end
-
-GenericLevenshteinDistance(; icost=1, dcost=1, rcost=1) =
-    GenericLevenshteinDistance(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.maxthreadid()])
-
-"""
-    LevenshteinDistance()
-
-Instantiates a GenericLevenshteinDistance object to perform traditional levenshtein distance
-"""
-LevenshteinDistance() = GenericLevenshteinDistance()
-
-"""
-    LcsDistance()
- 
-Instantiates a GenericLevenshteinDistance object to perform LCS distance
-"""
-LcsDistance() = GenericLevenshteinDistance(rcost=2)
 
 """
     common_prefix(a, b)
@@ -66,21 +27,37 @@ function common_prefix(a, b)
     i - 1
 end
 
-
 """
-    evaluate(::CommonPrefixDissimilarity, a, b)
+    evaluate(::CommonPrefix, a, b)
 
 Computes a dissimilarity based on the common prefix between two strings
 """
-evaluate(::CommonPrefixDissimilarity, a, b) = 1.0 - common_prefix(a, b) / min(length(a), length(b))
+evaluate(::CommonPrefix, a, b) = 1.0 - common_prefix(a, b) / min(length(a), length(b))
 
 
 """
-    evaluate(::GenericLevenshteinDistance, a, b)
+    Levenshtein(;icost, dcost, rcost)
+
+The levenshtein distance measures the minimum number of edit operations to convert one string into another.
+The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
+"""
+struct Levenshtein <: Metric
+    icost::Int32 # insertion cost
+    dcost::Int32 # deletion cost
+    rcost::Int32 # replace cost
+
+    Cpool::Vector{Vector{Int16}}
+end
+
+Levenshtein(; icost=1, dcost=1, rcost=1) =
+    Levenshtein(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.maxthreadid()])
+
+"""
+    evaluate(::Levenshtein, a, b)
 
 Computes the edit distance between two strings, this is a low level function
 """
-function evaluate(lev::GenericLevenshteinDistance, a, b)
+function evaluate(lev::Levenshtein, a, b)
     if length(a) < length(b)
         a, b = b, a
     end
@@ -119,20 +96,40 @@ end
 
 
 """
-     evaluate(::StringHammingDistance, a, b)
+    Hamming()
+
+The hamming distance counts the differences between two equally sized strings
+"""
+struct Hamming <: Metric
+end
+
+"""
+     evaluate(::Hamming, a, b)
      
 Computes the hamming distance between two sequences of the same length
 """
-function evaluate(::StringHammingDistance, a, b)
+function evaluate(::Hamming, a, b)
     d = 0
 
-    @inbounds for i = 1:length(a)
+    @inbounds for i in 1:length(a)
         d += Int(a[i] != b[i])
     end
 
     d
 end
 
+
+"""
+    LCS()
+ 
+Instantiates a Levenshtein object to perform LCS distance
+"""
+struct LCS <: Metric
+    lev::Levenshtein
+    LCS() = new(Levenshtein(rcost=2))
+end
+
+@inline evaluate(lcs::LCS, a, b) = evaluate(lcs.lev, a, b)
 
 # function kerrormatch(a::T1, b::T2, errors::Integer)::Bool where {T1 <: Any,T2 <: Any}
 #     # if length(a) < length(b)

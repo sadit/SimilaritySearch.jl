@@ -5,7 +5,7 @@ using Test, SimilaritySearch, StatsBase, SimilaritySearch.AdjacencyLists
 
 @testset "allknn" begin
     k = 6
-    dist = L2Distance()
+    dist = SimilaritySearch.Dist.L2()
     n = 100
     db = MatrixDatabase(rand(Float32, 4, n))
 

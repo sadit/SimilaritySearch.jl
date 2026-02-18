@@ -25,12 +25,12 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
 
     let progress = progress
         Threads.@threads :static for j in 1:minbatch:n
-            @inbounds for i in j:min(n, j + minbatch - 1)
-                neighborhood = find_neighborhood(g, ctx, database(g, i); hints=first(neighbors(g.adj, i)))
+            @inbounds for objID in j:min(n, j + minbatch - 1)
+                neighborhood = find_neighborhood(g, ctx, database(g, objID), j:objID-1; hints=first(neighbors(g.adj, objID)))
                 progress !== nothing && next!(progress)
-                direct[i] = collect(IdView(neighborhood))
-                # @info length(direct[i]) neighbors_length(g.adj, i) 
-                reverse[i] = UInt32[]
+                direct[objID] = collect(IdView(neighborhood))
+                # @info length(direct[objID]) neighbors_length(g.adj, objID) 
+                reverse[objID] = UInt32[]
             end
         end
     end

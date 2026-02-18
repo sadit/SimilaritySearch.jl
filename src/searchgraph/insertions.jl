@@ -66,12 +66,13 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         minbatch = getminbatch(ctx, ep - sp + 1)
         # searching neighbors
         #@batch per=thread minbatch=minbatch for i in sp:ep
-        Threads.@threads :static for i in sp:ep
-            neighborhood = find_neighborhood(index, ctx, database(index, i), sp:ep)
+        Threads.@threads :static for objID in sp:ep
+            neighborhood = find_neighborhood(index, ctx, database(index, objID), sp:objID-1)
+            #neighborhood = find_neighborhood(index, ctx, database(index, objID), sp:ep)
             if length(neighborhood) == 0
-                adj.end_point[i] = UInt32[]
+                adj.end_point[objID] = UInt32[]
             else
-                adj.end_point[i] = collect(UInt32, IdView(neighborhood))
+                adj.end_point[objID] = collect(UInt32, IdView(neighborhood))
             end
         end
 

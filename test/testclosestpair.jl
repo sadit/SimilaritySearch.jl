@@ -3,7 +3,7 @@
 using Test, SimilaritySearch, LinearAlgebra
 
 @testset "closestpair" begin
-    dist = CosineDistance()
+    dist = SimilaritySearch.Dist.Cosine()
     dim, mindist = 2, 1e-4
     db = MatrixDatabase(rand(Float32, dim, 1000))
     G = SearchGraph(; db, dist)

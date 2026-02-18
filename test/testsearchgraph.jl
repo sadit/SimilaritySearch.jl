@@ -1,4 +1,5 @@
 using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
+const Dist = SimilaritySearch.Dist
 using Test
 #using AllocCheck
 
@@ -38,7 +39,7 @@ function prepare_benchmark(Database;
     db = Database(rand(Float32, dim, n))
     queries = Database(rand(Float32, dim, m))
 
-    dist = SqL2Distance()
+    dist = Dist.SqL2()
     seq = ExhaustiveSearch(; dist, db)
     ectx = GenericContext()
 

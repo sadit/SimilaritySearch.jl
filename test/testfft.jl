@@ -3,7 +3,7 @@
 using Test, SimilaritySearch, LinearAlgebra
 
 @testset "farthest first traversal" begin 
-    dist = L2Distance()
+    dist = SimilaritySearch.Dist.L2()
     X = rand(Float32, 4, 30)
     k = 10
     res = fft(dist, MatrixDatabase(X), k)

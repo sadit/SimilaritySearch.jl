@@ -29,3 +29,4 @@ include("testsearchgraph.jl")
 include("testneardup.jl")
 include("testallknn.jl")
 include("testclosestpair.jl")
+

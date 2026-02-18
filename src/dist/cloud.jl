@@ -1,8 +1,8 @@
 # This file is a part of SimilaritySearch.jl
-export HausdorffDistance, ChamferDissimilarity
+export Hausdorff, Chamfer
 
 """
-    HausdorffDistance(dist::PreMetric)
+    Hausdorff(dist::PreMetric)
 
 Hausdorff distance is defined as the maximum of the minimum between two clouds of points.
 
@@ -12,7 +12,7 @@ Hausdorff(U, V) = \\max{\\max_{u \\in U} nndist(u, V), \\max{v \\in V} nndist(v,
 
 where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V`` using the `dist` metric.
 """
-struct HausdorffDistance{D<:PreMetric} <: PreMetric
+struct Hausdorff{D<:PreMetric} <: PreMetric # is Hausdorff a metric when dist is not a metric?
     dist::D
 end
 
@@ -36,13 +36,13 @@ function _hausdorff1(dist::PreMetric, u, v)
 end
 
 """
-    evaluate(m::HausdorffDistance, u, v)
+    evaluate(m::Hausdorff, u, v)
 
 Computes the Hausdorff distance between two cloud of points.
 
 `u` and `v` are iterables where each object can be measured with the internal distance `dist`
 """
-function evaluate(m::HausdorffDistance, u, v)
+function evaluate(m::Hausdorff, u, v)
     if  length(u) == 1 || length(v) == 1
         _hausdorff1(m.dist, u, v)
     else
@@ -52,24 +52,24 @@ end
 
 
 """
-    ChamferDissimilarity(distance)
+    Chamfer(distance)
 
 Computes the Chamfer dissimilarity between two point clouds
 
 
 ```math 
-ChamferDissimilarity(U, V) = \\frac{1}{|U|}\\sum_{u \\in U} nndist(u, V) + \\frac{1}{|V|}\\sum_{v \\in V} nndist(v, U)
+Chamfer(U, V) = \\frac{1}{|U|}\\sum_{u \\in U} nndist(u, V) + \\frac{1}{|V|}\\sum_{v \\in V} nndist(v, U)
 ```
 
 where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V`` using the `dist` metric.
 
 
 """
-struct ChamferDissimilarity{D<:PreMetric} <: PreMetric
+struct Chamfer{D<:PreMetric} <: PreMetric
     dist::D
 end
 
-function evaluate(D::ChamferDissimilarity, U, V)
+function evaluate(D::Chamfer, U, V)
     vsum, usum = 0.0, 0.0
 
     for v in V
@@ -81,4 +81,40 @@ function evaluate(D::ChamferDissimilarity, U, V)
     end
 
     Float32(usum / length(U) + vsum / length(U))
+end
+
+
+"""
+EMD as a perfect matching 
+"""
+struct EMD{D<:PreMetric} <: PreMetric  # is EMD a metric when dist is not a metric?
+    dist::D
+    p::Float32
+end
+
+function evaluate(emd::EMD, U, V)
+    n = length(U)
+    s = 0f0
+    C = collect(Int32, 1:n)  ## TODO cache this
+    # t = rand() < 0.1
+    # t &&  @info "===================="
+    for i in eachindex(C)
+        C[i] == 0 && break
+        u = U[i]
+        min_, argmin_ = typemax(Float32), 0
+        for j in i:n
+            objID = C[j]
+            d = evaluate(emd.dist, u, V[objID])^emd.p
+
+            if d < min_
+                s += d
+                min_, argmin_ = d, j
+            end
+        end
+
+        C[argmin_], C[i] = C[i], C[argmin_]
+        # t && @info (; pos="XXXX POST", C, i, min_, argmin_, s, n)
+    end
+
+    s^(1f0/emd.p)
 end

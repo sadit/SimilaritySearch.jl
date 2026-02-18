@@ -38,7 +38,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 - You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
 """
 function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
-    dist_ = DistanceWithIdentifiers(dist, X)
+    dist_ = SimilaritySearch.Dist.Hacks.DistanceWithIdentifiers(dist, X)
     X_ = VectorDatabase(UInt32[])
     if recall < 1.0
         idx = SearchGraph(; dist=dist_, db=X_)

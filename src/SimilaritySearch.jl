@@ -18,7 +18,10 @@ function push_item! end
 function append_items! end
 function index! end
 
-include("distances/Distances.jl")
+include("dist/Dist.jl")
+
+using .Dist
+
 include("db/db.jl")
 include("distsample.jl")
 include("adj.jl")

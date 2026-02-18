@@ -28,7 +28,7 @@ struct InformativeLog <: AbstractLog
     last::Ref{Float64}
     lock::Threads.SpinLock
 
-    InformativeLog(dt::Float64=1.0; prompt="LOG") = new(dt, prompt, Ref(0.0), Threads.SpinLock())
+    InformativeLog(; dt::Float64=1.0, prompt="LOG") = new(dt, prompt, Ref(0.0), Threads.SpinLock())
 end
 
 function timed_log_fun(fun::Function, log::InformativeLog)
