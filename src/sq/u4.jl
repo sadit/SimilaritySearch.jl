@@ -186,4 +186,3 @@ struct SQu4L2 <: Metric end
 struct SQu4SqL2 <: Metric end
 
 @inline evaluate(::SQu4SqL2, a::SQu4Vec, b::SQu4Vec)::Float32 = squared_euclidean(a, b)
-

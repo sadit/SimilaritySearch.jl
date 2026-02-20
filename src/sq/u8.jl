@@ -17,7 +17,7 @@ function quant_u8!(vout, v::AbstractVector; eps::Float32=1f-6)
     min, max = Float32(min), Float32(max)
     c = (max - min + eps) / 255f0
     quant_u8!(vout, v, min, 1f0/c)
-    SQMinC(min, c), vout
+    SQMinC(min, c)
 end
 
 struct SQu8Vec{VEC<:AbstractVector{UInt8}}
