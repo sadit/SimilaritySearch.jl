@@ -25,13 +25,13 @@ function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, bl
 
     n > 0 && search(index.algo[], index, ctx, item, res, hints)
 
-    if length(blockrange) > 1
-        for i in blockrange  # interblock neighbors
-            d = evaluate(distance(index), item, database(index, i))
-            d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
-            push_item!(res, i, d)
-        end
+    for i in blockrange  # interblock neighbors
+        #@show i => typeof(item) => typeof(database(index, i))
+        d = evaluate(distance(index), item, database(index, i))
+        d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
+        push_item!(res, i, d)
     end
+
 
     #n_ = length(res)
     output = getsatknnresult(length(res), ctx)

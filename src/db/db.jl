@@ -149,7 +149,7 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 MatrixDatabase(V::StrideMatrixDatabase) = MatrixDatabase(V.matrix)
 
-function MatrixDatabase(V::AbstractDatabase)
+function MatrixDatabase(V::Union{MatrixDatabase,StrideMatrixDatabase,VectorDatabase})
     @assert length(V) > 0 "copy empty datasets is not allowed"
     MatrixDatabase(hcat(V...))
 end

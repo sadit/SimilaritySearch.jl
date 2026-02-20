@@ -8,8 +8,9 @@ struct Angle <: SemiMetric end
 struct NormCosine <: SemiMetric end
 struct NormAngle <: SemiMetric end
 
-@inline function dot(a, b)::Float32
+@inline function dot32(a, b)::Float32
     d = 0.0f0
+    
     @fastmath @inbounds @simd for i in eachindex(a, b)
         d = muladd(Float32(a[i]), Float32(b[i]), d)
     end
@@ -17,14 +18,14 @@ struct NormAngle <: SemiMetric end
     d
 end
 
-@inline function norm(a)::Float32
-    sqrt(dot(a, a))
+@inline function norm32(a)::Float32
+    sqrt(dot32(a, a))
 end
 
-@inline evaluate(::NormCosine, a, b) = 1.0f0 - dot(a, b)
-@inline evaluate(::NormAngle, a, b) = fastacos(dot(a, b))
-@inline evaluate(::Cosine, a, b) = 1.0f0 - dot(a, b) / (norm(a) * norm(b))
-@inline evaluate(::Angle, a, b) = fastacos(dot(a, b) / (norm(a) * norm(b)))
+@inline evaluate(::NormCosine, a, b) = 1.0f0 - dot32(a, b)
+@inline evaluate(::NormAngle, a, b) = fastacos(dot32(a, b))
+@inline evaluate(::Cosine, a, b) = 1.0f0 - dot32(a, b) / (norm32(a) * norm32(b))
+@inline evaluate(::Angle, a, b) = fastacos(dot32(a, b) / (norm32(a) * norm32(b)))
 
 """
     L1()

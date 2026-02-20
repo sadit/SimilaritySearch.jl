@@ -38,13 +38,7 @@ module Dist
 
     end
 
-    module CastInt8Float32
-        using Distances: PreMetric, SemiMetric, Metric
-        import Distances: evaluate
-        include("vecs-cast-i8-f32.jl")
-    end
-
-    module CastFloat32
+    module CastF32
         using Distances: PreMetric, SemiMetric, Metric
         import Distances: evaluate
         include("vecs-cast-f32.jl")

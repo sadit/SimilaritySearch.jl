@@ -23,6 +23,7 @@ include("dist/Dist.jl")
 using .Dist
 
 include("db/db.jl")
+include("sq/sq.jl")
 include("distsample.jl")
 include("adj.jl")
 
@@ -33,7 +34,7 @@ include("pqueue/pqueue.jl")
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
-@inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(searchctx.db)
+@inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(database(searchctx))
 
 """
     getminbatch(ctx::GenericContext, n::Int)
@@ -73,7 +74,7 @@ Gets the entire indexed database
 
 Gets the i-th object from the indexed database
 """
-@inline database(searchctx::AbstractSearchIndex, i) = database(searchctx)[i]
+@inline database(searchctx::AbstractSearchIndex, i) = getindex(database(searchctx), i)
 @inline Base.getindex(searchctx::AbstractSearchIndex, i::Integer) = database(searchctx, i)
 
 
@@ -169,7 +170,6 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
 
     # @show m, minbatch
     #Threads.@threads :static for j in 1:minbatch:m
-
     @batch per=thread minbatch=4 for j in 1:minbatch:m
         m_ = min(m, j + minbatch - 1)
         res = knnqueue(ctx, view(knns, :, j))
