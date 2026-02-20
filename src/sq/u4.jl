@@ -135,31 +135,41 @@ function squared_euclidean(a::SQu4Vec, b::SQu4Vec)::Float32
     d
 end
 
-#=
 function squared_euclidean(a::SQu4Vec, b)::Float32
     d = zero(Float32)
-    n = length(b)
-    odd = isodd(n)
+    n = length(a.V)
+    odd = isodd(length(a))
     if odd
         n -= 1
     end
 
-    @inbounds @simd for i in 1:2:n
-        j = (i+1) >> 1
-        a_ = a.V[j]
+    @inbounds @simd for i in 1:n
+        a_ = a.V[i]
+        j = (i+1)>>1
         a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
-        b__ = b[i]
+        b__ = b[j]
         m = (a__ - b__)^2
-        a_ >>= 4; b_ >>= 4
+        a_ >>= 4
         a__ = Float32(a_) * a.E.c + a.E.min
-        b__ = b[i]
+        b__ = b[j+1]
         m += (a__ - b__)^2
+        d += m
+    end
+
+    if odd
+        i = n + 1
+        a_ = a.V[i]
+        j = (i+1)>>1
+        a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
+        b__ = b[j]
+        m = (a__ - b__)^2
         d += m
     end
 
     d
 end
-=#
+
+squared_euclidean(a, b::SQu4Vec) = squared_euclidean(b, a)
 
 """
     SQu4L2()
