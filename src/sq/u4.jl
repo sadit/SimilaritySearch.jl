@@ -23,10 +23,10 @@ function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32,
     vout    
 end
 
-function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector)
+function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=1f-6)
     min, max = extrema(v)
     min, max = Float32(min), Float32(max)
-    c = (max - min) / 15f0
+    c = (max - min + eps) / 15f0
     quant_u4!(vout, v, min, 1f0/c)
     SQMinC(min, c)
 end
