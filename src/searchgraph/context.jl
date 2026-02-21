@@ -55,7 +55,7 @@ struct SearchGraphContext{KnnType} <: AbstractContext
 end
 
 function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
-    logger=LogList(AbstractLog[InformativeLog(1.0)]),
+    logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     expnt=0,
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),

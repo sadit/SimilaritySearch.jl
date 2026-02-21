@@ -51,7 +51,7 @@ end
         Dist.Seqs.CommonPrefix(),
         Dist.Seqs.Levenshtein(),
         Dist.Seqs.LCS(),
-        Dist.Seqs.StringHamming()
+        Dist.Seqs.Hamming()
     ]
         test_seq(db, queries, dist, ksearch)
     end

@@ -1,4 +1,4 @@
-using SimilaritySearch, SimilaritySearch.AdjacencyLists, Statistics, StatsBase, Random, JSON
+using SimilaritySearch, SimilaritySearch.Adj, Statistics, StatsBase, Random, JSON
 
 function run(D, dist, db, queries, gold; logbase, ksearch, minrecall, minrecall_search, dim, exdim)
     algo = "SearchGraph"

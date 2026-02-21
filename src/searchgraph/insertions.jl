@@ -68,7 +68,9 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         #@batch per=thread minbatch=minbatch for i in sp:ep
         Threads.@threads :static for objID in sp:ep
             item = database(index, objID)
-            neighborhood = find_neighborhood(index, ctx, item, sp:objID-1)
+            R = sp:objID-1
+            ksearch = neighborhoodsize(ctx.neighborhood, n + length(R))
+            neighborhood = find_neighborhood(index, ctx, item, ksearch, R)
             #neighborhood = find_neighborhood(index, ctx, database(index, objID), sp:ep)
             if length(neighborhood) == 0
                 adj.end_point[objID] = UInt32[]
@@ -79,7 +81,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         LOG(ctx.logger, :add_vertex!, index, ctx, sp, ep)
         # connecting neighbors
-        connect_reverse_links(ctx.neighborhood, index.adj, sp, ep)
+        connect_reverse_links!(index.adj, sp, ep)
         index.len[] = ep
 
         # apply callbacks
@@ -142,12 +144,13 @@ Arguments:
     push_db::Bool
 )
     push_db && push_item!(index.db, item)
-    neighbors = find_neighborhood(index, ctx, item) |> IdView |> collect
+    ksearch = neighborhoodsize(ctx.neighborhood, n)
+    neighbors = find_neighborhood(index, ctx, item, ksearch, 1:-1) |> IdView |> collect
     add_vertex!(index.adj, neighbors)
     n = index.len[] = length(index.adj)
     LOG(ctx.logger, :add_vertex!, index, ctx, n, n)
     if n > 1
-        connect_reverse_links(ctx.neighborhood, index.adj, n, neighbors)
+        connect_reverse_links!(index.adj, n, neighbors)
         execute_callbacks(index, ctx)
     end
 

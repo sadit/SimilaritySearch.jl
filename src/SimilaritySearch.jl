@@ -9,7 +9,7 @@ import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
     search, searchbatch, searchbatch!, database, distance,
     getcontext, getminbatch,
-    SearchResult, push_item!, append_items!, IdWeight, StaticAdjacencyList, AdjacencyList
+    SearchResult, push_item!, append_items!, IdWeight, StaticAdjList, AdjList
 
 abstract type AbstractContext end
 function searchbatch! end
@@ -25,9 +25,9 @@ using .Dist
 include("db/db.jl")
 include("sq/sq.jl")
 include("distsample.jl")
-include("adj.jl")
+include("adj/Adj.jl")
 
-using .AdjacencyLists
+using .Adj
 
 include("log.jl")
 include("pqueue/pqueue.jl")

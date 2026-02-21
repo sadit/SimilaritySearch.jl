@@ -102,12 +102,12 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
 """
 @kwdef struct SearchGraph{DIST<:PreMetric,
     DB<:AbstractDatabase,
-    ADJ<:AbstractAdjacencyList,
+    ADJ<:AbstractAdjList,
     HINTS,
 } <: AbstractSearchIndex
     dist::DIST = SqL2Distance()
     db::DB = VectorDatabase()
-    adj::ADJ = AdjacencyLists.AdjacencyList(UInt32)
+    adj::ADJ = Adj.AdjList(UInt32)
     hints::HINTS = UInt32[]
     algo::Ref{BeamSearch} = Ref(BeamSearch())
     len::Ref{Int64} = Ref(zero(Int64))

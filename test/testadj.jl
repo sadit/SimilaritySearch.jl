@@ -2,9 +2,9 @@
 
 using Test, SimilaritySearch, LinearAlgebra
 using SimilaritySearch:
-    AdjacencyList, StaticAdjacencyList, neighbors
+    AdjList, StaticAdjList, neighbors
 
-@testset "AdjacencyList" begin
+@testset "AdjList" begin
     function radj()
         n = rand([3, 7, 11])
         L = unique(rand(UInt32(1):UInt32(100), n))
@@ -12,13 +12,13 @@ using SimilaritySearch:
         L
     end
 
-    A = AdjacencyList([radj() for i in 1:10])
-    B = StaticAdjacencyList(A)
+    A = AdjList([radj() for i in 1:10])
+    B = StaticAdjList(A)
     @test length(A) == length(B)
     @test [length(neighbors(A, i)) for i in eachindex(A)] == [length(neighbors(B, i)) for i in eachindex(B)]
     @test [neighbors(A, i) for i in eachindex(A)] == [neighbors(B, i) for i in eachindex(B)]
 
-    C = AdjacencyList(B)
+    C = AdjList(B)
     @test length(A) == length(B)
 
     for i in eachindex(C)

@@ -154,7 +154,7 @@ function MatrixDatabase(V::Union{MatrixDatabase,StrideMatrixDatabase,VectorDatab
     MatrixDatabase(hcat(V...))
 end
 
-#MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
+MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
 StrideMatrixDatabase(V::MatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::StrideMatrixDatabase) = StrideMatrixDatabase(V.matrix)
 StrideMatrixDatabase(V::AbstractDatabase) = StrideMatrixDatabase(hcat(V...))

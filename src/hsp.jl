@@ -27,13 +27,11 @@ function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase
         hsp_obj = db[hsp_objID]
         dist_point_hsp = evaluate(dist, point, hsp_obj)
         # f * dist_point_hsp < dist_center_point && return false
-        dist_point_hsp <= dist_center_point && return false #  <= does not guarantee connectivity in all cases, but the insertion algorithm ensures that
+        dist_point_hsp < dist_center_point && return false #  <= does not guarantee connectivity in all cases, but the insertion algorithm ensures that
     end
 
     true
 end
-
-
 
 """
     hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Matrix; <kwargs>)

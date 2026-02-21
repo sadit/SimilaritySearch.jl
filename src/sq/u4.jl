@@ -73,7 +73,7 @@ struct SQu4 <: AbstractDatabase
         m, n = size(X)
         Q = Matrix{UInt8}(undef, ceil(Int, m / 2), n)
         E = Vector{SQMinC}(undef, n)
-        for i in 1:n
+        @batch per=thread minbatch=4 for i in 1:n
             E[i] = quant_u4!(view(Q, :, i), view(X, :, i))
         end
 

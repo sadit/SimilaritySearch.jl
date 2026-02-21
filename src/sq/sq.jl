@@ -2,6 +2,7 @@
 module ScalarQuant
 
 using Distances: PreMetric, SemiMetric, Metric
+using Polyester
 import Distances: evaluate
 using ..SimilaritySearch: AbstractDatabase
 #using ..Dist: fastacos

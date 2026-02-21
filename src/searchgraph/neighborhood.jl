@@ -7,7 +7,7 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood(index::SearchGraph{T}, ctx, item, blockrange=1:-1; hints=index.hints)
+    find_neighborhood(index::SearchGraph{T}, ctx, item, ksearch, blockrange; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 
@@ -18,9 +18,9 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 - `ctx`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, blockrange=1:-1; hints=index.hints)
+function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, ksearch::Integer, blockrange; hints=index.hints)
     n = length(index)
-    ksearch = neighborhoodsize(ctx.neighborhood, n + length(blockrange))
+    #ksearch = neighborhoodsize(ctx.neighborhood, n + length(blockrange))
     res = getiknnresult(ksearch, ctx)
 
     n > 0 && search(index.algo[], index, ctx, item, res, hints)
@@ -45,17 +45,17 @@ function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, bl
 end
 
 """
-    connect_reverse_links(neighborhood::Neighborhood, adj::abstractadjacencylist, nodeID::integer, neighbors::KnnResult)
+    connect_reverse_links!(adj::AbstractAdjList, nodeID::integer, neighbors::KnnResult)
 
 Internal function to connect reverse links after an insertion
 """
-function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
-    connect_reverse_links(neighborhood, adj, nodeID, neighbors) do relID
+function connect_reverse_links!(adj::AbstractAdjList, nodeID::Integer, neighbors)
+    connect_reverse_links!(adj, nodeID, neighbors) do relID
         relID != nodeID    # avoid loops and weird behaviours, i.e., distance functions with d(x, x) != 0)
     end
 end
 
-function connect_reverse_links(mustconnect::Function, ::Neighborhood, adj::AbstractAdjacencyList, nodeID::Integer, neighbors)
+function connect_reverse_links!(mustconnect::Function, adj::AbstractAdjList, nodeID::Integer, neighbors)
     #@info nodeID => reinterpret(Int32, neighbors)
     for relID in neighbors
         mustconnect(relID) && add_edge!(adj, relID, nodeID)
@@ -63,14 +63,14 @@ function connect_reverse_links(mustconnect::Function, ::Neighborhood, adj::Abstr
 end
 
 """
-    connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
+    connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
 
 Internal function to connect reverse links after an insertion batch
 """
-function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacencyList, sp::Integer, ep::Integer)
+function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
     # The double step algorithm is to avoid weird race conditions
     Threads.@threads :static for nodeID in sp:ep  # connect all elements smaller than sp:ep
-        connect_reverse_links(neighborhood, adj, nodeID, neighbors(adj, nodeID)) do relID
+        connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID < sp
         end
     end
@@ -78,7 +78,7 @@ function connect_reverse_links(neighborhood::Neighborhood, adj::AbstractAdjacenc
     L = neighbors_length.(Ref(adj), sp:ep)  # to avoid loop for 'secondary' links
     for (i, nodeID) in enumerate(sp:ep)  # connect all elements smaller than sp:ep
         N = neighbors(adj, nodeID)
-        connect_reverse_links(neighborhood, adj, nodeID, view(N, 1:L[i])) do relID
+        connect_reverse_links!(adj, nodeID, view(N, 1:L[i])) do relID
             sp <= relID && relID != nodeID
         end
     end

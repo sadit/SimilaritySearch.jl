@@ -15,66 +15,33 @@ it can connect the i-th vertex to its knn in the 1..n possible vertices instead 
 
 """
 function rebuild(g::SearchGraph, ctx::SearchGraphContext;
-    progress=Progress(length(g); desc="rebuild", dt=4)
+    progress=Progress(length(g); desc="rebuild", dt=2.0)
 )
     n = length(g)
+    ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
-    reverse = Vector{Vector{UInt32}}(undef, n)
     minbatch = getminbatch(ctx, n)
 
-    let progress = progress
-        Threads.@threads :static for j in 1:minbatch:n
-            @inbounds for objID in j:min(n, j + minbatch - 1)
-                neighborhood = find_neighborhood(g, ctx, database(g, objID), j:objID-1; hints=first(neighbors(g.adj, objID)))
-                progress !== nothing && next!(progress)
-                direct[objID] = collect(IdView(neighborhood))
-                # @info length(direct[objID]) neighbors_length(g.adj, objID) 
-                reverse[objID] = UInt32[]
-            end
+    Threads.@threads :static for j in 1:minbatch:n
+        n_ = min(n, j + minbatch - 1)
+        @inbounds for objID in j:n_
+            neighborhood = find_neighborhood(g, ctx, database(g, objID), ksearch, 1:-1; hints=first(neighbors(g.adj, objID)))
+            direct[objID] = collect(IdView(neighborhood))
+            # @info length(direct[objID]) neighbors_length(g.adj, objID) 
+        end
+        progress !== nothing && next!(progress)
+    end
+
+    adj = AdjList(direct)
+    Threads.@threads :static for nodeID in eachindex(direct)
+        connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
+            relID != nodeID
         end
     end
 
-    rebuild_connect_reverse_links!(ctx.neighborhood, direct, reverse, g.adj.locks, 1, length(g), minbatch)
-    G = SearchGraph(distance(g), database(g), AdjacencyList(direct), copy(g.hints), Ref(g.algo[]), Ref(length(g)))
+    G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
     execute_callbacks(G, ctx, force=true)
+   
     G
-end
-
-function rebuild_connect_reverse_links!(N, direct, reverse, locks, sp, ep, minbatch)
-    Threads.@threads :static for jj in sp:minbatch:ep
-        for i in jj:min(ep, jj + minbatch - 1)
-            j = 0
-            D = direct[i]
-            # p = 1f0
-            @inbounds while j < length(D)
-                j += 1
-                id = D[j]
-                if i == id
-                    D[j] = D[end]
-                    pop!(D)
-                    j -= 1
-                    continue
-                end
-
-                lock(locks[id])
-                try
-                    push!(reverse[id], i)
-                finally
-                    unlock(locks[id])
-                end
-            end
-        end
-    end
-
-    Threads.@threads :static for jj in sp:minbatch:ep
-        @inbounds for i in jj:min(ep, jj + minbatch - 1)
-            if length(direct[i]) >= length(reverse[i])
-                append!(direct[i], reverse[i])
-            else
-                append!(reverse[i], direct[i])
-                direct[i] = reverse[i]
-            end
-        end
-    end
 end

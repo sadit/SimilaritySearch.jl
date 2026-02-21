@@ -1,4 +1,4 @@
-using SimilaritySearch, SimilaritySearch.AdjacencyLists, Random, StatsBase, Statistics
+using SimilaritySearch, SimilaritySearch.Adj, Random, StatsBase, Statistics
 const Dist = SimilaritySearch.Dist
 using Test
 #using AllocCheck
@@ -126,7 +126,7 @@ function abs_save_and_load(graph, ctx, B)
     tmpfile = tempname()
     saveindex(tmpfile, graph; meta=[1, 2, 4, 8], store_db=false)
     let (G, meta) = loadindex(tmpfile, database(graph); staticgraph=true)
-        @test G.adj isa StaticAdjacencyList
+        @test G.adj isa StaticAdjList
         @test length(G) == length(graph)
         @test length(G.adj) == length(graph.adj)
         @test distance(G) == distance(graph)
