@@ -30,6 +30,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
             direct[objID] = collect(IdView(neighborhood))
             # @info length(direct[objID]) neighbors_length(g.adj, objID) 
         end
+
         progress !== nothing && next!(progress)
     end
 

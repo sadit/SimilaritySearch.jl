@@ -1,136 +1,80 @@
 # This file is a part of SimilaritySearch.jl
 
 export AdjList,
-    neighbors, add_edge!, add_edges!, add_vertex!, neighbors_length
+    neighbors, neighbors_length, add!
 
 """
     struct AdjList
 
-
 Structure to represent a sparse graph
 """
-struct AdjList{EndPointType} <: AbstractAdjList{EndPointType}
-    end_point::Vector{Vector{EndPointType}} # ending point of the i-th edge
-    empty_cent::Vector{EndPointType}  # empty list centinel for `neighbors` func
-    locks::Vector{Threads.SpinLock} # adjancency list lock
-    glock::Threads.SpinLock # global locks
+struct AdjList{T} <: AbstractAdjList{T}
+    end_point::Vector{Vector{T}} # ending point of the i-th edge
+    glock::Threads.ReentrantLock # global locks
 end
 
-Base.eltype(adj::AdjList{EndPointType}) where EndPointType = Vector{EndPointType}
+Base.eltype(adj::AdjList{T}) where T = Pair{T,Vector{T}}
+Base.eachindex(adj::AdjList) = eachindex(adj.end_point)
 
-function AdjList(lists::Vector{Vector{EndPointType}}) where EndPointType
-    locks = [Threads.SpinLock() for _ in 1:length(lists)]
-    AdjList{EndPointType}(lists, EndPointType[], locks, Threads.SpinLock())
+function Base.iterate(adj::AdjList{T}, i=1) where T
+    i = T(i)
+    n = length(adj)
+    (n == 0 || i > n) && return nothing
+    i => neighbors(adj, i), i+1
 end
 
-
-function AdjList(::Type{EndPointType}, n::Int) where EndPointType
-    lists = Vector{Vector{EndPointType}}(undef, n)
-    AdjList(lists)
+function AdjList(A::Vector{Vector{T}}) where T
+    AdjList{T}(A, Threads.ReentrantLock())
 end
 
-AdjList(t::Type{EndPointType}; n::Int=0) where EndPointType = AdjList(t, n::Int)
+function AdjList(::Type{T}, n::Integer=0) where T
+    AdjList(Vector{Vector{T}}(undef, n))
+end
 
-function Base.resize!(adj::AdjList, n)
-    lock(adj.glock)
-
-    try
-        len = length(adj.locks)
-        resize!(adj.locks, n)
-        @inbounds for i in len+1:n
-            adj.locks[i] = Threads.SpinLock()
-        end
-
+function Base.resize!(adj::AdjList, n::Integer)
+    lock(adj.glock) do
         resize!(adj.end_point, n)
-    finally
-        unlock(adj.glock)
     end
 
     adj
 end
 
 AdjList(adj::AdjList) = AdjList(deepcopy(adj.end_point))
-@inline Base.length(adj::AdjList) = length(adj.locks)
+@inline Base.length(adj::AdjList) = length(adj.end_point)
 
-Base.@propagate_inbounds @inline function neighbors(adj::AdjList, i::Integer)
+Base.@propagate_inbounds @inline function neighbors(adj::AdjList, i)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? (adj.end_point[i]) : (adj.empty_cent)
+    isassigned(adj.end_point, i) ? adj.end_point[i] : nothing
 end
 
-Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList, i::Integer)
+Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList, i)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
     isassigned(adj.end_point, i) ? length(adj.end_point[i]) : 0
 end
 
-Base.@propagate_inbounds @inline function add_edge!(adj::AdjList{EndPointType}, i::Integer, end_point, order=nothing) where EndPointType
-    i == 0 && return adj
-    @inbounds lock(adj.locks[i])
-    # @info Int(i) => end_point, neighbors_length(adj, i)
-    try
-        if isassigned(adj.end_point, i)
-            @inbounds list = adj.end_point[i]
-            push!(list, end_point)
-            order === nothing || sort_last_item!(order, list)
+Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, n::Integer, N) where T
+    lock(adj.glock) do
+        n > length(adj) && resize!(adj, n)
+        
+        if isassigned(adj.end_point, n)
+            append!(adj.end_point[n], N)
         else
-            @inbounds adj.end_point[i] = EndPointType[end_point]
-            sizehint!(adj.end_point[i], initial_size(adj))
+            adj.end_point[n] = collect(T, N)
         end
-    finally
-        @inbounds unlock(adj.locks[i])
     end
 
     adj
 end
 
-initial_size(adj::AdjList) = 8
-
-Base.@propagate_inbounds @inline function add_edges!(adj::AdjList{EndPointType}, i::Integer, neighbors::Vector{EndPointType}) where EndPointType
-    i == 0 && return adj
-    @inbounds lock(adj.locks[i])
-    try
-        if isassigned(adj.end_point, i)
-            append!(adj.end_point[i], neighbors)
-        else
-            adj.end_point[i] = neighbors
+Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, iter) where T
+    n = max(length(iter), length(adj))
+    lock(adj.glock) do
+        n > length(adj) && resize!(adj, n)
+        
+        for (i, N) in iter
+            add!(adj, i, N)
         end
-    finally
-        @inbounds unlock(adj.locks[i])
     end
 
     adj
 end
-
-Base.@propagate_inbounds @inline function add_edges!(adj::AdjList{EndPointType}, i::Integer, neighbors) where EndPointType
-    i == 0 && return adj
-    @inbounds lock(adj.locks[i])
-    try
-        if isassigned(adj.end_point, i)
-            append!(adj.end_point[i], neighbors)
-        else
-            adj.end_point[i] = Vector(neighbors)
-        end
-    finally
-        @inbounds unlock(adj.locks[i])
-    end
-
-    adj
-end
-
-Base.@propagate_inbounds @inline function add_vertex!(adj::AdjList{T}) where T
-    l = T[]
-    sizehint!(l, initial_size(adj))
-    add_vertex!(adj, l)
-end
-
-Base.@propagate_inbounds @inline function add_vertex!(adj::AdjList{T}, neighbors) where T
-    lock(adj.glock)
-    try
-        push!(adj.end_point, neighbors)
-        push!(adj.locks, Threads.SpinLock())
-    finally
-        unlock(adj.glock)
-    end
-
-    neighbors
-end
-

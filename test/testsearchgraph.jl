@@ -7,29 +7,6 @@ using Test
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
-#=function check_graph(G, ctx, queries, ksearch)
-    res = knnqueue(ctx, ksearch)
-    @test_opt search(G, ctx, queries[2], res)
-    #@test_call target_modules=(@__MODULE__,) search(G, ctx, queries[2], res)
-
-    # knns = xknnpool(ksearch, length(queries))
-    @check_allocs function do_something()
-        search(G.algo, G, ctx, queries[2], res, G.hints)
-        #searchbatch!(G, ctx, queries, knns)
-    end
-
-    try
-        do_something()
-    catch err
-        for (i, e) in enumerate(err.errors)
-            display("=============== $i ===========")
-            display(e)
-        end
-    end
-
-    exit(0)
-end =#
-
 function prepare_benchmark(Database;
     ksearch::Int=8,
     n::Int=10^5,
@@ -58,30 +35,15 @@ function prepare_benchmark(Database;
         f(seq, ectx, q, res)
         @show typeof(seq) typeof(ectx) typeof(q) typeof(res)
         search(seq, ectx, q, res)
-        #=
-        @check_allocs function do_something(seq, ectx, q, res)
-            reuse!(res)
-            knns = search(seq, ectx, q, res)
-        end
-
-        try
-            do_something(seq, ectx, q, res)
-            do_something(seq, ectx, q, res)
-        catch err
-            for (i, e) in enumerate(err.errors)
-                display("=============== $i ===========")
-                display(e)
-            end
-        end=#
 
     end
 
     B
 end
 
-function abs_minrecall(B)
-    @info "===================== minrecall =============================="
-    graph = SearchGraph(; B.db, B.dist)
+function abs_minrecall(B; kwargs...)
+    @info "===================== minrecall $kwargs =============================="
+    graph = SearchGraph(; B.db, B.dist, kwargs...)
     ctx = SearchGraphContext(
         neighborhood=Neighborhood(filter=SatNeighborhood()),
         #neighborhood = Neighborhood(filter=IdentityNeighborhood()),
@@ -90,7 +52,6 @@ function abs_minrecall(B)
     )
 
     index!(graph, ctx)
-
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
@@ -173,9 +134,17 @@ end
 @testset "vector indexing with SearchGraph" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
 
+    B = prepare_benchmark(MatrixDatabase)
     @testset "MatrixDatabase" begin
-        B = prepare_benchmark(MatrixDatabase)
+        
         graph, ctx = abs_minrecall(B)
+        abs_rebuild(graph, ctx, B)
+        #abs_save_and_load(graph, ctx, B)
+        abs_matrixhints(graph, ctx, B, MatrixDatabase)
+    end
+
+    @testset "AdjDict" begin
+        graph, ctx = abs_minrecall(B; adj=AdjDict(UInt32))
         abs_rebuild(graph, ctx, B)
         #abs_save_and_load(graph, ctx, B)
         abs_matrixhints(graph, ctx, B, MatrixDatabase)
@@ -188,8 +157,6 @@ end
         # abs_save_and_load(graph, ctx, B)
         abs_matrixhints(graph, ctx, B, StrideMatrixDatabase)
     end
-
-
     #@test_call target_modules=(@__MODULE__,) search(graph, ctx, queries[1], knn(1))
     #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
 

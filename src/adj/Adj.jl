@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 module Adj
 
-abstract type AbstractAdjList{EndPointType} end
+abstract type AbstractAdjList{T} end
 
 export AbstractAdjList, sort_last_item!, IdWeight, IdIntWeight,
     IdOrder, WeightOrder, RevWeightOrder
@@ -9,13 +9,13 @@ export AbstractAdjList, sort_last_item!, IdWeight, IdIntWeight,
 using Base.Order
 import Base.Order: lt
 
-Base.eachindex(adj::AbstractAdjList) = 1:length(adj)
+#Base.eachindex(adj::AbstractAdjList) = 1:length(adj)
 
-function Base.iterate(adj::AbstractAdjList, i::Int=1)
+#=function Base.iterate(adj::AbstractAdjList{T}, i::Int=1) where T
     n = length(adj)
     (n == 0 || i > n) && return nothing
-    @inbounds neighbors(adj, i), i+1
-end
+    @inbounds T(i) => neighbors(adj, i), i+1
+end=#
 
 """
     IdWeight(id, weight)
@@ -85,47 +85,7 @@ end
 
 include("adjlist.jl")
 include("adjstatic.jl")
-
-function StaticAdjList(adj::AdjList{EndPointType}) where EndPointType
-    n = length(adj)
-    offset = Vector{Int64}(undef, n)
-    N = sum(length(neighbors(adj, j)) for j in eachindex(adj))
-    end_point = Vector{EndPointType}(undef, N)
-
-    i = 1
-    s = 0
-    @inbounds @inbounds for j in eachindex(adj)
-        L = neighbors(adj, j)
-        s += length(L)
-        offset[j] = s
-
-        for l in L
-            end_point[i] = l
-            i += 1
-        end
-    end
-
-    StaticAdjList{EndPointType}(offset, end_point)
-end
-
-function AdjList(A::StaticAdjList{EndPointType}) where EndPointType
-    n = length(A)
-    adj = Vector{Vector{EndPointType}}(undef, n)
-
-    @inbounds for objID in 1:n
-        C = neighbors(A, objID)
-        len = length(C)
-        lst = Vector{EndPointType}(undef, len)
-
-        for i in 1:len
-            lst[i] = C[i]
-        end
-
-        adj[objID] = lst
-    end
-
-    AdjList(adj)
-end
+include("adjdict.jl")
 
 import SparseArrays: sparse
 
@@ -144,10 +104,10 @@ Creates an sparse matrix (from SparseArrays) from `idx` using `val` as value.
  L[m] = 0 0 1 1 0 … 0
 ```
 """
-function sparse(adj::AbstractAdjList{EndPointType}, val::AbstractFloat=1f0) where {EndPointType<:Integer}
+function sparse(adj::AbstractAdjList{T}, val::AbstractFloat=1f0) where {T<:Integer}
     n = length(adj)
-    I = EndPointType[]
-    J = EndPointType[]
+    I = T[]
+    J = T[]
     F = eltype(val)[]
     sizehint!(I, n)
     sizehint!(J, n)

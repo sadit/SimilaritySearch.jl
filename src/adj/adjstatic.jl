@@ -2,16 +2,47 @@
 
 export StaticAdjList
 
-struct StaticAdjList{EndPointType} <: AbstractAdjList{EndPointType}
+struct StaticAdjList{T} <: AbstractAdjList{T}
     offset::Vector{Int64}
-    end_point::Vector{EndPointType}
+    end_point::Vector{T}
 end
 
 Base.length(adj::StaticAdjList) = length(adj.offset)
-Base.eltype(adj::StaticAdjList{EndPointType}) where EndPointType = typeof(view(adj.end_point, 1:1))
+Base.eltype(adj::StaticAdjList{T}) where T = Pair{T,typeof(view(adj.end_point, 1:1))}
+Base.eachindex(adj::StaticAdjList) = eachindex(adj.offset)
+
+function Base.iterate(adj::StaticAdjList{T}, i=1) where T
+    i = T(i)
+    n = length(adj)
+    (n == 0 || i > n) && return nothing
+    i => neighbors(adj, i), i+1
+end
 
 function StaticAdjList(adj::StaticAdjList; offset=adj.offset, end_point=adj.end_point)
     StaticAdjList(offset, end_point)
+end
+
+function StaticAdjList(adj::AbstractAdjList{T}) where T
+    n = length(adj)
+    @show n
+    offset = Vector{Int64}(undef, n)
+    end_point = let N = sum(length(N) for (_, N) in adj)
+        Vector{T}(undef, N)
+    end
+
+    i = 1
+    s = 0
+    @inbounds @inbounds for (j, N) in adj
+        s += length(N)
+        offset[j] = s
+
+        for l in N
+            end_point[i] = l
+            i += 1
+        end
+    end
+
+    StaticAdjList{T}(offset, end_point)
 end
 
 Base.@propagate_inbounds @inline function neighbors(adj::StaticAdjList, i::Integer)
@@ -28,14 +59,10 @@ Base.@propagate_inbounds @inline function neighbors_length(adj::StaticAdjList, i
     end
 end
 
-function add_edge!(adj::StaticAdjList, i::Integer, end_point)
-    error("ERROR: unsupported add_edge! on a static adjacent list")
+function add!(adj::StaticAdjList, n, N)
+    error("ERROR: unsupported add! on a static adjacent list")
 end
 
-function add_edges!(adj::StaticAdjList, i::Integer, neighbors)
-    error("ERROR: unsupported add_edges! on a static adjacent list")
-end
-
-function add_vertex!(adj::StaticAdjList)
-    error("ERROR: unsupported add_vertext! on a static adjacent list")
+function add!(adj::StaticAdjList, N)
+    error("ERROR: unsupported add! on a static adjacent list")
 end

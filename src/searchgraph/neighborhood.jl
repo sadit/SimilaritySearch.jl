@@ -32,8 +32,6 @@ function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, ks
         push_item!(res, i, d)
     end
 
-
-    #n_ = length(res)
     output = getsatknnresult(length(res), ctx)
     #@info :res => length(res) => blockrange => n
     if length(res) > 0 ## only normal on length(blockrange) == 0 && n == 0
@@ -58,7 +56,7 @@ end
 function connect_reverse_links!(mustconnect::Function, adj::AbstractAdjList, nodeID::Integer, neighbors)
     #@info nodeID => reinterpret(Int32, neighbors)
     for relID in neighbors
-        mustconnect(relID) && add_edge!(adj, relID, nodeID)
+        mustconnect(relID) && add!(adj, relID, nodeID)
     end
 end
 
