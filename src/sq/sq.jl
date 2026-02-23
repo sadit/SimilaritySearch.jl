@@ -14,5 +14,6 @@ end
 
 include("u8.jl")
 include("u4.jl")
+include("u2.jl")
 
 end
