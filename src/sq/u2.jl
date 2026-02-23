@@ -127,10 +127,15 @@ function squared_euclidean(A::SQu2Vec, B::SQu2Vec)::Float32
     n = length(A.V)
 
     @inbounds @simd for i in 1:n
+    #ii = 0
+    #for i in 1:n
         a, b = A.V[i], B.V[i]
         m = zero(Float32)
         for p in 0:2:6
+            #ii += 1
             af = Float32((a >> p) & 0x03) * A.E.c + A.E.min
+            #a_ = A[ii]
+            #@assert af ≈ a_ "-- ii: $ii, af: $af, a_: $a_, i=$i, p=$p"
             bf = Float32((b >> p) & 0x03) * B.E.c + B.E.min
             m += (af - bf)^2
         end
