@@ -62,3 +62,105 @@ Base.length(Q::SQu8) = size(Q.Q, 2)
 Base.@propagate_inbounds function Base.getindex(Q::SQu8, i::Integer) 
    SQu8Vec(Q.E[i], view(Q.Q, :, i))
 end
+
+
+### distances
+
+@inline function dotu8(A::SQu8Vec, B::SQu8Vec)::Float32
+    d = zero(Float32)
+    n = length(A.V)
+
+    @inbounds @simd for i in 1:n
+        a, b = A.V[i], B.V[i]
+        af = Float32(a) * A.E.c + A.E.min
+        bf = Float32(b) * B.E.c + B.E.min 
+        d += af * bf
+    end
+
+    d
+end
+
+@inline function dotu8(A::SQu8Vec, B)::Float32
+    d = zero(Float32)
+    n = length(A.V)
+
+    @inbounds @simd for i in 1:n
+        a, bf = A.V[i], B[i]
+        af = Float32(a) * A.E.c + A.E.min
+        d += af * bf
+    end
+
+    d
+end
+
+dotu8(A, B::SQu8Vec) = dotu8(B, A)
+
+struct SQu8NormCosine <: Metric end
+
+@inline evaluate(::SQu8NormCosine, A, B)::Float32 = 1f0 - dotu8(A, B)
+
+"""
+    SQu8L1()
+
+"""
+struct SQu8L1 <: Metric end
+
+@inline function evaluate(::SQu8L1, A::SQu8Vec, B::SQu8Vec)::Float32
+    d = zero(Float32)
+    n = length(A.V)
+
+    @inbounds @simd for i in 1:n
+        a, b = A.V[i], B.V[i]
+        af = Float32(a) * A.E.c + A.E.min
+        bf = Float32(b) * B.E.c + B.E.min 
+        d += abs(af - bf)
+    end
+
+    d
+end
+
+
+function squared_euclidean(A::SQu8Vec, B::SQu8Vec)::Float32
+    d = zero(Float32)    
+    n = length(A.V)
+
+    @inbounds @simd for i in 1:n
+        a, b = A.V[i], B.V[i]
+        af = Float32(a) * A.E.c + A.E.min
+        bf = Float32(b) * B.E.c + B.E.min 
+        d += (af - bf)^2
+    end
+
+    d
+end
+
+function squared_euclidean(A::SQu8Vec, B)::Float32
+    d = zero(Float32)
+    n = length(A.V)
+
+    @inbounds @simd for i in 1:n
+        a, bf = A.V[i], B.V[i]
+        af = Float32(a) * A.E.c + A.E.min
+        d += (af - bf)^2
+    end
+
+    d
+end
+
+squared_euclidean(a, b::SQu8Vec) = squared_euclidean(b, a)
+
+"""
+    SQu8L2()
+
+"""
+struct SQu8L2 <: Metric end
+
+@inline evaluate(::SQu8L2, a, b) = sqrt(squared_euclidean(a, b))
+
+"""
+    SQu8SqL2()
+
+"""
+struct SQu8SqL2 <: Metric end
+
+@inline evaluate(::SQu8SqL2, a, b)::Float32 = squared_euclidean(a, b)

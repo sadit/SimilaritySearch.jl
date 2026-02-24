@@ -26,6 +26,7 @@ include("db/db.jl")
 include("sq/sq.jl")
 include("distsample.jl")
 include("adj/Adj.jl")
+include("proj/proj.jl")
 
 using .Adj
 

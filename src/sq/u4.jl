@@ -97,72 +97,72 @@ end
 """
 struct SQu4L1 <: Metric end
 
-@inline function evaluate(::SQu4L1, a::SQu4Vec, b::SQu4Vec)::Float32
+@inline function evaluate(::SQu4L1, A::SQu4Vec, B::SQu4Vec)::Float32
     d = zero(Float32)
-    n = length(a.V)
+    n = length(A.V)
 
     @inbounds @simd for i in 1:n
-        a_, b_ = a.V[i], b.V[i]
-        a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
-        b__ = Float32(b_ & 0x0f) * b.E.c + b.E.min 
-        m = abs(a__ - b__)
-        a_ >>= 4; b_ >>= 4
-        a__ = Float32(a_) * a.E.c + a.E.min
-        b__ = Float32(b_) * b.E.c + b.E.min
-        m += abs(a__ - b__)
+        a, b = A.V[i], B.V[i]
+        af = Float32(a & 0x0f) * A.E.c + A.E.min
+        bf = Float32(b & 0x0f) * B.E.c + B.E.min 
+        m = abs(af - bf)
+        a >>= 4; b >>= 4
+        af = Float32(a) * A.E.c + A.E.min
+        bf = Float32(b) * B.E.c + B.E.min
+        m += abs(af - bf)
         d += m
     end
 
     d
 end
 
-function squared_euclidean(a::SQu4Vec, b::SQu4Vec)::Float32
+function squared_euclidean(A::SQu4Vec, B::SQu4Vec)::Float32
     d = zero(Float32)    
-    n = length(a.V)
+    n = length(A.V)
 
     @inbounds @simd for i in 1:n
-        a_, b_ = a.V[i], b.V[i]
-        a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
-        b__ = Float32(b_ & 0x0f) * b.E.c + b.E.min 
-        m = (a__ - b__)^2
-        a_ >>= 4; b_ >>= 4
-        a__ = Float32(a_) * a.E.c + a.E.min
-        b__ = Float32(b_) * b.E.c + b.E.min
-        m += (a__ - b__)^2
+        a, b = A.V[i], B.V[i]
+        af = Float32(a & 0x0f) * A.E.c + A.E.min
+        bf = Float32(b & 0x0f) * B.E.c + B.E.min 
+        m = (af - bf)^2
+        a >>= 4; b >>= 4
+        af = Float32(a) * A.E.c + A.E.min
+        bf = Float32(b) * B.E.c + B.E.min
+        m += (af - bf)^2
         d += m
     end
 
     d
 end
 
-function squared_euclidean(a::SQu4Vec, b)::Float32
+function squared_euclidean(A::SQu4Vec, B)::Float32
     d = zero(Float32)
-    n = length(a.V)
-    odd = isodd(length(a))
+    n = length(A.V)
+    odd = isodd(length(A))
     if odd
         n -= 1
     end
 
     @inbounds @simd for i in 1:n
-        a_ = a.V[i]
+        a = A.V[i]
         j = (i+1)>>1
-        a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
-        b__ = b[j]
-        m = (a__ - b__)^2
-        a_ >>= 4
-        a__ = Float32(a_) * a.E.c + a.E.min
-        b__ = b[j+1]
-        m += (a__ - b__)^2
+        af = Float32(a & 0x0f) * A.E.c + A.E.min
+        bf = B[j]
+        m = (af - bf)^2
+        a >>= 4
+        af = Float32(a) * A.E.c + A.E.min
+        bf = B[j+1]
+        m += (af - bf)^2
         d += m
     end
 
     if odd
         i = n + 1
-        a_ = a.V[i]
+        a = A.V[i]
         j = (i+1)>>1
-        a__ = Float32(a_ & 0x0f) * a.E.c + a.E.min
-        b__ = b[j]
-        m = (a__ - b__)^2
+        af = Float32(a & 0x0f) * A.E.c + A.E.min
+        bf = B[j]
+        m = (af - bf)^2
         d += m
     end
 
@@ -177,7 +177,7 @@ squared_euclidean(a, b::SQu4Vec) = squared_euclidean(b, a)
 """
 struct SQu4L2 <: Metric end
 
-@inline evaluate(::SQu4L2, a::SQu4Vec, b::SQu4Vec) = sqrt(squared_euclidean(a, b))
+@inline evaluate(::SQu4L2, a, b) = sqrt(squared_euclidean(a, b))
 
 """
     SQu4SqL2()
@@ -185,4 +185,4 @@ struct SQu4L2 <: Metric end
 """
 struct SQu4SqL2 <: Metric end
 
-@inline evaluate(::SQu4SqL2, a::SQu4Vec, b::SQu4Vec)::Float32 = squared_euclidean(a, b)
+@inline evaluate(::SQu4SqL2, a, b)::Float32 = squared_euclidean(a, b)

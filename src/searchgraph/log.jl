@@ -7,7 +7,7 @@ function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::Search
         maxrss = ceil(Int, Sys.maxrss() / 2^30)
         println(stderr, log.prompt, " $event sp=$sp ep=$ep n=$n $(index.algo[]) mem=$(mem)GB max-rss=$(maxrss)GB $(Dates.now())")
 
-        if event === :add_vertex!
+        if event === :add!
             x = quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0)
             println(stderr, "LOG n.size quantiles:", x)
         end

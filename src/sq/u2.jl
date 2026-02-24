@@ -190,7 +190,7 @@ squared_euclidean(a, b::SQu2Vec) = squared_euclidean(b, a)
 """
 struct SQu2L2 <: Metric end
 
-@inline evaluate(::SQu2L2, a::SQu2Vec, b::SQu2Vec) = sqrt(squared_euclidean(a, b))
+@inline evaluate(::SQu2L2, a, b) = sqrt(squared_euclidean(a, b))
 
 """
     SQu2SqL2()
@@ -198,4 +198,4 @@ struct SQu2L2 <: Metric end
 """
 struct SQu2SqL2 <: Metric end
 
-@inline evaluate(::SQu2SqL2, a::SQu2Vec, b::SQu2Vec)::Float32 = squared_euclidean(a, b)
+@inline evaluate(::SQu2SqL2, a, b)::Float32 = squared_euclidean(a, b)
