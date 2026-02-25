@@ -10,16 +10,27 @@ function quant_global_u8!(vout, v, min::Float32, c::Float32)
     vout
 end
 
-function sq_global_u8(X::AbstractMatrix; qminmax=[0.01, 0.99])
+function sq_global_u8(X::AbstractMatrix;
+        minmax=nothing,
+        quant=[0.025, 0.975],
+        samplesize=0
+    )
     m, n = size(X)
     Q = Matrix{UInt8}(undef, m, n)
-    min, max = let  V = vec(X),
-                    n = length(V),
-                    S = rand(V, ceil(Int, n^0.5))
-        quantile(S, qminmax)
+    
+    min, max = if minmax === nothing
+        let  V = vec(X),
+             n = length(V),
+             samplesize = samplesize === 0 ? ceil(Int, n^0.5) : samplesize
+             S = rand(V, samplesize)
+            quantile(S, quant)
+        end
+    else
+        minmax
     end
+
     c = Float32(255 / (max - min + 1e-6))
-    quant_global_u8!(vout, v, min, c)
+    min = Float32(min)
 
     @batch per=thread minbatch=4 for i in 1:n
         quant_global_u8!(view(Q, :, i), view(X, :, i), min, c)
