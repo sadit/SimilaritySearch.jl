@@ -54,14 +54,47 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Rand
     empty!(index.hints)
     V = Set{Int}()
 
-    for i in 1:m
-        p = rand(1:n)
-        if !(p in V)
-            push!(V, p)
-            push!(index.hints, p)
+    for _ in 1:n
+        objID = rand(1:n)
+        objID in V && continue
+        if !(objID in V)
+            N = neighbors(index.adj, objID)
+            length(N) <= 2 && continue
+            push!(V, objID)
+            union!(V, N)
+            for child in N
+                child ∈ V || union!(V, neighbors(index.adj, child))
+            end
+            push!(index.hints, objID)
         end
+
+        length(index.hints) >= m && break
     end
+
+    #@info "HINTS-size:" length(index.hints )
 end
+
+#=function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
+    n = length(index)
+    m = ceil(Int, log(opt.logbase, n))
+    empty!(index.hints)
+    V = Set{Int}()
+
+    for objID in 1:n
+        #objID = rand(1:n)
+        if !(objID in V)
+            N = neighbors(index.adj, objID)
+            length(N) <= 3 && continue
+            push!(V, objID)
+            union!(V, N)
+            push!(index.hints, objID)
+        end
+
+        #length(index.hints) >= m && break
+    end
+
+    @info "HINTS-size:" length(index.hints )
+end=#
 
 """
     mutable struct DisjointHints

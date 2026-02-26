@@ -78,6 +78,7 @@ function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
         N = neighbors(adj, nodeID)
         connect_reverse_links!(adj, nodeID, view(N, 1:L[i])) do relID
             sp <= relID && relID != nodeID
+            #relID != nodeID
         end
     end
 end

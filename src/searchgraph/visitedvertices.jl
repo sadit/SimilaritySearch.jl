@@ -12,7 +12,7 @@ end
 end=#
 
 
-function reuse!(B::Vector{UInt64}, n::Integer)
+function reuse!(B::AbstractVector{UInt64}, n::Integer)
     n > 0 && let n = convert(UInt64, n), m = _b64block(n)
         m > length(B) && resize!(B, m)
         fill!(B, zero(UInt64))
@@ -33,7 +33,7 @@ end
 
 @inline function check_visited_and_visit!(vstate, i_::Integer)::Bool
     b, i = _b64indices(i_)
-    v = Bool((vstate[b] >>> i) & one(UInt64))
+    @inbounds v = Bool((vstate[b] >>> i) & one(UInt64))
     !v && (@inbounds vstate[b] |= (one(UInt64) << i))
     v
 end
