@@ -112,11 +112,11 @@ function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, 
 end
 
 """
-    execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
 
 SearchGraph's callback for adjunting search parameters
 """
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::OptimizeParameters)
     if opt.ksearch == 0
         ksearch = neighborhoodsize(ctx.neighborhood, length(index))
     else

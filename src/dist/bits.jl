@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Hamming, RogersTanimoto
+#export Hamming, RogersTanimoto
 
 """
    Hamming()

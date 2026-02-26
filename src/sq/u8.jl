@@ -108,8 +108,8 @@ struct SQu8L1 <: Metric end
 @inline function evaluate(::SQu8L1, A::SQu8Vec, B::SQu8Vec)::Float32
     d = zero(Float32)
     n = length(A.V)
-
-    @inbounds @simd for i in 1:n
+5
+    @fastmath @inbounds @simd for i in 1:n
         a, b = A.V[i], B.V[i]
         af = Float32(a) * A.E.c + A.E.min
         bf = Float32(b) * B.E.c + B.E.min 
@@ -119,12 +119,11 @@ struct SQu8L1 <: Metric end
     d
 end
 
-
 function squared_euclidean(A::SQu8Vec, B::SQu8Vec)::Float32
     d = zero(Float32)    
     n = length(A.V)
 
-    @inbounds @simd for i in 1:n
+    @fastmath @inbounds @simd for i in 1:n
         a, b = A.V[i], B.V[i]
         af = Float32(a) * A.E.c + A.E.min
         bf = Float32(b) * B.E.c + B.E.min 
@@ -138,7 +137,7 @@ function squared_euclidean(A::SQu8Vec, B)::Float32
     d = zero(Float32)
     n = length(A.V)
 
-    @inbounds @simd for i in 1:n
+    @fastmath @inbounds @simd for i in 1:n
         a, bf = A.V[i], B.V[i]
         af = Float32(a) * A.E.c + A.E.min
         d += (af - bf)^2

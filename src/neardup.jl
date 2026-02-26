@@ -39,7 +39,7 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
 """
 function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
     dist_ = SimilaritySearch.Dist.Hacks.DistanceWithIdentifiers(dist, X)
-    X_ = VectorDatabase(UInt32[])
+    X_ = VectorDatabase(Int32[])
     if recall < 1.0
         idx = SearchGraph(; dist=dist_, db=X_)
         hyperparameters_callback = OptimizeParametes(MinRecall(recall))
@@ -49,7 +49,7 @@ function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwa
         ctx = getcontext(idx)
     end
 
-    R = neardup_(idx, ctx, VectorDatabase(UnitRange{UInt32}(1, length(X))), ϵ; kwargs...)
+    R = neardup_(idx, ctx, VectorDatabase(UnitRange{Int32}(1, length(X))), ϵ; kwargs...)
     (; R..., centers=X_.vecs)
 end
 
@@ -69,9 +69,9 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
-    M = UInt32[]
-    imap = UInt32[]
-    tmp = UInt32[]
+    M = Int32[]
+    imap = Int32[]
+    tmp = Int32[]
 
     for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0

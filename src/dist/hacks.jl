@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export NegativeDistanceHack, SimilarityFromDistance, DistanceF32
+#export NegativeDistanceHack, SimilarityFromDistance, DistanceF32
 
 """
     NegativeDistanceHack(dist)

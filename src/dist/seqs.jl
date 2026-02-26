@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export CommonPrefix, Levenshtein, Hamming, LCS
+#export CommonPrefix, Levenshtein, Hamming, LCS
 
 """
     CommonPrefix()

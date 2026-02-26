@@ -70,8 +70,8 @@ Appends an item into the result set
     true
 end
 
-push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
-push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
+push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdWeight(convert(Int32, i), convert(Float32, d)))
+push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdWeight(convert(Int32, p.first), convert(Float32, p.second)))
 
 @inline function pop_max!(res::KnnHeap)
     p = res.items[1]

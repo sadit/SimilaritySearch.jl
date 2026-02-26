@@ -26,7 +26,7 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
     sizehint!(dmaxlist, k)
     nndists = Vector{Float32}(undef, N)
     fill!(nndists, typemax(Float32))
-    nn = zeros(UInt32, N)
+    nn = zeros(Int32, N)
     imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)

@@ -6,7 +6,7 @@ iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
 iterate_hsp_(h::Vector{IdWeight}) = IdView(h)
 iterate_hsp_(h::AbstractKnn) = IdView(h)
 
-function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
+function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::Int32, dist_center_point::Float32; factor::Float32=1.0f0)
     @inbounds point = db[point_id]
     #=if factor == 1.0f0
         @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)

@@ -117,8 +117,8 @@ Appends an item into the result set
     true
 end
 
-@inline push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(UInt32, i), convert(Float32, d)))
-@inline push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(UInt32, p.first), convert(Float32, p.second)))
+@inline push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(Int32, i), convert(Float32, d)))
+@inline push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(Int32, p.first), convert(Float32, p.second)))
 
 @inline function pop_min!(res::KnnSorted)
     sp = res.sp

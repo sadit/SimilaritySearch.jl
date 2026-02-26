@@ -48,7 +48,7 @@ end
 
 SearchGraph's callback for selecting hints at random
 """
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -74,7 +74,7 @@ function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::Rand
     #@info "HINTS-size:" length(index.hints )
 end
 
-#=function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
+#=function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -105,7 +105,7 @@ Indicates that hints are a small disjoint (untouched neighbors) subsample
     logbase::Float32 = 1.1
 end
 
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::DisjointHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::DisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
@@ -137,14 +137,14 @@ Indicates that hints are selected to have a disjoint neighborhood
 end
 
 """
-    execute_callback(index, ctx, opt::KDisjointHints)
+    execute_callback!(index, ctx, opt::KDisjointHints)
 
 SearchGraph's callback for selecting hints at random
 """
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
-    sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
+    sample = unique(rand(Int32(1):Int32(n), opt.expansion * m))
     m = min(length(sample), m)
     sort!(sample, by=i -> length(neighbors(index.adj, i)), rev=true)
     IType = eltype(index.hints)
@@ -193,13 +193,13 @@ EpsilonHints(; quantile=0.01, epsilon=0.0f0, minepsilon=1e-5, samplesize=sqrt, m
         samplesize,
         maxsize)
 
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
     n = length(index)
     m = min(n, ceil(Int, opt.samplesize(n)))
     s = rand(1:n, m) |> unique! |> sort!
 
     sample = VectorDatabase(s)
-    out = VectorDatabase(UInt32[])
+    out = VectorDatabase(Int32[])
     dist = DistanceWithIdentifiers(distance(index), database(index))
     E = ExhaustiveSearch(; dist, db=out)
     ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
@@ -232,7 +232,7 @@ end
 
 KCentersHints(; logbase=1.1, powsample=1.5, qdiscard=0.1) = KCentersHints(logbase, powsample, qdiscard)
 
-function execute_callback(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
     n = length(index)
     k = min(n ÷ 2, ceil(Int, log(opt.logbase, n))) + 1
     @assert n > k

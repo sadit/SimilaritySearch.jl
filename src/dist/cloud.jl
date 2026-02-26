@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-export Hausdorff, Chamfer
+#export Hausdorff, Chamfer
 
 """
     Hausdorff(dist::PreMetric)

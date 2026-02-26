@@ -53,7 +53,7 @@ function SQu2Vec(v::AbstractVector)
 end
 
 Base.@propagate_inbounds function Base.getindex(qvec::SQu2Vec, i::Integer)::Float32
-    i = UInt32(i-1)
+    i = Int32(i-1)
     b = (i >> 2) + 1
     p = i & 0x3
     val = (qvec.V[b] >> 2p) & 0x3

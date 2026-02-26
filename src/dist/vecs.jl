@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-export L1, L2, SqL2, Lp, LInfty
+#export L1, L2, SqL2, Lp, LInfty
 
 ###################
 #

@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Jaccard, Dice, Intersection, CosineSet, RogersTanimoto
+#export Jaccard, Dice, Intersection, CosineSet, RogersTanimoto
 using Base.Order
 
 """

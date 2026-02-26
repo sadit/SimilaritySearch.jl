@@ -18,9 +18,10 @@ function push_item! end
 function append_items! end
 function index! end
 
+using Distances: Metric, SemiMetric, PreMetric, evaluate
 include("dist/Dist.jl")
 
-using .Dist
+#using .Dist  # keep as a separate module
 
 include("db/db.jl")
 include("sq/sq.jl")
@@ -171,7 +172,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
 
     # @show m, minbatch
     #Threads.@threads :static for j in 1:minbatch:m
-    @batch per=thread minbatch=4 for j in 1:minbatch:m
+    #=@batch per=core minbatch=4 for j in 1:minbatch:m
         m_ = min(m, j + minbatch - 1)
         res = knnqueue(ctx, view(knns, :, j))
         search(index, ctx, Q[j], res)
@@ -183,6 +184,12 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
             sorted && sortitems!(res)
             i += 1
         end
+    end=#
+    
+    @batch per=core minbatch=4 for j in 1:m
+        res = knnqueue(ctx, view(knns, :, j))
+        search(index, ctx, Q[j], res)
+        sorted && sortitems!(res)
     end
 
     knns

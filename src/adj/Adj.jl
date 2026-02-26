@@ -24,7 +24,7 @@ Stores a pair of objects to be accessed. It is used in several places but mostly
     
 """
 struct IdWeight
-    id::UInt32
+    id::Int32
     weight::Float32
 end
 
@@ -35,12 +35,12 @@ end
 Stores a pair of objects to be accessed. Similar to [`IdWeight`](@ref) but it stores an integer weight 
 """
 struct IdIntWeight
-    id::UInt32
+    id::Int32
     weight::Int32
 end
 
-Base.zero(::Type{IdWeight}) = IdWeight(zero(UInt32), zero(Float32))
-Base.zero(::Type{IdIntWeight}) = IdWeight(zero(UInt32), zero(Int32))
+Base.zero(::Type{IdWeight}) = IdWeight(zero(Int32), zero(Float32))
+Base.zero(::Type{IdIntWeight}) = IdWeight(zero(Int32), zero(Int32))
 
 struct IdOrderingType <: Ordering end
 struct WeightOrderingType <: Ordering end
@@ -130,8 +130,8 @@ end
  
 Creates an sparse matrix (from SparseArrays) from `idx`
 """
-sparse(adj::AbstractAdjList{IdWeight}) = sparse_from_adj(adj, UInt32, Float32)
-sparse(adj::AbstractAdjList{IdIntWeight}) = sparse_from_adj(adj, UInt32, Int32)
+sparse(adj::AbstractAdjList{IdWeight}) = sparse_from_adj(adj, Int32, Float32)
+sparse(adj::AbstractAdjList{IdIntWeight}) = sparse_from_adj(adj, Int32, Int32)
 
 function sparse_from_adj(adj::AbstractAdjList, IType, FType)
     n = length(adj)

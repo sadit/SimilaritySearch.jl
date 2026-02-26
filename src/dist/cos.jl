@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export Cosine, Angle, NormCosine, NormAngle
+#export Cosine, Angle, NormCosine, NormAngle
 using LinearAlgebra
 
 """

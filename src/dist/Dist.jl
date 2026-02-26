@@ -2,7 +2,7 @@ module Dist
 
     using Distances: PreMetric, SemiMetric, Metric
     import Distances: evaluate
-    export evaluate, PreMetric, SemiMetric, Metric  # reexporting
+    #export evaluate, PreMetric, SemiMetric, Metric  # reexporting
 
     include("vecs.jl")
     include("cos.jl")

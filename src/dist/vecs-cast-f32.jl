@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
-export Cosine, Angle, NormCosine, NormAngle
-export L1, L2, SqL2, Lp, LInfty, Lp
+# export Cosine, Angle, NormCosine, NormAngle
+# export L1, L2, SqL2, Lp, LInfty, Lp
 using ..Dist: fastacos
 
 struct Cosine <: SemiMetric end

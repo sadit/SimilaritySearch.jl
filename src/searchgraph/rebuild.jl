@@ -20,7 +20,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     n = length(g)
     ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
-    direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
+    direct = Vector{Vector{Int32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     minbatch = getminbatch(ctx, n)
 
     Threads.@threads :static for j in 1:minbatch:n
@@ -42,7 +42,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     end
 
     G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
-    execute_callbacks(G, ctx, force=true)
+    execute_callbacks!(G, ctx, force=true)
    
     G
 end
