@@ -20,13 +20,13 @@ Note: `fft` is well-defined for metric distances
 """
 function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, threads::Bool=true)
     N = length(X)
-    centers = Int32[]
+    centers = UInt32[]
     sizehint!(centers, k)
     dmaxlist = Float32[]
     sizehint!(dmaxlist, k)
     nndists = Vector{Float32}(undef, N)
     fill!(nndists, typemax(Float32))
-    nn = zeros(Int32, N)
+    nn = zeros(UInt32, N)
     imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)

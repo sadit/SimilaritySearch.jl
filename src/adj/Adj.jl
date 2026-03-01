@@ -24,7 +24,7 @@ Stores a pair of objects to be accessed. It is used in several places but mostly
     
 """
 struct IdWeight
-    id::Int32
+    id::UInt32
     weight::Float32
 end
 
@@ -35,12 +35,12 @@ end
 Stores a pair of objects to be accessed. Similar to [`IdWeight`](@ref) but it stores an integer weight 
 """
 struct IdIntWeight
-    id::Int32
+    id::UInt32
     weight::Int32
 end
 
-Base.zero(::Type{IdWeight}) = IdWeight(zero(Int32), zero(Float32))
-Base.zero(::Type{IdIntWeight}) = IdWeight(zero(Int32), zero(Int32))
+Base.zero(::Type{IdWeight}) = IdWeight(zero(UInt32), zero(Float32))
+Base.zero(::Type{IdIntWeight}) = IdWeight(zero(UInt32), zero(Int32))
 
 struct IdOrderingType <: Ordering end
 struct WeightOrderingType <: Ordering end

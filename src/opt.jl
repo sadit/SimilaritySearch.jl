@@ -25,7 +25,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
     m = length(queries)
     cost = zeros(Int, m)
     cov = Vector{Float64}(undef, m)
-    R = [Set{Int32}() for _ in knns]
+    R = [Set{UInt32}() for _ in knns]
 
     function lossfun(conf)
         empty!(cov)
@@ -74,7 +74,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             end=#
 
             #=for p in knns
-                @show collect(Int32, I  IdView(p))
+                @show collect(UInt32, I  IdView(p))
             end=#
             #=for p in knns
                 @show collect(Float32, DistView(p))

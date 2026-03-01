@@ -59,7 +59,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
     expnt=0,
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
-    hints_callback=KCentersHints(; logbase=1.2),
+    hints_callback=RandomHints(; logbase=1.2),
     hyperparameters_callback=OptimizeParameters(),
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
