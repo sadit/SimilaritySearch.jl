@@ -108,7 +108,7 @@ struct SQu8L1 <: Metric end
 @inline function evaluate(::SQu8L1, A::SQu8Vec, B::SQu8Vec)::Float32
     d = zero(Float32)
     n = length(A.V)
-5
+
     @fastmath @inbounds @simd for i in 1:n
         a, b = A.V[i], B.V[i]
         af = Float32(a) * A.E.c + A.E.min

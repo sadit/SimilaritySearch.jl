@@ -22,6 +22,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     @inbounds while 0 < length(beam)
         costblocks += 1
         prev = pop_min!(beam)
+    
         for childID in neighbors(index.adj, prev.id)
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))

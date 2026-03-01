@@ -32,7 +32,7 @@ Postprocessing of a neighborhood using some criteria. Called from `find_neighbor
 abstract type NeighborhoodFilter end
 
 """
-    Neighborhood(; logbase=2, minsize=2, neardup=1f-3, filter=SatNeighborhood())
+    Neighborhood(; logbase=2, minsize=2, neardup=typemin(Float32), filter=SatNeighborhood())
     
 Determines the size of the neighborhood; it is adjusted as a callback exponentially.
 More detailed, the insertion algorithm searches for ``log_\\text{logbase}(N) + minsize)`` in the index where ``N`` is the size of the index/dataset,
@@ -41,16 +41,16 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
 ## Parameters
 - `logbase=2`: logarithmic base to determine the number of neighbors to retrieve
 - `minsize=2`: minimum number of elements to retrieve
-- `neardup=1f-3`: distance to identify an element as duplicate (neardups could be ignored from neighborhoods)
+- `neardup=typemin(Float32)`: distance to identify an element as duplicate (neardups could be ignored from neighborhoods)
 - `filter=SatNeighborhood()`: strategy to reduce the number of neighbors
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
 """
 @kwdef struct Neighborhood{NFILTER<:NeighborhoodFilter}
-    logbase::Float32 = 2.0f0
+    logbase::Float32 = 1.3f0
     minsize::Int32 = Int32(2)
-    neardup::Float32 = 1.0f-3
+    neardup::Float32 = typemin(Float32)
     filter::NFILTER = SatNeighborhood()
 end
 
