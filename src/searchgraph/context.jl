@@ -12,7 +12,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         parallel_block=4Threads.nthreads(),
         logbase_callback=1.5,
         starting_callback=256,
-        knns = zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
+        knns = zeros(IdDist, 96, 3 * Threads.maxthreadid()),
         vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
     )    
 
@@ -50,7 +50,7 @@ struct SearchGraphContext{KnnType} <: AbstractContext
     logbase_callback::Float32
     starting_callback::Int32
     parallel_block::Int32
-    knns::Matrix{IdWeight}
+    knns::Matrix{IdDist}
     vstates::Vector{Vector{UInt64}}
 end
 
@@ -64,7 +64,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
-    knns=zeros(IdWeight, 96, 3 * Threads.maxthreadid()),
+    knns=zeros(IdDist, 96, 3 * Threads.maxthreadid()),
     vstates=[Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
 )
 
@@ -122,6 +122,6 @@ end
 @inline getsatknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 2, nsize)
 @inline getiknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 3, nsize)
 
-#@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdWeight}, i=Threads.threadid())
+#@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdDist}, i=Threads.threadid())
 #    view(knns, 1:_knnsize(nsize, knns), i)
 #end

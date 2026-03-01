@@ -13,14 +13,14 @@ Computes all the k nearest neighbors (all vs all) using the given index. User mu
 - `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
 - Query specification and result:
    - `k`: the number of neighbors to retrieve
-   - `knns`: an uninitialized IdWeight matrix of (k, n) size for storing the `k` nearest neighbors and sitances of the `n` elements
+   - `knns`: an uninitialized IdDist matrix of (k, n) size for storing the `k` nearest neighbors and sitances of the `n` elements
 
 - `sort`: ensures that result set is presented in ascending order by distance
 - `show_progress`: enables or disables progress bar
 
 # Returns:
 
-- `knns` a (k, n) matrix of `IdWeight` elements, i.e., `zeros(IdWeight, k, n)`; the i-th column corresponds to the i-th object in the dataset.
+- `knns` a (k, n) matrix of `IdDist` elements, i.e., `zeros(IdDist, k, n)`; the i-th column corresponds to the i-th object in the dataset.
     Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
  
 """
@@ -30,7 +30,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
     minbatch::Int=0,
 )
     n = length(g)
-    knns = zeros(IdWeight, k, n)
+    knns = zeros(IdDist, k, n)
     allknn(g, ctx, knns; sort, progress)
 end
 

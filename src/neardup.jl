@@ -65,7 +65,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     ϵ = convert(Float32, ϵ)
     n = length(X)
     blocksize = min(blocksize, n)
-    knns = Matrix{IdWeight}(undef, k, blocksize)
+    knns = Matrix{IdDist}(undef, k, blocksize)
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
@@ -83,10 +83,10 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             empty!(imap)
             if size(knns, 2) != length(range)
                 knns_ = view(knns, :, 1:length(range)) # the last range can change its size
-                fill!(knns_, zero(IdWeight))
+                fill!(knns_, zero(IdDist))
                 searchbatch!(idx, ctx, X[range], knns_; sorted=true)
             else
-                fill!(knns, zero(IdWeight))
+                fill!(knns, zero(IdDist))
                 searchbatch!(idx, ctx, X[range], knns; sorted=true)
             end
             # @assert all(r -> length(r) > 0, view(knns, :, 1:length(range)))
@@ -97,10 +97,10 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             for (i, j) in enumerate(range) # collecting non-discarded near duplicated objects
                 #d, nn = knns[1, i] #p = nearest(knns[i])
                 p = knns[1, i]
-                if p.weight > ϵ
+                if p.dist > ϵ
                     push!(imap, j)
                 else
-                    D[j] = p.weight
+                    D[j] = p.dist
                     L[j] = M[p.id]
                 end
             end
@@ -178,14 +178,14 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         end
 
         let nn = nearest(res)
-            if nn.weight > ϵ
+            if nn.dist > ϵ
                 push!(tmp, i)
                 push!(M, i)
                 L[i] = i
                 D[i] = 0.0f0
             else
                 L[i] = nn.id
-                D[i] = nn.weight
+                D[i] = nn.dist
             end
         end
     end

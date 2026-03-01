@@ -107,7 +107,7 @@ Note: Parallel insertions should be made through `append!` or `index!` function 
 } <: AbstractSearchIndex
     dist::DIST = Dist.SqL2()
     db::DB = VectorDatabase()
-    adj::ADJ = Adj.AdjList(UInt32)
+    adj::ADJ = AdjList(UInt32)
     hints::HINTS = UInt32[]
     algo::Ref{BeamSearch} = Ref(BeamSearch())
     len::Ref{Int64} = Ref(zero(Int64))

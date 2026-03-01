@@ -12,7 +12,7 @@ function recallscore(gold, res)::Float64
 end
 
 idset(a::Set) = a
-idset(a::AbstractVector{IdWeight}) = Set{UInt32}(IdView(a))
+idset(a::AbstractVector{IdDist}) = Set{UInt32}(IdView(a))
 idset(a::AbstractVector{<:Integer}) = Set{UInt32}(a)
 idset(res::AbstractKnn) = Set{UInt32}(IdView(res))
 

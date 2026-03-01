@@ -1,6 +1,6 @@
 mutable struct KnnHeap{VEC<:AbstractVector} <: AbstractKnn
     items::VEC
-    min::IdWeight
+    min::IdDist
     len::Int32
     maxlen::Int32
     costdist::Int32
@@ -36,23 +36,23 @@ It is possible to give the heap structure without calling `heapify!` just applyi
 """
 function sortitems!(res::KnnHeap)
     it = viewitems(res)
-    heapsort!(WeightOrder, it)
+    heapsort!(DistOrder, it)
     it
 end
 
 """
-    push_item!(res::KnnHeap, p::IdWeight)
+    push_item!(res::KnnHeap, p::IdDist)
 
 Appends an item into the result set
 """
-@inline function push_item!(res::KnnHeap, item::IdWeight)
+@inline function push_item!(res::KnnHeap, item::IdDist)
     len = res.len
 
     if length(res) < maxlength(res)
         len += one(len)
         res.items[len] = item
-        heapfix_up!(WeightOrder, res.items, len)
-        if len == one(len) || lt(WeightOrder, item, res.min)
+        heapfix_up!(DistOrder, res.items, len)
+        if len == one(len) || lt(DistOrder, item, res.min)
             res.min = item
         end
 
@@ -60,25 +60,25 @@ Appends an item into the result set
         return true
     end
 
-    item.weight >= maximum(res) && return false
+    item.dist >= maximum(res) && return false
     res.items[1] = item
-    heapfix_down!(WeightOrder, res.items, len)
-    if lt(WeightOrder, item, res.min)
+    heapfix_down!(DistOrder, res.items, len)
+    if lt(DistOrder, item, res.min)
         res.min = item
     end
 
     true
 end
 
-push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdWeight(convert(Int32, i), convert(Float32, d)))
-push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdWeight(convert(Int32, p.first), convert(Float32, p.second)))
+push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdDist(convert(Int32, i), convert(Float32, d)))
+push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdDist(convert(Int32, p.first), convert(Float32, p.second)))
 
 @inline function pop_max!(res::KnnHeap)
     p = res.items[1]
     len = res.len
     heapswap!(res.items, 1, len)
     len -= 1
-    heapfix_down!(WeightOrder, res.items, len)
+    heapfix_down!(DistOrder, res.items, len)
     res.len = len
     p
 end

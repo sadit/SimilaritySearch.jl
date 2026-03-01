@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-using Test, SimilaritySearch, StatsBase, SimilaritySearch.Adj
+using Test, SimilaritySearch, StatsBase
 
 
 @testset "allknn" begin

@@ -3,7 +3,7 @@
 export hsp_queries
 
 iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
-iterate_hsp_(h::Vector{IdWeight}) = IdView(h)
+iterate_hsp_(h::Vector{IdDist}) = IdView(h)
 iterate_hsp_(h::AbstractKnn) = IdView(h)
 
 function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
@@ -36,12 +36,12 @@ end
 """
     hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Matrix; <kwargs>)
 
-Computes the half-space partition of the queries `Q` (possibly given as a `knns` of `IdWeight` elements)
+Computes the half-space partition of the queries `Q` (possibly given as a `knns` of `IdDist` elements)
 
 """
 function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix)
     n = length(Q)
-    matrix = zeros(IdWeight, size(knns)...)
+    matrix = zeros(IdDist, size(knns)...)
     # KnnSorted iteration is made in ascending order but it is not required here, so it can be changed if we expect a very high hsp
     hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)]
     minbatch = getminbatch(n, Threads.nthreads(), 0)
@@ -52,7 +52,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
             q = Q[i]
             for p in plist
                 p.id == 0 && break
-                if hsp_should_push(hsp[i], dist, X, q, p.id, p.weight)
+                if hsp_should_push(hsp[i], dist, X, q, p.id, p.dist)
                     push_item!(hsp[i], p)
                 end
             end
@@ -67,12 +67,12 @@ function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db
     prob = 1.0f0 # ignore near duplicates with some prob
     for i in 2:length(neighborhood)
         p = neighborhood[i]
-        if p.weight <= neardup
+        if p.dist <= neardup
             if rand(Float32) < prob
                 push_item!(hsp, p)
                 prob *= neardupcaptureprob # workaround for very large number of duplicates
             end
-        elseif hsp_should_push(hsp, dist, db, center, p.id, p.weight)
+        elseif hsp_should_push(hsp, dist, db, center, p.id, p.dist)
             push_item!(hsp, p)
         end
     end
@@ -86,7 +86,7 @@ function hsp_distal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, 
     # prob = 1f0
     @inbounds for i in length(neighborhood)-1:-1:1  # DistSat produces larger neighborhoods
         p = neighborhood[i]
-        if hsp_should_push(hsp, dist, db, center, p.id, p.weight)
+        if hsp_should_push(hsp, dist, db, center, p.id, p.dist)
             push_item!(hsp, p)
         end
     end

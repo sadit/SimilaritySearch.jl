@@ -45,15 +45,15 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
     n = length(idx)
     minbatch = getminbatch(ctx, n)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.maxthreadid()]
-    knns = zeros(IdWeight, min_k, blocksize)
+    knns = zeros(IdDist, min_k, blocksize)
 
     Threads.@threads :static for j in 1:minbatch:n
         for objID in j:min(n, j + minbatch - 1)
             tID = Threads.threadid()
             r = knnqueue(KnnSorted, view(knns, :, tID)) # requires KnnSorted to support pop_min!
             p = search_hint(idx, ctx, objID, r)
-            if p.weight < last(B[tID])
-                B[tID] = (Int32(objID), p.id, p.weight)
+            if p.dist < last(B[tID])
+                B[tID] = (Int32(objID), p.id, p.dist)
             end
         end
     end
@@ -68,8 +68,8 @@ function sequential_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, 
     res = knnqueue(KnnSorted, min_k) # requires KnnSorted to support pop_min!
     for i in eachindex(idx)
         p = search_hint(idx, ctx, i, reuse!(res))
-        if p.weight < mindist
-            I, J, mindist = Int32(i), p.id, p.weight
+        if p.dist < mindist
+            I, J, mindist = Int32(i), p.id, p.dist
         end
     end
 

@@ -1,4 +1,4 @@
-using SimilaritySearch, SimilaritySearch.Adj, Random, StatsBase, Statistics
+using SimilaritySearch, Random, StatsBase, Statistics
 const Dist = SimilaritySearch.Dist
 using Test
 #using AllocCheck
@@ -102,7 +102,7 @@ function abs_save_and_load(graph, ctx, B)
         @test meta == [1, 2, 4, 8]
         #@test_call target_modules = (@__MODULE__,) searchbatch(G, ctx, B.queries, B.ksearch)
 
-        knns = zeros(IdWeight, B.ksearch, length(B.queries))
+        knns = zeros(IdDist, B.ksearch, length(B.queries))
         @time knns = searchbatch!(G, ctx, B.queries, knns)
         searchtime = @elapsed knns = searchbatch!(G, ctx, B.queries, knns)
         recall = macrorecall(B.gold.knns, knns)
@@ -120,7 +120,7 @@ function abs_matrixhints(graph, ctx, B, _Database)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
     @show graph.algo, length(B.queries), B.ksearch
-    knns = zeros(IdWeight, B.ksearch, length(B.queries))
+    knns = zeros(IdDist, B.ksearch, length(B.queries))
     @time knns = searchbatch!(graph, ctx, B.queries, knns)
     searchtime = @elapsed searchbatch!(graph, ctx, B.queries, knns)
     @test size(knns) == (B.ksearch, B.m) == size(B.gold.knns)

@@ -9,7 +9,7 @@ import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
     search, searchbatch, searchbatch!, database, distance,
     getcontext, getminbatch,
-    SearchResult, push_item!, append_items!, IdWeight, StaticAdjList, AdjList
+    SearchResult, push_item!, append_items!, IdDist
 
 abstract type AbstractContext end
 function searchbatch! end
@@ -26,10 +26,11 @@ include("dist/Dist.jl")
 include("db/db.jl")
 include("sq/sq.jl")
 include("distsample.jl")
+include("iddist.jl")
 include("adj/Adj.jl")
 include("proj/proj.jl")
 
-using .Adj
+#using .Adj
 
 include("log.jl")
 include("pqueue/pqueue.jl")
@@ -146,7 +147,7 @@ Note: The i-th column in indices and distances correspond to the i-th query in `
 Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
 """
 function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer; sorted::Bool=true)
-    knns = zeros(IdWeight, k, length(Q))
+    knns = zeros(IdDist, k, length(Q))
     searchbatch!(index, ctx, Q, knns; sorted)
 end
 
@@ -159,12 +160,12 @@ Searches a batch of queries in the given index and use `knns` as output (searche
 - `index`: The search structure
 - `ctx`: Context of the search algorithm, environment for running searches (hyperparameters and caches)
 - `Q`: The set of queries
-- `knns`: Output, a matrix of IdWeight elements (initialized with `zeros`); an array of KnnAbstract elements, use this form to retrieve search costs.
+- `knns`: Output, a matrix of IdDist elements (initialized with `zeros`); an array of KnnAbstract elements, use this form to retrieve search costs.
 
 # Keyword arguments
 - `sorted`: indicates whether the output should be sorted or not.
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdWeight}; sorted::Bool=false)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdDist}; sorted::Bool=false)
     m = length(Q)
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))

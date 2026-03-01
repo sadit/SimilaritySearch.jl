@@ -1,13 +1,13 @@
 # This file is a part of SimilaritySearch.jl
-module Adj
+#module Adj
 
 abstract type AbstractAdjList{T} end
 
-export AbstractAdjList, sort_last_item!, IdWeight, IdIntWeight,
-    IdOrder, WeightOrder, RevWeightOrder
+export AbstractAdjList
+#, sort_last_item!, IdDist, IdIntDist, IdOrder, DistOrder, RevDistOrder
 
-using Base.Order
-import Base.Order: lt
+##using Base.Order
+##import Base.Order: lt
 
 #Base.eachindex(adj::AbstractAdjList) = 1:length(adj)
 
@@ -17,41 +17,41 @@ import Base.Order: lt
     @inbounds T(i) => neighbors(adj, i), i+1
 end=#
 
-"""
-    IdWeight(id, weight)
+## """
+##     IdDist(id, dist)
+## 
+## Stores a pair of objects to be accessed. It is used in several places but mostly as an item in `KnnResult` algorithms where `dist` field is a distance instead of a dist
+##     
+## """
+## struct IdDist
+##     id::UInt32
+##     dist::Float32
+## end
 
-Stores a pair of objects to be accessed. It is used in several places but mostly as an item in `KnnResult` algorithms where `weight` field is a distance instead of a weight
-    
-"""
-struct IdWeight
-    id::UInt32
-    weight::Float32
-end
-
-
-"""
-    IdIntWeight(id, weight)
-
-Stores a pair of objects to be accessed. Similar to [`IdWeight`](@ref) but it stores an integer weight 
-"""
-struct IdIntWeight
-    id::UInt32
-    weight::Int32
-end
-
-Base.zero(::Type{IdWeight}) = IdWeight(zero(UInt32), zero(Float32))
-Base.zero(::Type{IdIntWeight}) = IdWeight(zero(UInt32), zero(Int32))
+##"""
+##    IdIntDist(id, dist)
+##
+##Stores a pair of objects to be accessed. Similar to [`IdDist`](@ref) but it stores an integer dist 
+##"""
+##struct IdIntDist
+##    id::UInt32
+##    dist::Int32
+##end
+##
+#= 
+Base.zero(::Type{IdDist}) = IdDist(zero(UInt32), zero(Float32))
+Base.zero(::Type{IdIntDist}) = IdDist(zero(UInt32), zero(Int32))
 
 struct IdOrderingType <: Ordering end
 struct WeightOrderingType <: Ordering end
 struct RevWeightOrderingType <: Ordering end
 const IdOrder = IdOrderingType()
-const WeightOrder = WeightOrderingType()
-const RevWeightOrder = RevWeightOrderingType()
+const DistOrder = WeightOrderingType()
+const RevDistOrder = RevWeightOrderingType()
 
 @inline lt(::IdOrderingType, a, b) = a.id < b.id
-@inline lt(::WeightOrderingType, a, b) = a.weight < b.weight
-@inline lt(::RevWeightOrderingType, a, b) = b.weight < a.weight
+@inline lt(::WeightOrderingType, a, b) = a.dist < b.dist
+@inline lt(::RevWeightOrderingType, a, b) = b.dist < a.dist
 @inline lt(::IdOrderingType, a::Number, b::Number) = a < b
 @inline lt(::WeightOrderingType, a::Number, b::Number) = a < b
 @inline lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
@@ -82,6 +82,7 @@ function sort_last_item!(order::Ordering, plist::AbstractVector)
 
     nothing
 end
+=#
 
 include("adjlist.jl")
 include("adjstatic.jl")
@@ -126,12 +127,12 @@ function sparse(adj::AbstractAdjList{T}, val::AbstractFloat=1f0) where {T<:Integ
 end
 
 """
-    sparse(idx::AbstractAdjList{IdWeight}) 
+    sparse(idx::AbstractAdjList{IdDist}) 
  
 Creates an sparse matrix (from SparseArrays) from `idx`
 """
-sparse(adj::AbstractAdjList{IdWeight}) = sparse_from_adj(adj, Int32, Float32)
-sparse(adj::AbstractAdjList{IdIntWeight}) = sparse_from_adj(adj, Int32, Int32)
+sparse(adj::AbstractAdjList{IdDist}) = sparse_from_adj(adj, Int32, Float32)
+sparse(adj::AbstractAdjList{IdIntDist}) = sparse_from_adj(adj, Int32, Int32)
 
 function sparse_from_adj(adj::AbstractAdjList, IType, FType)
     n = length(adj)
@@ -148,11 +149,11 @@ function sparse_from_adj(adj::AbstractAdjList, IType, FType)
         for s in L
             push!(I, i)
             push!(J, s.id)
-            push!(F, s.weight)
+            push!(F, s.dist)
         end
     end
 
     sparse(I, J, F, length(adj), n)
 end
 
-end
+#end

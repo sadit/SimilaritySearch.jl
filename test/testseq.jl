@@ -7,14 +7,14 @@ using LinearAlgebra, Test
 function test_seq(db, queries, dist::Dist.SemiMetric, ksearch, valid_lower=1e-3)
     seq = ExhaustiveSearch(dist, db)
     ctx = getcontext(seq)
-    knns = zeros(IdWeight, ksearch, length(queries))
+    knns = zeros(IdDist, ksearch, length(queries))
     @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
-    fill!(knns, zero(IdWeight))
+    fill!(knns, zero(IdDist))
     @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
     #@test_call target_modules=(@__MODULE__,) searchbatch(seq, ctx, queries, ksearch)
 
     for c in eachcol(knns)
-        @test c[1].weight < valid_lower
+        @test c[1].dist < valid_lower
     end    
 
 end

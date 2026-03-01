@@ -84,11 +84,11 @@ To recover the required structure just apply `reverse!` on the view.
 @inline sortitems!(res::KnnSorted) = viewitems(res)
 
 """
-    push_item!(res::KnnSorted, p::IdWeight)
+    push_item!(res::KnnSorted, p::IdDist)
 
 Appends an item into the result set
 """
-@inline function push_item!(res::KnnSorted, item::IdWeight)
+@inline function push_item!(res::KnnSorted, item::IdDist)
     len = length(res)
     sp, ep = res.sp, res.ep
 
@@ -106,19 +106,19 @@ Appends an item into the result set
 
         ep += one(ep)
         res.items[ep] = item
-        sort_last_item!(WeightOrder, res.items, sp, ep)
+        sort_last_item!(DistOrder, res.items, sp, ep)
         res.ep = ep
         return true
     end
 
-    item.weight >= maximum(res) && return false
+    item.dist >= maximum(res) && return false
     @inbounds res.items[ep] = item
-    sort_last_item!(WeightOrder, res.items, sp, ep)
+    sort_last_item!(DistOrder, res.items, sp, ep)
     true
 end
 
-@inline push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdWeight(convert(Int32, i), convert(Float32, d)))
-@inline push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdWeight(convert(Int32, p.first), convert(Float32, p.second)))
+@inline push_item!(res::KnnSorted, i::Integer, d::Real) = push_item!(res, IdDist(convert(Int32, i), convert(Float32, d)))
+@inline push_item!(res::KnnSorted, p::Pair) = push_item!(res, IdDist(convert(Int32, p.first), convert(Float32, p.second)))
 
 @inline function pop_min!(res::KnnSorted)
     sp = res.sp

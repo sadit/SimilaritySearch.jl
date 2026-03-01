@@ -25,7 +25,7 @@ function search(p::PermutedSearchIndex, ctx::AbstractContext, res)
     out = search(p.index, ctx, q, res)
     @inbounds for i in eachindex(res.items)
         x = res.items[i]
-        res.items[i] = IdWeight(p.π[x.id], x.weight)
+        res.items[i] = IdDist(p.π[x.id], x.dist)
     end
 
     out

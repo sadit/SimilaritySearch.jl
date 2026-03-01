@@ -2,7 +2,7 @@
 
 export rerank!
 
-function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractVector{IdWeight})
+function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractVector{IdDist})
     m = 0
     for i in eachindex(res)
         p = res[i]
@@ -12,15 +12,15 @@ function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractVector{I
             m = i
             o = db[p.id]
             d = evaluate(dist, o, q)
-            res[i] = IdWeight(p.id, d)
+            res[i] = IdDist(p.id, d)
         end
     end
 
-    sort!(view(res, 1:m), by=x -> x.weight)
+    sort!(view(res, 1:m), by=x -> x.dist)
     res
 end
 
-function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdWeight})
+function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdDist})
     m = length(queries)
     minbatch = getminbatch(m, Threads.nthreads(), 0)
     Threads.@threads :static for j in 1:minbatch:m
