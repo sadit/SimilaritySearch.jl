@@ -101,14 +101,15 @@ end
 optimization_space(index::SearchGraph) = BeamSearchSpace()
 
 function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
-    @reset bs.maxvisits = ceil(Int, 2perf.visited[end])
+    @reset bs.maxvisits = ceil(Int, 2 * perf.visited[end])
     @assert bs.maxvisits > 0
     index.algo[] = bs
 end
 
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
-    @reset bs.maxvisits = 2index.algo[].maxvisits
-    search(bs, index, ctx, q, res, index.hints)
+    @reset bs.maxvisits = 2 * index.algo[].maxvisits
+    vstate = getvstate(length(index), ctx)
+    search(bs, index, ctx, q, res, index.hints, vstate)
 end
 
 """

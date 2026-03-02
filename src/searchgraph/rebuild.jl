@@ -20,14 +20,17 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     n = length(g)
     ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
-    direct = Vector{Vector{Int32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
+    direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     minbatch = getminbatch(ctx, n)
+    qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
 
     Threads.@threads :static for j in 1:minbatch:n
         n_ = min(n, j + minbatch - 1)
         @inbounds for objID in j:n_
-            neighborhood = find_neighborhood(g, ctx, database(g, objID), ksearch, 1:-1; hints=first(neighbors(g.adj, objID)))
-            direct[objID] = collect(IdView(neighborhood))
+            tmp = knnqueue(ctx, view(qcache, 1:ksearch, 2Threads.threadid()))
+            N = knnqueue(ctx, view(qcache, 1:ksearch, 1+2Threads.threadid()))
+            find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
+            direct[objID] = collect(IdView(N))
             # @info length(direct[objID]) neighbors_length(g.adj, objID) 
         end
 

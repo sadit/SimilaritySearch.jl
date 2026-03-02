@@ -121,7 +121,7 @@ StrideMatrixDatabase
 
 ```@docs
 
-find_neighborhood
+find_neighborhood!
 SatPruning
 RandomPruning
 KeepNearestPruning

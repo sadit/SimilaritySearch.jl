@@ -2,6 +2,21 @@
 
 using Random
 
+
+"""
+    enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
+
+Internal function that evaluates the distance between a database object `obj` with id `objID` and the query `q`.
+It helps to evaluate, mark as visited, and enqueue in the result set.
+"""
+@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
+    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
+    d = evaluate(distance(index), q, obj)
+    push_item!(res, objID, d)
+    add_distance_evaluations!(res, 1)
+    res
+end
+
 function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, hints, vstate)
     res = approx_by_hints!(index, q, hints, res, vstate)
     if length(res) == 0
@@ -61,9 +76,7 @@ Optional arguments (defaults to values in `bs`)
 - `maxvisits`: Maximum number of nodes to visit (distance evaluations)
 
 """
-function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints;
-    vstate::Vector{UInt64}=getvstate(length(index), ctx)
-)
+function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints, vstate)
     # k is the number of neighbors in res
     # vstate = vstate
     n = length(index)

@@ -9,7 +9,7 @@ export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, 
 """
     get_parallel_block()
 
-Used by SearchGraph insertion functions to solve `find_neighborhood` in blocks. Small blocks are better to ensure quality; faster constructions will be achieved if `parallel_block` is a multiply of `Threads.nthreads()`
+Used by SearchGraph insertion functions to solve `find_neighborhood!` in blocks. Small blocks are better to ensure quality; faster constructions will be achieved if `parallel_block` is a multiply of `Threads.nthreads()`
 
 """
 get_parallel_block() = Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()
@@ -27,7 +27,7 @@ abstract type Callback end
 """
     abstract type NeighborhoodFilter end
     
-Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood`
+Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood!`
 """
 abstract type NeighborhoodFilter end
 
@@ -126,20 +126,6 @@ end
 
 @inline Base.length(g::SearchGraph)::Int64 = g.len[]
 
-"""
-    enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
-
-Internal function that evaluates the distance between a database object `obj` with id `objID` and the query `q`.
-It helps to evaluate, mark as visited, and enqueue in the result set.
-"""
-@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
-    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
-    d = evaluate(distance(index), q, obj)
-    push_item!(res, objID, d)
-    add_distance_evaluations!(res, 1)
-    res
-end
-
 include("beamsearch.jl")
 
 ## parameter optimization and neighborhood definitions
@@ -148,12 +134,13 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    search(index::SearchGraph, context::SearchGraphContext, q, res
+    search(index::SearchGraph, ctx::SearchGraphContext, q, res
 
 Solves the specified query `res` for the query object `q`.
 """
-function search(index::SearchGraph, context::SearchGraphContext, q, res::AbstractKnn)
-    search(index.algo[], index, context, q, res, index.hints)
+function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
+    vstate = getvstate(length(index), ctx)
+    search(index.algo[], index, ctx, q, res, index.hints, vstate)
 end
 
 getcontext(::SearchGraph) = SearchGraphContext()

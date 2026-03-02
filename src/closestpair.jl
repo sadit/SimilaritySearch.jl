@@ -34,10 +34,11 @@ end
 function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     vstate = getvstate(length(G), ctx)
     visit!(vstate, convert(UInt64, i))
-    res = search(G.algo[], G, ctx, database(G, i), res, rand(neighbors(G.adj, i)))
+    res = search(G.algo[], G, ctx, database(G, i), res, rand(neighbors(G.adj, i)), vstate)
     if argmin(res) == i
         pop_min!(res)
     end
+    
     nearest(res)
 end
 

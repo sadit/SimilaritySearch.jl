@@ -12,7 +12,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         parallel_block=4Threads.nthreads(),
         logbase_callback=1.5,
         starting_callback=256,
-        knns = zeros(IdDist, 96, 3 * Threads.maxthreadid()),
+        beams = zeros(IdDist, 96, 3 * Threads.maxthreadid()),
         vstates = [Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
     )    
 
@@ -24,7 +24,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 - `logbase_callback`: A log base to control when to run callbacks
 - `starting_callback`: When to start to run callbacks, minimum length to do it
 - `parallel_block`: the size of the block that is processed in parallel
-- `knns`: Knn queues cache for insertions
+- `beams`: Knn queues cache for insertions
 - `vstates`: visited vertices cache 
 - `expnt`: Increases the number of batches to be processed by this number (the base is the number of threads)
 - `verbose`: controls the number of output messages
@@ -40,7 +40,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 can call other metric indexes that can use these shared resources (globally defined).
 
 """
-struct SearchGraphContext{KnnType} <: AbstractContext
+struct SearchGraphContext{KnnType, VSType} <: AbstractContext
     logger::AbstractLog
     expnt::Int
     verbose::Bool
@@ -50,33 +50,35 @@ struct SearchGraphContext{KnnType} <: AbstractContext
     logbase_callback::Float32
     starting_callback::Int32
     parallel_block::Int32
-    knns::Matrix{IdDist}
-    vstates::Vector{Vector{UInt64}}
+    beams::Matrix{IdDist}
+    vstates::VSType
+    #vstates::Vector{Set{UInt32}}
 end
 
-function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
+function SearchGraphContext(
+    KnnType::Type{<:AbstractKnn}=KnnSorted,
+    vstates=[Vector{UInt64}(undef, 2^15) for _ in 1:Threads.maxthreadid()]; # 2^15 * 64 elements without resizing
+    #vstates=[Set{UInt32}() for _ in 1:Threads.maxthreadid()];
     logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     expnt=0,
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
-    hints_callback=RandomHints(; logbase=1.2),
+    hints_callback=RandomHints(; logbase=1.1),
     hyperparameters_callback=OptimizeParameters(),
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
-    knns=zeros(IdDist, 96, 3 * Threads.maxthreadid()),
-    vstates=[Vector{UInt64}(undef, 32) for _ in 1:Threads.maxthreadid()]
+    beams=zeros(IdDist, 32, Threads.maxthreadid())    
 )
-
-    SearchGraphContext{KnnType}(logger, expnt, verbose, neighborhood,
+    SearchGraphContext{KnnType,typeof(vstates)}(logger, expnt, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
-        knns, vstates)
+        beams, vstates)
 end
 
-function SearchGraphContext(ctx::SearchGraphContext{KnnType};
+function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     logger=ctx.logger,
     expnt=ctx.expnt,
     verbose=ctx.verbose,
@@ -86,15 +88,15 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType};
     parallel_block=ctx.parallel_block,
     logbase_callback=ctx.logbase_callback,
     starting_callback=ctx.starting_callback,
-    knns=ctx.knns,
+    beams=ctx.beams,
     vstates=ctx.vstates
-) where {KnnType}
+) where {KnnType,VSType}
 
-    SearchGraphContext{KnnType}(logger, expnt, verbose, neighborhood,
+    SearchGraphContext{KnnType,typeof(vstates)}(logger, expnt, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,
-        knns, vstates)
+        beams, vstates)
 end
 
 getminbatch(ctx::SearchGraphContext, n::Int) = getminbatch(n, Threads.nthreads(), ctx.expnt)
@@ -105,23 +107,9 @@ knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnq
     reuse!(ctx.vstates[Threads.threadid()], len)
 end
 
-@inline function getknnbuffer(ctx::SearchGraphContext{KnnType}, pos, nsize::Integer) where {KnnType}
-    nsize = min(nsize, size(ctx.knns, 1))
-    colID = (Threads.threadid() - 1) * 3 + pos
-
-    knnqueue(KnnType, view(ctx.knns, 1:nsize, colID))
-end
-
 @inline function getbeam(nsize::Integer, ctx::SearchGraphContext)
-    pos = 1
-    nsize = min(nsize, size(ctx.knns, 2))
-    colID = (Threads.threadid() - 1) * 3 + pos
-    knnqueue(KnnSorted, view(ctx.knns, 1:nsize, colID))
+    nsize = min(nsize, size(ctx.beams, 1))
+    colID = Threads.threadid()
+    knnqueue(KnnSorted, view(ctx.beams, 1:nsize, colID))
 end
 
-@inline getsatknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 2, nsize)
-@inline getiknnresult(nsize::Integer, ctx::SearchGraphContext) = getknnbuffer(ctx, 3, nsize)
-
-#@inline function knnview(nsize::Integer, knns::AbstractMatrix{IdDist}, i=Threads.threadid())
-#    view(knns, 1:_knnsize(nsize, knns), i)
-#end

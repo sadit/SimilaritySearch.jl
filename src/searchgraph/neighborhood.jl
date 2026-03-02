@@ -1,13 +1,13 @@
 # This file is a part of SimilaritySearch.jl
 export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, KCentersNeighborhood
-export find_neighborhood
+export find_neighborhood!
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? N.minsize : ceil(Int, N.minsize + log(N.logbase, n))
 end
 
 """
-    find_neighborhood(index::SearchGraph{T}, ctx, item, ksearch, blockrange; hints=index.hints)
+    find_neighborhood!(index::SearchGraph{T}, ctx, item, ksearch, blockrange; hints=index.hints)
 
 Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
 
@@ -18,28 +18,26 @@ Searches for `item` neighborhood in the index, i.e., if `item` were in the index
 - `ctx`: context, neighborhood, and cache objects to be used
 - `hints`: Search hints
 """
-function find_neighborhood(index::SearchGraph, ctx::SearchGraphContext, item, ksearch::Integer, blockrange; hints=index.hints)
+function find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnn, blockrange; hints=index.hints)
     n = length(index)
-    #ksearch = neighborhoodsize(ctx.neighborhood, n + length(blockrange))
-    res = getiknnresult(ksearch, ctx)
-
-    n > 0 && search(index.algo[], index, ctx, item, res, hints)
+   
+    if n > 0
+        vstate = getvstate(length(index), ctx)
+        search(index.algo[], index, ctx, item, tmp, hints, vstate)
+    end
 
     for i in blockrange  # interblock neighbors
         #@show i => typeof(item) => typeof(database(index, i))
         d = evaluate(distance(index), item, database(index, i))
         d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
-        push_item!(res, i, d)
+        push_item!(tmp, i, d)
     end
 
-    output = getsatknnresult(length(res), ctx)
-    #@info :res => length(res) => blockrange => n
-    if length(res) > 0 ## only normal on length(blockrange) == 0 && n == 0
-        neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(res), output)
-    else
-        output
+    if length(tmp) > 0 ## only normal on length(blockrange) == 0 && n == 0
+        neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(tmp), out)
     end
-    #output
+    
+    out
 end
 
 """

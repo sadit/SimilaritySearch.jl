@@ -39,25 +39,33 @@ The arguments are the same than `append_items!` function but using the internal 
 
 """
 function index!(index::SearchGraph, ctx::SearchGraphContext)
-    @assert length(database(index)) > 0
+    n = length(database(index))
+    @assert n > 0
 
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
-        _sequential_append_items_loop!(index, ctx, length(index) + 1, length(database(index)))
+        qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2)
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
     else
-        _parallel_append_items_loop!(index, ctx, length(index) + 1, length(database(index)))
+        qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
     end
 
     index
 end
 
-function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n)
+function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache)
+
     @inbounds while sp <= n
-        push_item!(index, ctx, database(index, sp), false)
+        ksearch = neighborhoodsize(ctx.neighborhood, sp)
+        tmp = knnqueue(ctx, view(qcache, 1:ksearch, 1))
+        neighbors = knnqueue(ctx, view(qcache, 1:ksearch, 2))
+
+        push_item!(index, ctx, database(index, sp), tmp, neighbors, false)
         sp += 1
     end
 end
 
-function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n)
+function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache)
     resize!(index.adj, n)
     
     while sp <= n
@@ -68,9 +76,12 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         Threads.@threads :static for objID in sp:ep
             item = database(index, objID)
             R = sp:objID-1
-            ksearch = neighborhoodsize(ctx.neighborhood, n + length(R))
-            neighborhood = find_neighborhood(index, ctx, item, ksearch, R)
-            add!(index.adj, objID, IdView(neighborhood))
+            ksearch = neighborhoodsize(ctx.neighborhood, ep)
+            ti = 2 * Threads.threadid()
+            tmp = knnqueue(ctx, view(qcache, 1:ksearch, ti-1))
+            neighbors = knnqueue(ctx, view(qcache, 1:ksearch, ti))
+            find_neighborhood!(neighbors, index, ctx, item, tmp, R)
+            add!(index.adj, objID, IdView(neighbors))
         end
 
         LOG(ctx.logger, :add!, index, ctx, sp, ep)
@@ -88,35 +99,8 @@ end
     push_item!(
         index::SearchGraph,
         ctx,
-        item;
-        push_item=true
-    )
-
-Appends an object into the index.
-
-Arguments:
-
-- `index`: The search graph index where the insertion is going to happen
-- `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
-- `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
-- `push_db`: if `push_db=false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed)
-
-"""
-@inline function push_item!(
-    index::SearchGraph,
-    ctx::SearchGraphContext,
-    item;
-    push_db::Bool=true,
-)
-
-    push_item!(index, ctx, item, push_db)
-end
-
-"""
-    push_item!(
-        index::SearchGraph,
-        ctx,
         item,
+        qcache
         push_item
     )
 
@@ -127,6 +111,8 @@ Arguments:
 - `index`: The search graph index where the insertion is going to happen.
 - `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
+- `tmp`: knnqueue to be used by the neighborhood computation
+- `neighbors`: knnqueue to be used by the neighborhood computation
 - `push_db`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
 
 - Note: setting `callbacks` as `nothing` ignores the execution of any callback
@@ -135,11 +121,12 @@ Arguments:
     index::SearchGraph,
     ctx::SearchGraphContext,
     item,
+    neighbors,
+    tmp,
     push_db::Bool
 )
     push_db && push_item!(index.db, item)
-    ksearch = neighborhoodsize(ctx.neighborhood, n)
-    neighbors = find_neighborhood(index, ctx, item, ksearch, 1:-1)
+    find_neighborhood!(neighbors, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
     add!(index.adj, n, neighbors)
     LOG(ctx.logger, :add!, index, ctx, n, n)
