@@ -134,7 +134,7 @@ Arguments:
     push_db && push_item!(index.db, item)
     find_neighborhood!(neighbors, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
-    add!(index.adj, n, neighbors)
+    add!(index.adj, n, IdView(neighbors))
     LOG(ctx.logger, :add!, index, ctx, n, n)
     if n > 1
         connect_reverse_links!(index.adj, n, neighbors)
