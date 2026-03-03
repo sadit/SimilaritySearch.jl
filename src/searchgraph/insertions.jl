@@ -23,7 +23,6 @@ function append_items!(
 )
     append_items!(index.db, items)
     index!(index, ctx)
-    index
 end
 
 """
@@ -49,7 +48,7 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
         end
         _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
     else
-        qcache = qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * Threads.maxthreadid()
+        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * Threads.maxthreadid()
             isodd(s) && (s+=1)
             zeros(IdDist, s, t)
         end
@@ -60,7 +59,6 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
 end
 
 function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache)
-
     @inbounds while sp <= n
         ksearch = neighborhoodsize(ctx.neighborhood, sp)
         tmp = knnqueue(ctx, view(qcache, 1:ksearch, 1))
