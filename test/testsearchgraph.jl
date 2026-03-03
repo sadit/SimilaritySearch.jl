@@ -52,6 +52,8 @@ function abs_minrecall(B; kwargs...)
     )
 
     index!(graph, ctx)
+    @assert length(graph) == length(B.db)
+    @show length(graph.adj)
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
