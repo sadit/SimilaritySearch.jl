@@ -12,7 +12,7 @@ struct LogList <: AbstractLog
     LogList(v) = new(v)
 end
 
-function LOG(log::LogList, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Int, ep::Int)
+function LOG(log::LogList, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Intteger, ep::Intteger)
     for log in log.list
         LOG(log, event, index, ctx, sp, ep)
     end
@@ -43,7 +43,7 @@ function timed_log_fun(fun::Function, log::InformativeLog)
     end
 end
 
-function LOG(log::InformativeLog, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Int, ep::Int)
+function LOG(log::InformativeLog, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Integer, ep::Integer)
     timed_log_fun(log) do 
         n = length(index)
         mem = ceil(Int, Sys.total_memory() / 2^20)

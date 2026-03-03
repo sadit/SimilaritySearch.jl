@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::SearchGraphContext, sp::Int, ep::Int)
+function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::SearchGraphContext, sp::Integer, ep::Integer)
     timed_log_fun(log) do 
         n = length(index)
         mem = ceil(Int, Base.gc_live_bytes() / 2^30)
