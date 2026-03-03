@@ -43,10 +43,16 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
     @assert n > 0
 
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
-        qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2)
+        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2
+            isodd(s) && (s+=1)
+            zeros(IdDist, s, t)
+        end
         _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
     else
-        qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
+        qcache = qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * Threads.maxthreadid()
+            isodd(s) && (s+=1)
+            zeros(IdDist, s, t)
+        end
         _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
     end
 
