@@ -12,7 +12,7 @@ struct LogList <: AbstractLog
     LogList(v) = new(v)
 end
 
-function LOG(log::LogList, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Intteger, ep::Intteger)
+function LOG(log::LogList, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Integer, ep::Integer)
     for log in log.list
         LOG(log, event, index, ctx, sp, ep)
     end
