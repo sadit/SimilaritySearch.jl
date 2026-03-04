@@ -69,9 +69,9 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
-    M = Int32[]
-    imap = Int32[]
-    tmp = Int32[]
+    M = UInt32[]
+    imap = UInt32[]
+    tmp = UInt32[]
 
     for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
