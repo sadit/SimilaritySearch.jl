@@ -23,11 +23,9 @@ end
 function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdDist})
     m = length(queries)
     minbatch = getminbatch(m, Threads.nthreads(), 0)
-    Threads.@threads :static for j in 1:minbatch:m
-        for i in j:min(m, j + minbatch - 1)
-            res = view(knns, :, i)
-            rerank!(dist, db, queries[i], res)
-        end
+    @batch per=core minbatch=minbatch for i in 1:m
+        res = view(knns, :, i)
+        rerank!(dist, db, queries[i], res)
     end
 
     knns

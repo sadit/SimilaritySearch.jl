@@ -37,8 +37,7 @@ end
 
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix;
     sort::Bool=true,
-    progress=nothing,
-    minbatch::Int=0
+    progress=nothing
 )
     m = length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
     k, n = size(knns)
@@ -48,23 +47,14 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     minbatch = getminbatch(ctx, n)
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
-        #Threads.@threads :static for j in 1:minbatch:n
-        @batch per=thread minbatch=4 for j in 1:minbatch:n
-            m_ = min(m, j + minbatch - 1)
+        @batch per=thread minbatch=minbatch for j in 1:n
             res = knnqueue(ctx, view(knns, :, j))
             allknn_single_search!(g, ctx, j, res)
             sort && sortitems!(res)
             progress !== nothing && next!(progress)
-            i = j + 1
-            @inbounds while i <= m_
-                reuse!(res, view(knns, :, i))
-                allknn_single_search!(g, ctx, i, res)
-                sort && sortitems!(res)
-                progress !== nothing && next!(progress)
-                i += 1
-            end
         end
     end
+
     #=
         progress = Progress(n, desc="allknn", dt=4)
         @batch per = thread minbatch = minbatch for i in 1:n

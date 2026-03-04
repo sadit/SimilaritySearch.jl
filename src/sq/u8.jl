@@ -48,7 +48,8 @@ struct SQu8 <: AbstractDatabase
         m, n = size(X)
         Q = Matrix{UInt8}(undef, m, n)
         E = Vector{SQMinC}(undef, n)
-        @batch per=thread minbatch=4 for i in 1:n
+        minbatch = getminbatch(ctx, n)
+        @batch per=thread minbatch=minbatch for i in 1:n
             E[i] = quant_u8!(view(Q, :, i), view(X, :, i))
         end
 

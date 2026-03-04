@@ -164,16 +164,14 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         minbatch = getminbatch(ctx, length(tmp))
 
         #Threads.@threads :static for j in firstindex(tmp):minbatch:lastindex(tmp)
-        @batch per=thread minbatch=4 for j in firstindex(tmp):minbatch:lastindex(tmp)
-            for jj in j:min(lastindex(tmp), j + minbatch - 1)
-                j = tmp[jj]
-                d = evaluate(dist, u, X[j])
-                try
-                    lock(push_lock)
-                    push_item!(res, j, d)
-                finally
-                    unlock(push_lock)
-                end
+        @batch per=thread minbatch=minbatch for jj in firstindex(tmp):lastindex(tmp)
+            j = tmp[jj]
+            d = evaluate(dist, u, X[j])
+            try
+                lock(push_lock)
+                push_item!(res, j, d)
+            finally
+                unlock(push_lock)
             end
         end
 

@@ -138,6 +138,6 @@ Arguments:
         connect_reverse_links!(index.adj, n, neighbors)
         execute_callbacks!(index, ctx)
     end
-
+    index.len[] = n
     index
 end
