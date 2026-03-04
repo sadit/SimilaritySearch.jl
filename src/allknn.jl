@@ -26,8 +26,7 @@ Computes all the k nearest neighbors (all vs all) using the given index. User mu
 """
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
     sort::Bool=true,
-    progress=Progress(length(g); desc="allknn", dt=4),
-    minbatch::Int=0,
+    progress=Progress(length(g); desc="allknn", dt=4)
 )
     n = length(g)
     knns = zeros(IdDist, k, n)

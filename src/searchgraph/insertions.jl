@@ -83,9 +83,9 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             ksearch = neighborhoodsize(ctx.neighborhood, ep)
             ti = 2 * Threads.threadid()
             tmp = knnqueue(ctx, view(qcache, 1:ksearch, ti-1))
-            neighbors = knnqueue(ctx, view(qcache, 1:ksearch, ti))
-            find_neighborhood!(neighbors, index, ctx, item, tmp, R)
-            add!(index.adj, objID, IdView(neighbors))
+            neighbors_ = knnqueue(ctx, view(qcache, 1:ksearch, ti))
+            find_neighborhood!(neighbors_, index, ctx, item, tmp, R)
+            add!(index.adj, objID, IdView(neighbors_))
         end
 
         LOG(ctx.logger, :add!, index, ctx, sp, ep)
@@ -125,14 +125,14 @@ Arguments:
     index::SearchGraph,
     ctx::SearchGraphContext,
     item,
-    neighbors,
+    neighbors_,
     tmp,
     push_db::Bool
 )
     push_db && push_item!(index.db, item)
-    find_neighborhood!(neighbors, index, ctx, item, tmp, 1:-1)
+    find_neighborhood!(neighbors_, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
-    add!(index.adj, n, IdView(neighbors))
+    add!(index.adj, n, IdView(neighbors_))
     LOG(ctx.logger, :add!, index, ctx, n, n)
     if n > 1
         connect_reverse_links!(index.adj, n, neighbors(index.adj, n))
