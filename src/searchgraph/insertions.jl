@@ -135,7 +135,7 @@ Arguments:
     add!(index.adj, n, IdView(neighbors))
     LOG(ctx.logger, :add!, index, ctx, n, n)
     if n > 1
-        connect_reverse_links!(index.adj, n, neighbors)
+        connect_reverse_links!(index.adj, n, IdView(neighbors))
         execute_callbacks!(index, ctx)
     end
     index.len[] = n
