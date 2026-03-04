@@ -18,6 +18,29 @@ function push_item! end
 function append_items! end
 function index! end
 
+
+"""
+    getminbatch(n::Int, nt::Int)
+
+Used by functions that use parallelism on small batches; each block is processed by a single thread
+
+# Arguments
+- `ctx`: The search context
+- `n`: the number of elements to process
+- `nt`: number of threads to use
+
+"""
+function getminbatch(n::Int, nt::Int)
+    if nt == 1
+        return n
+    else
+        p = n / (8nt)
+        return ceil(Int, p)
+    end
+end
+
+getminbatch(n::Int) = getminbatch(n, Threads.nthreads())
+
 using Distances: Metric, SemiMetric, PreMetric, evaluate
 include("dist/Dist.jl")
 
@@ -38,30 +61,6 @@ include("pqueue/pqueue.jl")
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
 @inline Base.eltype(searchctx::AbstractSearchIndex) = eltype(database(searchctx))
-
-"""
-    getminbatch(n::Int, nt::Int)
-
-Used by functions that use parallelism on small batches; each block is processed by a single thread
-
-# Arguments
-- `ctx`: The search context
-- `n`: the number of elements to process
-- `nt`: number of threads to use
-
-"""
-function getminbatch(n::Int, nt::Int)
-    if nt == 1
-        return n
-    elseif nt <= 8
-        return ceil(Int, n / (2nt))
-    end
-
-    8
-end
-
-getminbatch(n::Int) = getminbatch(n, Threads.nthreads())
-
 
 """
     database(index)
@@ -165,12 +164,26 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(m)
-    
-    @batch per=core minbatch=minbatch for j in 1:m
+    # @info m => Threads.nthreads() => minbatch
+    @batch per=thread minbatch=minbatch for j in 1:m
         res = knnqueue(ctx, view(knns, :, j))
         search(index, ctx, Q[j], res)
         sorted && sortitems!(res)
     end
+    #@batch per=core minbatch=4 for j in 1:minbatch:m 
+    ##Threads.@threads :static for j in 1:minbatch:m
+    #    m_ = min(m, j + minbatch - 1)
+    #    res = knnqueue(ctx, view(knns, :, j))
+    #    search(index, ctx, Q[j], res)
+    #    sorted && sortitems!(res)
+    #    i = j + 1
+    #    @inbounds while i <= m_
+    #        reuse!(res, view(knns, :, i))
+    #        search(index, ctx, Q[i], res)
+    #        sorted && sortitems!(res)
+    #        i += 1
+    #    end
+    #end
 
     knns
 end
@@ -180,9 +193,9 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(m)
-
+    # @show :searchbatch! => m => Threads.nthreads() => minbatch
     # @batch minbatch = minbatch per = thread for i in eachindex(Q)
-    @batch per=core minbatch=minbatch for i in 1:m
+    @batch per=thread minbatch=minbatch for i in 1:m
         search(index, ctx, Q[i], knns[i])
     end
 

@@ -194,7 +194,9 @@ function optimize_index!(
         elseif kind isa ParetoRadius
             _kfun(cost) + _kfun(p.radius.mean / R[])
         elseif kind isa MinRecall
-            p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
+            #p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
+            #p.recall < kind.minrecall ? 2f0 - p.recall : cost
+            p.recall < kind.minrecall ? 1 + max(kind.minrecall - p.recall, 0) : cost
         elseif kind isa OptRadius
             r = p.radius.mean / R[]
             round(r / kind.tol, digits=0)

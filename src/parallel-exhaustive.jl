@@ -47,7 +47,7 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     n = length(pex)
     minbatch = getminbatch(n)
 
-    @batch per=core minbatch=minbatch for i in 1:n
+    @batch per=thread minbatch=minbatch for i in 1:n
         d = evaluate(dist, database(pex, i), q)
         try
             lock(elock)
