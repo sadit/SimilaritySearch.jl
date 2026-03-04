@@ -44,7 +44,7 @@ end
 
 function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, min_k; blocksize=Threads.maxthreadid())::Tuple{Int32,Int32,Float32}
     n = length(idx)
-    minbatch = getminbatch(ctx, n)
+    minbatch = getminbatch(n)
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.maxthreadid()]
     knns = zeros(IdDist, min_k, blocksize)
 

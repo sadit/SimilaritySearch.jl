@@ -21,7 +21,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
-    minbatch = getminbatch(ctx, n)
+    minbatch = getminbatch(n)
     qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
 
     Threads.@threads :static for j in 1:minbatch:n

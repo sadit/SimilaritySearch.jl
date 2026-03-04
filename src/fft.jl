@@ -30,7 +30,7 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
     imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
     N == 0 && return (; centers, nn, dists=nndists, dmax)
-    minbatch = getminbatch(N, Threads.nthreads(), 0)
+    minbatch = getminbatch(N)
 
     @inbounds for _ in 1:k
         push!(dmaxlist, dmax)

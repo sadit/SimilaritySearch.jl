@@ -44,7 +44,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     matrix = zeros(IdDist, size(knns)...)
     # KnnSorted iteration is made in ascending order but it is not required here, so it can be changed if we expect a very high hsp
     hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)]
-    minbatch = getminbatch(n, Threads.nthreads(), 0)
+    minbatch = getminbatch(n)
 
     Threads.@threads :static for j in 1:minbatch:n
         for i in j:min(n, j + minbatch - 1)

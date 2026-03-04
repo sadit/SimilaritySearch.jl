@@ -43,7 +43,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     @assert n > 0 "invalid assertion n > 0"
     @assert n == m "invalid assertion n == m"
     @assert 0 < k <= n
-    minbatch = getminbatch(ctx, n)
+    minbatch = getminbatch(n)
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
         @batch per=thread minbatch=minbatch for j in 1:n

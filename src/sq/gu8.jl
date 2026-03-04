@@ -32,7 +32,7 @@ function sq_global_u8(X::AbstractMatrix;
     c = Float32(255 / (max - min + 1e-6))
     min = Float32(min)
 
-    minbatch = getminbatch(ctx, n)
+    minbatch = getminbatch(n)
     @batch per=thread minbatch=minbatch for i in 1:n
         quant_global_u8!(view(Q, :, i), view(X, :, i), min, c)
     end

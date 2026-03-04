@@ -74,7 +74,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
     
     while sp <= n
         ep = min(n, sp + ctx.parallel_block)
-        minbatch = getminbatch(ctx, ep - sp + 1)
+        minbatch = getminbatch(ep - sp + 1)
         # searching neighbors
         #@batch per=thread minbatch=minbatch for i in sp:ep
         Threads.@threads :static for objID in sp:ep

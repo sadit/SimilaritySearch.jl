@@ -161,7 +161,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         reuse!(res)
         i = imap[ii]
         u = X[i]
-        minbatch = getminbatch(ctx, length(tmp))
+        minbatch = getminbatch(length(tmp))
 
         #Threads.@threads :static for j in firstindex(tmp):minbatch:lastindex(tmp)
         @batch per=thread minbatch=minbatch for jj in firstindex(tmp):lastindex(tmp)
