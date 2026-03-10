@@ -2,7 +2,7 @@ module Projections
 
 using Polyester, Random, LinearAlgebra, Distributions, StatsBase
 export RandomProjections, outdim, indim, transform, transform!
-using ..SimilaritySearch.Dist.CastF32: dot32
+using ...SimilaritySearch.Dist.CastF32: dot32
 
 struct RandomProjections{M<:AbstractMatrix}
     map::M

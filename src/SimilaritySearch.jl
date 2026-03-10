@@ -51,7 +51,7 @@ include("sq/sq.jl")
 include("distsample.jl")
 include("iddist.jl")
 include("adj/Adj.jl")
-include("proj/proj.jl")
+include("special/special.jl")
 
 #using .Adj
 
