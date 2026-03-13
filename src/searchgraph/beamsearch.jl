@@ -35,10 +35,13 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     costdists, costblocks = 0, 0
 
     @inbounds while 0 < length(beam)
-        costblocks += 1
         prev = pop_min!(beam)
-    
-        for childID in neighbors(index.adj, prev.id)
+        N = neighbors(index.adj, prev.id)
+        N === nothing && continue
+        #prev.dist <= Δ * maximum(res) || continue
+        costblocks += 1
+
+        for childID in N
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
             c = IdDist(childID, d)
@@ -47,9 +50,6 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
-                #=if length(beam) > 0 && minimum(beam) ≈ c.dist
-                    pop_min!(beam)  # REMOVE THIS AFTER TEST
-                end=#
                 push_item!(beam, c)
             end
         end
