@@ -20,10 +20,10 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     n = length(g)
     ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
-    direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     minbatch = getminbatch(n)
     qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
-
+    adj = AdjList32()
+    resize!(adj, n)
     Threads.@threads :static for j in 1:minbatch:n
         n_ = min(n, j + minbatch - 1)
         @inbounds for objID in j:n_
@@ -31,20 +31,13 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
             tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid-1))
             N = knnqueue(ctx, view(qcache, 1:ksearch, tid))
             find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
-            direct[objID] = collect(IdView(N))
+            add!(adj, objID, IdView(N))
             # @info length(direct[objID]) neighbors_length(g.adj, objID) 
         end
 
         progress !== nothing && next!(progress)
     end
-
-    adj = AdjList(direct)
-    Threads.@threads :static for nodeID in eachindex(direct)
-        connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
-            relID != nodeID
-        end
-    end
-
+    
     G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
 
     execute_callbacks!(G, ctx, force=true)

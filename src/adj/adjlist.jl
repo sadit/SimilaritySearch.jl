@@ -1,37 +1,37 @@
 # This file is a part of SimilaritySearch.jl
 
-export AdjList,
-    neighbors, neighbors_length, add!
+export AdjList32,
+    packed_neighbors, neighbors_length, add!, unpack_edge, isreverse_edge
 
 """
-    struct AdjList
+    struct AdjList32
 
 Structure to represent a sparse graph
 """
-struct AdjList{T} <: AbstractAdjList{T}
-    end_point::Vector{Vector{T}} # ending point of the i-th edge
+struct AdjList32 <: AbstractAdjList{UInt32}
+    end_point::Vector{Vector{UInt32}} # ending point of the i-th edge
     glock::Threads.ReentrantLock # global locks
 end
 
-Base.eltype(adj::AdjList{T}) where T = Pair{T,Vector{T}}
-Base.eachindex(adj::AdjList) = eachindex(adj.end_point)
+#Base.eltype(adj::AdjList32) = Pair{UInt32,Vector{UInt32}}
+Base.eachindex(adj::AdjList32) = eachindex(adj.end_point)
 
-function Base.iterate(adj::AdjList{T}, i=1) where T
-    i = T(i)
-    n = length(adj)
-    (n == 0 || i > n) && return nothing
-    i => neighbors(adj, i), i+1
+#function Base.iterate(adj::AdjList32, i=1)
+#    i = UInt32(i)
+#    n = length(adj)
+#    (n == 0 || i > n) && return nothing
+#    i => packed_neighbors(adj, i), i+1
+#end
+
+#function AdjList32(A::Vector{Vector{UInt32}})
+#    AdjList32(A, Threads.ReentrantLock())
+#end
+
+function AdjList32(n::Integer)
+    AdjList32(Vector{Vector{UInt32}}(undef, n), Threads.ReentrantLock())
 end
 
-function AdjList(A::Vector{Vector{T}}) where T
-    AdjList{T}(A, Threads.ReentrantLock())
-end
-
-function AdjList(::Type{T}, n::Integer=0) where T
-    AdjList(Vector{Vector{T}}(undef, n))
-end
-
-function Base.resize!(adj::AdjList, n::Integer)
+function Base.resize!(adj::AdjList32, n::Integer)
     lock(adj.glock) do
         resize!(adj.end_point, n)
     end
@@ -39,40 +39,85 @@ function Base.resize!(adj::AdjList, n::Integer)
     adj
 end
 
-AdjList(adj::AdjList) = AdjList(deepcopy(adj.end_point))
-@inline Base.length(adj::AdjList) = length(adj.end_point)
+AdjList32(adj::AdjList32) = AdjList32(deepcopy(adj.end_point))
+@inline Base.length(adj::AdjList32) = length(adj.end_point)
 
-Base.@propagate_inbounds @inline function neighbors(adj::AdjList, i)
+@inline pack_edge(i::UInt32, isdirect::Bool) = isdirect ? i : (i | 0xf000_0000)
+@inline isreverse_edge(i::UInt32) = (i & 0xf000_0000) === 0x0000_0000
+@inline unpack_edge(i::UInt32) = (i & 0x7fff_ffff, isreverse_edge(i))
+
+Base.@propagate_inbounds @inline function packed_neighbors(adj::AdjList32, i)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
     isassigned(adj.end_point, i) ? adj.end_point[i] : nothing
 end
 
-Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList, i)
+Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList32, i)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
     isassigned(adj.end_point, i) ? length(adj.end_point[i]) : 0
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, n::Integer, N) where T
+function _add_edge!(adj::AdjList32, from::UInt32, to::UInt32, isdirect::Bool)
+    #from == to && return
+    p = pack_edge(to, isdirect)
+
+    if isassigned(adj.end_point, from)
+        push!(adj.end_point[from], p)
+    else
+        adj.end_point[from] = UInt32[p]
+    end
+end
+
+function _add!(adj::AdjList32, from::UInt32, to)
+    from > length(adj) && resize!(adj, from)
+
+    L = if isassigned(adj.end_point, from)
+        adj.end_point[from]
+    else
+        adj.end_point[from] = UInt32[]
+    end
+
+    for i in to
+        # from == i && continue
+        push!(L, pack_edge(UInt32(i), true))
+    end
+end
+
+Base.@propagate_inbounds @inline function add!(adj::AdjList32, from::Integer, to; linkrev::Bool=true)
+    from = convert(UInt32, from)
     lock(adj.glock) do
-        n > length(adj) && resize!(adj, n)
+        _add!(adj, from, to)
         
-        if isassigned(adj.end_point, n)
-            append!(adj.end_point[n], N)
-        else
-            adj.end_point[n] = collect(T, N)
+        if linkrev
+            resize!(adj, maximum(to, init=zero(UInt32)))
+            for i in to
+                _add_edge!(adj, i, from, false)
+            end
         end
     end
 
     adj
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, iter) where T
-    n = max(length(iter), length(adj))
+Base.@propagate_inbounds @inline function add!(adj::AdjList32, other::AbstractAdjList; linkrev::Bool=true)
     lock(adj.glock) do
+        n = max(length(other), length(adj))
         n > length(adj) && resize!(adj, n)
-        
-        for (i, N) in iter
-            add!(adj, i, N)
+        S = Set{UInt32}()
+        for from in eachindex(other)
+            N = packed_neighbors(other, from)
+            N === nothing && continue
+            if isassigned(adj.end_point, from)
+                empty!(S)
+                L = adj.end_point[from]
+                union!(S, L)
+                for p in N
+                    p ∈ S && continue
+                    push!(L, p)
+                    push!(S, p)
+                end
+            else
+                adj.end_point[from] = collect(UInt32, N)
+            end
         end
     end
 

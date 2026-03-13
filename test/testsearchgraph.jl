@@ -98,7 +98,7 @@ function abs_save_and_load(graph, ctx, B)
         @test G.hints == graph.hints
 
         for i in rand(eachindex(graph.adj), 100)
-            @test neighbors(graph.adj, i) == neighbors(G.adj, i)
+            @test packed_neighbors(graph.adj, i) == packed_neighbors(G.adj, i)
             @test neighbors_length(graph.adj, i) == neighbors_length(G.adj, i)
         end
 
@@ -146,8 +146,8 @@ end
         abs_matrixhints(graph, ctx, B, MatrixDatabase)
     end
 
-    @testset "AdjDict" begin
-        graph, ctx = abs_minrecall(B; adj=AdjDict(UInt32))
+    @testset "AdjDict32" begin
+        graph, ctx = abs_minrecall(B; adj=AdjDict32(length(B)))
         abs_rebuild(graph, ctx, B)
         #abs_save_and_load(graph, ctx, B)
         abs_matrixhints(graph, ctx, B, MatrixDatabase)

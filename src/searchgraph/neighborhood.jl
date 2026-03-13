@@ -40,46 +40,6 @@ function find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGra
     out
 end
 
-"""
-    connect_reverse_links!(adj::AbstractAdjList, nodeID::integer, neighbors::KnnResult)
-
-Internal function to connect reverse links after an insertion
-"""
-function connect_reverse_links!(adj::AbstractAdjList, nodeID::Integer, neighbors)
-    connect_reverse_links!(adj, nodeID, neighbors) do relID
-        relID != nodeID    # avoid loops and weird behaviours, i.e., distance functions with d(x, x) != 0)
-    end
-end
-
-function connect_reverse_links!(mustconnect::Function, adj::AbstractAdjList, nodeID::Integer, neighbors)
-    #@info nodeID => reinterpret(Int32, neighbors)
-    for relID in neighbors
-        mustconnect(relID) && add!(adj, relID, nodeID)
-    end
-end
-
-"""
-    connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
-
-Internal function to connect reverse links after an insertion batch
-"""
-function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
-    # The double step algorithm is to avoid weird race conditions
-    Threads.@threads :static for nodeID in sp:ep  # connect all elements smaller than sp:ep
-        connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
-            relID < sp
-        end
-    end
-
-    L = neighbors_length.(Ref(adj), sp:ep)  # to avoid loop for 'secondary' links
-    for (i, nodeID) in enumerate(sp:ep)  # connect all elements smaller than sp:ep
-        N = neighbors(adj, nodeID)
-        connect_reverse_links!(adj, nodeID, view(N, 1:L[i])) do relID
-            sp <= relID && relID != nodeID
-            #relID != nodeID
-        end
-    end
-end
 
 """
     struct IdentityNeighborhood

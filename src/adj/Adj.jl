@@ -4,85 +4,7 @@
 abstract type AbstractAdjList{T} end
 
 export AbstractAdjList
-#, sort_last_item!, IdDist, IdIntDist, IdOrder, DistOrder, RevDistOrder
 
-##using Base.Order
-##import Base.Order: lt
-
-#Base.eachindex(adj::AbstractAdjList) = 1:length(adj)
-
-#=function Base.iterate(adj::AbstractAdjList{T}, i::Int=1) where T
-    n = length(adj)
-    (n == 0 || i > n) && return nothing
-    @inbounds T(i) => neighbors(adj, i), i+1
-end=#
-
-## """
-##     IdDist(id, dist)
-## 
-## Stores a pair of objects to be accessed. It is used in several places but mostly as an item in `KnnResult` algorithms where `dist` field is a distance instead of a dist
-##     
-## """
-## struct IdDist
-##     id::UInt32
-##     dist::Float32
-## end
-
-##"""
-##    IdIntDist(id, dist)
-##
-##Stores a pair of objects to be accessed. Similar to [`IdDist`](@ref) but it stores an integer dist 
-##"""
-##struct IdIntDist
-##    id::UInt32
-##    dist::Int32
-##end
-##
-#= 
-Base.zero(::Type{IdDist}) = IdDist(zero(UInt32), zero(Float32))
-Base.zero(::Type{IdIntDist}) = IdDist(zero(UInt32), zero(Int32))
-
-struct IdOrderingType <: Ordering end
-struct WeightOrderingType <: Ordering end
-struct RevWeightOrderingType <: Ordering end
-const IdOrder = IdOrderingType()
-const DistOrder = WeightOrderingType()
-const RevDistOrder = RevWeightOrderingType()
-
-@inline lt(::IdOrderingType, a, b) = a.id < b.id
-@inline lt(::WeightOrderingType, a, b) = a.dist < b.dist
-@inline lt(::RevWeightOrderingType, a, b) = b.dist < a.dist
-@inline lt(::IdOrderingType, a::Number, b::Number) = a < b
-@inline lt(::WeightOrderingType, a::Number, b::Number) = a < b
-@inline lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
-
-"""
-    sort_last_item!(order::Ordering, plist)
-
-Sorts the last push in place. It implements insertion sort that it is efficient due to the expected
-distribution of the items being inserted (it is expected to be really near of its sorted position)
-"""
-function sort_last_item!(order::Ordering, plist::AbstractVector)
-    sp = 1
-    pos = N = lastindex(plist)
-    @inbounds item = plist[N]
-
-    @inbounds while pos > sp && lt(order, item, plist[pos-1])
-        pos -= 1
-    end
-
-    @inbounds if pos < N
-        while N > pos
-            plist[N] = plist[N-1]
-            N -= 1
-        end
-
-        plist[N] = item
-    end
-
-    nothing
-end
-=#
 
 include("adjlist.jl")
 include("adjstatic.jl")
@@ -91,7 +13,7 @@ include("adjdict.jl")
 import SparseArrays: sparse
 
 """
-    sparse(idx::AbstractAdjList, val=1f0)
+    sparse(idx::AbstractAdjList, val=1f0; ignore_reverse_edges::Bool=true)
 
 Creates an sparse matrix (from SparseArrays) from `idx` using `val` as value.
 
@@ -105,51 +27,24 @@ Creates an sparse matrix (from SparseArrays) from `idx` using `val` as value.
  L[m] = 0 0 1 1 0 … 0
 ```
 """
-function sparse(adj::AbstractAdjList{T}, val::AbstractFloat=1f0) where {T<:Integer}
+function sparse(adj::AbstractAdjList{T}, ::Type{TT}=T, val::AbstractFloat=1f0; ignore_reverse_edges::Bool=true) where {T<:Integer,TT<:Integer}
     n = length(adj)
-    I = T[]
-    J = T[]
+    I = TT[]
+    J = TT[]
     F = eltype(val)[]
     sizehint!(I, n)
     sizehint!(J, n)
     sizehint!(F, n)
 
     for i in eachindex(adj)
-        L = neighbors(adj, i)
+        L = packed_neighbors(adj, i)
+        L === nothing && continue
         for j in L
+            j, isdirect = unpack_edge(j)
+            ignore_reverse_edges && !isdirect && continue
             push!(I, i)
             push!(J, j)
             push!(F, val)
-        end
-    end
-
-    sparse(I, J, F, length(adj), n)
-end
-
-"""
-    sparse(idx::AbstractAdjList{IdDist}) 
- 
-Creates an sparse matrix (from SparseArrays) from `idx`
-"""
-sparse(adj::AbstractAdjList{IdDist}) = sparse_from_adj(adj, Int32, Float32)
-sparse(adj::AbstractAdjList{IdIntDist}) = sparse_from_adj(adj, Int32, Int32)
-
-function sparse_from_adj(adj::AbstractAdjList, IType, FType)
-    n = length(adj)
-    I = IType[]
-    J = JType[]
-    F = FType[]
-    sizehint!(I, n)
-    sizehint!(J, n)
-    sizehint!(F, n)
-
-    for i in eachindex(adj)
-        L = neighbors(adj, i)
-
-        for s in L
-            push!(I, i)
-            push!(J, s.id)
-            push!(F, s.dist)
         end
     end
 

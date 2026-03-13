@@ -52,19 +52,25 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Ran
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
-    V = Set{Int}()
+    V = Set{UInt32}()
 
     for _ in 1:n
-        objID = rand(1:n)
+        objID = rand(UInt32(1):UInt32(n))
         objID in V && continue
         if !(objID in V)
-            N = neighbors(index.adj, objID)
-            length(N) <= 2 && continue
-            push!(V, objID)
-            union!(V, N)
-            for child in N
-                child ∈ V || union!(V, neighbors(index.adj, child))
+            N = packed_neighbors(index.adj, objID)
+            if N === nothing || length(N) <= 2
+                continue
             end
+
+            push!(V, objID)
+            for child in N
+                child ∈ V || foreach(packed_neighbors(index.adj, child)) do c
+                    c, _ = unpack_edge(c)
+                    push!(V, c)
+                end
+            end
+            
             push!(index.hints, objID)
         end
 
@@ -109,10 +115,10 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Dis
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
     empty!(index.hints)
-    meansize = mean(length(neighbors(index.adj, i)) for i in 1:n)
+    meansize = mean(neighbors_length(index.adj, i) for i in 1:n)
     res = knnqueue(ctx, m)
     for i in 1:n
-        push_item!(res, i, abs(length(neighbors(index.adj, i)) - meansize))
+        push_item!(res, i, abs(neighbors_length(index.adj, i) - meansize))
     end
 
     V = Set{Int}()
@@ -121,7 +127,11 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Dis
         i in V && continue
         push!(index.hints, i)
         push!(V, i)
-        union!(V, neighbors(index.adj, i))
+
+        foreach(packed_neighbors(index.adj, i)) do c 
+            c, _ = unpack_edge(c)
+            push!(V, c)
+        end
     end
 end
 
@@ -144,13 +154,12 @@ SearchGraph's callback for selecting hints at random
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, length(index)))
-    sample = unique(rand(Int32(1):Int32(n), opt.expansion * m))
+    sample = unique(rand(UInt32(1):UInt32(n), opt.expansion * m))
     m = min(length(sample), m)
-    sort!(sample, by=i -> length(neighbors(index.adj, i)), rev=true)
-    IType = eltype(index.hints)
-    visited = Set{IType}()
+    sort!(sample, by=i -> neighbors_length(index.adj, i), rev=true)
+    visited = Set{UInt32}()
     empty!(index.hints)
-    E = Pair{IType,Int32}[]
+    E = Pair{UInt32,Int32}[]
     i = 1
     while length(index.hints) < m && i < length(sample)
         # p = rand(1:n)
@@ -163,11 +172,13 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDi
         push!(E, p => 0)
         while length(E) > 0
             parent, e = pop!(E)
-            for child in keys(neighbors(index.adj, parent))
-                if !(child in visited)
-                    push!(visited, child)
-                    e + 1 <= opt.expansion && push!(E, child => e + 1)
-                end
+            N = packed_neighbors(index.adj, parent)
+            N === nothing && continue
+            for child in N
+                child, _ = unpack_edge(child)
+                child ∈ visited && continue
+                push!(visited, child)
+                e + 1 <= opt.expansion && push!(E, child => e + 1)
             end
         end
     end

@@ -2,45 +2,43 @@
 
 using Test, SimilaritySearch, LinearAlgebra
 using SimilaritySearch:
-    AdjList, AdjDict, StaticAdjList, neighbors, add!
+    AdjList32, AdjDict32, StaticAdjList, neighbors_length, packed_neighbors, unpack_edge, add!
 
-@testset "AdjList" begin
+@testset "AdjList32" begin
     function radj()
         n = rand([3, 7, 11])
-        L = unique(rand(UInt32(1):UInt32(100), n))
-        sort!(L)
-        L
+        rand(UInt32(1):UInt32(100), n) |> unique |> sort!
     end
 
-    A = AdjList([radj() for i in 1:10])
-    B = StaticAdjList(A)
-    let
+    T = Vector{UInt32}[]
+    A = AdjList32(10)
+    for i in 1:10
+        push!(T, radj())
+        add!(A, i, T[end]; linkrev=false)
+    end
+
+    let B = StaticAdjList(A)
         #@show collect(A) collect(B)
         @test length(A) == length(B)
-        @test [length(neighbors(A, i)) for i in eachindex(A)] == [length(neighbors(B, i)) for i in eachindex(B)]
-        @test [neighbors(A, i) for i in eachindex(A)] == [neighbors(B, i) for i in eachindex(B)]
-        @test collect(A) == collect(B)
-    end
-
-    let C = AdjList(UInt32)
-        add!(C, B)
-        @test length(A) == length(C)
-
-        for i in eachindex(C)
-            @test neighbors(A, i) == neighbors(C, i)
+        @test neighbors_length.(Ref(A), eachindex(A)) == neighbors_length.(Ref(B), eachindex(B))
+        @test packed_neighbors.(Ref(A), eachindex(A)) == packed_neighbors.(Ref(B), eachindex(B))
+        for (i, (_A, _B)) in enumerate(zip(packed_neighbors.(Ref(A), eachindex(A)), T))  # only because linkrev=false
+            @assert _A == _B "ERROR $i $_A != $_B"
         end
-
-        @test collect(A) == collect(C)
     end
 
-    let C = AdjDict(UInt32)
-        add!(C, B)
-        @test length(A) == length(C)
+    let B = AdjList32(length(A))
+        add!(B, A)
+        @test length(A) == length(B)
+        @test packed_neighbors.(Ref(A), eachindex(A)) == packed_neighbors.(Ref(B), eachindex(B))
+    end
 
-        for i in eachindex(C)
-            @test neighbors(A, i) == neighbors(C, i)
+    let B = AdjDict32(length(A))
+        add!(B, A)
+        @test length(A) == length(B)
+        for i in eachindex(B)
+            #@info :test i
+            @test packed_neighbors(A, i) == packed_neighbors(B, i)
         end
-
-        @test collect(A) == sort(collect(C), by=first)
-    end
+   end
 end

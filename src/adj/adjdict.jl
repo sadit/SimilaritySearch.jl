@@ -1,83 +1,91 @@
 # This file is a part of SimilaritySearch.jl
 
-export AdjDict
+export AdjDict32
 
 """
-    struct AdjDict
+    struct AdjDict32
 
 Structure to represent a very sparse graph
 """
-struct AdjDict{T} <: AbstractAdjList{T}
-    end_point::Dict{T,Vector{T}} # ending point of the i-th edge
-    empty_cent::Vector{T}  # empty list centinel for `neighbors` func
-    glock::Threads.SpinLock # global locks
+struct AdjDict32 <: AbstractAdjList{UInt32}
+    end_point::Dict{UInt32,Vector{UInt32}} # ending point of the i-th edge
+    glock::Threads.ReentrantLock # global locks
 end
 
-Base.eltype(::AdjDict{T}) where T = Pair{T,Vector{T}}
-Base.eachindex(adj::AdjDict) = keys(adj.end_point)
+#Base.eltype(::AdjDict32) = Pair{UInt32,Vector{UInt32}}
+Base.eachindex(adj::AdjDict32) = keys(adj.end_point)
 
-function Base.iterate(adj::AdjDict{T}, state=nothing) where T
-    S = state === nothing ? iterate(adj.end_point) : iterate(adj.end_point, state)
-    S === nothing && return nothing
-    S
+#function Base.iterate(adj::AdjDict32, state=nothing)
+#    S = state === nothing ? iterate(adj.end_point) : iterate(adj.end_point, state)
+#    S === nothing && return nothing
+#    S
+#end
+
+#function AdjDict32(L::Dict{UInt32,Vector{UInt32}})
+#    AdjDict32(L, UInt32[], Threads.SpinLock())
+#end
+
+#function AdjDict32(L::Vector{Vector{UInt32}})
+#    AdjDict32(Dict(pairs(L)), UInt32[], Threads.SpinLock())
+#end
+
+function AdjDict32(n::Int)
+    L = Dict{UInt32,Vector{UInt32}}()
+    sizehint!(L, max(n, 4))
+    AdjDict32(L, Threads.ReentrantLock())
 end
 
-function AdjDict(L::Dict{T,Vector{T}}) where T
-    AdjDict{T}(L, T[], Threads.SpinLock())
-end
-
-function AdjDict(L::Vector{Vector{T}}) where T
-    AdjDict{T}(Dict(pairs(L)), T[], Threads.SpinLock())
-end
-
-function AdjDict(::Type{T}, n::Int) where T
-    L = Dict{T,Vector{T}}()
-    sizehint!(L, n)
-    AdjDict(L)
-end
-
-AdjDict(::Type{T}; n::Int=0) where T = AdjDict(T, n::Int)
-
-function Base.resize!(adj::AdjDict, n)
-    # do nothing
-end
-
-AdjDict(adj::AdjDict) = AdjDict(deepcopy(adj.end_point))
-@inline Base.length(adj::AdjDict) = length(adj.end_point)
-
-Base.@propagate_inbounds @inline function neighbors(adj::AdjDict, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    L = get(adj.end_point, i, nothing)
-    L === nothing ? (adj.empty_cent) : L
-end
-
-Base.@propagate_inbounds @inline function neighbors_length(adj::AdjDict, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    L = get(adj.end_point, i, nothing)
-    L === nothing ? 0 : length(L)
-end
-
-Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, n, N) where T
-    lock(adj.glock) do
-        L = get(adj.end_point, n, nothing)
-        if L === nothing
-            adj.end_point[n] = collect(T, N)
-        else
-            append!(L, N)
-        end
+function Base.resize!(adj::AdjDict32, n)
+    lock(adj.glock) do 
+        sizehint!(adj.end_point, n)
     end
 
     adj
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, iter) where T
+AdjDict32(adj::AdjDict32) = AdjDict32(deepcopy(adj.end_point))
+@inline Base.length(adj::AdjDict32) = length(adj.end_point)
+
+@inline function packed_neighbors(adj::AdjDict32, i)
+    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
+    get(adj.end_point, i, nothing)
+end
+
+Base.@propagate_inbounds @inline function neighbors_length(adj::AdjDict32, i)
+    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
+    L = get(adj.end_point, i, nothing)
+    L === nothing ? 0 : length(L)
+end
+
+function _add_edge!(adj::AdjDict32, from::UInt32, to::UInt32, isdirect::Bool)
+    #from == to && return
+    L = get(adj.end_point, from, nothing)
+    if L === nothing
+        L = adj.end_point[from] = UInt32[]
+    end
+
+    push!(L, pack_edge(UInt32(to), isdirect))
+end
+
+function _add!(adj::AdjDict32, from::UInt32, to)
+    L = get(adj.end_point, from, nothing)
+    if L === nothing
+        L = adj.end_point[from] = UInt32[]
+    end
+
+    for i in to
+        # from == i && continue
+        push!(L, pack_edge(UInt32(i), true))
+    end
+end
+
+Base.@propagate_inbounds @inline function add!(adj::AdjDict32, n::Integer, N; linkrev::Bool=true)
+    n = convert(UInt32, n)
     lock(adj.glock) do
-        for (n, N) in iter
-            L = get(adj.end_point, n, nothing)
-            if L === nothing
-                adj.end_point[n] = collect(T, N)
-            else
-                append!(L, N)
+        _add!(adj, n, N)
+        if linkrev
+            for i in N
+                _add_edge!(adj, i, n, false)
             end
         end
     end
@@ -85,3 +93,18 @@ Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, iter) where T
     adj
 end
 
+Base.@propagate_inbounds @inline function add!(adj::AdjDict32, other::AbstractAdjList; linkrev::Bool=true)
+    lock(adj.glock) do      
+        for from in eachindex(other)
+            from = convert(UInt32, from)
+            N = packed_neighbors(other, from)
+            N === nothing && continue
+            for p in N
+                to, isdirect = unpack_edge(p)
+                isdirect && _add_edge!(adj, from, to, true)
+            end
+        end
+    end
+
+    adj
+end

@@ -73,10 +73,14 @@ function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integ
     # visit!(vstate, i)
     # the loop helps to overcome when the current nn is in a small clique (smaller the the desired k)
 
-    for h in neighbors(g.adj, i) # hints
-        visited(vstate, convert(UInt64, h)) && continue
-        search(g.algo[], g, ctx, q, res, h, vstate)
-        # length(res) == k && break
+    N = packed_neighbors(g.adj, i)
+    if N !== nothing 
+        for h in N # hints
+            h, isdirect = unpack_edge(h)
+            visited(vstate, convert(UInt64, h)) && continue
+            search(g.algo[], g, ctx, q, res, h, vstate)
+            # length(res) == k && break
+        end
     end
 
     res
