@@ -9,8 +9,7 @@ Structure to represent a very sparse graph
 """
 struct AdjDict{T} <: AbstractAdjList{T}
     end_point::Dict{T,Vector{T}} # ending point of the i-th edge
-    empty_cent::Vector{T}  # empty list centinel for `neighbors` func
-    glock::Threads.SpinLock # global locks
+    glock::Threads.ReentrantLock # global locks
 end
 
 Base.eltype(::AdjDict{T}) where T = Pair{T,Vector{T}}
@@ -23,11 +22,11 @@ function Base.iterate(adj::AdjDict{T}, state=nothing) where T
 end
 
 function AdjDict(L::Dict{T,Vector{T}}) where T
-    AdjDict{T}(L, T[], Threads.SpinLock())
+    AdjDict{T}(L, Threads.ReentrantLock())
 end
 
 function AdjDict(L::Vector{Vector{T}}) where T
-    AdjDict{T}(Dict(pairs(L)), T[], Threads.SpinLock())
+    AdjDict{T}(Dict(pairs(L)), Threads.ReentrantLock())
 end
 
 function AdjDict(::Type{T}, n::Int) where T
@@ -47,8 +46,7 @@ AdjDict(adj::AdjDict) = AdjDict(deepcopy(adj.end_point))
 
 Base.@propagate_inbounds @inline function neighbors(adj::AdjDict, i)
     # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    L = get(adj.end_point, i, nothing)
-    L === nothing ? (adj.empty_cent) : L
+    get(adj.end_point, i, nothing)
 end
 
 Base.@propagate_inbounds @inline function neighbors_length(adj::AdjDict, i)
