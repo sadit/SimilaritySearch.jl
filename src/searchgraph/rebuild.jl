@@ -22,8 +22,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     @assert n > 0
     minbatch = getminbatch(n)
     qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
-    adj = AdjList32()
-    resize!(adj, n)
+    adj = AdjList32(n)
     Threads.@threads :static for j in 1:minbatch:n
         n_ = min(n, j + minbatch - 1)
         @inbounds for objID in j:n_

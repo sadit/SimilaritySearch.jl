@@ -65,7 +65,10 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Ran
 
             push!(V, objID)
             for child in N
-                child ∈ V || foreach(packed_neighbors(index.adj, child)) do c
+                child, _ = unpack_edge(child)
+                CN = packed_neighbors(index.adj, child)
+                CN === nothing && continue
+                child ∈ V || foreach(CN) do c
                     c, _ = unpack_edge(c)
                     push!(V, c)
                 end

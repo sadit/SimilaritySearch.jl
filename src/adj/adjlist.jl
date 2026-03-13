@@ -42,8 +42,8 @@ end
 AdjList32(adj::AdjList32) = AdjList32(deepcopy(adj.end_point))
 @inline Base.length(adj::AdjList32) = length(adj.end_point)
 
-@inline pack_edge(i::UInt32, isdirect::Bool) = isdirect ? i : (i | 0xf000_0000)
-@inline isreverse_edge(i::UInt32) = (i & 0xf000_0000) === 0x0000_0000
+@inline pack_edge(i::UInt32, isdirect::Bool) = isdirect ? i : (i | 0x8000_0000)
+@inline isreverse_edge(i::UInt32) = (i & 0x8000_0000) === 0x0000_0000
 @inline unpack_edge(i::UInt32) = (i & 0x7fff_ffff, isreverse_edge(i))
 
 Base.@propagate_inbounds @inline function packed_neighbors(adj::AdjList32, i)
@@ -104,6 +104,7 @@ Base.@propagate_inbounds @inline function add!(adj::AdjList32, other::AbstractAd
         n > length(adj) && resize!(adj, n)
         S = Set{UInt32}()
         for from in eachindex(other)
+            from = convert(UInt32, from)
             N = packed_neighbors(other, from)
             N === nothing && continue
             if isassigned(adj.end_point, from)

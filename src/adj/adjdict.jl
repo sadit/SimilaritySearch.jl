@@ -94,14 +94,25 @@ Base.@propagate_inbounds @inline function add!(adj::AdjDict32, n::Integer, N; li
 end
 
 Base.@propagate_inbounds @inline function add!(adj::AdjDict32, other::AbstractAdjList; linkrev::Bool=true)
-    lock(adj.glock) do      
+    lock(adj.glock) do    
+        S = Set{UInt32}()            
         for from in eachindex(other)
             from = convert(UInt32, from)
             N = packed_neighbors(other, from)
             N === nothing && continue
-            for p in N
-                to, isdirect = unpack_edge(p)
-                isdirect && _add_edge!(adj, from, to, true)
+            L = get(adj.end_point, from, nothing)
+            
+            if L !== nothing
+                empty!(S)
+                L = adj.end_point[from]
+                union!(S, L)
+                for p in N
+                    p ∈ S && continue
+                    push!(L, p)
+                    push!(S, p)
+                end
+            else
+                adj.end_point[from] = collect(UInt32, N)
             end
         end
     end
