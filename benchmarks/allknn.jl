@@ -2,7 +2,7 @@
 
 #using SimilaritySearch, FixedSizeArrays, LinearAlgebra, Random
 using SimilaritySearch, LinearAlgebra, Random
-
+using SimilaritySearch.Dist
 
 function create_database(dim, n)
     rng = Xoshiro(n)
@@ -19,7 +19,7 @@ end
 function run(dim, n, k)
     @info "=========================== dim=$dim n=$n k=$k ============================"
     db = create_database(dim, n)
-    dist = NormalizedCosineDistance()
+    dist = Dist.NormCosine()
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),

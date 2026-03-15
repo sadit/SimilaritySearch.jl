@@ -32,6 +32,7 @@ Checks that `i_` is already visited:
 """
 @inline function check_visited_and_visit!(vstate::AbstractVector{UInt64}, i_::Integer)::Bool
     b, i = _b64indices(i_)
+    @assert 1 <= b <= length(vstate) "b=$b <= vs=$(length(vstate)); i_=$i_ i=$i"
     @inbounds v = Bool((vstate[b] >>> i) & one(UInt64))
     !v && (@inbounds vstate[b] |= (one(UInt64) << i))
     v

@@ -32,6 +32,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     dist = distance(index)
     costdists, costblocks = 0, 0
 
+    @assert length(index.adj) <= length(vstate) * 64
     @inbounds while 0 < length(beam)
         prev = pop_min!(beam)
         # prev.dist <= Δ * maximum(res) || continue
@@ -41,7 +42,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
         
         for childID in N
             childID, _ = unpack_edge(childID)
-            # @info "$childID --- $(convert(UInt64, childID)) --- $(N)"
+        
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
             c = IdDist(childID, d)

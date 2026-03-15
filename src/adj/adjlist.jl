@@ -87,7 +87,7 @@ Base.@propagate_inbounds @inline function add!(adj::AdjList32, from::Integer, to
     lock(adj.glock) do
         _add_edge_list!(adj, from, to)
         if linkrev
-            let max = maximum(to, init=zero(UInt32))
+            let max = maximum(to, init=from)
                 max > length(adj) && resize!(adj, max)
             end
             for i in to
