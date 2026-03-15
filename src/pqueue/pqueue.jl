@@ -64,6 +64,7 @@ struct IdView{ARR}
     A::ARR
 end
 
+Base.eltype(::IdView) = UInt32
 Base.length(res::IdView) = length(res.A)
 Base.size(res::IdView) = size(res.A)
 Base.firstindex(res::IdView) = 1
@@ -79,6 +80,7 @@ struct DistView{ARR}
     A::ARR
 end
 
+Base.eltype(::DistView) = Float32
 Base.length(res::DistView) = length(res.A)
 Base.size(res::DistView) = size(res.A)
 Base.firstindex(res::DistView) = 1

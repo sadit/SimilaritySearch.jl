@@ -54,7 +54,6 @@ function abs_minrecall(B; kwargs...)
     index!(graph, ctx)
     @show length(graph.adj), length(graph), length(B.db)
     @assert length(graph) == length(B.db) "length(graph) == length(B.db)"
-    
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
@@ -139,7 +138,6 @@ end
 
     B = prepare_benchmark(MatrixDatabase)
     @testset "MatrixDatabase" begin
-        
         graph, ctx = abs_minrecall(B)
         abs_rebuild(graph, ctx, B)
         #abs_save_and_load(graph, ctx, B)
@@ -160,44 +158,5 @@ end
         # abs_save_and_load(graph, ctx, B)
         abs_matrixhints(graph, ctx, B, StrideMatrixDatabase)
     end
-    #@test_call target_modules=(@__MODULE__,) search(graph, ctx, queries[1], knn(1))
-    #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
-
-
-    #=@testset "AutoBS with ParetoRadius" begin
-        graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
-        ctx = SearchGraphContext(
-            neighborhood = Neighborhood(filter=SatNeighborhood()),
-            hyperparameters_callback = OptimizeParameters(OptRadius()),
-            parallel_block = 8
-        )
-        #ctx = getcontext(graph)
-        try
-            append_items!(graph, ctx, db)
-        catch err
-            display(err.errors[1])
-            exit(0)
-        end
-        @test n == length(db) == length(graph)
-        @info "---- starting ParetoRadius optimization ---"
-        optimize_index!(graph, ctx, ParetoRadius())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6  # we don't expect high quality results on ParetoRadius
-
-        @info "---- starting ParetoRecall optimization ---"
-        optimize_index!(graph, ctx, ParetoRecall())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6
-    end
-    =#
-
 end
 

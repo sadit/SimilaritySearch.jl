@@ -1,7 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-
 using Random
-
 
 """
     enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
@@ -36,13 +34,14 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
 
     @inbounds while 0 < length(beam)
         prev = pop_min!(beam)
-        prev.dist <= Δ * maximum(res) || continue
+        # prev.dist <= Δ * maximum(res) || continue
         N = packed_neighbors(index.adj, prev.id)
         N === nothing && continue
         costblocks += 1
         
         for childID in N
             childID, _ = unpack_edge(childID)
+            # @info "$childID --- $(convert(UInt64, childID)) --- $(N)"
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
             c = IdDist(childID, d)

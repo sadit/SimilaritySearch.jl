@@ -29,7 +29,8 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
             tid = 2Threads.threadid()
             tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid-1))
             N = knnqueue(ctx, view(qcache, 1:ksearch, tid))
-            find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
+            hints, _ = packed_neighbors(g.adj, objID) |> first |> unpack_edge
+            find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints)
             add!(adj, objID, IdView(N))
             # @info length(direct[objID]) neighbors_length(g.adj, objID) 
         end
