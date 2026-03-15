@@ -19,7 +19,7 @@ end
 function run(dim, n, k)
     @info "=========================== dim=$dim n=$n k=$k ============================"
     db = create_database(dim, n)
-    dist = NormalizedCosineDistance()
+    dist = SimilaritySearch.Dist.NormCosine()
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
