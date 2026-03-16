@@ -43,7 +43,7 @@ AdjList32(adj::AdjList32) = AdjList32(deepcopy(adj.end_point))
 @inline Base.length(adj::AdjList32) = length(adj.end_point)
 
 @inline pack_edge(i::UInt32, isdirect::Bool) = isdirect ? i : (i | 0x8000_0000)
-@inline isdirect_edge(i::UInt32) = (i & 0x8000_0000) === 0x8000_0000
+@inline isdirect_edge(i::UInt32) = (i & 0x8000_0000) === 0x0000_0000
 @inline unpack_edge(i::UInt32) = (i & 0x7fff_ffff, isdirect_edge(i))
 
 Base.@propagate_inbounds @inline function packed_neighbors(adj::AdjList32, i::Integer)
@@ -82,24 +82,50 @@ function _add_edge_list!(adj::AdjList32, from::UInt32, to)
     end
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjList32, from::Integer, to; linkrev::Bool=true)
+function link_rev_edges!(adj::AdjList32, from::Integer)
+    from = UInt32(from)
+    to = packed_neighbors(adj, from)
+
+    # let max = maximum(to, init=from)
+    #     max > length(adj) && resize!(adj, max)
+    # end
+
+    for i in to
+        i, isdirect = unpack_edge(i)
+        isdirect && _add_edge!(adj, i, from, false)
+    end
+end
+
+function link_rev_edges!(adj::AdjList32, from::Integer, to::Integer)
+    from = UInt32(from)
+
+    lock(adj.glock) do
+        @info from => to
+
+        for i in from:to
+            @info "A" => i => packed_neighbors(adj, i)
+            link_rev_edges!(adj, i)
+        end
+
+        X = Bool[]
+        for i in from:to
+            push!(X, any(isdirect_edge, packed_neighbors(adj, i)))
+            @info "B" => i => packed_neighbors(adj, i)
+        end
+        @info X
+    end
+end
+
+Base.@propagate_inbounds @inline function add!(adj::AdjList32, from::Integer, to)
     from = convert(UInt32, from)
     lock(adj.glock) do
         _add_edge_list!(adj, from, to)
-        if linkrev
-            let max = maximum(to, init=from)
-                max > length(adj) && resize!(adj, max)
-            end
-            for i in to
-                _add_edge!(adj, i, from, false)
-            end
-        end
     end
 
     adj
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjList32, other::AbstractAdjList; linkrev::Bool=true)
+Base.@propagate_inbounds @inline function add!(adj::AdjList32, other::AbstractAdjList)
     lock(adj.glock) do
         let n = max(length(other), length(adj))
             n > length(adj) && resize!(adj, n)

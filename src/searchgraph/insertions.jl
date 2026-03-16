@@ -89,9 +89,8 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         LOG(ctx.logger, :add!, index, ctx, sp, ep)
         # connecting neighbors
-        #connect_reverse_links!(index.adj, sp, ep)
         index.len[] = ep
-
+        link_rev_edges!(index.adj, sp, ep)
         # apply callbacks
         execute_callbacks!(index, ctx, sp, ep)
         sp = ep + 1
@@ -134,7 +133,7 @@ Arguments:
     add!(index.adj, n, IdView(neighbors_))
     LOG(ctx.logger, :add!, index, ctx, n, n)
     if n > 1
-        #connect_reverse_links!(index.adj, n, neighbors(index.adj, n))
+        link_rev_edges!(index.adj, n)
         execute_callbacks!(index, ctx)
     end
     index.len[] = n

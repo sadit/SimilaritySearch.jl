@@ -79,21 +79,35 @@ function _add!(adj::AdjDict32, from::UInt32, to)
     end
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjDict32, n::Integer, N; linkrev::Bool=true)
+function link_rev_edges!(adj::AdjDict32, from::Integer)
+    from = UInt32(from)
+    to = packed_neighbors(adj, from)
+
+    for i in to
+        i, isdirect = unpack_edge(i)
+        isdirect && _add_edge!(adj, i, from, false)
+    end
+end
+
+function link_rev_edges!(adj::AdjDict32, from::Integer, to::Integer)
+    from = UInt32(from)
+    lock(adj.glock) do
+        for i in from:to
+            link_rev_edges!(adj, i)
+        end
+    end
+end
+
+Base.@propagate_inbounds @inline function add!(adj::AdjDict32, n::Integer, N)
     n = convert(UInt32, n)
     lock(adj.glock) do
         _add!(adj, n, N)
-        if linkrev
-            for i in N
-                _add_edge!(adj, i, n, false)
-            end
-        end
     end
 
     adj
 end
 
-Base.@propagate_inbounds @inline function add!(adj::AdjDict32, other::AbstractAdjList; linkrev::Bool=true)
+Base.@propagate_inbounds @inline function add!(adj::AdjDict32, other::AbstractAdjList)
     lock(adj.glock) do    
         S = Set{UInt32}()            
         for from in eachindex(other)

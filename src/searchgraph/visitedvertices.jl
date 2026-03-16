@@ -24,13 +24,13 @@ function reuse!(B::AbstractVector{UInt64}, n::Integer)
 end
 
 """
-    check_visited_and_visit!(vstate, i_::Integer)::Bool
+    check_visited_and_visit!(vstate, i_::UInt64)::Bool
 
 Checks that `i_` is already visited:
     - returns true if already visited
     - returns false if is not visited yet, but marks it as visited before return
 """
-@inline function check_visited_and_visit!(vstate::AbstractVector{UInt64}, i_::Integer)::Bool
+@inline function check_visited_and_visit!(vstate::AbstractVector{UInt64}, i_::UInt64)::Bool
     b, i = _b64indices(i_)
     @assert 1 <= b <= length(vstate) "b=$b <= vs=$(length(vstate)); i_=$i_ i=$i"
     @inbounds v = Bool((vstate[b] >>> i) & one(UInt64))
