@@ -100,19 +100,9 @@ function link_rev_edges!(adj::AdjList32, from::Integer, to::Integer)
     from = UInt32(from)
 
     lock(adj.glock) do
-        @info from => to
-
         for i in from:to
-            @info "A" => i => packed_neighbors(adj, i)
             link_rev_edges!(adj, i)
         end
-
-        X = Bool[]
-        for i in from:to
-            push!(X, any(isdirect_edge, packed_neighbors(adj, i)))
-            @info "B" => i => packed_neighbors(adj, i)
-        end
-        @info X
     end
 end
 
