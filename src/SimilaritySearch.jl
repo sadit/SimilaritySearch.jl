@@ -9,7 +9,8 @@ import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
     search, searchbatch, searchbatch!, database, distance,
     getcontext, getminbatch,
-    SearchResult, push_item!, append_items!, IdDist
+    SearchResult, push_item!, append_items!, IdDist,
+    Dist, Special, ScalarQuant
 
 abstract type AbstractContext end
 function searchbatch! end
