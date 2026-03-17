@@ -34,7 +34,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
 
     @inbounds while 0 < length(beam)
         prev = pop_min!(beam)
-        # prev.dist <= Δ * maximum(res) || continue
+        #prev.dist <= Δ * maximum(res) || continue
         N = packed_neighbors(index.adj, prev.id)
         N === nothing && continue
         costblocks += 1

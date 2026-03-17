@@ -7,7 +7,8 @@ using Accessors
 
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext,
-    search, searchbatch, searchbatch!, database, distance,
+    search, searchbatch, searchbatch!,
+    database, distance, Dist, Special, ScalarQuant,
     getcontext, getminbatch,
     SearchResult, push_item!, append_items!, IdDist
 

@@ -38,7 +38,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         progress !== nothing && next!(progress)
     end
 
-    link_rev_edges!(index.adj, 1, n)
+    link_rev_edges!(adj, 1, n)
     G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
     execute_callbacks!(G, ctx, force=true)
    

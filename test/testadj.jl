@@ -14,7 +14,7 @@ using SimilaritySearch:
     A = AdjList32(10)
     for i in 1:10
         push!(T, radj())
-        add!(A, i, T[end]; linkrev=false)
+        add!(A, i, T[end])
     end
 
     let B = StaticAdjList(A)

@@ -1,4 +1,4 @@
-using SimilaritySearch, SimilaritySearch.Adj, Statistics, StatsBase, Random, JSON
+using SimilaritySearch, Statistics, StatsBase, Random, JSON
 
 function run(D, dist, db, queries, gold; logbase, ksearch, minrecall, minrecall_search, dim, exdim)
     algo = "SearchGraph"
@@ -29,7 +29,7 @@ function main_l2(D, n, m, dim, exdim;
     @info "=== n=$n m=$m dim=$dim exdim=$exdim ksearch=$ksearch"
     @assert dim <= exdim
     rng = Xoshiro(n)
-    dist = SqL2Distance()
+    dist = Dist.SqL2()
     #dist = SqL2_asf32()
     P = randn(rng, Float32, exdim, dim)
 
