@@ -14,7 +14,7 @@ Define search space for beam search autotuning
     Δ_scale = (s=1.05, p1=0.75, p2=0.75, lower=0.6, upper=1.75)  # that should work in most datasets
 end
 
-Base.hash(c::BeamSearch) = hash((c.bsize, c.Δ, c.maxvisits))
+Base.hash(c::BeamSearch, h::UInt) = hash((c.bsize, c.Δ, c.maxvisits), h)
 Base.isequal(a::BeamSearch, b::BeamSearch) = a.bsize == b.bsize && a.Δ == b.Δ && a.maxvisits == b.maxvisits
 Base.eltype(::BeamSearchSpace) = BeamSearch
 Base.rand(rng::AbstractRNG, space::BeamSearchSpace) = BeamSearch(bsize=rand(rng, space.bsize), Δ=rand(rng, space.Δ))
