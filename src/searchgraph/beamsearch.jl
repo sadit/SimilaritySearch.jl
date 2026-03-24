@@ -60,20 +60,16 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
 end
 
 """
-    search(bs::BeamSearch, index::SearchGraph, ctx, q, res, hints; bsize=bs.bsize, Δ=bs.Δ, maxvisits=bs.maxvisits)
+    search(bs::BeamSearch, index::SearchGraph, ctx, q, res, hints, vstate)
 
 Tries to reach the set of nearest neighbors specified in `res` for `q`.
 - `bs`: the parameters of `BeamSearch`
 - `index`: the local search index
+- `ctx`: A SearchGraphContext object with preallocated objects
 - `q`: the query
 - `res`: The result object, it stores the results and also specifies the kind of query
 - `hints`: Starting points for searching, randomly selected when it is an empty collection
-- `ctx`: A SearchGraphContext object with preallocated objects
-
-Optional arguments (defaults to values in `bs`)
-- `bsize`: Beam size
-- `Δ`: exploration expansion factor
-- `maxvisits`: Maximum number of nodes to visit (distance evaluations)
+- `vstate`: data structure to mark visited vertices
 
 """
 function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, hints, vstate)
