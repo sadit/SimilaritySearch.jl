@@ -66,12 +66,16 @@ end
 
 Base.length(res::IdView) = length(res.A)
 Base.size(res::IdView) = size(res.A)
+Base.eltype(::IdView) = UInt32
+Base.eltype(::Type{<:IdView}) = UInt32
+Base.IteratorSize(::IdView{T}) where {T<:AbstractMatrix} = Base.HasShape{2}()
+Base.IteratorSize(::IdView{T}) where {T<:AbstractVector} = Base.HasShape{1}()
 Base.firstindex(res::IdView) = 1
 Base.lastindex(res::IdView) = length(res)
 Base.eachindex(res::IdView) = firstindex(res):lastindex(res)
 Base.getindex(res::IdView{<:AbstractMatrix{IdDist}}, i...) = res.A[i...].id
-Base.getindex(res::IdView{<:AbstractVector{IdDist}}, i::Integer) = res.A[i].id
-Base.getindex(res::IdView{<:AbstractVector{<:Integer}}, i::Integer) = res.A[i]
+Base.getindex(res::IdView{<:AbstractVector{IdDist}}, i::Integer) = UInt32(res.A[i].id)
+Base.getindex(res::IdView{<:AbstractVector{<:Integer}}, i::Integer) = UInt32(res.A[i])
 Base.getindex(res::IdView{<:KnnHeap}, i::Integer) = res.A.items[i].id
 Base.getindex(res::IdView{<:KnnSorted}, i::Integer) = res.A.items[res.A.sp+i-1].id
 
@@ -80,6 +84,10 @@ struct DistView{ARR}
 end
 
 Base.length(res::DistView) = length(res.A)
+Base.eltype(::DistView) = Float32
+Base.IteratorSize(::DistView{T}) where {T<:AbstractMatrix} = Base.HasShape{2}()
+Base.IteratorSize(::DistView{T}) where {T<:AbstractVector} = Base.HasShape{1}()
+Base.eltype(::Type{<:DistView}) = Float32
 Base.size(res::DistView) = size(res.A)
 Base.firstindex(res::DistView) = 1
 Base.lastindex(res::DistView) = length(res)
