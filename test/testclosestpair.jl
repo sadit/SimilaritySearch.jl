@@ -17,8 +17,8 @@ using Test, SimilaritySearch, LinearAlgebra
     @test i != j
     @test d < mindist
     @show i, j, d, :parallel
-    seq = ExhaustiveSearch(; dist, db)
-    ctxseq = getcontext(seq)
+    seq = ExhaustiveSearch(dist, db)
+    ctxseq = GenericContext()
     tE = @elapsed i, j, d = closestpair(seq, ctxseq)
     @info "NOTE: the exact method will be faster on small datasets due to the preprocessing step of the approximation method"
     @info "closestpair computation time", :approx => tG, :exact => tE

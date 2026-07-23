@@ -19,17 +19,18 @@ end
 function run(dim, n, k)
     @info "=========================== dim=$dim n=$n k=$k ============================"
     db = create_database(dim, n)
-    dist = SimilaritySearch.Dist.NormCosine()
+    dist = Dist.NormCosine()
     @info "----- computing gold standard"
     ctx = SearchGraphContext(
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
         parallel_block=1024
     )
-    goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(; db, dist), ctx, k)
+    goldsearchtime = @elapsed gold_knns = allknn(Exact.ExhaustiveSearch(dist, db), ctx, k)
     @info "----- computing search graph with k=$k"
     H = SearchGraph(; db, dist)
     index!(H, ctx)
     optimize_index!(H, ctx, ksearch=k)
+    #H = Exact.BasketList(dist, db, 4 * 1024)
     GC.enable(false)
     searchtime = @elapsed knns = allknn(H, ctx, k; sort=false, progress=nothing)
     GC.enable(true)

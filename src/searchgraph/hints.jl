@@ -207,7 +207,7 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Eps
         max(opt.minepsilon, quantile(D, opt.quantile))
     end
 
-    neardup(E, getcontext(E), sample, ϵ)
+    neardup(E, GenericContext(), sample, ϵ)
     v = out.vecs # internals of VectorDatabase
     max_ = ceil(Int, opt.maxsize(n))
     if length(v) > max_

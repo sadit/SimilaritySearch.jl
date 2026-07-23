@@ -9,8 +9,8 @@ using Test, SimilaritySearch, StatsBase
     n = 100
     db = MatrixDatabase(rand(Float32, 4, n))
 
-    E = ExhaustiveSearch(; db, dist)
-    ectx = getcontext(E)
+    E = ExhaustiveSearch(dist, db)
+    ectx = GenericContext()
 
     @time "ExhaustiveSearch allknn" gold_knns = allknn(E, ectx, k)
     #@test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
@@ -27,7 +27,7 @@ using Test, SimilaritySearch, StatsBase
     =#
 
     G = SearchGraph(; db, dist)
-    ctx = getcontext(G)
+    ctx = SearchGraphContext()
     index!(G, ctx)
     @test length(G) == n
     optimize_index!(G, ctx, MinRecall(0.95))

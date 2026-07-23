@@ -4,7 +4,7 @@ module ScalarQuant
 using Distances: PreMetric, SemiMetric, Metric
 using Polyester
 import Distances: evaluate
-using ..SimilaritySearch: AbstractDatabase, getminbatch
+using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist
 #using ..Dist: fastacos
 
 struct SQMinC

@@ -38,7 +38,7 @@ function SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
 can call other metric indexes that can use these shared resources (globally defined).
 
 """
-struct SearchGraphContext{KnnType, VSType} <: AbstractContext
+struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     logger::AbstractLog
     verbose::Bool
     neighborhood::Neighborhood
@@ -60,11 +60,11 @@ function SearchGraphContext(
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
     hints_callback=RandomHints(; logbase=1.1),
-    hyperparameters_callback=OptimizeParameters(),
+    hyperparameters_callback=OptimizeParameters(MinRecall(0.97)),  # use high MinRecall to achieve good graph structures
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
-    beams=zeros(IdDist, 32, Threads.maxthreadid())    
+    beams=zeros(IdDist, 32, Threads.maxthreadid())
 )
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,

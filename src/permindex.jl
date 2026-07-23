@@ -15,7 +15,6 @@ end
 
 PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index, π, π′)
 
-@inline getcontext(p::PermutedSearchIndex) = getcontext(p.index)
 @inline database(p::PermutedSearchIndex) = SubDatabase(database(p.index), p.π′)
 @inline database(p::PermutedSearchIndex, i) = database(p.index, p.π′[i])
 @inline distance(p::PermutedSearchIndex) = distance(p.index)

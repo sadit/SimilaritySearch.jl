@@ -6,11 +6,10 @@ using Polyester
 using Accessors
 
 import Base: push!, append!
-export AbstractSearchIndex, AbstractContext, GenericContext,
+export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
-    getcontext, getminbatch,
-    SearchResult, push_item!, append_items!, IdDist,
-    Dist, Special, ScalarQuant
+    SearchResult, push_item!, append_items!,
+    IdDist, Dist, Exact, Special, ScalarQuant
 
 abstract type AbstractContext end
 function searchbatch! end
@@ -18,7 +17,6 @@ function search end
 function push_item! end
 function append_items! end
 function index! end
-
 
 """
     getminbatch(n::Int, nt::Int)
@@ -96,14 +94,14 @@ GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logge
 
 #getminbatch(ctx::GenericContext, n::Int) = getminbatch(n, Threads.nthreads())
 
-getcontext(s::AbstractSearchIndex) = error("Not implemented method for $s")
 knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 verbose(ctx::GenericContext) = ctx.verbose
 
 include("perf.jl")
-include("sequential-exhaustive.jl")
-include("parallel-exhaustive.jl")
+include("fft.jl")
+include("exact/Exact.jl")
 
+using SimilaritySearch.Exact
 
 function Base.show(io::IO, idx::AbstractSearchIndex; prefix="", indent="  ")
     println(io, prefix, typeof(idx), ":")
@@ -120,7 +118,6 @@ include("deprecated.jl")
 
 include("allknn.jl")
 include("neardup.jl")
-include("fft.jl")
 include("closestpair.jl")
 include("hsp.jl")
 include("rerank.jl")
@@ -135,7 +132,7 @@ Searches a batch of queries in the given index (searches for k neighbors).
 - `index`: The search structure
 - `Q`: The set of queries
 - `k`: The number of neighbors to retrieve
-- `context`: caches, hyperparameters, and meta data (defaults to `getcontext(index)`)
+- `context`: caches, hyperparameters, and meta data
 - `sorted=true`: ensures that the results are sorted by distance.
 
 Note: The i-th column in indices and distances correspond to the i-th query in `Q`

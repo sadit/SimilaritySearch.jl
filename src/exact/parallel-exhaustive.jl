@@ -1,8 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-import Base: push!
-export ParallelExhaustiveSearch, search
-
+export ParallelExhaustiveSearch
 
 struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
@@ -14,20 +12,11 @@ ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat) = ParallelExhaus
 ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ParallelExhaustiveSearch(dist, db)
 
 Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
-Note that this should not be used in conjunction with `searchbatch(...; parallel=true)` since they will compete for resources.
 """
-function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
-    ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
-end
-
-function getcontext(::ParallelExhaustiveSearch)
-    GenericContext()
-end
-
-Base.copy(pex::ParallelExhaustiveSearch; dist=pex.dist, db=pex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
+ParallelExhaustiveSearch(dist, db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
     search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
@@ -47,8 +36,8 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     n = length(pex)
     minbatch = getminbatch(n)
 
-    @batch per=thread minbatch=minbatch for i in 1:n
-        d = evaluate(dist, database(pex, i), q)
+    @batch per = thread minbatch = minbatch for i in 1:n
+        d = Dist.evaluate(dist, database(pex, i), q)
         try
             lock(elock)
             push_item!(res, i, d)

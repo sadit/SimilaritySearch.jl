@@ -1,5 +1,4 @@
 using SimilaritySearch, Random, StatsBase, Statistics
-const Dist = SimilaritySearch.Dist
 using Test
 #using AllocCheck
 
@@ -17,7 +16,7 @@ function prepare_benchmark(Database;
     queries = Database(rand(Float32, dim, m))
 
     dist = Dist.SqL2()
-    seq = ExhaustiveSearch(; dist, db)
+    seq = ExhaustiveSearch(dist, db)
     ectx = GenericContext()
 
     @time searchbatch(seq, ectx, queries, ksearch)

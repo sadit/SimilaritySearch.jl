@@ -28,7 +28,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         n_ = min(n, j + minbatch - 1)
         @inbounds for objID in j:n_
             tid = 2Threads.threadid()
-            tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid-1))
+            tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid - 1))
             N = knnqueue(ctx, view(qcache, 1:ksearch, tid))
             find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
             direct[objID] = collect(IdView(N))
@@ -48,6 +48,6 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
 
     execute_callbacks!(G, ctx, force=true)
-   
+
     G
 end

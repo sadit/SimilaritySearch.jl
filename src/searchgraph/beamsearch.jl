@@ -34,7 +34,7 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
     dist = distance(index)
     costdists, costblocks = 0, 0
 
-    @inbounds while 0 < length(beam)
+    @inbounds while length(beam) > 0
         prev = pop_min!(beam)
         N = neighbors(index.adj, prev.id)
         N === nothing && continue
