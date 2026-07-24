@@ -42,7 +42,7 @@ end
 
 function abs_minrecall(B; kwargs...)
     @info "===================== minrecall $kwargs =============================="
-    graph = SearchGraph(; B.db, B.dist, kwargs...)
+    graph = SearchGraph(B.dist, B.db; kwargs...)
     ctx = SearchGraphContext(
         neighborhood=Neighborhood(filter=SatNeighborhood()),
         #neighborhood = Neighborhood(filter=IdentityNeighborhood()),
@@ -53,7 +53,7 @@ function abs_minrecall(B; kwargs...)
     index!(graph, ctx)
     @show length(graph.adj), length(graph), length(B.db)
     @assert length(graph) == length(B.db) "length(graph) == length(B.db)"
-    
+
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
@@ -138,7 +138,7 @@ end
 
     B = prepare_benchmark(MatrixDatabase)
     @testset "MatrixDatabase" begin
-        
+
         graph, ctx = abs_minrecall(B)
         abs_rebuild(graph, ctx, B)
         #abs_save_and_load(graph, ctx, B)

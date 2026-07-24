@@ -26,7 +26,7 @@ using Test, SimilaritySearch, StatsBase
     @test macrorecall(gold_knns, par_knns) > 0.99
     =#
 
-    G = SearchGraph(; db, dist)
+    G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     index!(G, ctx)
     @test length(G) == n

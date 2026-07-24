@@ -31,9 +31,13 @@ function AdjList(::Type{T}, n::Integer=0) where {T}
     AdjList(Vector{Vector{T}}(undef, n))
 end
 
-function Base.resize!(adj::AdjList, n::Integer)
+function Base.resize!(adj::AdjList{T}, n::Integer) where {T}
     lock(adj.glock) do
+        prev_n = length(adj.end_point)
         resize!(adj.end_point, n)
+        for i in prev_n+1:n
+            adj.end_point[i] = T[]
+        end
     end
 
     adj
@@ -43,24 +47,19 @@ AdjList(adj::AdjList) = AdjList(deepcopy(adj.end_point))
 @inline Base.length(adj::AdjList) = length(adj.end_point)
 
 Base.@propagate_inbounds @inline function neighbors(adj::AdjList, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? adj.end_point[i] : nothing
+    adj.end_point[i]
 end
 
 Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? length(adj.end_point[i]) : 0
+    length(adj.end_point[i])
 end
 
 Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, n::Integer, N) where {T}
+    #@assert length(N) > 0 "$(length(adj)) - n=$n -- $(typeof(N)) $N"
+
     lock(adj.glock) do
         n > length(adj) && resize!(adj, n)
-
-        if isassigned(adj.end_point, n)
-            append!(adj.end_point[n], N)
-        else
-            adj.end_point[n] = collect(T, N)
-        end
+        append!(adj.end_point[n], N)
     end
 
     adj

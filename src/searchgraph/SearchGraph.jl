@@ -116,16 +116,12 @@ end
 
 """
 
-    SearchGraph(dist::PreMetric, db::AbstractDatabase)
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
 
 Creates a SearchGraph index structure with the given distance and dataset.
 This function only creates the skeleton struct and you need to call `index!` to index the given dataset or populate it with `append_items!`
 """
-function SearchGraph(dist::PreMetric, db::AbstractDatabase)
-    adj = AdjList(UInt32)
-    hints = UInt32[]
-    algo = Ref(BeamSearch())
-    len = Ref(zero(Int64))
+function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
     SearchGraph(dist, db, adj, hints, algo, len)
 end
 
