@@ -26,9 +26,9 @@ include("testexact.jl")
 include("testhsp.jl")
 include("testfft.jl")
 include("testadj.jl")
-=#
 include("testsearchgraph.jl")
 include("testneardup.jl")
 include("testallknn.jl")
 include("testclosestpair.jl")
+=#
 include("testindexingprefixes.jl")
