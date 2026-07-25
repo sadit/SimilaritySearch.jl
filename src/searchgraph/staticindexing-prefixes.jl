@@ -6,7 +6,7 @@ using Combinatorics: combinations
 """
     index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix{IdDist};
         subset_list::Vector{Int}=Int[2],
-        max_cluster_full_link::Int=100,
+        bpow::Float64=0.8,
         hints_size::Int=100
     )
 
@@ -16,7 +16,7 @@ You may want to use `rebuild` on this fast construction to improve the structure
 """
 function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix{IdDist};
     comb_list::Vector{Int}=Int[2],
-    max_cluster_full_link::Int=100,
+    bpow::Float64=0.8,
     hints_size::Int=100
 )
     k, n = size(knr)
@@ -24,7 +24,7 @@ function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix
     n == length(database(idx)) || throw(ArgumentError("The given knr matrix doesn't correpond with the given index: sizes doesn't matches"))
     n > size(knr, 1) >= k >= 1 || throw(ArgumentError("The following must be ensured: |db| > numrefs >= k >= 1"))
     n > hints_size || throw(ArgumentError("hints_size cannot be larger than the dataset (delta * log n could be a good value)"))
-    n > max_cluster_full_link || throw(ArgumentError("max_cluster_full_link should be smaller than n (a small constant or log n can be a good value)"))
+    0 < bpow < 1 || throw(ArgumentError("bpow is between 0 and 1 and controls how clusters are linked"))
     length(comb_list) > 0 || throw(ArgumentError("comb_list must be provided"))
 
     adj_sets = [Set{UInt32}() for _ in 1:n]
@@ -33,36 +33,62 @@ function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix
         sort!(c, by=p -> p.id)
     end=#
 
-    function link_clusters(adj_sets, cl, max_cluster_full_link)
-        for bucket in values(cl)
-            m = length(bucket)
+    function link_clusters(adj_sets, clusters, bpow)
+        for cl in values(clusters)
+            m = length(cl)
             m <= 1 && continue
+            #=p = let b = binomial(m, 2)
+                b^bpow / b
+            end=#
+            p = m^bpow / m
 
             for i in 1:m
-                u = bucket[i]
+                if i > 1 && rand() > p
+                    continue
+                end
+                u = cl[i]
                 for j in (i+1):m
-                    v = bucket[j]
+                    #rand() > p && continue
+                    v = cl[j]
+                    push!(adj_sets[u], v)
+                    push!(adj_sets[v], u) # non-directed link
+                end
+            end
+
+            #=p = m^bpow / m
+
+            for i in 1:m
+                if i > 1 && rand() > p
+                    continue
+                end
+                u = cl[i]
+                for j in (i+1):m
+                    v = cl[j]
                     push!(adj_sets[u], v)
                     push!(adj_sets[v], u) # non-directed link
                 end
 
-                m < max_cluster_full_link || break
             end
+            =#
         end
     end
 
     # create clusters based on common neighborhoods
     for l in comb_list
         clusters = Dict{NTuple{l,UInt32},Vector{UInt32}}()
-        for L in combinations(1:k, l) # reverse order
-            empty!(clusters)
+        @time "comb" for L in combinations(1:k, l) # reverse order
             for objID in 1:n
                 prefix = ntuple(i -> knr[L[i], objID].id, l)
                 push!(get!(Vector{UInt32}, clusters, prefix), objID)
             end
-
-            link_clusters(adj_sets, clusters, max_cluster_full_link)
         end
+        #=
+                @time "comb" for objID in 1:n
+                    prefix = ntuple(i -> knr[i, objID].id, l)
+                    push!(get!(Vector{UInt32}, clusters, prefix), objID)
+                end
+                =#
+        @time "links" link_clusters(adj_sets, clusters, bpow)
     end
 
     let H = collect(zip(1:n, length.(adj_sets)))
@@ -75,7 +101,8 @@ function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix
 
     resize!(idx.adj, n)
     for i in 1:n
-        add!(idx.adj, i, collect(adj_sets[i]))
+        L = collect(adj_sets[i])
+        add!(idx.adj, i, L)
     end
 
     idx.len[] = n
@@ -87,7 +114,7 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:knr};
     k::Integer=4,
     sample_method::Symbol=:fft, #:random, :fft
     comb_list::Vector{Int}=Int[2],
-    max_cluster_full_link::Int=100,
+    bpow::Float64=0.8,
     hints_size::Int=100,
     verbose::Bool=true
 )
@@ -110,6 +137,6 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:knr};
     # 2. Project DB onto references via searchbatch on ExhaustiveSearch
     seq = ExhaustiveSearch(dist, refs_db)
     ectx = GenericContext(KnnSorted)
-    knr = searchbatch(seq, ectx, db, k) # size (k, n)
-    index!(idx, ctx, kind, knr; max_cluster_full_link, comb_list, hints_size)
+    @time "KNR" knr = searchbatch(seq, ectx, db, k) # size (k, n)
+    index!(idx, ctx, kind, knr; bpow, comb_list, hints_size)
 end
