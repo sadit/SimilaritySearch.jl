@@ -43,6 +43,7 @@ end
 #@inline Base.getindex(db::MatrixDatabase{Matrix{Float64}}, i::Integer) = PtrArray(view(db.matrix, :, i))
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::MatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
+
 """
     push_item!(db::MatrixDatabase, v)
 

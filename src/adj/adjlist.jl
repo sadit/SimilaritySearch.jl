@@ -68,7 +68,7 @@ end
 Resizes `adj` in place to hold `n` nodes (growing or shrinking `end_point` accordingly), under
 `adj.glock` for thread-safety. New slots created by growth are left undefined.
 """
-function Base.resize!(adj::AdjList, n::Integer)
+function Base.resize!(adj::AdjList{T}, n::Integer) where T
     lock(adj.glock) do
         prev_n = length(adj.end_point)
         resize!(adj.end_point, n)
