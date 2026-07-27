@@ -1,14 +1,11 @@
 # This file is a part of SimilaritySearch.jl
 
-import Base: push!
-
 export ExhaustiveSearch, search
 
 """
     struct ExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
 
     ExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
-    ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 A brute-force (sequential) exact index that solves queries by evaluating `dist` between the query and every
 element in `db`. Useful as a gold-standard baseline or for small datasets where an approximate index is not
@@ -28,31 +25,6 @@ end
 @inline database(seq::ExhaustiveSearch, i::Integer) = seq.db[i]
 @inline Base.length(seq::ExhaustiveSearch) = length(seq.db)
 
-"""
-    ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
-
-Keyword constructor for [`ExhaustiveSearch`](@ref).
-
-# Keyword Arguments
-- `dist`: the distance function
-- `db`: the database being indexed
-
-# Examples
-
-```julia
-using SimilaritySearch
-
-X = MatrixDatabase(rand(Float32, 8, 10^3))
-Q = MatrixDatabase(rand(Float32, 8, 10))
-E = ExhaustiveSearch(; dist=Dist.SqL2(), db=X)
-ctx = getcontext(E)
-
-knns = searchbatch(E, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
-```
-"""
-function ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
-    ExhaustiveSearch(dist, db)
-end
 
 getcontext(::ExhaustiveSearch) = GenericContext()
 
@@ -98,11 +70,10 @@ database, pushing each candidate into `res`.
     n = length(db)
     i = 0
     while (i += 1) <= n
-        d = evaluate(dist, db[i], q)
+        d = Dist.evaluate(dist, db[i], q)
         push_item!(res, i, d)
     end
 
     add_distance_evaluations!(res, n)
     res
 end
-

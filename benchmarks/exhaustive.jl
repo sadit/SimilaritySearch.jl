@@ -4,11 +4,12 @@ SimilaritySearch.getminbatch(::Int, ::Int, Int) = 8
 function main(n, m, dim, k)
     db = StrideMatrixDatabase(rand(Float32, dim, n))
     queries = StrideMatrixDatabase(rand(Float32, dim, m))
-    dist = SqL2Distance()
-    seq = ExhaustiveSearch(; db, dist)
+    dist = Dist.SqL2()
+    seq = ExhaustiveSearch(dist, db)
+    ctx = GenericContext()
     knns = zeros(IdDist, k, m)
     GC.enable(false)
-    @time searchbatch!(seq, getcontext(seq), queries, knns; sorted=false)
+    @time searchbatch!(seq, ctx, queries, knns; sorted=false)
     GC.enable(true)
     @show n m dim k
 

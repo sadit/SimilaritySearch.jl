@@ -1,8 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-import Base: push!
-export ParallelExhaustiveSearch, search
-
+export ParallelExhaustiveSearch
 
 """
     struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
@@ -29,11 +27,9 @@ struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDataba
     lock::Threads.SpinLock
 end
 
-ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat) = ParallelExhaustiveSearch(dist, convert(AbstractDatabase, db))
-ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
+    ParallelExhaustiveSearch(dist, db)
 
 Keyword constructor for [`ParallelExhaustiveSearch`](@ref).
 
@@ -54,18 +50,21 @@ ctx = getcontext(P)
 knns = searchbatch(P, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
 ```
 """
-function ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
+function ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
+
 
 function getcontext(::ParallelExhaustiveSearch)
     GenericContext()
 end
 
-Base.copy(pex::ParallelExhaustiveSearch; dist=pex.dist, db=pex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
-
 """
+    
     search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn) -> res
+
+Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
+
 
 Solves query `q` by evaluating the distance between `q` and every item of the indexed database in
 parallel, pushing each candidate into `res` under a lock.
@@ -82,8 +81,8 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     n = length(pex)
     minbatch = getminbatch(n)
 
-    @batch per=thread minbatch=minbatch for i in 1:n
-        d = evaluate(dist, database(pex, i), q)
+    @batch per = thread minbatch = minbatch for i in 1:n
+        d = Dist.evaluate(dist, database(pex, i), q)
         try
             lock(elock)
             push_item!(res, i, d)

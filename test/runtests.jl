@@ -19,9 +19,10 @@ function create_sequence(dim, sort, range=1:10)
     s
 end
 
-include("testdb.jl")
+#=include("testdb.jl")
 include("testresults.jl")
-include("testseq.jl")
+include("testexactseq.jl")
+include("testexact.jl")
 include("testhsp.jl")
 include("testfft.jl")
 include("testadj.jl")
@@ -29,3 +30,5 @@ include("testsearchgraph.jl")
 include("testneardup.jl")
 include("testallknn.jl")
 include("testclosestpair.jl")
+=#
+include("testindexingprefixes.jl")

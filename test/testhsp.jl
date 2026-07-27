@@ -7,8 +7,8 @@ using Test, SimilaritySearch, StatsBase
     dist = SimilaritySearch.Dist.L2()
     n = 1000
     db = MatrixDatabase(rand(Float32, 2, n))
-    E = ExhaustiveSearch(; dist, db)
-    knns = searchbatch(E, getcontext(E), db, k)
+    E = ExhaustiveSearch(dist, db)
+    knns = searchbatch(E, GenericContext(), db, k)
     hsp_matrix, hsp_knns = hsp_queries(dist, db, db, knns)
     @show quantile(length.(hsp_knns), 0:0.1:1)
 end

@@ -1,17 +1,17 @@
 # This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch
-const Dist = SimilaritySearch.Dist
 using LinearAlgebra, Test
 
-function test_seq(db, queries, dist::Dist.SemiMetric, ksearch, valid_lower=1e-3)
-    seq = ExhaustiveSearch(dist, db)
-    ctx = getcontext(seq)
+function test_seq(db, queries, dist::Dist.SemiMetric, ksearch; valid_lower::Float32=1f-3)
+    idx = Exact.ExhaustiveSearch(dist, db)
+    # idx = Exact.BasketList(dist, db, 256)
+    ctx = GenericContext()
     knns = zeros(IdDist, ksearch, length(queries))
-    @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
+    @time "$(typeof(dist))" knns = searchbatch!(idx, ctx, queries, knns)
     fill!(knns, zero(IdDist))
-    @time "$(typeof(dist))" knns = searchbatch!(seq, ctx, queries, knns)
-    #@test_call target_modules=(@__MODULE__,) searchbatch(seq, ctx, queries, ksearch)
+    @time "$(typeof(dist))" knns = searchbatch!(idx, ctx, queries, knns)
+    #@test_call target_modules=(@__MODULE__,) searchbatch(idx, ctx, queries, ksearch)
 
     for c in eachcol(knns)
         @test c[1].dist < valid_lower
@@ -25,19 +25,20 @@ end
     db = MatrixDatabase(rand(Float32, 4, 1000))
     queries = rand(db, 100)
     @info typeof(db), typeof(queries)
-    for (recall_lower_bound, dist) in [
-        (1.0, Dist.L2()), # 1.0 -> metric, < 1.0 if dist is not a metric
-        (1.0, Dist.L1()),
-        (1.0, Dist.LInfty()),
-        (1.0, Dist.SqL2()),
-        (1.0, Dist.Lp(3.0)),
-        (0.1, Dist.Lp(0.5)),
-        (1.0, Dist.Angle()),
-        (1.0, Dist.Cosine())
+    for dist in [
+        Dist.L2(), # 1.0 -> metric, < 1.0 if dist is not a metric
+        Dist.L1(),
+        Dist.LInfty(),
+        Dist.SqL2(),
+        Dist.Lp(3.0),
+        Dist.Lp(0.5),
+        Dist.Angle(),
+        Dist.Cosine()
     ]
         test_seq(db, queries, dist, ksearch)
     end
 end
+
 
 @testset "Searching sequences" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
@@ -56,6 +57,7 @@ end
         test_seq(db, queries, dist, ksearch)
     end
 end
+
 
 @testset "Searching on sets (ordered lists)" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
@@ -95,4 +97,3 @@ end
     test_seq(db, queries, Dist.Bits.RogersTanimoto(), ksearch)
     # test_seq(db, queries, BinaryRussellRaoDissimilarity(), ksearch)
 end
-

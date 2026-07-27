@@ -4,6 +4,7 @@ export LocalSearchAlgorithm, SearchGraph, SearchGraphContext
 export index!, push_item!
 export BeamSearch, BeamSearchSpace, Callback
 export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, AdjacentStoredHints, matrixhints
+export warmupbuild
 #export RandomPruning, KeepNearestPruning, SatPruning, prune!
 
 """
@@ -143,18 +144,30 @@ Q = MatrixDatabase(rand(Float32, 8, 10^2))
 knns = searchbatch(G, ctx, Q, 8)      # solves many queries at once
 ```
 """
-@kwdef struct SearchGraph{DIST<:PreMetric,
+struct SearchGraph{DIST<:PreMetric,
     DB<:AbstractDatabase,
     ADJ<:AbstractAdjList,
     HINTS,
 } <: AbstractSearchIndex
-    dist::DIST = Dist.SqL2()
-    db::DB = VectorDatabase()
-    adj::ADJ = AdjList(UInt32)
-    hints::HINTS = UInt32[]
-    algo::Ref{BeamSearch} = Ref(BeamSearch())
-    len::Ref{Int64} = Ref(zero(Int64))
+    dist::DIST
+    db::DB
+    adj::ADJ
+    hints::HINTS
+    algo::Ref{BeamSearch}
+    len::Ref{Int64}
 end
+
+"""
+
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
+
+Creates a SearchGraph index structure with the given distance and dataset.
+This function only creates the skeleton struct and you need to call `index!` to index the given dataset or populate it with `append_items!`
+"""
+function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
+    SearchGraph(dist, db, adj, hints, algo, len)
+end
+
 
 function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
     println(io, prefix, "SearchGraph:")
@@ -199,9 +212,8 @@ function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn
     search(index.algo[], index, ctx, q, res, index.hints, vstate)
 end
 
-getcontext(::SearchGraph) = SearchGraphContext()
-
 include("log.jl")
 include("callbacks.jl")
 include("rebuild.jl")
+include("staticindexing.jl")
 include("insertions.jl")

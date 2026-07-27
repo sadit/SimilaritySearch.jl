@@ -28,14 +28,14 @@ struct AdjList{T} <: AbstractAdjList{T}
     glock::Threads.ReentrantLock # global locks
 end
 
-Base.eltype(adj::AdjList{T}) where T = Pair{T,Vector{T}}
+Base.eltype(::AdjList{T}) where {T} = Pair{T,Vector{T}}
 Base.eachindex(adj::AdjList) = eachindex(adj.end_point)
 
-function Base.iterate(adj::AdjList{T}, i=1) where T
+function Base.iterate(adj::AdjList{T}, i=1) where {T}
     i = T(i)
     n = length(adj)
     (n == 0 || i > n) && return nothing
-    i => neighbors(adj, i), i+1
+    i => neighbors(adj, i), i + 1
 end
 
 """
@@ -70,7 +70,11 @@ Resizes `adj` in place to hold `n` nodes (growing or shrinking `end_point` accor
 """
 function Base.resize!(adj::AdjList, n::Integer)
     lock(adj.glock) do
+        prev_n = length(adj.end_point)
         resize!(adj.end_point, n)
+        for i in prev_n+1:n
+            adj.end_point[i] = T[]
+        end
     end
 
     adj
@@ -100,8 +104,7 @@ neighbors(adj, 2)  # => nothing (never assigned)
 ```
 """
 Base.@propagate_inbounds @inline function neighbors(adj::AdjList, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? adj.end_point[i] : nothing
+    adj.end_point[i]
 end
 
 """
@@ -111,8 +114,7 @@ Returns the number of neighbors stored for node `i` in `adj`, or `0` if node `i`
 assigned a neighbor list.
 """
 Base.@propagate_inbounds @inline function neighbors_length(adj::AdjList, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    isassigned(adj.end_point, i) ? length(adj.end_point[i]) : 0
+    length(adj.end_point[i])
 end
 
 """
@@ -134,12 +136,7 @@ neighbors(adj, 1)        # => Int32[2, 3]
 Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, n::Integer, N) where T
     lock(adj.glock) do
         n > length(adj) && resize!(adj, n)
-        
-        if isassigned(adj.end_point, n)
-            append!(adj.end_point[n], N)
-        else
-            adj.end_point[n] = collect(T, N)
-        end
+        append!(adj.end_point[n], N)
     end
 
     adj
@@ -162,7 +159,7 @@ Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, iter) where T
     n = max(length(iter), length(adj))
     lock(adj.glock) do
         n > length(adj) && resize!(adj, n)
-        
+
         for (i, N) in iter
             add!(adj, i, N)
         end

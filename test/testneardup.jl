@@ -7,27 +7,27 @@ using Test, SimilaritySearch, LinearAlgebra
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    G = SearchGraph(; db, dist)
+    G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=100)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
-    @test sort(D.map) == sort(unique(D.nn)) 
+    @test sort(D.map) == sort(unique(D.nn))
 end
 
-@testset "neardup small block" begin 
+@testset "neardup small block" begin
     dist = SimilaritySearch.Dist.Cosine()
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    G = SearchGraph(; db, dist)
+    G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=16)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
-    @test sort(D.map) == sort(unique(D.nn)) 
+    @test sort(D.map) == sort(unique(D.nn))
 end
 
 @testset "neardup small block with filterblocks=false" begin
@@ -35,13 +35,13 @@ end
     X = rand(Float32, 4, 100)
     db = VectorDatabase(Vector{Float32}[])
     ϵ = 0.1
-    G = SearchGraph(; db, dist)
+    G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     D = neardup(G, ctx, MatrixDatabase(X), ϵ; blocksize=16, filterblocks=false)
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
-    @test sort(D.map) == sort(unique(D.nn)) 
+    @test sort(D.map) == sort(unique(D.nn))
 end
 
 @testset "neardup small block with filterblocks=false" begin
@@ -52,6 +52,6 @@ end
     @show D.map D.nn D.dist
     @test all(x -> x <= ϵ, D.dist)
     @test sum(D.dist) > 0
-    @test sort(D.map) == sort(unique(D.nn)) 
+    @test sort(D.map) == sort(unique(D.nn))
 end
 

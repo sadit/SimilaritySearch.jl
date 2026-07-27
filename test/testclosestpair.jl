@@ -6,7 +6,7 @@ using Test, SimilaritySearch, LinearAlgebra
     dist = SimilaritySearch.Dist.Cosine()
     dim, mindist = 2, 1e-4
     db = MatrixDatabase(rand(Float32, dim, 1000))
-    G = SearchGraph(; db, dist)
+    G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     tG = @elapsed index!(G, ctx)
     tG += @elapsed i, j, d = closestpair(G, ctx)
@@ -17,8 +17,8 @@ using Test, SimilaritySearch, LinearAlgebra
     @test i != j
     @test d < mindist
     @show i, j, d, :parallel
-    seq = ExhaustiveSearch(; dist, db)
-    ctxseq = getcontext(seq)
+    seq = ExhaustiveSearch(dist, db)
+    ctxseq = GenericContext()
     tE = @elapsed i, j, d = closestpair(seq, ctxseq)
     @info "NOTE: the exact method will be faster on small datasets due to the preprocessing step of the approximation method"
     @info "closestpair computation time", :approx => tG, :exact => tE

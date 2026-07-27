@@ -69,10 +69,10 @@ function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwa
     if recall < 1.0
         idx = SearchGraph(; dist=dist_, db=X_)
         hyperparameters_callback = OptimizeParametes(MinRecall(recall))
-        ctx = SearchGraphContext(getcontext(G); hyperparameters_callback)
+        ctx = SearchGraphContext(; hyperparameters_callback)
     else
-        idx = ExhaustiveSearch(; dist=dist_, db=X_)
-        ctx = getcontext(idx)
+        idx = ExhaustiveSearch(dist_, X_)
+        ctx = GenericContext()
     end
 
     R = neardup_(idx, ctx, VectorDatabase(UnitRange{Int32}(1, length(X))), ϵ; kwargs...)
