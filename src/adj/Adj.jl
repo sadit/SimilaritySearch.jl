@@ -1,6 +1,23 @@
 # This file is a part of SimilaritySearch.jl
 #module Adj
 
+"""
+    abstract type AbstractAdjList{T} end
+
+Base type for adjacency-list backends used to store the neighbors of each node in a graph-based
+index. The type parameter `T` is the element type stored per neighbor (e.g., an integer id, or an
+`IdDist`/`IdIntDist` pair combining an id with a distance).
+
+Concrete subtypes provide different storage strategies with the same read/write API
+(`neighbors`, `neighbors_length`, `add!`):
+
+- [`AdjList`](@ref): growable `Vector{Vector{T}}`-backed adjacency list, indexed by contiguous
+  integer node ids.
+- [`AdjDict`](@ref): `Dict{T,Vector{T}}`-backed adjacency list, useful when node ids are sparse
+  or non-contiguous.
+- [`StaticAdjList`](@ref): frozen, CSR-like layout for fast read-only access once the graph stops
+  growing.
+"""
 abstract type AbstractAdjList{T} end
 
 export AbstractAdjList
@@ -127,13 +144,20 @@ function sparse(adj::AbstractAdjList{T}, val::AbstractFloat=1f0) where {T<:Integ
 end
 
 """
-    sparse(idx::AbstractAdjList{IdDist}) 
- 
-Creates an sparse matrix (from SparseArrays) from `idx`
+    sparse(idx::AbstractAdjList{IdDist})
+    sparse(idx::AbstractAdjList{IdIntDist})
+
+Creates a sparse matrix (from SparseArrays) from `idx`, an adjacency list whose entries carry
+both a neighbor id and a distance (`IdDist` or `IdIntDist`). The distance stored in each entry
+becomes the corresponding value in the sparse matrix (unlike the `val`-based `sparse` method
+above, which fills a constant value).
 """
 sparse(adj::AbstractAdjList{IdDist}) = sparse_from_adj(adj, Int32, Float32)
 sparse(adj::AbstractAdjList{IdIntDist}) = sparse_from_adj(adj, Int32, Int32)
 
+# Internal helper (not exported) used by the `sparse(::AbstractAdjList{IdDist})` /
+# `sparse(::AbstractAdjList{IdIntDist})` methods above to build the `I`, `J`, `F` triplet passed
+# to `SparseArrays.sparse`. Left without a full docstring pending review of this code path.
 function sparse_from_adj(adj::AbstractAdjList, IType, FType)
     n = length(adj)
     I = IType[]

@@ -85,13 +85,45 @@ end
 
 
 """
-EMD as a perfect matching 
+    EMD(dist, p)
+
+Approximates the Earth Mover's Distance (EMD) between two point clouds `U` and `V` of
+the same size as a greedy perfect matching: points are matched one at a time, each
+being paired with its nearest still-unmatched point in the other cloud (measured with
+`dist`), and the distances of the matched pairs are then combined with an ``L_p``-like
+aggregation.
+
+# Arguments
+- `dist`: the base distance function used to compare individual points of the clouds.
+- `p`: the exponent used to combine the distances of the matched pairs, i.e.,
+
+```math
+EMD(U, V) = \\left(\\sum_i evaluate(dist, u_i, v_{\\pi(i)})^p \\right)^{1/p}
+```
+
+where ``\\pi`` is the greedy matching found by the algorithm.
+
+Note that this is a greedy approximation of the assignment problem underlying the exact
+EMD (optimal transport), not the exact solution, and it requires `length(U) == length(V)`.
+
+# Examples
+
+```julia
+d = Dist.Cloud.EMD(Dist.L2(), 2f0)
+evaluate(d, U, V)
+```
 """
 struct EMD{D<:PreMetric} <: PreMetric  # is EMD a metric when dist is not a metric?
     dist::D
     p::Float32
 end
 
+"""
+    evaluate(emd::EMD, U, V)
+
+Computes the greedy perfect-matching approximation of the Earth Mover's Distance
+between the point clouds `U` and `V` (see [`EMD`](@ref) for details).
+"""
 function evaluate(emd::EMD, U, V)
     n = length(U)
     s = 0f0

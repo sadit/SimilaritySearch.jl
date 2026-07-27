@@ -3,20 +3,47 @@
 export fft
 
 """
-    fft(dist::SemiMetric, X::AbstractDatabase, k; start::Int=0, verbose=true, threads=true)
+    fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, threads::Bool=true)
 
-Selects `k` items far from each other based on Farthest First Traversal algorithm.
-If `start=0` then a random starting point is selected a valid object id to `X` should be given otherwise.
+Selects `k` items that are far from each other based on the Farthest First Traversal (FFT) algorithm; this is
+useful to obtain a diverse, representative subset of `X` (e.g., as candidate centers for clustering).
+If `start=0` then a random starting point is selected, otherwise a valid object id of `X` should be given.
 
-Returns a named tuple with the following fields:
-- `centers` contains the list of centers (indexes to ``X``)
-- `nn` the id of the nearest center (in ``X`` order, identifiers between 1 to `length(X))
-- `nndists` the distance from each object in the database to its nearest centers (in ``X`` order)
-- `dmax` smallest distance among centers
+# Arguments
+- `dist`: the distance function
+- `X`: the input database
+- `k`: the number of centers (far away items) to select
+
+# Keyword Arguments
+- `start`: the identifier of the first center; `0` means a random starting point is selected
+- `verbose`: controls the verbosity of the function
+- `threads`: whether to parallelize the nearest-center distance updates using multiple threads
+
+# Returns
+
+A named tuple with the following fields:
+- `centers`: the list of the selected centers (identifiers into ``X``)
+- `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
+- `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
+- `dmax`: the smallest distance among the (`k`) selected centers, i.e., the separation achieved by the traversal
 
 Based on `enet.jl` from `KCenters.jl`
 
 Note: `fft` is well-defined for metric distances
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 4, 10^3))
+R = fft(dist, X, 16)
+R.centers   # 16 well-separated identifiers into X
+R.nn        # nearest selected center for each object of X
+R.dists     # distance to the nearest selected center
+R.dmax      # separation radius achieved by the traversal
+```
 """
 function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, threads::Bool=true)
     N = length(X)

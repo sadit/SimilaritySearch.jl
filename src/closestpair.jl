@@ -3,16 +3,35 @@
 export closestpair
 
 """
-    closestpair(idx::AbstractSearchIndex, ctx::AbstractContext)
+    closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; min_k::Int=8) -> (i, j, dist)
 
-Finds the closest pair among all elements in `idx`. If the index `idx` is approximate then pair of points could be also an approximation.
+Finds the closest pair among all elements indexed by `idx`. If `idx` is an approximate index then the
+resulting pair may also be an approximation of the true closest pair. Dispatches to a parallel or a
+sequential implementation depending on `Threads.nthreads()`.
 
-# Arguments:
+# Arguments
 - `idx`: the search structure that indexes the set of points
 - `ctx`: the search context (caches, hyperparameters, etc)
 
-# Keyword Arguments:
+# Keyword Arguments
 - `min_k`: instead of looking for `k=1` some approximate methods can take advantage of a larger `k`
+
+# Returns
+A tuple `(i, j, dist)` with the identifiers `i` and `j` of the closest pair found and their distance `dist`.
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 2, 10^3))
+G = SearchGraph(; dist, db=X)
+ctx = getcontext(G)
+index!(G, ctx)
+
+i, j, d = closestpair(G, ctx)
+```
 """
 function closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; min_k::Int=8)
     if Threads.nthreads() == 1

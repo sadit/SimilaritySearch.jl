@@ -17,6 +17,12 @@ It helps to evaluate, mark as visited, and enqueue in the result set.
     res
 end
 
+"""
+    beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::AbstractKnn, hints, vstate)
+
+Internal helper that seeds the search with the given `hints` (or, if that yields nothing,
+with a small logarithmic sample of the database), enqueuing the corresponding items into `res`.
+"""
 function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, hints, vstate)
     res = approx_by_hints!(index, q, hints, res, vstate)
     if length(res) == 0
@@ -27,6 +33,14 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, 
     end
 end
 
+"""
+    beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, vstate) -> (costdists, costblocks)
+
+Internal helper that expands the beam (starting from the nearest item already found in `res`)
+by visiting the neighborhoods of its elements, pushing newly evaluated items into `res` and back
+into the beam when appropriate. Returns the number of distance evaluations (`costdists`) and
+visited blocks/neighborhoods (`costblocks`) performed.
+"""
 function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn, vstate)
     Δ, maxvisits = bs.Δ, bs.maxvisits
     beam = getbeam(bs.bsize, ctx)

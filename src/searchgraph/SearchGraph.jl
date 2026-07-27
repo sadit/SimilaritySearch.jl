@@ -63,16 +63,32 @@ end
 include("visitedvertices.jl")
 include("context.jl")
 
+"""
+    abstract type LocalSearchAlgorithm end
+
+Base type for the local search algorithms used to solve queries over a [`SearchGraph`](@ref).
+Concrete subtypes (e.g., [`BeamSearch`](@ref)) implement the strategy used to traverse the
+graph while looking for the near neighbors of a query object.
+"""
 abstract type LocalSearchAlgorithm end
 
 """
-    BeamSearch(bsize::Integer=16, Δ::Float32)
+    BeamSearch(; bsize::Integer=4, Δ::Real=1.0, maxvisits::Integer=10^6) -> BeamSearch
 
 BeamSearch is an iteratively improving local search algorithm that explores the graph using blocks of `bsize` elements and neighborhoods at the time.
 
+# Keyword Arguments
 - `bsize`: The size of the beam.
-- `Δ`: Soft margin for accepting elements into the beam
-- `maxvisits`: MAximum visits while searching, useful for early stopping without convergence
+- `Δ`: Soft margin for accepting elements into the beam.
+- `maxvisits`: Maximum number of node visits allowed while searching, useful for early stopping without convergence.
+
+# Examples
+```julia
+using SimilaritySearch
+
+algo = BeamSearch(; bsize=8, Δ=1.0, maxvisits=10^6)
+G = SearchGraph(; db=VectorDatabase(), algo=Ref(algo))
+```
 """
 struct BeamSearch <: LocalSearchAlgorithm
     bsize::Int32  # size of the search beam
@@ -90,15 +106,42 @@ end
 ### Basic operations on the index
 
 """
-    struct SearchGraph <: AbstractSearchIndex
+    SearchGraph(; dist=Dist.SqL2(), db=VectorDatabase(), adj=AdjList(UInt32), hints=UInt32[],
+                  algo=Ref(BeamSearch()), len=Ref(zero(Int64))) -> SearchGraph
 
 SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
 The performance is determined by the search algorithm `algo` and the neighborhood policy.
 It supports callbacks to adjust parameters as insertions are made.
 
-- `hints`: Initial points for exploration (empty hints imply using random points)
+# Keyword Arguments
+- `dist`: The distance function (a `PreMetric`) used to compare stored objects, e.g., `Dist.SqL2()`.
+- `db`: The database of indexed objects, see [`AbstractDatabase`](@ref) (e.g., `MatrixDatabase`, `VectorDatabase`).
+- `adj`: The adjacency list storing the graph's direct links between objects.
+- `hints`: Initial points for exploration (empty hints imply using random points).
+- `algo`: The local search algorithm used to solve queries, stored as a `Ref{BeamSearch}` (see [`BeamSearch`](@ref)).
+- `len`: The number of stored elements, as a `Ref{Int64}`; use `length(index)` instead of accessing it directly.
 
 Note: Parallel insertions should be made through `append!` or `index!` function with `parallel_block > 1`
+
+# Examples
+```julia
+using SimilaritySearch
+const Dist = SimilaritySearch.Dist
+
+X = rand(Float32, 8, 10^4)          # 10^4 vectors of dimension 8
+db = MatrixDatabase(X)
+
+G = SearchGraph(; db, dist=Dist.SqL2())
+ctx = SearchGraphContext()
+index!(G, ctx)                       # builds the graph (inserts all items in db)
+
+q = rand(Float32, 8)
+res = knnqueue(ctx, 8)                # a knn result set for k=8
+search(G, ctx, q, res)                # solves a single query
+
+Q = MatrixDatabase(rand(Float32, 8, 10^2))
+knns = searchbatch(G, ctx, Q, 8)      # solves many queries at once
+```
 """
 @kwdef struct SearchGraph{DIST<:PreMetric,
     DB<:AbstractDatabase,
@@ -134,9 +177,22 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    search(index::SearchGraph, ctx::SearchGraphContext, q, res
+    search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn) -> AbstractKnn
 
-Solves the specified query `res` for the query object `q`.
+Solves the specified query `res` for the query object `q` using the `SearchGraph` index `index`.
+It dispatches the work to the local search algorithm stored in `index.algo` (e.g., [`BeamSearch`](@ref)),
+using `ctx` to access preallocated caches (visited-vertices state, beams) and configuration.
+The result object `res` is updated in-place and also returned.
+
+# Examples
+```julia
+using SimilaritySearch
+
+# G::SearchGraph and ctx::SearchGraphContext already built and indexed
+q = rand(Float32, 8)
+res = knnqueue(ctx, 8)     # k=8 nearest neighbors
+search(G, ctx, q, res)
+```
 """
 function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
     vstate = getvstate(length(index), ctx)

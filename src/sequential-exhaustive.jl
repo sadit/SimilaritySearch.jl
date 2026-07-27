@@ -5,9 +5,23 @@ import Base: push!
 export ExhaustiveSearch, search
 
 """
-    ExhaustiveSearch(dist::PreMetric, db::AbstractVector)
+    struct ExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
 
-Solves queries evaluating `dist` for the query and all elements in the dataset
+    ExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
+    ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+
+A brute-force (sequential) exact index that solves queries by evaluating `dist` between the query and every
+element in `db`. Useful as a gold-standard baseline or for small datasets where an approximate index is not
+worth its construction cost.
+
+# Arguments
+- `dist`: the distance function
+- `db`: the database being indexed
+
+!!! note
+    The keyword constructor's default `dist=SqL2Distance()` refers to an identifier that is not defined
+    anywhere in this package; calling `ExhaustiveSearch()` with no arguments currently throws `UndefVarError`.
+    Always pass `dist` explicitly (e.g. `dist=Dist.SqL2()`) until this is fixed.
 """
 struct ExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
@@ -19,6 +33,32 @@ end
 @inline database(seq::ExhaustiveSearch, i::Integer) = seq.db[i]
 @inline Base.length(seq::ExhaustiveSearch) = length(seq.db)
 
+"""
+    ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+
+Keyword constructor for [`ExhaustiveSearch`](@ref).
+
+# Keyword Arguments
+- `dist`: the distance function
+- `db`: the database being indexed
+
+!!! note
+    The default `dist=SqL2Distance()` is currently broken (undefined identifier); always pass `dist` explicitly,
+    e.g. `dist=Dist.SqL2()`, as shown below.
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+X = MatrixDatabase(rand(Float32, 8, 10^3))
+Q = MatrixDatabase(rand(Float32, 8, 10))
+E = ExhaustiveSearch(; dist=Dist.SqL2(), db=X)
+ctx = getcontext(E)
+
+knns = searchbatch(E, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
+```
+"""
 function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
@@ -50,9 +90,16 @@ function index!(seq::ExhaustiveSearch, ::AbstractContext)
 end
 
 """
-    search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res)
+    search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractKnn) -> res
 
-Solves the query evaluating all items in the given query.
+Solves query `q` by sequentially evaluating the distance between `q` and every item of the indexed
+database, pushing each candidate into `res`.
+
+# Arguments
+- `seq`: the exhaustive search index
+- `ctx`: the running context (unused by this method, kept for interface consistency)
+- `q`: the query to solve
+- `res`: the result set that receives the candidates
 """
 @inline function search(seq::ExhaustiveSearch, ::AbstractContext, q, res::AbstractKnn)
     dist = distance(seq)

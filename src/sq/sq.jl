@@ -7,6 +7,14 @@ import Distances: evaluate
 using ..SimilaritySearch: AbstractDatabase, getminbatch
 #using ..Dist: fastacos
 
+"""
+    SQMinC(min::Float32, c::Float32)
+
+Internal helper struct that stores the per-vector dequantization parameters used by
+the scalar quantization schemes in `ScalarQuant` (i.e., `SQu2`, `SQu4`, `SQu8`). Given a
+quantized (integer) coordinate `q`, the corresponding approximate original value is
+recovered as `q * c + min`.
+"""
 struct SQMinC
     min::Float32
     c::Float32

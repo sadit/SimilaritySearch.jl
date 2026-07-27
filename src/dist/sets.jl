@@ -99,10 +99,44 @@ function evaluate(::Dice, a, b)
     1.0 - 2 * i / (length(a) + length(b))
 end
 
+"""
+    RogersTanimoto(σ)
+
+The Rogers-Tanimoto dissimilarity for very sparse binary vectors represented as sorted
+lists of positive integers where ones occur (as with [`Jaccard`](@ref), [`Dice`](@ref),
+and [`CosineSet`](@ref)). The field `σ` is the size of the full universe, i.e., the total
+number of possible elements/dimensions, and is used to recover the number of positions
+where both `a` and `b` are zero.
+
+Using the usual contingency-table notation for two binary vectors, with ``tt`` the number
+of shared ones (the intersection size), ``tf`` and ``ft`` the number of ones that appear
+in only one of the two sets, and ``ff = \\sigma - tt - tf - ft`` the number of shared
+zeros, the Rogers-Tanimoto dissimilarity is defined as
+
+```math
+RT(u, v) = 1 - \\frac{tt + ff}{tt + ff + 2(tf + ft)}
+```
+
+Access via `Dist.Sets.RogersTanimoto`.
+
+# Examples
+
+```julia
+d = Dist.Sets.RogersTanimoto(σ)
+evaluate(d, u, v)
+```
+"""
 struct RogersTanimoto <: Metric
     σ::Int
 end
 
+"""
+    evaluate(rt::RogersTanimoto, a, b)
+
+Computes the Rogers-Tanimoto dissimilarity of `a` and `b`, both sets specified as sorted
+vectors of positive integers, using `rt.σ` as the size of the full universe (needed to
+compute the number of shared zeros).
+"""
 function evaluate(rt::RogersTanimoto, a, b)
     o = Forward
     len_a::Int = length(a)

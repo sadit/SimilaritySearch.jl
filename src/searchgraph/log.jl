@@ -1,5 +1,11 @@
 # This file is a part of SimilaritySearch.jl
 
+"""
+    LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::SearchGraphContext, sp::Integer, ep::Integer)
+
+Internal logging hook, invoked during insertion to report memory usage and neighborhood-size
+statistics (when `event === :add!`) for the vertex range `sp:ep`, throttled by `log`'s timer.
+"""
 function LOG(log::InformativeLog, event::Symbol, index::SearchGraph, ctx::SearchGraphContext, sp::Integer, ep::Integer)
     timed_log_fun(log) do 
         n = length(index)

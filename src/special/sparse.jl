@@ -5,15 +5,35 @@ import ...SimilaritySearch.Dist.CastF32: dot32, norm32
 using SparseArrays
 using LinearAlgebra
 
+"""
+    SparseDatabase(M::MType) where {MType<:SparseMatrixCSC}
+
+An `AbstractDatabase` wrapping a sparse matrix `M` (in CSC format); each column of `M`
+is treated as a stored vector, and indexing the database (`db[i]`) returns the `i`-th
+column as a [`SparseVecView`](@ref).
+"""
 struct SparseDatabase{MType<:SparseMatrixCSC} <: AbstractDatabase
     M::MType
 end
 
+"""
+    SparseVecView(I, V)
+
+A read-only view of a single sparse vector, given as parallel arrays of non-zero
+indices `I` and non-zero values `V` (as produced by, e.g., `rowvals`/`nonzeros` on a
+column of a `SparseMatrixCSC`).
+"""
 struct SparseVecView{IType,VType}
     I::IType
     V::VType
 end
 
+"""
+    NormCosine()
+
+Cosine distance (one minus the dot product) specialized for [`SparseVecView`](@ref)
+vectors; it assumes the input vectors are already normalized.
+"""
 struct NormCosine <: Dist.SemiMetric
 end
 

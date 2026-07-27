@@ -7,15 +7,19 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood!(index::SearchGraph{T}, ctx, item, ksearch, blockrange; hints=index.hints)
+    find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnn, blockrange; hints=index.hints)
 
-Searches for `item` neighborhood in the index, i.e., if `item` were in the index whose items should be its neighbors (intenal function).
+Searches for `item`'s neighborhood in the index, i.e., if `item` were in the index, which items should be its neighbors (internal function).
 
 # Arguments
+- `out`: `AbstractKnn` object where the resulting (filtered) neighborhood is stored.
 - `index`: The search index.
+- `ctx`: context, neighborhood, and cache objects to be used.
 - `item`: The item to be inserted.
-- `blockrange`: Extra block range for parallel insertions, defaults to an empty range
-- `ctx`: context, neighborhood, and cache objects to be used
+- `tmp`: `AbstractKnn` object used as scratch space for the raw (unfiltered) search results.
+- `blockrange`: Extra block range for parallel insertions, defaults to an empty range.
+
+# Keyword Arguments
 - `hints`: Search hints
 """
 function find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnn, blockrange; hints=index.hints)
@@ -82,9 +86,15 @@ function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
 end
 
 """
-    struct IdentityNeighborhood
+    IdentityNeighborhood()
 
-It does not modifies the given neighborhood
+A [`NeighborhoodFilter`](@ref) that does not modify the given neighborhood, i.e., it passes through the candidate result set unchanged.
+
+# Examples
+
+```julia
+neighborhood = Neighborhood(filter=IdentityNeighborhood())
+```
 """
 struct IdentityNeighborhood <: NeighborhoodFilter end
 
@@ -95,6 +105,12 @@ neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContex
 
 New items are connected with a small set of items computed with a SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage.
+
+# Examples
+
+```julia
+neighborhood = Neighborhood(filter=SatNeighborhood())  # the default filter
+```
 """
 struct SatNeighborhood <: NeighborhoodFilter end
 
@@ -108,20 +124,40 @@ end
 
 New items are connected with a small set of items computed with a Distal SAT like scheme (**cite**).
 It starts with `k` near items that are filterd to a small neighborhood due to the SAT partitioning stage but in reverse order of distance.
+
+# Examples
+
+```julia
+neighborhood = Neighborhood(filter=DistalSatNeighborhood())
+```
 """
 struct DistalSatNeighborhood <: NeighborhoodFilter end
 
 
 """
-    filter(sat::DistalSatNeighborhood, index::SearchGraph, item, res, ctx)
+    neighborhoodfilter(sat::DistalSatNeighborhood, index::SearchGraph, ctx::SearchGraphContext, item, res, output)
 
-filters `res` using the DistSAT strategy.
+Filters `res` using the DistSAT strategy.
 """
 @inline function neighborhoodfilter(sat::DistalSatNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
     hsp_distal_neighborhood_filter!(output, distance(G), database(G), center, res)
 end
 
 
+"""
+    KCentersNeighborhood()
+
+A [`NeighborhoodFilter`](@ref) that reduces the given candidate neighborhood `res` by
+computing a small set of `k`-centers over it (using a farthest-first traversal) and keeping
+only the resulting centers, so that the final neighborhood is diverse rather than simply the
+closest items.
+
+# Examples
+
+```julia
+neighborhood = Neighborhood(filter=KCentersNeighborhood())
+```
+"""
 struct KCentersNeighborhood <: NeighborhoodFilter end
 
 @inline function neighborhoodfilter(N::KCentersNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)

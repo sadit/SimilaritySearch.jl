@@ -5,21 +5,81 @@ using StatsBase
 import SearchModels: combine, mutate
 export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius
 
+"""
+    abstract type ErrorFunction end
+
+Abstract type for the optimization goals (`kind` argument) accepted by [`optimize_index!`](@ref).
+It determines how candidate hyperparameter configurations are scored/compared while
+autotuning the index. Concrete subtypes are [`MinRecall`](@ref), [`OptRadius`](@ref),
+[`ParetoRecall`](@ref), and [`ParetoRadius`](@ref).
+"""
 abstract type ErrorFunction end
+
+"""
+    MinRecall(; minrecall=0.9f0) <: ErrorFunction
+
+Optimization goal that favors the fastest configuration among those achieving at least
+`minrecall` recall (measured against a gold standard computed with exhaustive search).
+
+# Keyword Arguments
+- `minrecall`: minimum recall (0-1) required to be considered as fast as possible.
+
+# Examples
+
+```julia
+optimize_index!(index, ctx, MinRecall(0.95))
+```
+"""
 @kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
 end
 
+"""
+    OptRadius(; tol=0.1) <: ErrorFunction
+
+Optimization goal that favors the fastest configuration among those whose search radius
+falls within a `tol`-sized tolerance band, without relying on a computed gold standard.
+
+# Keyword Arguments
+- `tol`: relative tolerance used to bucket configurations by their achieved search radius.
+
+# Examples
+
+```julia
+optimize_index!(index, ctx, OptRadius(; tol=0.05))
+```
+"""
 @kwdef struct OptRadius <: ErrorFunction
     tol::Float32 = 0.1
 end
 
+"""
+    ParetoRecall <: ErrorFunction
+
+Optimization goal that searches for a good trade-off between speed and recall (measured
+against a gold standard computed with exhaustive search), without requiring a fixed minimum
+recall.
+"""
 struct ParetoRecall <: ErrorFunction end
+
+"""
+    ParetoRadius <: ErrorFunction
+
+Optimization goal that searches for a good trade-off between speed and the achieved search
+radius, without relying on a computed gold standard.
+"""
 struct ParetoRadius <: ErrorFunction end
 
 
 function setconfig! end
 
+"""
+    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
+
+Builds and returns a performance-evaluation closure that runs `queries` against `index` under
+a candidate configuration and reports its cost (visited nodes), radius, recall (against
+`gold`, if given) and search time. Internal function used by [`optimize_index!`](@ref).
+"""
 function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
     n = length(index)
     m = length(queries)
@@ -99,7 +159,6 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         ctx::AbstractContext,
         kind::ErrorFunction=MinRecall(0.9);
         space::AbstractSolutionSpace=optimization_space(index),
-        ctx=GenericContext(ctx),
         queries=nothing,
         ksearch=10,
         numqueries=64,
@@ -108,9 +167,9 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         bsize=4,
         mutbsize=16,
         crossbsize=8,
-        tol=-1.0,
         maxiters=16,
-        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, tol, maxiters, verbose=verbose(ctx))
+        params=SearchParams(; maxpopulation, bsize, mutbsize, crossbsize, maxiters, verbose=verbose(ctx)),
+        rng=Random.default_rng()
     )
 
 Tries to configure the `index` to achieve the specified performance (`kind`). The optimization procedure is an stochastic search over the configuration space yielded by `kind` and `queries`.
@@ -124,8 +183,9 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 
 - `space`: defines the search space
 - `queries`: the set of queries to be used to measure performances, a validation set. It can be an `AbstractDatabase` or nothing.
-- `queries_ksearch`: the number of neighbors to retrieve for `queries`
-- `queries_size`: if `queries===nothing` then a sample of the already indexed database is used, `queries_size` is the size of the sample.
+- `ksearch`: the number of neighbors to retrieve for `queries`
+- `numqueries`: if `queries===nothing` then a sample of the already indexed database is used, `numqueries` is the size of the sample.
+- `rng`: random number generator used to draw the sample of queries when `queries===nothing`.
 - `initialpopulation`: the initial sample for the optimization procedure
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
     Alternatively, you can pass some keywords arguments to `SearchParams`, and use the rest of default values:
@@ -135,6 +195,15 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
     - `mutbsize=16`: number of mutated new elements in each iteration
     - `crossbsize=8`: number of new elements from crossing operation.
     - `maxiters=16`: maximum number of iterations.
+
+# Examples
+
+```julia
+ctx = SearchGraphContext()
+G = SearchGraph(; dist, db)
+index!(G, ctx)
+optimize_index!(G, ctx, MinRecall(0.95))
+```
 """
 function optimize_index!(
     index::AbstractSearchIndex,

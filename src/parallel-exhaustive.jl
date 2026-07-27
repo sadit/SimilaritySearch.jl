@@ -4,6 +4,30 @@ import Base: push!
 export ParallelExhaustiveSearch, search
 
 
+"""
+    struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
+
+    ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
+    ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat)
+    ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+
+A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
+against every element of `db` in parallel (across `Threads.nthreads()` tasks), using an internal lock to
+guard concurrent pushes into the result set. Useful as a gold-standard baseline for small-to-medium datasets
+where parallelizing a single query is beneficial.
+
+Note that this should not be used in conjunction with `searchbatch(...; parallel=true)` since they will
+compete for the same thread pool.
+
+# Arguments
+- `dist`: the distance function
+- `db`: the database being indexed, given either as an `AbstractDatabase` or as a raw vector/matrix
+
+!!! note
+    The keyword constructor's default `dist=SqL2Distance()` refers to an identifier that is not defined
+    anywhere in this package; calling `ParallelExhaustiveSearch()` with no arguments currently throws
+    `UndefVarError`. Always pass `dist` explicitly (e.g. `dist=Dist.SqL2()`) until this is fixed.
+"""
 struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
@@ -16,8 +40,28 @@ ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase) = ParallelExhaus
 """
     ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
 
-Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
-Note that this should not be used in conjunction with `searchbatch(...; parallel=true)` since they will compete for resources.
+Keyword constructor for [`ParallelExhaustiveSearch`](@ref).
+
+# Keyword Arguments
+- `dist`: the distance function
+- `db`: the database being indexed
+
+!!! note
+    The default `dist=SqL2Distance()` is currently broken (undefined identifier); always pass `dist` explicitly,
+    e.g. `dist=Dist.SqL2()`, as shown below.
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+X = MatrixDatabase(rand(Float32, 8, 10^3))
+Q = MatrixDatabase(rand(Float32, 8, 10))
+P = ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=X)
+ctx = getcontext(P)
+
+knns = searchbatch(P, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
+```
 """
 function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
@@ -30,16 +74,16 @@ end
 Base.copy(pex::ParallelExhaustiveSearch; dist=pex.dist, db=pex.db) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res)
+    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn) -> res
 
-Solves the query evaluating all items in the given query.
+Solves query `q` by evaluating the distance between `q` and every item of the indexed database in
+parallel, pushing each candidate into `res` under a lock.
 
 # Arguments
 - `pex`: the search structure
+- `ctx`: the running context (unused by this method, kept for interface consistency)
 - `q`: the query to solve
-- `res`: the result set
-- `ctx`: running ctx
-
+- `res`: the result set that receives the candidates
 """
 function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
     dist = distance(pex)

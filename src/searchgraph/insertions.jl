@@ -15,6 +15,13 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 - `db`: the collection of objects to insert, an `AbstractDatabase` is the canonical input, but supports any iterable objects
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
 
+# Examples
+
+```julia
+G = SearchGraph(; dist, db=VectorDatabase())
+ctx = SearchGraphContext()
+append_items!(G, ctx, MatrixDatabase(rand(Float32, 8, 1000)))
+```
 """
 function append_items!(
     index::SearchGraph,
@@ -36,6 +43,13 @@ The arguments are the same than `append_items!` function but using the internal 
 - `index`: The graph index
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
 
+# Examples
+
+```julia
+G = SearchGraph(; dist, db=MatrixDatabase(rand(Float32, 8, 1000)))
+ctx = SearchGraphContext()
+index!(G, ctx)
+```
 """
 function index!(index::SearchGraph, ctx::SearchGraphContext)
     n = length(database(index))
@@ -101,24 +115,25 @@ end
 """
     push_item!(
         index::SearchGraph,
-        ctx,
+        ctx::SearchGraphContext,
         item,
-        qcache
-        push_item
+        neighbors_,
+        tmp,
+        push_db::Bool
     )
 
-Appends an object into the index. Internal function
+Appends a single object into the index, computing its neighborhood, connecting reverse
+links, and running the registered callbacks. Low-level function used by the sequential and
+parallel insertion loops (`append_items!`/`index!`).
 
 Arguments:
 
 - `index`: The search graph index where the insertion is going to happen.
-- `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
-- `tmp`: knnqueue to be used by the neighborhood computation
-- `neighbors`: knnqueue to be used by the neighborhood computation
-- `push_db`: if `false` is an internal option, used by `append!` and `index!` (it avoids to insert `item` into the database since it is already inserted but not indexed).
-
-- Note: setting `callbacks` as `nothing` ignores the execution of any callback
+- `item`: The object to be inserted, it should be in the same space than other objects in the index and understood by the distance metric.
+- `neighbors_`: knnqueue used to store the computed neighborhood of `item`, later attached to the graph.
+- `tmp`: knnqueue used as scratch space by the neighborhood computation.
+- `push_db`: if `false`, `item` is not appended to `index.db` (used when `item` is already present in the database but not yet indexed).
 """
 @inline function push_item!(
     index::SearchGraph,
