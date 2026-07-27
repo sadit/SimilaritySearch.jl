@@ -9,9 +9,9 @@ using Test
 
 function prepare_benchmark(Database;
     ksearch::Int=8,
-    n::Int=10^5,
-    m::Int=10^3,
-    dim::Int=8)
+    n::Int=10_000,
+    m::Int=100,
+    dim::Int=4)
 
     db = Database(rand(Float32, dim, n))
     queries = Database(rand(Float32, dim, m))

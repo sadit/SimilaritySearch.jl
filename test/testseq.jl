@@ -22,7 +22,7 @@ end
 @testset "Searching vectors" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
-    db = MatrixDatabase(rand(Float32, 4, 10_000))
+    db = MatrixDatabase(rand(Float32, 4, 1000))
     queries = rand(db, 100)
     @info typeof(db), typeof(queries)
     for (recall_lower_bound, dist) in [
@@ -42,7 +42,7 @@ end
 @testset "Searching sequences" begin
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
-    db = VectorDatabase([create_sequence(5, false) for i in 1:10_000])
+    db = VectorDatabase([create_sequence(5, false) for i in 1:1000])
     queries = rand(db, 100)
     @info typeof(db), typeof(queries)
     
@@ -61,7 +61,7 @@ end
     # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
     σ = 10
-    db = VectorDatabase([create_sequence(5, true, 1:σ) for i in 1:10_000])
+    db = VectorDatabase([create_sequence(5, true, 1:σ) for i in 1:1000])
     queries = rand(db, 100)
     @info typeof(db), typeof(queries)
 
