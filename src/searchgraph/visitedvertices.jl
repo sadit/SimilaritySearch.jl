@@ -12,6 +12,11 @@ end
 
 @inline _b64block(i_::UInt64) = ((i_ - one(UInt64)) >>> 6) + 1
 
+"""
+    reuse!(B::AbstractVector{UInt64}, n::Integer)
+
+Resets (zeroes out) the bit-vector `B` so that it can be reused to track up to `n` visited vertices, resizing it if needed.
+"""
 function reuse!(B::AbstractVector{UInt64}, n::Integer)
     n > 0 && let n = convert(UInt64, n), m = _b64block(n)
         m > length(B) && resize!(B, m)
@@ -37,11 +42,21 @@ Checks that `i_` is already visited:
     v
 end
 
+"""
+    visited(vstate::AbstractVector{UInt64}, i_::UInt64)::Bool
+
+Checks whether vertex `i_` is marked as visited in the bit-vector `vstate`.
+"""
 @inline function visited(vstate::AbstractVector{UInt64}, i_::UInt64)::Bool
     b, i = _b64indices(i_)
     @inbounds (vstate[b] >>> i) & one(UInt64)
 end
 
+"""
+    visit!(vstate::AbstractVector{UInt64}, i_::UInt64)
+
+Marks vertex `i_` as visited in the bit-vector `vstate`.
+"""
 @inline function visit!(vstate::AbstractVector{UInt64}, i_::UInt64)
     b, i = _b64indices(i_)
     @inbounds vstate[b] |= (one(UInt64) << i)
@@ -50,13 +65,29 @@ end
 
 #### Int set
 
+"""
+    reuse!(v::Set{UInt32}, n::Integer)
+
+Empties the set `v` so that it can be reused to track visited vertices, pre-sizing it for a dataset of `n` elements.
+"""
 function reuse!(v::Set{UInt32}, n::Integer)
     empty!(v)
     sizehint!(v, ceil(Int, sqrt(n)))
     v
 end
 
+"""
+    visited(vstate::Set{UInt32}, i::Integer)::Bool
+
+Checks whether vertex `i` is a member of the visited-vertices set `vstate`.
+"""
 @inline visited(vstate::Set{UInt32}, i::Integer)::Bool = i ∈ vstate
+
+"""
+    visit!(vstate::Set{UInt32}, i::Integer)
+
+Marks vertex `i` as visited by adding it to the set `vstate`.
+"""
 @inline visit!(vstate::Set{UInt32}, i::Integer) = push!(vstate, i)
 @inline function check_visited_and_visit!(vstate::Set{UInt32}, i::Integer)
     v = visited(vstate, i)

@@ -13,6 +13,18 @@ function approx_by_hints!(index::SearchGraph, q, hints::T, res, vstate) where {T
     res
 end
 
+"""
+    AdjacentStoredHints{DB<:AbstractDatabase}(hints::DB, map::Vector{Int32})
+
+Stores a materialized copy of the hint objects (`hints`) together with the identifiers
+(`map`) of the corresponding elements in the original dataset. This allows hint objects to
+be kept in an alternative database representation `DB` (e.g., a `MatrixDatabase`) instead of
+being fetched by identifier from the main dataset on every access; see [`matrixhints`](@ref).
+
+# Fields
+- `hints`: database holding the materialized hint objects
+- `map`: identifiers, in the original dataset, of each corresponding hint object
+"""
 struct AdjacentStoredHints{DB<:AbstractDatabase}
     hints::DB
     map::Vector{Int32}
@@ -20,6 +32,26 @@ end
 
 Base.length(A::AdjacentStoredHints) = length(A.hints)
 
+"""
+    matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where {DBType<:AbstractDatabase}
+
+Materializes the objects currently referenced by `index`'s hints (stored as a list of
+identifiers) into an [`AdjacentStoredHints`](@ref) object backed by `DBType`, which can
+improve cache locality when hints are repeatedly accessed while searching. Returns a copy of
+`index` with the new hints installed (`index` itself is not modified).
+
+# Arguments
+- `index`: the search graph whose current hints will be materialized
+- `DBType`: the database type used to store the materialized hint objects, defaults to `MatrixDatabase`
+
+# Examples
+
+```julia
+G = SearchGraph(; dist, db)
+index!(G, ctx)
+G = matrixhints(G)  # hints are now stored using a MatrixDatabase
+```
+"""
 function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where {DBType<:AbstractDatabase}
     h = Vector{Int32}(index.hints)
     s = SubDatabase(database(index), h)
@@ -35,18 +67,31 @@ function approx_by_hints!(index::SearchGraph, q, h::AdjacentStoredHints, res, vs
 end
 
 """
-    mutable struct RandomHints
+    RandomHints(; logbase=1.1)
 
-Indicates that hints are a random sample of the dataset
+A [`Callback`](@ref) that selects search hints as a random sample of the dataset. Sampled
+objects are only accepted as hints if they (and their neighborhood) are not already
+part of the neighborhood of a previously accepted hint and have a minimum degree, which
+tends to favor well-connected entry points for searches.
+
+# Keyword Arguments
+- `logbase`: log base used to compute the number of hints to keep, i.e., approximately
+  `log(logbase, n)` hints are kept for a dataset of `n` elements.
+
+# Examples
+
+```julia
+ctx = SearchGraphContext(; hints_callback=RandomHints(; logbase=1.2))
+```
 """
 @kwdef mutable struct RandomHints <: Callback
     logbase::Float32 = 1.1
 end
 
 """
-    executed_callback(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
 
-SearchGraph's callback for selecting hints at random
+`SearchGraph`'s callback for selecting hints at random, see [`RandomHints`](@ref).
 """
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::RandomHints)
     n = length(index)
@@ -97,14 +142,32 @@ end
 end=#
 
 """
-    mutable struct DisjointHints
+    DisjointHints(; logbase=1.1)
 
-Indicates that hints are a small disjoint (untouched neighbors) subsample 
+A [`Callback`](@ref) that selects search hints as a small subsample of mutually disjoint
+objects, i.e., objects whose neighborhoods do not overlap with the neighborhoods of other
+selected hints. Candidates are visited in decreasing order of how much their degree
+deviates from the mean degree of the graph.
+
+# Keyword Arguments
+- `logbase`: log base used to compute the number of hints to keep, i.e., approximately
+  `log(logbase, n)` hints are kept for a dataset of `n` elements.
+
+# Examples
+
+```julia
+ctx = SearchGraphContext(; hints_callback=DisjointHints(; logbase=1.2))
+```
 """
 @kwdef mutable struct DisjointHints <: Callback
     logbase::Float32 = 1.1
 end
 
+"""
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::DisjointHints)
+
+`SearchGraph`'s callback for selecting disjoint hints, see [`DisjointHints`](@ref).
+"""
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::DisjointHints)
     n = length(index)
     m = ceil(Int, log(opt.logbase, n))
@@ -126,9 +189,26 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Dis
 end
 
 """
-    struct KDisjointHints
+    KDisjointHints(; logbase=1.1, disjoint=3, expansion=4)
 
-Indicates that hints are selected to have a disjoint neighborhood
+A [`Callback`](@ref) that selects search hints by randomly visiting candidate objects and
+greedily accepting them as hints while marking their expanded neighborhood (up to
+`expansion` hops away) as visited, so that accepted hints tend to have disjoint
+neighborhoods.
+
+# Keyword Arguments
+- `logbase`: log base used to compute the number of hints to keep, i.e., approximately
+  `log(logbase, n)` hints are kept for a dataset of `n` elements.
+- `disjoint`: parameter reserved to control the degree of disjointness enforced among hints
+  (not read by the current sampling procedure).
+- `expansion`: number of hops used to expand the neighborhood of an accepted hint before
+  marking it as visited (i.e., excluded from being selected again).
+
+# Examples
+
+```julia
+ctx = SearchGraphContext(; hints_callback=KDisjointHints(; logbase=1.2, expansion=3))
+```
 """
 @kwdef struct KDisjointHints <: Callback
     logbase::Float32 = 1.1
@@ -137,9 +217,9 @@ Indicates that hints are selected to have a disjoint neighborhood
 end
 
 """
-    execute_callback!(index, ctx, opt::KDisjointHints)
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
 
-SearchGraph's callback for selecting hints at random
+`SearchGraph`'s callback for selecting disjoint hints, see [`KDisjointHints`](@ref).
 """
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDisjointHints)
     n = length(index)
@@ -174,9 +254,27 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KDi
 end
 
 """
-    mutable struct EpsilonHints
+    EpsilonHints(; quantile=0.01, epsilon=0.0f0, minepsilon=1e-5, samplesize=sqrt, maxsize=x->log(1.1,x))
 
-Indicates that hints are a small set of objects having a minimal distance between them 
+A [`Callback`](@ref) that selects search hints as a random sample of the dataset from which
+near-duplicate objects (those closer than a distance threshold `epsilon`) have been removed,
+so that the resulting hints are spread out over the dataset.
+
+# Keyword Arguments
+- `quantile`: if greater than `0`, `epsilon` is instead estimated as this quantile of a
+  sample of pairwise distances; use `quantile<=0` to use the fixed `epsilon` value instead.
+- `epsilon`: fixed near-duplicate distance threshold, used only when `quantile<=0`.
+- `minepsilon`: lower bound enforced on the estimated `epsilon` when `quantile>0`.
+- `samplesize`: function of the dataset size `n` used to determine how many objects are
+  initially sampled before near-duplicate removal.
+- `maxsize`: function of the dataset size `n` used to determine the maximum number of hints
+  to keep (extra hints beyond this size are discarded at random).
+
+# Examples
+
+```julia
+ctx = SearchGraphContext(; hints_callback=EpsilonHints(; quantile=0.05))
+```
 """
 mutable struct EpsilonHints <: Callback
     epsilon::Float32
@@ -193,6 +291,11 @@ EpsilonHints(; quantile=0.01, epsilon=0.0f0, minepsilon=1e-5, samplesize=sqrt, m
         samplesize,
         maxsize)
 
+"""
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
+
+`SearchGraph`'s callback for selecting near-duplicate-free hints, see [`EpsilonHints`](@ref).
+"""
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
     n = length(index)
     m = min(n, ceil(Int, opt.samplesize(n)))
@@ -220,9 +323,29 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Eps
 end
 
 """
-    mutable struct KCentersHints
+    KCentersHints(; logbase=1.1, powsample=1.5, qdiscard=0.1)
 
-Indicates that hints are a small set of objects having a minimal distance between them 
+A [`Callback`](@ref) that selects search hints using a k-centers (farthest-first traversal)
+strategy. A random sample of candidate objects is drawn from the dataset (filtered to
+exclude atypically low- or high-degree vertices), and a set of `k` centers is computed over
+that sample using a farthest-first traversal. Centers that end up receiving too few nearest
+neighbor assignments (i.e., that look redundant or of little use as entry points) are
+discarded before the remaining ones are used as hints.
+
+# Keyword Arguments
+- `logbase`: log base used to compute the number of centers/hints to search for, i.e.,
+  approximately `log(logbase, n) + 1` centers are computed for a dataset of `n` elements.
+- `powsample`: exponent used to determine the size of the candidate sample from which
+  centers are computed, i.e., `k^powsample` candidates are sampled (`k` being the number of
+  centers).
+- `qdiscard`: quantile, over the number of nearest-neighbor assignments received by each
+  center, used to discard the least used centers (centers below this quantile are dropped).
+
+# Examples
+
+```julia
+ctx = SearchGraphContext(; hints_callback=KCentersHints(; logbase=1.2))
+```
 """
 mutable struct KCentersHints <: Callback
     logbase::Float32
@@ -232,6 +355,11 @@ end
 
 KCentersHints(; logbase=1.1, powsample=1.5, qdiscard=0.1) = KCentersHints(logbase, powsample, qdiscard)
 
+"""
+    execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
+
+`SearchGraph`'s callback for selecting k-centers-based hints, see [`KCentersHints`](@ref).
+"""
 function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCentersHints)
     n = length(index)
     k = min(n ÷ 2, ceil(Int, log(opt.logbase, n))) + 1

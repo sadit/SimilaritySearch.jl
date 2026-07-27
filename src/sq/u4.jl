@@ -31,6 +31,20 @@ function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=
     SQMinC(min, c)
 end
 
+"""
+    SQu4Vec(v::AbstractVector)
+
+A single vector quantized to 4 bits per coordinate. It stores the packed codes (two
+4-bit codes per `UInt8`, `V`) along with the linear dequantization parameters (`E::SQMinC`)
+computed from the extrema of `v`. Indexing a `SQu4Vec` (`qvec[i]`) unpacks and dequantizes
+the `i`-th coordinate back to a `Float32` approximation of the original value.
+
+This type is the element produced by indexing a [`SQu4`](@ref) database; it is normally
+not created directly by users.
+
+# Arguments
+- `v`: the input vector to quantize
+"""
 struct SQu4Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
     V::VEC
@@ -65,6 +79,35 @@ end
 Base.eltype(::SQu4Vec) = Float32
 Base.eltype(::Type{T}) where {T<:SQu4Vec} = Float32
 
+"""
+    SQu4(X::AbstractMatrix)
+
+Scalar-quantizes each column (vector) of `X` to 4 bits per coordinate, packing two
+codes into each `UInt8`. This reduces the memory footprint of a database of vectors by
+roughly a factor of 8 with respect to `Float32` at the cost of precision. Each column
+is quantized independently using its own minimum and scale factor, computed from the
+extrema of the column so that the whole range `[min, max]` is mapped to the codes
+`\\{0, 1, \\ldots, 15\\}`.
+
+`SQu4` implements the `AbstractDatabase` interface, i.e., `length(db)` gives the number
+of vectors and `db[i]` returns the `i`-th vector as a [`SQu4Vec`](@ref) that can be
+indexed to retrieve dequantized `Float32` coordinates.
+
+# Arguments
+- `X`: a matrix whose columns are the vectors to be quantized
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> db = ScalarQuant.SQu4(X);
+
+julia> db[1][1]  # dequantized approximation of X[1, 1]
+```
+"""
 struct SQu4 <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
@@ -95,6 +138,9 @@ end
 """
     SQu4L1()
 
+The Manhattan (``L_1``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)).
+`evaluate` dequantizes both codes coordinate by coordinate and accumulates the absolute
+value of their difference.
 """
 struct SQu4L1 <: Metric end
 
@@ -175,6 +221,10 @@ squared_euclidean(a, b::SQu4Vec) = squared_euclidean(b, a)
 """
     SQu4L2()
 
+The Euclidean (``L_2``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
+or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
+coordinate, accumulates the squared differences (see [`SQu4SqL2`](@ref)), and returns its
+square root.
 """
 struct SQu4L2 <: Metric end
 
@@ -183,6 +233,10 @@ struct SQu4L2 <: Metric end
 """
     SQu4SqL2()
 
+The squared Euclidean distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
+or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
+coordinate and accumulates the squared differences `(af - bf)^2`, avoiding the
+square root computed by [`SQu4L2`](@ref).
 """
 struct SQu4SqL2 <: Metric end
 

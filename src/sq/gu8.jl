@@ -10,6 +10,43 @@ function quant_global_u8!(vout, v, min::Float32, c::Float32)
     vout
 end
 
+"""
+    sq_global_u8(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+
+Scalar-quantizes every entry of `X` to 8 bits (`UInt8`) using a single, global pair of
+dequantization parameters shared by all columns, unlike [`SQu8`](@ref) which computes an
+independent `min`/scale per column. This is useful, e.g., when the columns of `X` are
+known to share a comparable value range and a single global range provides enough
+precision while being cheaper to compute and store.
+
+The global `[min, max]` range is estimated by sampling entries of `X` and taking
+quantiles of the sample (to be robust to outliers), unless it is provided explicitly via
+`minmax`. Every entry `x` is then mapped as `round(clamp((x - min) * c, 0, 255))` with
+`c = 255 / (max - min + 1e-6)`.
+
+# Arguments
+- `X`: the matrix to quantize; each entry is quantized independently but using shared
+  `min`/`max` values
+- `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
+  (the default) the range is estimated from a random sample of the entries of `X` using
+  `quant`
+- `quant`: the lower and upper quantiles (of the sampled entries of `X`) used to estimate
+  `min` and `max` when `minmax` is not given
+- `samplesize`: the number of entries sampled (with replacement) from `X` to estimate the
+  quantiles; when `0` (the default) it is set to `ceil(Int, length(X)^0.5)`
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> Q = ScalarQuant.sq_global_u8(X; minmax=(0f0, 1f0));  # explicit range
+
+julia> size(Q), eltype(Q)  # (8, 1000), UInt8
+```
+"""
 function sq_global_u8(X::AbstractMatrix;
         minmax=nothing,
         quant=[0.025, 0.975],

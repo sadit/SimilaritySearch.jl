@@ -3,16 +3,29 @@
 export rebuild
 
 """
-    rebuild(g::SearchGraph; context=SearchGraphContext())
+    rebuild(g::SearchGraph, ctx::SearchGraphContext; progress=Progress(length(g); desc="rebuild", dt=2.0))
 
 Rebuilds the `SearchGraph` index but seeing the whole dataset for the incremental construction, i.e.,
 it can connect the i-th vertex to its knn in the 1..n possible vertices instead of its knn among 1..(i-1) as in the original algorithm.
+Returns a new `SearchGraph` (the input `g` is not modified).
 
 # Arguments
 
 - `g`: The search index to be rebuild.
-- `context`: The context to run the procedure, it can differ from the original one.
+- `ctx`: The context to run the procedure, it can differ from the original one.
 
+# Keyword Arguments
+
+- `progress`: a `ProgressMeter.Progress` object (or `nothing` to disable) used to report progress.
+
+# Examples
+
+```julia
+ctx = SearchGraphContext()
+G = SearchGraph(; dist, db)
+index!(G, ctx)
+G = rebuild(G, ctx)
+```
 """
 function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     progress=Progress(length(g); desc="rebuild", dt=2.0)

@@ -41,6 +41,20 @@ function quant_u2!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=
     SQMinC(min, c)
 end
 
+"""
+    SQu2Vec(v::AbstractVector)
+
+A single vector quantized to 2 bits per coordinate. It stores the packed codes (four
+2-bit codes per `UInt8`, `V`) along with the linear dequantization parameters (`E::SQMinC`)
+computed from the extrema of `v`. Indexing a `SQu2Vec` (`qvec[i]`) unpacks and dequantizes
+the `i`-th coordinate back to a `Float32` approximation of the original value.
+
+This type is the element produced by indexing a [`SQu2`](@ref) database; it is normally
+not created directly by users.
+
+# Arguments
+- `v`: the input vector to quantize
+"""
 struct SQu2Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
     V::VEC
@@ -71,6 +85,35 @@ end
 Base.eltype(::SQu2Vec) = Float32
 Base.eltype(::Type{T}) where {T<:SQu2Vec} = Float32
 
+"""
+    SQu2(X::AbstractMatrix)
+
+Scalar-quantizes each column (vector) of `X` to 2 bits per coordinate, packing four
+codes into each `UInt8`. This reduces the memory footprint of a database of vectors by
+roughly a factor of 16 with respect to `Float32` at the cost of precision. Each column
+is quantized independently using its own minimum and scale factor, computed from the
+extrema of the column so that the whole range `[min, max]` is mapped to the `\\{0,1,2,3\\}`
+codes.
+
+`SQu2` implements the `AbstractDatabase` interface, i.e., `length(db)` gives the number
+of vectors and `db[i]` returns the `i`-th vector as a [`SQu2Vec`](@ref) that can be
+indexed to retrieve dequantized `Float32` coordinates.
+
+# Arguments
+- `X`: a matrix whose columns are the vectors to be quantized
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> db = ScalarQuant.SQu2(X);
+
+julia> db[1][1]  # dequantized approximation of X[1, 1]
+```
+"""
 struct SQu2 <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
@@ -101,6 +144,14 @@ end
 """
     SQu2L1()
 
+A Manhattan-like (``L_1``) distance for [`SQu2Vec`](@ref) (2-bit quantized) vectors.
+`evaluate` dequantizes both codes coordinate by coordinate and accumulates their
+difference `af - bf`.
+
+Note: unlike the general [`L1`](@ref) distance, this implementation does not take the
+absolute value of the per-coordinate difference before accumulating, so the result is
+not guaranteed to be non-negative; it should be understood as an approximation intended
+for relative ranking of 2-bit quantized vectors rather than a true metric.
 """
 struct SQu2L1 <: Metric end
 
@@ -188,6 +239,10 @@ squared_euclidean(a, b::SQu2Vec) = squared_euclidean(b, a)
 """
     SQu2L2()
 
+The Euclidean (``L_2``) distance between two 2-bit quantized vectors ([`SQu2Vec`](@ref)),
+or between a [`SQu2Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
+coordinate, accumulates the squared differences (see [`SQu2SqL2`](@ref)), and returns its
+square root.
 """
 struct SQu2L2 <: Metric end
 
@@ -196,6 +251,10 @@ struct SQu2L2 <: Metric end
 """
     SQu2SqL2()
 
+The squared Euclidean distance between two 2-bit quantized vectors ([`SQu2Vec`](@ref)),
+or between a [`SQu2Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
+coordinate and accumulates the squared differences `(af - bf)^2`, avoiding the
+square root computed by [`SQu2L2`](@ref).
 """
 struct SQu2SqL2 <: Metric end
 

@@ -1,4 +1,4 @@
-export SQu8, SQu8Vec
+export SQu8, SQu8Vec, SQu8L1, SQu8L2, SQu8SqL2, SQu8NormCosine
 
 ### note we need to avoid overflows in high dimensional vectors (i.e., accumulated squared differences like 127^2)
 
@@ -20,6 +20,20 @@ function quant_u8!(vout, v::AbstractVector; eps::Float32=1f-6)
     SQMinC(min, c)
 end
 
+"""
+    SQu8Vec(v::AbstractVector)
+
+A single vector quantized to 8 bits per coordinate (one `UInt8` code per coordinate,
+stored in `V`), along with the linear dequantization parameters (`E::SQMinC`) computed
+from the extrema of `v`. Indexing a `SQu8Vec` (`qvec[i]`) dequantizes the `i`-th
+coordinate back to a `Float32` approximation of the original value.
+
+This type is the element produced by indexing a [`SQu8`](@ref) database; it is normally
+not created directly by users.
+
+# Arguments
+- `v`: the input vector to quantize
+"""
 struct SQu8Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
     V::VEC
@@ -40,6 +54,37 @@ Base.eachindex(a::SQu8Vec, b::SQu8Vec) = eachindex(a.V, b.V)
 Base.eltype(::SQu8Vec) = Float32
 Base.eltype(::Type{T}) where {T<:SQu8Vec} = Float32
 
+"""
+    SQu8(X::AbstractMatrix)
+
+Scalar-quantizes each column (vector) of `X` to 8 bits per coordinate (one `UInt8` per
+coordinate). This reduces the memory footprint of a database of vectors by roughly a
+factor of 4 with respect to `Float32` at the cost of precision. Each column is quantized
+independently using its own minimum and scale factor, computed from the extrema of the
+column so that the whole range `[min, max]` is mapped to the codes `\\{0, 1, \\ldots, 255\\}`.
+
+`SQu8` implements the `AbstractDatabase` interface, i.e., `length(db)` gives the number
+of vectors and `db[i]` returns the `i`-th vector as a [`SQu8Vec`](@ref) that can be
+indexed to retrieve dequantized `Float32` coordinates.
+
+See also [`sq_global_u8`](@ref) for a variant that shares a single pair of quantization
+parameters across all columns instead of computing them per column.
+
+# Arguments
+- `X`: a matrix whose columns are the vectors to be quantized
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> db = ScalarQuant.SQu8(X);
+
+julia> db[1][1]  # dequantized approximation of X[1, 1]
+```
+"""
 struct SQu8 <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
@@ -96,6 +141,21 @@ end
 
 dotu8(A, B::SQu8Vec) = dotu8(B, A)
 
+"""
+    SQu8NormCosine()
+
+Similar to `Dist.NormCosine` but for 8-bit quantized vectors ([`SQu8Vec`](@ref)); it
+assumes that the original (pre-quantization) vectors were already normalized, and
+therefore reduces to one minus the dot product:
+
+```math
+1 - \\sum_i {u_i v_i}
+```
+
+`evaluate` dequantizes coordinate by coordinate (either between two [`SQu8Vec`](@ref),
+or between a [`SQu8Vec`](@ref) and a plain vector) and accumulates the products before
+computing the final `1 - dot`.
+"""
 struct SQu8NormCosine <: Metric end
 
 @inline evaluate(::SQu8NormCosine, A, B)::Float32 = 1f0 - dotu8(A, B)
@@ -103,6 +163,9 @@ struct SQu8NormCosine <: Metric end
 """
     SQu8L1()
 
+The Manhattan (``L_1``) distance between two 8-bit quantized vectors ([`SQu8Vec`](@ref)).
+`evaluate` dequantizes both codes coordinate by coordinate and accumulates the absolute
+value of their difference.
 """
 struct SQu8L1 <: Metric end
 
@@ -152,6 +215,9 @@ squared_euclidean(a, b::SQu8Vec) = squared_euclidean(b, a)
 """
     SQu8L2()
 
+The Euclidean (``L_2``) distance between two 8-bit quantized vectors ([`SQu8Vec`](@ref)).
+`evaluate` dequantizes coordinate by coordinate, accumulates the squared differences
+(see [`SQu8SqL2`](@ref)), and returns its square root.
 """
 struct SQu8L2 <: Metric end
 
@@ -160,6 +226,9 @@ struct SQu8L2 <: Metric end
 """
     SQu8SqL2()
 
+The squared Euclidean distance between two 8-bit quantized vectors ([`SQu8Vec`](@ref)).
+`evaluate` dequantizes coordinate by coordinate and accumulates the squared differences
+`(af - bf)^2`, avoiding the square root computed by [`SQu8L2`](@ref).
 """
 struct SQu8SqL2 <: Metric end
 

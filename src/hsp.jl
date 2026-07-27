@@ -34,10 +34,38 @@ function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase
 end
 
 """
-    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Matrix; <kwargs>)
+    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix) -> matrix, hsp
 
-Computes the half-space partition of the queries `Q` (possibly given as a `knns` of `IdDist` elements)
+Computes the Half-Space Proximal (HSP) neighborhood of each query in `Q` by filtering its candidate
+neighbors (given by `knns`, e.g., as previously computed with `searchbatch`) so that only proximal,
+non-redundant neighbors are kept -- neighbors `p` for which no already accepted neighbor is closer to
+`p` than the query itself is closer to `p`. This function takes no keyword arguments.
 
+# Arguments
+- `dist`: the distance function used to evaluate candidates
+- `X`: the database the candidate identifiers in `knns` point into
+- `Q`: the set of queries (its `i`-th element corresponds to the `i`-th column of `knns`)
+- `knns`: a `(k, n)` matrix of `IdDist` candidate neighbors for each query in `Q` (e.g., as produced by `searchbatch`)
+
+# Returns
+A tuple `(matrix, hsp)` where:
+- `matrix`: a `(k, n)` matrix of `IdDist` elements (same shape as `knns`) backing the `hsp` result objects
+- `hsp`: a vector of `AbstractKnn` objects, one per query, containing its HSP-filtered neighborhood
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 4, 10^3))
+E = ExhaustiveSearch(; dist, db=X)
+ctx = getcontext(E)
+
+knns = searchbatch(E, ctx, X, 32)
+matrix, hsp = hsp_queries(dist, X, X, knns)
+length.(hsp)  # size of each query's HSP neighborhood
+```
 """
 function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix)
     n = length(Q)

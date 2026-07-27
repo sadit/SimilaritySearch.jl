@@ -2,17 +2,30 @@
 export distsample_ut, distsample
 
 """
-    distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob=0.01, samplesize=0)
-    distsample(dist::SemiMetric, X::AbstractDatabase; prob=0.01, samplesize=sqrt(|X|))
-    
-    Computes a sample of the upper triangular pairwise distance matrix. 
-    Returns an array of distances of close to ``prob * n^2/2`` entries for a database of size ``n``.
-    This method is fine to work in small datasets (not million sized datasets); this method do not return duplicates nor symmetric duplicates
-    
-    - `dist`: Distance function
-    - `X`: input database
-    - `prob`: sampling probability (on the upper triangle pairwise distance matrix)
-    - `samplesize`: if samplesize is given, the it ignores the given probability and computes the necessary `prob` to achieve a value close to `samplesize` 
+    distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64=0.01, samplesize=0) -> S
+
+Computes a sample of the upper triangular pairwise distance matrix.
+Returns an array of distances of close to ``prob \\cdot n^2/2`` entries for a database of size ``n``.
+This method is fine to work with small datasets (not million-sized datasets); this method does not
+return duplicates nor symmetric duplicates.
+
+# Arguments
+- `dist`: distance function
+- `X`: input database
+
+# Keyword Arguments
+- `prob`: sampling probability (on the upper triangle pairwise distance matrix)
+- `samplesize`: if given (`> 0`), it ignores the given probability and computes the necessary `prob` to achieve a sample size close to `samplesize`
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 4, 500))
+S = distsample_ut(dist, X; samplesize=1000)  # ~1000 sampled pairwise distances
+```
 """
 function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64=0.01, samplesize=0)
     n = length(X)
@@ -36,14 +49,29 @@ function distsample_ut(dist::SemiMetric, X::AbstractDatabase; prob::Float64=0.01
 end
 
 """
-    distsample(dist::PreMetric, X::AbstractDatabase; samplesize=sqrt(|X|))
-    
-    Computes a sample of the pairwise distance matrix. 
-    Returns anarray of size `samplesize`
-    
-    - `dist`: Distance function
-    - `X`: input database
-    - `samplesize`: the size of the sample
+    distsample(dist::PreMetric, X::AbstractDatabase; samplesize=ceil(Int, sqrt(length(X)))) -> S
+
+Computes a sample of the pairwise distance matrix by drawing `samplesize` random pairs (with repetition,
+possibly including an object paired with itself) from `X` and evaluating `dist` on each pair.
+Returns an array of size `samplesize`.
+
+# Arguments
+- `dist`: distance function
+- `X`: input database
+
+# Keyword Arguments
+- `samplesize`: the size of the sample
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 4, 500))
+S = distsample(dist, X)          # samplesize defaults to ceil(Int, sqrt(500))
+S2 = distsample(dist, X; samplesize=1000)
+```
 """
 function distsample(dist::PreMetric, X::AbstractDatabase; samplesize=ceil(Int, sqrt(length(X))))
     n = length(X)

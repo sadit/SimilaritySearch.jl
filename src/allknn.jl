@@ -4,25 +4,37 @@ export allknn
 using ProgressMeter
 
 """
-    allknn(index, ctx, k::Integer; minbatch=0, sort=true, show_progress=true) -> knns
+    allknn(index::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort::Bool=true, progress=Progress(length(index); desc="allknn", dt=4)) -> knns
 
-Computes all the k nearest neighbors (all vs all) using the given index. User must remove self references
+Computes all the k nearest neighbors (all vs all) using the given index. Note that each object is its own
+nearest neighbor, so the user is responsible for removing these self references from the output if needed.
 
-# Parameters:
+# Arguments
 - `index`: the index
-- `ctx`: the index's ctx (caches, hyperparameters, logger, etc)
-- Query specification and result:
-   - `k`: the number of neighbors to retrieve
-   - `knns`: an uninitialized IdDist matrix of (k, n) size for storing the `k` nearest neighbors and sitances of the `n` elements
+- `ctx`: the index's context (caches, hyperparameters, logger, etc)
+- `k`: the number of neighbors to retrieve for each object indexed by `index`
 
-- `sort`: ensures that result set is presented in ascending order by distance
-- `show_progress`: enables or disables progress bar
+# Keyword Arguments
+- `sort`: ensures that each result set is presented in ascending order by distance
+- `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
 
-# Returns:
+# Returns
+- `knns`: a `(k, n)` matrix of `IdDist` elements (as created with `zeros(IdDist, k, n)`); the `i`-th column
+  corresponds to the `i`-th object in the dataset. Trailing zeros at the end of a column mean that the
+  retrieval found fewer than the desired `k` neighbors for that object.
 
-- `knns` a (k, n) matrix of `IdDist` elements, i.e., `zeros(IdDist, k, n)`; the i-th column corresponds to the i-th object in the dataset.
-    Zeros can happen to the end of each column meaning that the retrieval was less than the desired `k`
- 
+# Examples
+
+```julia
+using SimilaritySearch
+
+X = MatrixDatabase(rand(Float32, 8, 10^3))
+G = SearchGraph(; dist=Dist.SqL2(), db=X)
+ctx = getcontext(G)
+index!(G, ctx)
+
+knns = allknn(G, ctx, 8)  # (8, 10^3) matrix of `IdDist`
+```
 """
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
     sort::Bool=true,
@@ -33,7 +45,22 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
     allknn(g, ctx, knns; sort, progress)
 end
 
+"""
+    allknn(index::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true, progress=nothing) -> knns
 
+In-place variant of [`allknn`](@ref) that receives a preallocated `(k, n)` matrix of `IdDist` elements
+(e.g., `zeros(IdDist, k, n)`) as output, where `n == length(index)`. Useful to reuse memory across calls
+or to resume/replace previously computed results.
+
+# Arguments
+- `index`: the index
+- `ctx`: the index's context (caches, hyperparameters, logger, etc)
+- `knns`: an output `(k, n)` matrix of `IdDist` elements, `n == length(index)`
+
+# Keyword Arguments
+- `sort`: ensures that each result set is presented in ascending order by distance
+- `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
+"""
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix;
     sort::Bool=true,
     progress=nothing

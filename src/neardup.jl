@@ -3,30 +3,37 @@
 export neardup
 
 """
-    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=get_parallel_block(), filterblocks=true, verbose=true)
-    neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; kwargs...)
+    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, filterblocks=true, verbose=true)
+    neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
 
-Find nearest duplicates in database `X` using the empty index `idx`. The algorithm iteratively try to index elements in `X`,
-and items being near than `ϵ` to some element in `idx` will be ignored.
+Find near duplicates in database `X` using the empty index `idx`. The algorithm iteratively tries to index elements in `X`,
+and items that are nearer than `ϵ` to some already indexed element are not inserted again (they are considered duplicates of it).
 
-The function returns a named tuple `(idx, map, nn, dist)` where:
-- `idx`: it is the index of the non duplicated elements
-- `ctx`: the index's context
-- `map`: a mapping from `|idx|-1` to its positions in `X`
+The two-argument `dist`-based method is a convenience wrapper that builds and manages its own index internally:
+it uses an `ExhaustiveSearch` (exact) when `recall == 1.0`, or otherwise a `SearchGraph` (approximate) tuned to
+approach the given `recall` via `OptimizeParametes(MinRecall(recall))`.
+
+The function returns a named tuple `(idx, map, nn, dist, centers)` where:
+- `idx`: the index of the non duplicated elements
+- `map`: a mapping from `1:length(idx)` to its positions in `X`
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
-- `dist`: an array of distance values to each covering element (correspond to each element in `nn`)
-
+- `dist`: an array of distance values to each covering element (corresponds to each element in `nn`)
+- `centers`: the identifiers of `X` that survived as non-duplicates (i.e., the ``ϵ``-net); sorted for the
+  `idx`-based method, in construction order for the `dist`-based convenience method
 
 # Arguments
-- `idx`: An empty index (i.e., a `SearchGraph`)
+- `idx`: An empty index (e.g., a `SearchGraph` or an `ExhaustiveSearch`) -- only for the `idx`-based method
+- `ctx`: the index's context (caches, hyperparameters, logger, etc) -- only for the `idx`-based method
+- `dist`: the distance function to use -- only for the `dist`-based method
 - `X`: The input dataset
 - `ϵ`: Real value to cut, if negative, then ϵ will be computed using the quantile value at 'abs(ϵ)' in a small sample of nearest neighbor distances; the quantile method should be used only for applications that need some vague approximations to `ϵ`
 
-# Keyword arguments
+# Keyword Arguments
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
-- `blocksize`: the number of items processed at the time
+- `blocksize`: the number of items processed at a time
 - `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), otherwise, it supposes that blocks are free of neardups (e.g., randomized order).
 - `verbose`: controls the verbosity of the function
+- `recall`: (only for the `dist`-based method) target recall used to decide between an exact (`recall=1.0`) or approximate index
 
 # Notes
 - The index `idx` must support incremental construction
@@ -36,6 +43,25 @@ The function returns a named tuple `(idx, map, nn, dist)` where:
    - `length(idx::AbstractSearchIndex)`
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
 - You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
+
+# Examples
+
+```julia
+using SimilaritySearch
+
+dist = Dist.L2()
+X = MatrixDatabase(rand(Float32, 4, 10^3))
+ϵ = 0.1
+
+# using an explicit index
+G = SearchGraph(; dist, db=VectorDatabase(Vector{Float32}[]))
+ctx = SearchGraphContext()
+D = neardup(G, ctx, X, ϵ; blocksize=256)
+D.map, D.nn, D.dist, D.centers
+
+# convenience wrapper (builds its own exact index since recall=1.0)
+D2 = neardup(dist, X, ϵ)
+```
 """
 function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
     dist_ = SimilaritySearch.Dist.Hacks.DistanceWithIdentifiers(dist, X)

@@ -29,8 +29,26 @@ function evaluate(::Hamming, a::T, b::T)::Float64 where {T<:Unsigned}
 end
 
 """
-   RogersTanimoto()
-   
+    RogersTanimoto()
+
+The Rogers-Tanimoto dissimilarity for binary vectors represented as arrays of unsigned
+integers (bit strings), where each bit is a binary attribute. Access via
+`Dist.Bits.RogersTanimoto`.
+
+Using ``tt`` for the number of bits set to one in both `a` and `b`, ``ff`` for the number
+of bits set to zero in both, and ``tf``, ``ft`` for the number of mismatching bits, the
+dissimilarity is defined as
+
+```math
+RT(u, v) = 1 - \\frac{tt + ff}{tt + ff + 2(tf + ft)}
+```
+
+# Examples
+
+```julia
+d = Dist.Bits.RogersTanimoto()
+evaluate(d, u, v)
+```
 """
 struct RogersTanimoto <: Metric end
 
@@ -56,8 +74,26 @@ end
 export RussellRao
 
 """
-   RussellRao()
-   
+    RussellRao()
+
+The Russell-Rao dissimilarity for binary vectors represented as arrays of unsigned
+integers (bit strings), where each bit is a binary attribute. Access via
+`Dist.Bits.RussellRao`.
+
+It measures the fraction of bits set to one in both `a` and `b` (``tt``) with respect
+to the total number of bits ``n`` (computed as `length(a) * 64`, i.e., it assumes
+64-bit words):
+
+```math
+RR(u, v) = 1 - \\frac{tt}{n}
+```
+
+# Examples
+
+```julia
+d = Dist.Bits.RussellRao()
+evaluate(d, u, v)
+```
 """
 struct RussellRao <: PreMetric end
 

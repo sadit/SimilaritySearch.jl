@@ -3,9 +3,27 @@
 export BeamSearchSpace
 
 """
-    BeamSearchSpace(; bsize, Δ, bsize_scale, Δ_scale)
+    BeamSearchSpace(; bsize=2:2:16, Δ=0.9:0.025:1.1, bsize_scale=(...), Δ_scale=(...))
 
-Define search space for beam search autotuning
+Defines the search space explored by [`SearchModels.jl`](https://github.com/sadit/SearchModels.jl)
+when autotuning `BeamSearch`'s hyperparameters, used by [`optimize_index!`](@ref) (through
+[`OptimizeParameters`](@ref)).
+
+# Keyword Arguments
+- `bsize`: range of candidate values for `BeamSearch`'s `bsize` (beam size) hyperparameter.
+- `Δ`: range of candidate values for `BeamSearch`'s `Δ` (soft margin) hyperparameter; this
+  strongly depends on the dataset, so it may need to be adjusted.
+- `bsize_scale`: named tuple of scaling parameters `(s, p1, p2, lower, upper)` passed to
+  `SearchModels.scale` to mutate `bsize` values.
+- `Δ_scale`: named tuple of scaling parameters `(s, p1, p2, lower, upper)` passed to
+  `SearchModels.scale` to mutate `Δ` values.
+
+# Examples
+
+```julia
+space = BeamSearchSpace(; bsize=2:2:32)
+optimize_index!(index, ctx; space)
+```
 """
 @kwdef struct BeamSearchSpace <: AbstractSolutionSpace
     bsize = 2:2:16
@@ -19,12 +37,22 @@ Base.isequal(a::BeamSearch, b::BeamSearch) = a.bsize == b.bsize && a.Δ == b.Δ
 Base.eltype(::BeamSearchSpace) = BeamSearch
 Base.rand(rng::AbstractRNG, space::BeamSearchSpace) = BeamSearch(bsize=rand(rng, space.bsize), Δ=rand(rng, space.Δ))
 
+"""
+    combine(a::BeamSearch, b::BeamSearch)
+
+`SearchModels.jl` hook: creates a new `BeamSearch` configuration by averaging `a` and `b`'s hyperparameters. Internal function.
+"""
 function combine(a::BeamSearch, b::BeamSearch)
     bsize = ceil(Int, (a.bsize + b.bsize) / 2)
     Δ = round((a.Δ + b.Δ) / 2, digits=2)
     BeamSearch(; bsize, Δ)
 end
 
+"""
+    mutate(space::BeamSearchSpace, c::BeamSearch, iter)
+
+`SearchModels.jl` hook: creates a new `BeamSearch` configuration by randomly perturbing `c`'s hyperparameters within `space`. Internal function.
+"""
 function mutate(space::BeamSearchSpace, c::BeamSearch, iter)
     bsize = SearchModels.scale(c.bsize; space.bsize_scale...)
     Δ = SearchModels.scale(c.Δ; space.Δ_scale...)
@@ -98,14 +126,29 @@ function OptimizeParameters(kind=MinRecall(0.9);
     OptimizeParameters(kind, initialpopulation, maxiters, bsize, mutbsize, crossbsize, maxpopulation, ksearch, queries, numqueries, space)
 end
 
+"""
+    optimization_space(index::SearchGraph)
+
+Returns the default [`BeamSearchSpace`](@ref) used to autotune `index`'s search algorithm. Internal function.
+"""
 optimization_space(index::SearchGraph) = BeamSearchSpace()
 
+"""
+    setconfig!(bs::BeamSearch, index::SearchGraph, perf)
+
+Installs `bs` as `index`'s search algorithm, after adjusting its `maxvisits` limit from the observed performance `perf`. Internal function, used by [`optimize_index!`](@ref) to apply the best found configuration.
+"""
 function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
     @reset bs.maxvisits = ceil(Int, 2 * perf.visited[end])
     @assert bs.maxvisits > 0
     index.algo[] = bs
 end
 
+"""
+    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
+
+Runs a single query `q` search using the candidate configuration `bs` (with `maxvisits` doubled with respect to `index`'s current algorithm). Internal function, used while evaluating candidate configurations during optimization.
+"""
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
     @reset bs.maxvisits = 2 * index.algo[].maxvisits
     vstate = getvstate(length(index), ctx)
