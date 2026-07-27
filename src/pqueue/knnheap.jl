@@ -38,11 +38,11 @@ end
 "Number of distance evaluations charged to `res`."
 @inline distance_evaluations(res::KnnHeap) = res.costdist
 "Number of block evaluations charged to `res`."
-@inline blocks_evaluations(res::KnnHeap) = res.costblk
+@inline block_evaluations(res::KnnHeap) = res.costblk
 "Adds `v` to the distance-evaluations counter of `res`."
 @inline add_distance_evaluations!(res::KnnHeap, v) = (res.costdist += v)
 "Adds `v` to the block-evaluations counter of `res`."
-@inline add_blocks_evaluations!(res::KnnHeap, v) = (res.costblk += v)
+@inline add_block_evaluations!(res::KnnHeap, v) = (res.costblk += v)
 
 "Number of active items currently stored in `res`."
 @inline Base.length(res::KnnHeap) = res.len
@@ -161,7 +161,7 @@ existing memory buffers instead of allocating a new result set.
 """
 @inline function reuse!(res::KnnHeap, maxlen::Int=length(res.items))
     @assert maxlen <= length(res.items)
-    res.min = zero(idweight)
+    res.min = zero(IdDist)
     res.len = 0
     res.maxlen = maxlen
     res.costdist = 0

@@ -1,4 +1,4 @@
-export SQu8, SQu8Vec
+export SQu8, SQu8Vec, SQu8L1, SQu8L2, SQu8SqL2, SQu8NormCosine
 
 ### note we need to avoid overflows in high dimensional vectors (i.e., accumulated squared differences like 127^2)
 

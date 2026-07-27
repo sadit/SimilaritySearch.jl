@@ -73,7 +73,7 @@ rerank!(exact_dist, X, Q, knns)  # refines knns in place using the exact distanc
 """
 function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabase, knns::AbstractMatrix{IdDist})
     m = length(queries)
-    minbatch = getminbatch(m, Threads.nthreads(), 0)
+    minbatch = getminbatch(m)
     @batch per=thread minbatch=minbatch for i in 1:m
         res = view(knns, :, i)
         rerank!(dist, db, queries[i], res)

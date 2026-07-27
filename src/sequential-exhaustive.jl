@@ -8,7 +8,7 @@ export ExhaustiveSearch, search
     struct ExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
 
     ExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
-    ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 A brute-force (sequential) exact index that solves queries by evaluating `dist` between the query and every
 element in `db`. Useful as a gold-standard baseline or for small datasets where an approximate index is not
@@ -17,11 +17,6 @@ worth its construction cost.
 # Arguments
 - `dist`: the distance function
 - `db`: the database being indexed
-
-!!! note
-    The keyword constructor's default `dist=SqL2Distance()` refers to an identifier that is not defined
-    anywhere in this package; calling `ExhaustiveSearch()` with no arguments currently throws `UndefVarError`.
-    Always pass `dist` explicitly (e.g. `dist=Dist.SqL2()`) until this is fixed.
 """
 struct ExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
@@ -34,17 +29,13 @@ end
 @inline Base.length(seq::ExhaustiveSearch) = length(seq.db)
 
 """
-    ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 Keyword constructor for [`ExhaustiveSearch`](@ref).
 
 # Keyword Arguments
 - `dist`: the distance function
 - `db`: the database being indexed
-
-!!! note
-    The default `dist=SqL2Distance()` is currently broken (undefined identifier); always pass `dist` explicitly,
-    e.g. `dist=Dist.SqL2()`, as shown below.
 
 # Examples
 
@@ -59,7 +50,7 @@ ctx = getcontext(E)
 knns = searchbatch(E, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
 ```
 """
-function ExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+function ExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
     ExhaustiveSearch(dist, db)
 end
 

@@ -68,7 +68,6 @@ neighbors(sadj, 2)  # => view of Int32[1]
 """
 function StaticAdjList(adj::AbstractAdjList{T}) where T
     n = length(adj)
-    @show n
     offset = Vector{Int64}(undef, n)
     end_point = let N = sum(length(N) for (_, N) in adj)
         Vector{T}(undef, N)

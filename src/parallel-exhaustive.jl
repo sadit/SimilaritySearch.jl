@@ -9,7 +9,7 @@ export ParallelExhaustiveSearch, search
 
     ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
     ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat)
-    ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
 against every element of `db` in parallel (across `Threads.nthreads()` tasks), using an internal lock to
@@ -22,11 +22,6 @@ compete for the same thread pool.
 # Arguments
 - `dist`: the distance function
 - `db`: the database being indexed, given either as an `AbstractDatabase` or as a raw vector/matrix
-
-!!! note
-    The keyword constructor's default `dist=SqL2Distance()` refers to an identifier that is not defined
-    anywhere in this package; calling `ParallelExhaustiveSearch()` with no arguments currently throws
-    `UndefVarError`. Always pass `dist` explicitly (e.g. `dist=Dist.SqL2()`) until this is fixed.
 """
 struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
@@ -38,17 +33,13 @@ ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat) = ParallelExhaus
 ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase) = ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 
 """
-    ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+    ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 Keyword constructor for [`ParallelExhaustiveSearch`](@ref).
 
 # Keyword Arguments
 - `dist`: the distance function
 - `db`: the database being indexed
-
-!!! note
-    The default `dist=SqL2Distance()` is currently broken (undefined identifier); always pass `dist` explicitly,
-    e.g. `dist=Dist.SqL2()`, as shown below.
 
 # Examples
 
@@ -63,7 +54,7 @@ ctx = getcontext(P)
 knns = searchbatch(P, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
 ```
 """
-function ParallelExhaustiveSearch(; dist=SqL2Distance(), db=VectorDatabase{Float32}())
+function ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
     ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 

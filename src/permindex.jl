@@ -37,7 +37,14 @@ PermutedSearchIndex(; index, π, π′=invperm(π)) = PermutedSearchIndex(index,
 @inline distance(p::PermutedSearchIndex) = distance(p.index)
 @inline Base.length(p::PermutedSearchIndex) = length(p.index)
 
-function search(p::PermutedSearchIndex, ctx::AbstractContext, res)
+"""
+    search(p::PermutedSearchIndex, ctx::AbstractContext, q, res) -> res
+
+Solves query `q` against the wrapped `p.index`, then remaps each result's identifier from
+internal (`p.index`) space to external (`p.π`) space, so callers always see identifiers
+relative to the original, unpermuted dataset.
+"""
+function search(p::PermutedSearchIndex, ctx::AbstractContext, q, res)
     out = search(p.index, ctx, q, res)
     @inbounds for i in eachindex(res.items)
         x = res.items[i]

@@ -157,11 +157,11 @@ sparse(adj::AbstractAdjList{IdIntDist}) = sparse_from_adj(adj, Int32, Int32)
 
 # Internal helper (not exported) used by the `sparse(::AbstractAdjList{IdDist})` /
 # `sparse(::AbstractAdjList{IdIntDist})` methods above to build the `I`, `J`, `F` triplet passed
-# to `SparseArrays.sparse`. Left without a full docstring pending review of this code path.
+# to `SparseArrays.sparse`.
 function sparse_from_adj(adj::AbstractAdjList, IType, FType)
     n = length(adj)
     I = IType[]
-    J = JType[]
+    J = IType[]
     F = FType[]
     sizehint!(I, n)
     sizehint!(J, n)

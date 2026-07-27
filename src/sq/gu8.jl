@@ -46,13 +46,6 @@ julia> Q = ScalarQuant.sq_global_u8(X; minmax=(0f0, 1f0));  # explicit range
 
 julia> size(Q), eltype(Q)  # (8, 1000), UInt8
 ```
-
-!!! note
-    The default `minmax=nothing` path estimates the range via `quantile` on a sample of
-    `X`; as of this writing `ScalarQuant` does not import `quantile` (from `Statistics`
-    or `StatsBase`), so calling `sq_global_u8` without an explicit `minmax` currently
-    raises an `UndefVarError`. Passing `minmax` explicitly, as in the example above,
-    avoids this code path.
 """
 function sq_global_u8(X::AbstractMatrix;
         minmax=nothing,
