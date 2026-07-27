@@ -8,7 +8,7 @@ using SimilaritySearch, Random, Test
     hints_size = ceil(Int, sqrt(n))
     ksearch = 8
     ksize = 8
-    n_neighbors = 3
+    n_neighbors = 4
 
     dist = Dist.SqL2()
 
@@ -21,7 +21,7 @@ using SimilaritySearch, Random, Test
 
     @testset "index! :knr with :fft" begin
         graph = SearchGraph(dist, db)
-        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:fft, hints_size, n_neighbors, min_link=1)
+        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:fft, hints_size, n_neighbors, start_factor=0.97)
         @test length(graph) == n
         @test distance(graph) == dist
 
@@ -35,7 +35,7 @@ using SimilaritySearch, Random, Test
 
     @testset "index! :knr with :random" begin
         graph = SearchGraph(dist, db)
-        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:random, hints_size, n_neighbors, min_link=1)
+        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:random, hints_size, n_neighbors, start_factor=0.97)
         @test length(graph) == n
         @test distance(graph) == dist
 

@@ -26,7 +26,7 @@ function sample_other_subgroup_element(groups::Vector{Vector{UInt32}}, current_g
 end
 
 """
-    link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters::Dict, n_neighbors::Integer)
+    link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters, n_neighbors::Integer)
 
 Links newly merged sub-groups at the current prefix level:
 1. Connects the first element of each merged sub-group to the first element of `groups[1]`.
@@ -34,7 +34,7 @@ Links newly merged sub-groups at the current prefix level:
 Sub-groups that were already merged in previous steps are deduplicated via `Set` and not re-linked internally.
 All links are non-directed (undirected).
 """
-function link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters::Dict, n_neighbors::Integer)
+function link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters, n_neighbors::Integer)
     for groups_set in values(clusters)
         m = length(groups_set)
         m <= 1 && continue
@@ -42,7 +42,7 @@ function link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters::Dict, n_neighbo
 
         # 1. Connect first element of each sub-group to first element of groups[1]
         main_rep = first(groups[1])
-        @inbounds for i in 2:m
+        for i in 2:m
             g_rep = first(groups[i])
             if g_rep != main_rep
                 push!(adj_sets[g_rep], main_rep)
@@ -52,7 +52,7 @@ function link_clusters!(adj_sets::Vector{Set{UInt32}}, clusters::Dict, n_neighbo
 
         # 2. Connect elements to n_neighbors random elements in OTHER sub-groups
         if n_neighbors > 0
-            @inbounds for gi_idx in 1:m
+            for gi_idx in 1:m
                 gi = groups[gi_idx]
                 for u in gi
                     for _ in 1:n_neighbors
@@ -85,7 +85,7 @@ end
     index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:knr}, knr::Matrix{IdDist};
         n_neighbors::Integer=2,
         hints_size::Int=100,
-        min_link::Int=1,
+        start_factor::Float64=0.97,
     )
 
 Fast non-incremental construction of a `SearchGraph` index using hierarchical combination clusters of nearest references.
@@ -95,7 +95,8 @@ length `L+1` keys. Duplicate sub-clusters are deduplicated using `Set` before li
 function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix{IdDist};
     n_neighbors::Integer=2,
     hints_size::Int=100,
-    min_link::Int=1,
+    expansion_limit::Int=16,
+    start_factor::Float64=0.97,
 )
     k, n = size(knr)
     length(idx) == 0 || throw(ArgumentError("This construction method accepts only not previously created graphs"))
@@ -103,58 +104,59 @@ function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr}, knr::Matrix
     n > size(knr, 1) >= k >= 1 || throw(ArgumentError("The following must be ensured: |db| > numrefs >= k >= 1"))
     n >= hints_size || throw(ArgumentError("hints_size cannot be larger than the dataset"))
     n_neighbors >= 0 || throw(ArgumentError("n_neighbors must be non-negative"))
-    min_link >= 0 || throw(ArgumentError("min_link must be non-negative"))
+    start_factor >= 0 || throw(ArgumentError("start_factor must be non-negative"))
+    expansion_limit >= 2 || throw(ArgumentError("expansion_limit must be >= 2"))
 
     adj_sets = [Set{UInt32}() for _ in 1:n]
 
     # Initial grouping by longest prefix length L = k (each object starts in a 1-element vector)
 
-    local flat_clusters
+    flat_clusters = nothing
     while k >= 1
-        clusters = Dict{NTuple{k,UInt32},Vector{Vector{UInt32}}}()
+        flat_clusters = Dict{NTuple{k,UInt32},Vector{UInt32}}()
         for objID in 1:n
             prefix = ntuple(i -> knr[i, objID].id, k)
-            L = get(clusters, prefix, nothing)
-            if L === nothing
-                clusters[prefix] = Vector{UInt32}[UInt32[objID]]
-            else
-                push!(L[1], objID)
-            end
+            L = get!(Vector{UInt32}, flat_clusters, prefix)
+            push!(L, objID)
         end
 
-        np = length(clusters)
+        np = length(flat_clusters)
 
         @info "k=$k, np=$np"
-        if np > 0.97 * length(adj_sets)
+        
+        if np > start_factor * n
             k -= 1
-            for a in adj_sets
-                empty!(a)
-            end
         else
-            link_clusters!(adj_sets, clusters, n_neighbors)
-            flat_clusters = flatten_clusters(clusters)
+            link_clusters!(adj_sets, [[v] for v in values(flat_clusters)], n_neighbors)
             break
         end
     end
 
-
     # Hierarchical merging down from L = k - 1 to 1 using combinations of size L from L+1 keys
 
+    #LOCKS = [Threads.SpinLock() for _ in 1:n]
     for L in (k-1):-1:1
         next_clusters = Dict{NTuple{L,UInt32},Base.IdSet{Vector{UInt32}}}()
+        @info "BEFORE QUANT flat_clusters:" => quantile(length.(values(flat_clusters)), 0:0.1:1)
         for (key, flat_group) in flat_clusters
-            for i in 1:(L+1)
-                sub_key = omit_element(key, i)
+            if length(flat_group) > expansion_limit
+                sub_key = omit_element(key, 0)
                 push!(get!(Base.IdSet{Vector{UInt32}}, next_clusters, sub_key), flat_group)
+            else
+                for i in 1:(L+1)
+                    sub_key = omit_element(key, i)
+                    push!(get!(Base.IdSet{Vector{UInt32}}, next_clusters, sub_key), flat_group)
+                end
             end
         end
 
         link_clusters!(adj_sets, next_clusters, n_neighbors)
         flat_clusters = flatten_clusters(next_clusters)
+        @info "AFTER QUANT flat_clusters:" => quantile(length.(values(flat_clusters)), 0:0.1:1)
 
         quant = quantile(length.(adj_sets), 0:0.1:1)
         @show quant
-        first(quant) >= min_link && break
+        first(quant) >= 1 && break
     end
 
     # Hints selection based on highest node degrees
@@ -184,7 +186,7 @@ end
         sample_method::Symbol=:fft,
         n_neighbors::Integer=2,
         hints_size::Int=100,
-        min_link::Int=1,
+        start_factor::Float64=0.97,
         verbose::Bool=true
     )
 
@@ -196,7 +198,7 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:knr};
     sample_method::Symbol=:fft, #:random, :fft
     n_neighbors::Integer=2,
     hints_size::Int=100,
-    min_link::Int=1,
+    start_factor::Float64=0.97,
     verbose::Bool=true
 )
     dist = distance(idx)
@@ -219,5 +221,5 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:knr};
     seq = ExhaustiveSearch(dist, refs_db)
     ectx = GenericContext(KnnSorted)
     knr = searchbatch(seq, ectx, db, k) # size (k, n)
-    index!(idx, ctx, kind, knr; n_neighbors, hints_size, min_link)
+    index!(idx, ctx, kind, knr; n_neighbors, hints_size, start_factor)
 end
