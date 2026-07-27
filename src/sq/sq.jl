@@ -23,6 +23,7 @@ struct SQMinC
 end
 
 include("gu8.jl")
+include("gu4.jl")
 include("u8.jl")
 include("u4.jl")
 include("u2.jl")

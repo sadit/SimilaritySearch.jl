@@ -218,6 +218,11 @@ ScalarQuant.SQu4Vec
 ScalarQuant.SQu8
 ScalarQuant.SQu8Vec
 ScalarQuant.sq_global_u8
+ScalarQuant.SQgu8NormCosine
+ScalarQuant.SQgu8SqL2
+ScalarQuant.sq_global_u4
+ScalarQuant.SQgu4NormCosine
+ScalarQuant.SQgu4SqL2
 ```
 
 ## Random projections (`Special.Projections` submodule)
