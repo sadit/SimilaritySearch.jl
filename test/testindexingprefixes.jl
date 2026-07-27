@@ -2,14 +2,13 @@
 
 using SimilaritySearch, Random, Test
 
-@testset "index! by :prefixes" begin
-    dim, n, m = 16, 1000_000, 100
-    numrefs = 128
+@testset "index! by :knr" begin
+    dim, n, m = 8, 100_000, 100
+    numrefs = 512
     hints_size = ceil(Int, sqrt(n))
-    bpow = 0.75
-    ksearch = 12
-    ksize = 4
-    comb_list = [2] # linked to ksize of the knr and should be used to achieve the desired threadoff
+    ksearch = 8
+    ksize = 8
+    n_neighbors = 3
 
     dist = Dist.SqL2()
 
@@ -20,41 +19,31 @@ using SimilaritySearch, Random, Test
     seq = ExhaustiveSearch(dist, db)
     gold_knns = searchbatch(seq, GenericContext(), queries, ksearch)
 
-
-    #=@testset "SearchGraph base" begin
+    @testset "index! :knr with :fft" begin
         graph = SearchGraph(dist, db)
-        @time "Graph construction" index!(graph, ctx)
+        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:fft, hints_size, n_neighbors, min_link=1)
         @test length(graph) == n
         @test distance(graph) == dist
 
+        #@time "rebuild" graph = rebuild(graph, ctx)
+        #optimize_index!(graph, ctx, MinRecall(0.85); queries, ksearch)
         @time "search" knns = searchbatch(graph, ctx, queries, ksearch)
         recall = macrorecall(gold_knns, knns)
-        @info "plain SearchGraph recall: $recall"
-        @test recall >= 0.4
-    end=#
-
-    @testset "index! :prefixes with :fft" begin
-        graph = SearchGraph(dist, db)
-        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:fft, hints_size, bpow, comb_list)
-        @test length(graph) == n
-        @test distance(graph) == dist
-
-        @time "search" knns = searchbatch(graph, ctx, queries, ksearch)
-        recall = macrorecall(gold_knns, knns)
-        @info "prefixes (:fft) recall: $recall"
-        @test recall >= 0.4
+        @info "knr (:fft + rebuild) recall: $recall"
+        @test recall >= 0.7
     end
 
-    @testset "index! :prefixes with :random" begin
+    @testset "index! :knr with :random" begin
         graph = SearchGraph(dist, db)
-        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:random, hints_size, bpow, comb_list)
+        @time "Graph construction" index!(graph, ctx, :knr; numrefs, k=ksize, sample_method=:random, hints_size, n_neighbors, min_link=1)
         @test length(graph) == n
         @test distance(graph) == dist
 
-        #optimize_index!(graph, ctx, MinRecall(0.9); queries, ksearch)
+        #@time "rebuild" graph = rebuild(graph, ctx)
+        #optimize_index!(graph, ctx, MinRecall(0.85); queries, ksearch)
         @time "search" knns = searchbatch(graph, ctx, queries, ksearch)
         recall = macrorecall(gold_knns, knns)
-        @info "prefixes (:random) recall: $recall"
-        @test recall >= 0.4
+        @info "knr (:random + rebuild) recall: $recall"
+        @test recall >= 0.7
     end
 end
