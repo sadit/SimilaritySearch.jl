@@ -267,3 +267,17 @@ Special.Projections.indim
 Special.Projections.transform
 Special.Projections.transform!
 ```
+
+## Hadamard projection (`Special.HadamardProjection` submodule)
+
+A dimensionality-reduction projection computed with the fast Walsh-Hadamard transform
+(via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht`) instead of a dense
+random matrix.
+
+```@docs
+Special.HadamardProjection.Projection
+Special.HadamardProjection.outdim
+Special.HadamardProjection.indim
+Special.HadamardProjection.transform
+Special.HadamardProjection.transform!
+```
