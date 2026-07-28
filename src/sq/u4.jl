@@ -1,26 +1,34 @@
-export SQu4, SQu4Vec, SQu4L1, SQu4L2, SQu4SqL2
+"""
+    SQu4
 
+Per-vector (per-column) 4-bit scalar quantization: [`quantize`](@ref SQu4.quantize) packs
+two 4-bit codes per `UInt8`, each column keeping its own `min`/scale computed from its
+extrema. Accessed as `ScalarQuant.SQu4.quantize`, etc.
+"""
+module SQu4
+
+export quantize, SQu4Vec, SQu4Database, L1, L2, SqL2
+
+using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch
+using Polyester
+import Distances: evaluate
 
 function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32, c::Float32)
-    m = length(v)
+    m = length(v)  # even, guaranteed by `quantize`/`SQu4Vec`
     k = 1
     j = 1
     @inbounds while j <= m
         a = round((v[j] - min) * c; digits=0)
         a = UInt8(clamp(a, 0, 15))
-        b = zero(UInt8)
-        if j+1 <= m
-            b = let b = round((v[j+1] - min) * c; digits=0)
-                UInt8(clamp(b, 0, 15))
-            end
-        end
-    
+        b = round((v[j+1] - min) * c; digits=0)
+        b = UInt8(clamp(b, 0, 15))
+
         vout[k] = a | (b << 4)
         j += 2
         k += 1
     end
 
-    vout    
+    vout
 end
 
 function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=1f-6)
@@ -43,7 +51,15 @@ This type is the element produced by indexing a [`SQu4`](@ref) database; it is n
 not created directly by users.
 
 # Arguments
-- `v`: the input vector to quantize
+- `v`: the input vector to quantize; `length(v)` must be a multiple of `2` (throws
+  `ArgumentError` otherwise), since 2 coordinates are packed into each `UInt8`. Pad `v`
+  with an extra coordinate if needed.
+
+!!! note
+    If `v` needs padding, any plain (non-quantized) vector later compared against the
+    resulting `SQu4Vec` via [`L1`](@ref)/[`L2`](@ref)/[`SqL2`](@ref) (e.g. a query vector)
+    must be padded to that same length too, since those distances index the plain vector
+    positionally and do not know about the padding.
 """
 struct SQu4Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
@@ -51,7 +67,8 @@ struct SQu4Vec{VEC<:AbstractVector{UInt8}}
 end
 
 function SQu4Vec(v::AbstractVector)
-    vout = Vector{UInt8}(undef, ceil(Int, length(v) / 2))
+    length(v) % 2 == 0 || throw(ArgumentError("SQu4Vec: length(v) = $(length(v)) must be a multiple of 2 (2 coordinates are packed per UInt8)"))
+    vout = Vector{UInt8}(undef, length(v) ÷ 2)
     minc = quant_u4!(vout, v)
     SQu4Vec(minc, vout)
 end
@@ -80,7 +97,7 @@ Base.eltype(::SQu4Vec) = Float32
 Base.eltype(::Type{T}) where {T<:SQu4Vec} = Float32
 
 """
-    SQu4(X::AbstractMatrix)
+    quantize(X::AbstractMatrix)
 
 Scalar-quantizes each column (vector) of `X` to 4 bits per coordinate, packing two
 codes into each `UInt8`. This reduces the memory footprint of a database of vectors by
@@ -89,12 +106,20 @@ is quantized independently using its own minimum and scale factor, computed from
 extrema of the column so that the whole range `[min, max]` is mapped to the codes
 `\\{0, 1, \\ldots, 15\\}`.
 
-`SQu4` implements the `AbstractDatabase` interface, i.e., `length(db)` gives the number
+`quantize` wraps `SQu4Database` that implements the `AbstractDatabase` interface, i.e., `length(db)` gives the number
 of vectors and `db[i]` returns the `i`-th vector as a [`SQu4Vec`](@ref) that can be
 indexed to retrieve dequantized `Float32` coordinates.
 
 # Arguments
-- `X`: a matrix whose columns are the vectors to be quantized
+- `X`: a matrix whose columns are the vectors to be quantized; `size(X, 1)` (the
+  dimension) must be a multiple of `2` (throws `ArgumentError` otherwise), since 2
+  coordinates are packed into each `UInt8`. Pad `X` with an extra row if needed.
+
+!!! note
+    If `X` needs padding, any plain (non-quantized) query vectors later compared against
+    the resulting database via [`L1`](@ref)/[`L2`](@ref)/[`SqL2`](@ref) must be padded to
+    that same (padded) dimension too, since those distances index the plain vector
+    positionally and do not know about the padding.
 
 # Examples
 
@@ -103,18 +128,23 @@ julia> using SimilaritySearch
 
 julia> X = rand(Float32, 8, 1000);
 
-julia> db = ScalarQuant.SQu4(X);
+julia> db = ScalarQuant.SQu4.quantize(X);
 
 julia> db[1][1]  # dequantized approximation of X[1, 1]
 ```
 """
-struct SQu4 <: AbstractDatabase
+function quantize(X::AbstractMatrix)
+    SQu4Database(X)
+end
+
+struct SQu4Database <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
 
-    function SQu4(X::AbstractMatrix)
+    function SQu4Database(X::AbstractMatrix)
         m, n = size(X)
-        Q = Matrix{UInt8}(undef, ceil(Int, m / 2), n)
+        m % 2 == 0 || throw(ArgumentError("SQu4.quantize: size(X, 1) = $m must be a multiple of 2 (2 coordinates are packed per UInt8)"))
+        Q = Matrix{UInt8}(undef, m ÷ 2, n)
         E = Vector{SQMinC}(undef, n)
         minbatch = getminbatch(n)
         @batch per=thread minbatch=minbatch for i in 1:n
@@ -125,10 +155,10 @@ struct SQu4 <: AbstractDatabase
     end
 end
 
-Base.eltype(Q::SQu4) = typeof(Q[1])
-Base.length(Q::SQu4) = size(Q.Q, 2)
+Base.eltype(Q::SQu4Database) = typeof(Q[1])
+Base.length(Q::SQu4Database) = size(Q.Q, 2)
 
-Base.@propagate_inbounds function Base.getindex(Q::SQu4, i::Integer) 
+Base.@propagate_inbounds function Base.getindex(Q::SQu4Database, i::Integer) 
    SQu4Vec(Q.E[i], view(Q.Q, :, i))
 end
 
@@ -136,15 +166,15 @@ end
 ### distances
 
 """
-    SQu4L1()
+    L1()
 
 The Manhattan (``L_1``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)).
 `evaluate` dequantizes both codes coordinate by coordinate and accumulates the absolute
 value of their difference.
 """
-struct SQu4L1 <: Metric end
+struct L1 <: Metric end
 
-@inline function evaluate(::SQu4L1, A::SQu4Vec, B::SQu4Vec)::Float32
+@inline function evaluate(::L1, A::SQu4Vec, B::SQu4Vec)::Float32
     d = zero(Float32)
     n = length(A.V)
 
@@ -184,15 +214,11 @@ end
 
 function squared_euclidean(A::SQu4Vec, B)::Float32
     d = zero(Float32)
-    n = length(A.V)
-    odd = isodd(length(A))
-    if odd
-        n -= 1
-    end
+    n = length(A.V)  # == length(B) ÷ 2, exact (see `quantize`/`SQu4Vec`)
 
     @inbounds @simd for i in 1:n
         a = A.V[i]
-        j = (i+1)>>1
+        j = 2i - 1
         af = Float32(a & 0x0f) * A.E.c + A.E.min
         bf = B[j]
         m = (af - bf)^2
@@ -203,41 +229,33 @@ function squared_euclidean(A::SQu4Vec, B)::Float32
         d += m
     end
 
-    if odd
-        i = n + 1
-        a = A.V[i]
-        j = (i+1)>>1
-        af = Float32(a & 0x0f) * A.E.c + A.E.min
-        bf = B[j]
-        m = (af - bf)^2
-        d += m
-    end
-
     d
 end
 
 squared_euclidean(a, b::SQu4Vec) = squared_euclidean(b, a)
 
 """
-    SQu4L2()
+    L2()
 
 The Euclidean (``L_2``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
 or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
-coordinate, accumulates the squared differences (see [`SQu4SqL2`](@ref)), and returns its
+coordinate, accumulates the squared differences (see [`SqL2`](@ref)), and returns its
 square root.
 """
-struct SQu4L2 <: Metric end
+struct L2 <: Metric end
 
-@inline evaluate(::SQu4L2, a, b) = sqrt(squared_euclidean(a, b))
+@inline evaluate(::L2, a, b) = sqrt(squared_euclidean(a, b))
 
 """
-    SQu4SqL2()
+    SqL2()
 
 The squared Euclidean distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
 or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
 coordinate and accumulates the squared differences `(af - bf)^2`, avoiding the
-square root computed by [`SQu4L2`](@ref).
+square root computed by [`L2`](@ref).
 """
-struct SQu4SqL2 <: Metric end
+struct SqL2 <: Metric end
 
-@inline evaluate(::SQu4SqL2, a, b)::Float32 = squared_euclidean(a, b)
+@inline evaluate(::SqL2, a, b)::Float32 = squared_euclidean(a, b)
+
+end

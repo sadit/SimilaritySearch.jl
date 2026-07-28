@@ -1,4 +1,20 @@
-export sq_global_u4, SQgu4NormCosine, SQgu4SqL2
+"""
+    SQgu4
+
+Global (database-wide) 4-bit scalar quantization: [`quantize`](@ref SQgu4.quantize) maps
+every coordinate of every vector using a single shared `min`/scale pair, packing two
+4-bit codes per `UInt8`, and [`NormCosine`](@ref SQgu4.NormCosine)/[`SqL2`](@ref
+SQgu4.SqL2) compare the resulting codes directly with SIMD. Accessed as
+`ScalarQuant.SQgu4.quantize`, etc.
+"""
+module SQgu4
+
+export quantize, NormCosine, SqL2
+
+using ..ScalarQuant: getminbatch, Dist
+using Statistics: quantile
+using Polyester
+using SIMD
 
 "Quantizes `v` into `vout` (two 4-bit codes packed per `UInt8`) using the global `min`/scale `c`; returns `vout`."
 function quant_global_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32, c::Float32)
@@ -24,18 +40,18 @@ function quant_global_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::F
 end
 
 """
-    sq_global_u4(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
 
 Scalar-quantizes every entry of `X` to 4 bits using a single, global pair of
-dequantization parameters shared by all columns, unlike [`SQu4`](@ref) which computes an
-independent `min`/scale per column. As with [`sq_global_u8`](@ref), this is useful when
-the columns of `X` share a comparable value range, since a single global range provides
-enough precision while being cheaper to compute and store.
+dequantization parameters shared by all columns, unlike [`SQu4`](@ref ScalarQuant.SQu4)'s `quantize`
+which computes an independent `min`/scale per column. As with [`SQgu8`](@ref ScalarQuant.SQgu8)'s
+`quantize`, this is useful when the columns of `X` share a comparable value range, since
+a single global range provides enough precision while being cheaper to compute and store.
 
-Codes are packed two per `UInt8` (low nibble, high nibble), exactly like [`SQu4`](@ref),
+Codes are packed two per `UInt8` (low nibble, high nibble), exactly like [`SQu4`](@ref ScalarQuant.SQu4)'s,
 so the returned matrix has `ceil(Int, size(X, 1) / 2)` rows. Packing pairs of dimensions
 into a single byte, combined with a *global* (rather than per-column) `min`/scale, lets
-[`SQgu4SqL2`](@ref) and [`SQgu4NormCosine`](@ref) operate directly on the packed codes
+[`SqL2`](@ref) and [`NormCosine`](@ref) operate directly on the packed codes
 with SIMD, without any per-element dequantization: since every column shares the same
 affine mapping, comparisons and (squared) differences computed in code space are already
 proportional to the ones in the original space.
@@ -63,12 +79,12 @@ julia> using SimilaritySearch
 
 julia> X = rand(Float32, 8, 1000);
 
-julia> Q = ScalarQuant.sq_global_u4(X; minmax=(0f0, 1f0));  # explicit range
+julia> Q = ScalarQuant.SQgu4.quantize(X; minmax=(0f0, 1f0));  # explicit range
 
 julia> size(Q), eltype(Q)  # (4, 1000), UInt8
 ```
 """
-function sq_global_u4(X::AbstractMatrix;
+function quantize(X::AbstractMatrix;
         minmax=nothing,
         quant=[0.025, 0.975],
         samplesize=0
@@ -102,22 +118,21 @@ end
 ### the following SIMD kernels follow the same unroll/accumulate scheme as gu8.jl,
 ### but each `UInt8` holds two packed 4-bit codes (low nibble / high nibble) that must be
 ### unpacked before being combined
-using SIMD
 
 """
-    SQgu4NormCosine()
+    NormCosine()
 
-Dissimilarity between two vectors quantized with [`sq_global_u4`](@ref) (nibble-packed,
+Dissimilarity between two vectors quantized with [`quantize`](@ref) (nibble-packed,
 globally-scaled 4-bit codes), computed as the negative dot product of the raw packed
 codes. Since both vectors share the same global `min`/scale, the dot product of codes is
 an affine, order-preserving proxy of the dot product of the original (typically
 pre-normalized) vectors, so no per-element dequantization is needed. `evaluate` unpacks
 each byte into its low and high nibble and accumulates their products with SIMD.
 """
-struct SQgu4NormCosine <: Dist.SemiMetric
+struct NormCosine <: Dist.SemiMetric
 end
 
-function Dist.evaluate(::SQgu4NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
+function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
 
     # N=16: each byte expands into two 32-bit lanes (low + high nibble), so N=16 keeps
@@ -193,19 +208,19 @@ function Dist.evaluate(::SQgu4NormCosine, x::AbstractArray{UInt8}, y::AbstractAr
 end
 
 """
-    SQgu4SqL2()
+    SqL2()
 
-Squared Euclidean distance between two vectors quantized with [`sq_global_u4`](@ref)
+Squared Euclidean distance between two vectors quantized with [`quantize`](@ref)
 (nibble-packed, globally-scaled 4-bit codes). Since both vectors share the same global
 `min`/scale, the squared difference of the raw codes is proportional to the squared
 difference of the original values, so `evaluate` accumulates squared code differences
 directly, unpacking each byte's low and high nibble with SIMD, without any
 per-element dequantization.
 """
-struct SQgu4SqL2 <: Dist.SemiMetric
+struct SqL2 <: Dist.SemiMetric
 end
 
-function Dist.evaluate(::SQgu4SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
+function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
 
     # We use N=16 here instead of 32.
@@ -312,4 +327,6 @@ function Dist.evaluate(::SQgu4SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UI
     end
 
     convert(Float32, res)
+end
+
 end

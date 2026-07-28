@@ -1,4 +1,19 @@
-export sq_global_u8, SQgu8NormCosine, SQgu8SqL2
+"""
+    SQgu8
+
+Global (database-wide) 8-bit scalar quantization: [`quantize`](@ref SQgu8.quantize)
+maps every coordinate of every vector using a single shared `min`/scale pair, and
+[`NormCosine`](@ref SQgu8.NormCosine)/[`SqL2`](@ref SQgu8.SqL2) compare the resulting
+codes directly with SIMD. Accessed as `ScalarQuant.SQgu8.quantize`, etc.
+"""
+module SQgu8
+
+export quantize, NormCosine, SqL2
+
+using ..ScalarQuant: getminbatch, Dist
+using Statistics: quantile
+using Polyester
+using SIMD
 
 "Quantizes `v` into `vout` (one `UInt8` code per entry) using the global `min`/scale `c`; returns `vout`."
 function quant_global_u8!(vout, v, min::Float32, c::Float32)
@@ -12,11 +27,11 @@ function quant_global_u8!(vout, v, min::Float32, c::Float32)
 end
 
 """
-    sq_global_u8(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
 
 Scalar-quantizes every entry of `X` to 8 bits (`UInt8`) using a single, global pair of
-dequantization parameters shared by all columns, unlike [`SQu8`](@ref) which computes an
-independent `min`/scale per column. This is useful, e.g., when the columns of `X` are
+dequantization parameters shared by all columns, unlike [`SQu8`](@ref ScalarQuant.SQu8)'s `quantize`
+which computes an independent `min`/scale per column. This is useful, e.g., when the columns of `X` are
 known to share a comparable value range and a single global range provides enough
 precision while being cheaper to compute and store.
 
@@ -43,12 +58,12 @@ julia> using SimilaritySearch
 
 julia> X = rand(Float32, 8, 1000);
 
-julia> Q = ScalarQuant.sq_global_u8(X; minmax=(0f0, 1f0));  # explicit range
+julia> Q = ScalarQuant.SQgu8.quantize(X; minmax=(0f0, 1f0));  # explicit range
 
 julia> size(Q), eltype(Q)  # (8, 1000), UInt8
 ```
 """
-function sq_global_u8(X::AbstractMatrix;
+function quantize(X::AbstractMatrix;
         minmax=nothing,
         quant=[0.025, 0.975],
         samplesize=0
@@ -80,22 +95,21 @@ end
 
 
 ### the following code was made with the help of Gemini IA
-using SIMD
 
 """
-    SQgu8NormCosine()
+    NormCosine()
 
-Dissimilarity between two vectors quantized with [`sq_global_u8`](@ref) (globally-scaled
+Dissimilarity between two vectors quantized with [`quantize`](@ref) (globally-scaled
 8-bit codes), computed as the negative dot product of the raw codes. Since both vectors
 share the same global `min`/scale, the dot product of codes is an affine, order-preserving
 proxy of the dot product of the original (typically pre-normalized) vectors, so no
 per-element dequantization is needed. `evaluate` accumulates the products with SIMD,
 widening each `UInt8` code to `UInt32` to avoid overflow.
 """
-struct SQgu8NormCosine <: Dist.SemiMetric
+struct NormCosine <: Dist.SemiMetric
 end
 
-function Dist.evaluate(::SQgu8NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
+function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Vectors must be the same length"))
     
     N = 32
@@ -166,19 +180,19 @@ end
 
 
 """
-    SQgu8SqL2()
+    SqL2()
 
-Squared Euclidean distance between two vectors quantized with [`sq_global_u8`](@ref)
+Squared Euclidean distance between two vectors quantized with [`quantize`](@ref)
 (globally-scaled 8-bit codes). Since both vectors share the same global `min`/scale, the
 squared difference of the raw codes is proportional to the squared difference of the
 original values, so `evaluate` accumulates squared code differences directly with SIMD,
 widening each `UInt8` code to `Int32` to safely represent negative differences, without
 any per-element dequantization.
 """
-struct SQgu8SqL2 <: Dist.SemiMetric
+struct SqL2 <: Dist.SemiMetric
 end
 
-function Dist.evaluate(::SQgu8SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
+function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Vectors must be the same length"))
     
     N = 32
@@ -244,4 +258,6 @@ function Dist.evaluate(::SQgu8SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UI
     end
     
     Float32(res)
+end
+
 end

@@ -209,20 +209,52 @@ RevDistOrder
 ```
 
 ## Scalar quantization (`ScalarQuant` submodule)
-Reduces the memory footprint of a database by quantizing each coordinate to a small integer type. Accessed as `ScalarQuant.SQu2`, etc.
+Reduces the memory footprint of a database by quantizing each coordinate to a small
+integer type. Each bit-width/strategy lives in its own nested submodule with a common,
+un-prefixed API (`quantize`, `L1`, `L2`, `SqL2`, `NormCosine`), accessed e.g. as
+`ScalarQuant.SQu8.quantize`, `ScalarQuant.SQu8.SqL2`, etc.
+
+### Per-column quantization (`SQu2`, `SQu4`, `SQu8` submodules)
+
+Each column (vector) keeps its own `min`/scale, computed from its own extrema.
 ```@docs
 ScalarQuant.SQu2
-ScalarQuant.SQu2Vec
+ScalarQuant.SQu2.quantize
+ScalarQuant.SQu2.SQu2Vec
+ScalarQuant.SQu2.SQu2Database
+ScalarQuant.SQu2.L1
+ScalarQuant.SQu2.L2
+ScalarQuant.SQu2.SqL2
 ScalarQuant.SQu4
-ScalarQuant.SQu4Vec
+ScalarQuant.SQu4.quantize
+ScalarQuant.SQu4.SQu4Vec
+ScalarQuant.SQu4.SQu4Database
+ScalarQuant.SQu4.L1
+ScalarQuant.SQu4.L2
+ScalarQuant.SQu4.SqL2
 ScalarQuant.SQu8
-ScalarQuant.SQu8Vec
-ScalarQuant.sq_global_u8
-ScalarQuant.SQgu8NormCosine
-ScalarQuant.SQgu8SqL2
-ScalarQuant.sq_global_u4
-ScalarQuant.SQgu4NormCosine
-ScalarQuant.SQgu4SqL2
+ScalarQuant.SQu8.quantize
+ScalarQuant.SQu8.SQu8Vec
+ScalarQuant.SQu8.SQu8Database
+ScalarQuant.SQu8.L1
+ScalarQuant.SQu8.L2
+ScalarQuant.SQu8.SqL2
+ScalarQuant.SQu8.NormCosine
+```
+
+### Global (database-wide) quantization (`SQgu4`, `SQgu8` submodules)
+
+All columns share a single `min`/scale, letting the distance kernels compare the packed
+codes directly with SIMD, without any per-element dequantization.
+```@docs
+ScalarQuant.SQgu4
+ScalarQuant.SQgu4.quantize
+ScalarQuant.SQgu4.NormCosine
+ScalarQuant.SQgu4.SqL2
+ScalarQuant.SQgu8
+ScalarQuant.SQgu8.quantize
+ScalarQuant.SQgu8.NormCosine
+ScalarQuant.SQgu8.SqL2
 ```
 
 ## Random projections (`Special.Projections` submodule)
