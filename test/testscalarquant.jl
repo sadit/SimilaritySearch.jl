@@ -47,10 +47,10 @@ end
 @testset "ScalarQuant: per-column quantization (SQu2, SQu4, SQu8)" begin
     dim, n = 20, 30  # multiple of 4, so it satisfies SQu2's (and SQu4's) packing requirement
 
-    for (mod, bits, has_normcosine, mixed_with_plain_works) in (
-            (ScalarQuant.SQu2, 2, false, true),
-            (ScalarQuant.SQu4, 4, false, true),
-            (ScalarQuant.SQu8, 8, true, false),
+    for (mod, bits, has_normcosine) in (
+            (ScalarQuant.SQu2, 2, false),
+            (ScalarQuant.SQu4, 4, false),
+            (ScalarQuant.SQu8, 8, true),
         )
         X = rand(Float32, dim, n)
         db = mod.quantize(X)
@@ -79,21 +79,15 @@ end
             @test l1 >= 0
         end
 
-        if mixed_with_plain_works
-            # SqL2/L2 must also work (both argument orders) against a plain, non-quantized
-            # vector of the same (padded) dimension
-            plain = X[:, 3]
-            sql2_mixed = evaluate(mod.SqL2(), a, plain)
-            sql2_mixed_rev = evaluate(mod.SqL2(), plain, a)
-            @test sql2_mixed >= 0
-            @test sql2_mixed ≈ sql2_mixed_rev atol=1f-4
-            manual = sum(j -> (a[j] - plain[j])^2, 1:dim)
-            @test sql2_mixed ≈ manual atol=1f-3
-        else
-            # NOTE: SQu8's `squared_euclidean(A::SQu8Vec, B)` (plain-vector overload)
-            # currently assumes `B` also has a `.V` field (i.e., is itself packed), so it
-            # errors on a genuine plain vector; not exercised here pending a fix.
-        end
+        # SqL2/L2 must also work (both argument orders) against a plain, non-quantized
+        # vector of the same (padded) dimension
+        plain = X[:, 3]
+        sql2_mixed = evaluate(mod.SqL2(), a, plain)
+        sql2_mixed_rev = evaluate(mod.SqL2(), plain, a)
+        @test sql2_mixed >= 0
+        @test sql2_mixed ≈ sql2_mixed_rev atol=1f-4
+        manual = sum(j -> (a[j] - plain[j])^2, 1:dim)
+        @test sql2_mixed ≈ manual atol=1f-3
 
         if has_normcosine
             nc = evaluate(mod.NormCosine(), a, b)

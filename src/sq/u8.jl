@@ -221,7 +221,7 @@ function squared_euclidean(A::SQu8Vec, B)::Float32
     n = length(A.V)
 
     @fastmath @inbounds @simd for i in 1:n
-        a, bf = A.V[i], B.V[i]
+        a, bf = A.V[i], B[i]
         af = Float32(a) * A.E.c + A.E.min
         d += (af - bf)^2
     end
