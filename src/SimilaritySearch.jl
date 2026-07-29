@@ -51,6 +51,7 @@ include("distsample.jl")
 include("iddist.jl")
 include("adj/Adj.jl")
 include("special/special.jl")
+include("proj/Projections.jl")
 
 #using .Adj
 

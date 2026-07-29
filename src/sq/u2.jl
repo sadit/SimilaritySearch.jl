@@ -144,7 +144,6 @@ function quantize(X::AbstractMatrix)
     SQu2Database(E, Q)
 end
 
-
 struct SQu2Database <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
@@ -153,8 +152,43 @@ end
 Base.eltype(Q::SQu2Database) = typeof(Q[1])
 Base.length(Q::SQu2Database) = size(Q.Q, 2)
 
-Base.@propagate_inbounds function Base.getindex(Q::SQu2Database, i::Integer) 
+Base.@propagate_inbounds function Base.getindex(Q::SQu2Database, i::Integer)
    SQu2Vec(Q.E[i], view(Q.Q, :, i))
+end
+
+"""
+    quantize(db::SQu2Database, v::AbstractVector)
+
+Quantizes a single vector `v` to 2 bits per coordinate, the same way as the vectors
+already stored in `db`, returning a [`SQu2Vec`](@ref). Since [`SQu2`](@ref) computes each
+vector's own `min`/scale independently from its own extrema (see [`quantize(X::AbstractMatrix)`](@ref)),
+this does not read or depend on `db`'s stored data or parameters; `db` is only used to
+validate that `v` has the expected (padded) dimension. This is convenient, e.g., to
+quantize a query vector the same way as the vectors stored in `db`, so that it can be
+compared against them with [`L1`](@ref)/[`L2`](@ref)/[`SqL2`](@ref).
+
+# Arguments
+- `db`: the database `v` should be dimensionally consistent with
+- `v`: the vector to quantize; `length(v)` must equal `db`'s (padded) vector dimension
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> db = ScalarQuant.SQu2.quantize(X);
+
+julia> q = rand(Float32, 8);
+
+julia> qv = ScalarQuant.SQu2.quantize(db, q);  # quantized the same way as db's vectors
+```
+"""
+function quantize(db::SQu2Database, v::AbstractVector)
+    expected = 4size(db.Q, 1)
+    length(v) == expected || throw(ArgumentError("SQu2.quantize(db, v): length(v) = $(length(v)) must equal db's vector dimension ($expected)"))
+    SQu2Vec(v)
 end
 
 

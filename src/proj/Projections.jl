@@ -214,4 +214,6 @@ function transform!(rp::RandomProjections, O::AbstractMatrix, X::AbstractMatrix;
     O
 end
 
+include("hadamard.jl")
+
 end

@@ -93,6 +93,79 @@ function quantize(X::AbstractMatrix;
     Q
 end
 
+"""
+    quantize(v::AbstractVector; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+
+Scalar-quantizes a single vector `v` to 8 bits (`UInt8`), using the same global scheme as
+[`quantize(X::AbstractMatrix)`](@ref), producing a `Vector{UInt8}` (one code per
+coordinate) instead of a `Matrix{UInt8}`.
+
+!!! warning
+    To produce codes that are meaningfully comparable (e.g. for distance computations
+    with [`NormCosine`](@ref)/[`SqL2`](@ref)) to those of an already-quantized dataset,
+    `minmax` **must** be the exact same `(min, max)` pair used to quantize that dataset
+    (e.g., a query vector must be quantized with the dataset's `minmax`, not its own).
+    Leaving `minmax=nothing` here estimates a *new*, independent range from `v` alone,
+    which will in general **not** match the range used for a previously-quantized
+    dataset, silently producing incompatible, meaningless codes. Since
+    [`quantize(X::AbstractMatrix)`](@ref) does not return the `(min, max)` it used
+    internally unless it was given explicitly, callers that need to quantize additional
+    vectors later (e.g. queries) should always pass `minmax` explicitly when building the
+    dataset too, so that the same pair can be reused here.
+
+# Arguments
+- `v`: the vector to quantize
+- `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
+  (the default) the range is estimated from a random sample of `v`'s entries using
+  `quant`. **Must match the dataset's `minmax`** if `v` is to be compared against an
+  existing quantized dataset.
+- `quant`: the lower and upper quantiles (of the sampled entries of `v`) used to estimate
+  `min` and `max` when `minmax` is not given
+- `samplesize`: the number of entries sampled (with replacement) from `v` to estimate the
+  quantiles; when `0` (the default) it is set to `ceil(Int, length(v)^0.5)`
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> minmax = (0f0, 1f0);
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> Q = ScalarQuant.SQgu8.quantize(X; minmax);  # dataset, using an explicit range
+
+julia> q = rand(Float32, 8);
+
+julia> qv = ScalarQuant.SQgu8.quantize(q; minmax);  # query, using the *same* range
+
+julia> length(qv), eltype(qv)  # (8, UInt8)
+```
+"""
+function quantize(v::AbstractVector;
+        minmax=nothing,
+        quant=[0.025, 0.975],
+        samplesize=0
+    )
+    m = length(v)
+    vout = Vector{UInt8}(undef, m)
+
+    min, max = if minmax === nothing
+        let samplesize = samplesize === 0 ? ceil(Int, m^0.5) : samplesize
+            S = rand(v, samplesize)
+            quantile(S, quant)
+        end
+    else
+        minmax
+    end
+
+    c = Float32(255 / (max - min + 1e-6))
+    min = Float32(min)
+    quant_global_u8!(vout, v, min, c)
+
+    vout
+end
+
 
 ### the following code was made with the help of Gemini IA
 

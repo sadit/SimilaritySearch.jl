@@ -124,8 +124,43 @@ end
 Base.eltype(Q::SQu8Database) = typeof(Q[1])
 Base.length(Q::SQu8Database) = size(Q.Q, 2)
 
-Base.@propagate_inbounds function Base.getindex(Q::SQu8Database, i::Integer) 
+Base.@propagate_inbounds function Base.getindex(Q::SQu8Database, i::Integer)
    SQu8Vec(Q.E[i], view(Q.Q, :, i))
+end
+
+"""
+    quantize(db::SQu8Database, v::AbstractVector)
+
+Quantizes a single vector `v` to 8 bits per coordinate, the same way as the vectors
+already stored in `db`, returning a [`SQu8Vec`](@ref). Since [`SQu8`](@ref) computes each
+vector's own `min`/scale independently from its own extrema (see [`quantize(X::AbstractMatrix)`](@ref)),
+this does not read or depend on `db`'s stored data or parameters; `db` is only used to
+validate that `v` has the expected dimension. This is convenient, e.g., to quantize a
+query vector the same way as the vectors stored in `db`, so that it can be compared
+against them with [`L1`](@ref)/[`L2`](@ref)/[`SqL2`](@ref)/[`NormCosine`](@ref).
+
+# Arguments
+- `db`: the database `v` should be dimensionally consistent with
+- `v`: the vector to quantize; `length(v)` must equal `db`'s vector dimension
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 8, 1000);
+
+julia> db = ScalarQuant.SQu8.quantize(X);
+
+julia> q = rand(Float32, 8);
+
+julia> qv = ScalarQuant.SQu8.quantize(db, q);  # quantized the same way as db's vectors
+```
+"""
+function quantize(db::SQu8Database, v::AbstractVector)
+    expected = size(db.Q, 1)
+    length(v) == expected || throw(ArgumentError("SQu8.quantize(db, v): length(v) = $(length(v)) must equal db's vector dimension ($expected)"))
+    SQu8Vec(v)
 end
 
 
