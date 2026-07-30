@@ -5,10 +5,12 @@ abstract type AbstractSearchIndex end
 using Polyester
 using Accessors
 
+include("parallel.jl")
+
 import Base: push!, append!
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
-    SearchResult, push_item!, append_items!,
+    SearchResult, push_item!, append_items!, getminbatch,
     IdDist, Dist, Exact, Special, ScalarQuant
 
 abstract type AbstractContext end
@@ -20,22 +22,23 @@ function index! end
 
 """
     getminbatch(n::Int, nt::Int)
+    getminbatch(n::Int)
 
-Used by functions that use parallelism on small batches; each block is processed by a single thread
+The official, always-valid way to compute a `minbatch` size for [`@BATCH`](@ref)/
+`Polyester.@batch` (aiming for roughly 8 batches per thread): each batch is processed as
+a single unit of work by one task/thread. Always returns a value `>= 1` (or `n` itself
+when `n <= 0`, so that downstream `Iterators.partition`-based chunking never receives a
+non-positive chunk size), so callers do not need to clamp its result themselves.
 
 # Arguments
-- `ctx`: The search context
 - `n`: the number of elements to process
-- `nt`: number of threads to use
-
+- `nt`: number of threads to use (defaults to `Threads.nthreads()` in the 1-argument
+  method)
 """
 function getminbatch(n::Int, nt::Int)
-    if nt == 1
-        return n
-    else
-        p = n / (8nt)
-        return ceil(Int, p)
-    end
+    n <= 0 && return 1
+    nt <= 1 && return n
+    max(1, ceil(Int, n / (8nt)))
 end
 
 getminbatch(n::Int) = getminbatch(n, Threads.nthreads())
