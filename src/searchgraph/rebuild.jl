@@ -35,19 +35,27 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     minbatch = getminbatch(n)
-    qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
 
-    @BATCHES minbatch for objID in 1:n
-        @inbounds begin
-            tid = 2Threads.threadid()
-            tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid - 1))
-            N = knnqueue(ctx, view(qcache, 1:ksearch, tid))
-            find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
-            direct[objID] = collect(IdView(N))
-            # @info length(direct[objID]) neighbors_length(g.adj, objID)
-        end
+    @BATCHES minbatch begin
+    @BEGIN
+        # one private pair of scratch buffers per batch (`tmp`/`N`), indexed by @batchid --
+        # @nbatches is bounded (~8 * nthreads(), via getminbatch), never by n, so this
+        # never grows with the database size. Unlike Threads.threadid()-indexing, this
+        # stays race-free under every scheduler (:static/:default/:greedy), not just the
+        # default :static.
+        qcache = zeros(IdDist, ksearch, 2 * @nbatches)
+    @BEGINBATCH
+        tmp = knnqueue(ctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
+        N = knnqueue(ctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+    @LOOP for objID in 1:n
+        reuse!(tmp)
+        reuse!(N)
+        find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
+        direct[objID] = collect(IdView(N))
+        # @info length(direct[objID]) neighbors_length(g.adj, objID)
 
         progress !== nothing && next!(progress)
+    end
     end
 
     adj = AdjList(direct)

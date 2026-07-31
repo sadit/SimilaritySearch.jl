@@ -10,9 +10,11 @@ export ParallelExhaustiveSearch
     ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
 
 A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
-against every element of `db` in parallel (across `Threads.nthreads()` tasks), using an internal lock to
-guard concurrent pushes into the result set. Useful as a gold-standard baseline for small-to-medium datasets
-where parallelizing a single query is beneficial.
+against every element of `db` in parallel (across `Threads.nthreads()` tasks). Each batch of the underlying
+[`@BATCHES`](@ref) call accumulates its own private, lock-free top-k buffer (indexed by `@batchid`), merged
+into the final result once all batches join -- see [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnn))
+for details. Useful as a gold-standard baseline for small-to-medium datasets where parallelizing a single
+query is beneficial.
 
 Note that this should not be used in conjunction with `searchbatch(...; parallel=true)` since they will
 compete for the same thread pool.
@@ -24,34 +26,6 @@ compete for the same thread pool.
 struct ParallelExhaustiveSearch{DistanceType<:PreMetric,DataType<:AbstractDatabase} <: AbstractSearchIndex
     dist::DistanceType
     db::DataType
-    lock::Threads.SpinLock
-end
-
-
-"""
-    ParallelExhaustiveSearch(dist, db)
-
-Keyword constructor for [`ParallelExhaustiveSearch`](@ref).
-
-# Keyword Arguments
-- `dist`: the distance function
-- `db`: the database being indexed
-
-# Examples
-
-```julia
-using SimilaritySearch
-
-X = MatrixDatabase(rand(Float32, 8, 10^3))
-Q = MatrixDatabase(rand(Float32, 8, 10))
-P = ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=X)
-ctx = getcontext(P)
-
-knns = searchbatch(P, ctx, Q, 8)  # (8, 10) matrix of `IdDist`, exact nearest neighbors
-```
-"""
-function ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
-    ParallelExhaustiveSearch(dist, db, Threads.SpinLock())
 end
 
 
@@ -60,14 +34,22 @@ function getcontext(::ParallelExhaustiveSearch)
 end
 
 """
-    
+
     search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn) -> res
 
 Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
 
-
 Solves query `q` by evaluating the distance between `q` and every item of the indexed database in
-parallel, pushing each candidate into `res` under a lock.
+parallel. Instead of pushing every candidate into the shared `res` under a lock, each batch
+accumulates its own private top-`k` buffer (`k = maxlength(res)`), indexed by `@batchid` -- race-free
+by construction, no lock needed -- and all batches' buffers are merged into `res` once they have all
+joined (`@END`, run sequentially, once).
+
+The extra memory this needs is `k * @nbatches` `IdDist` entries: `@nbatches` never scales with `n`
+(the database size) -- [`getminbatch`](@ref) aims for ~8 batches per thread regardless of `n`, and
+`@BATCHES`'s own fast path collapses to a single batch entirely whenever `n` is small relative to the
+computed `minbatch` -- so this temporary buffer stays bounded by the thread count and `k`, not by the
+size of the database being searched.
 
 # Arguments
 - `pex`: the search structure
@@ -77,24 +59,34 @@ parallel, pushing each candidate into `res` under a lock.
 """
 function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
     dist = distance(pex)
-    elock = pex.lock
     n = length(pex)
+    k = maxlength(res)
     minbatch = getminbatch(n)
 
     # NOTE: forced to scheduler=:default (not the global :static default) because this
     # per-query search is itself commonly invoked from *within* an outer @BATCHES-
     # parallelized per-query loop (e.g. searchbatch!/allknn/closestpair when `pex` is the
     # given index) -- native `:static` errors ("cannot be used concurrently or nested") in
-    # that situation. This loop body only uses a shared lock (no Threads.threadid()-
-    # indexed state), so :default's migratable tasks are safe here regardless of the
-    # global scheduler.
-    @BATCHES minbatch scheduler=:default for i in 1:n
+    # that situation. This loop body has no Threads.threadid()-indexed state at all (each
+    # batch only ever touches its own @batchid-indexed column), so :default's migratable
+    # tasks are safe here regardless of the global scheduler.
+    @BATCHES minbatch scheduler=:default begin
+    @BEGIN
+        # one private, lock-free top-k buffer per batch; @nbatches is bounded (~8 * nthreads(),
+        # via getminbatch), never by n, so this never grows with the database size
+        R = zeros(IdDist, k, @nbatches)
+        used = zeros(Int32, @nbatches)
+    @BEGINBATCH
+        r = knnqueue(KnnSorted, view(R, :, @batchid))
+    @LOOP for i in 1:n
         d = Dist.evaluate(dist, database(pex, i), q)
-        try
-            lock(elock)
-            push_item!(res, i, d)
-        finally
-            unlock(elock)
+        push_item!(r, i, d)
+    end
+    @ENDBATCH
+        used[@batchid] = length(r)
+    @END
+        for b in 1:@nbatches, j in 1:used[b]
+            push_item!(res, R[j, b])
         end
     end
 

@@ -122,7 +122,6 @@ Accessed via `Dist.Hacks`.
 Dist.Hacks.NegativeDistanceHack
 Dist.Hacks.SimilarityFromDistance
 Dist.Hacks.DistanceWithIdentifiers
-Dist.Hacks.DistanceF32
 ```
 
 ## Functions that customize parameters

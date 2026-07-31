@@ -89,6 +89,12 @@ construction, regardless of scheduler (`:static`/`:default`/`:greedy`); this is 
 indexing by `Threads.threadid()`, which can alias/migrate under non-`:static` schedulers.
 Not meaningful in `@BEGIN`/`@END` (those run once, globally, not per batch) -- using it
 there raises `UndefVarError`.
+
+!!! note
+    Like any bare (parenthesis-free) macro call, `@batchid`/`@nbatches` followed directly
+    by a unary `-` is parsed as `@batchid(-...)` (an argument!), not as subtraction --
+    e.g. `2 * @batchid - 1` parses as `2 * @batchid(-1)`, which errors. Wrap it in
+    parentheses whenever it appears inside a larger expression: `2 * (@batchid) - 1`.
 """
 macro batchid()
     esc(:__batch_id)

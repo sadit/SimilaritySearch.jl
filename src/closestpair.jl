@@ -61,23 +61,34 @@ function search_hint(G::SearchGraph, ctx::SearchGraphContext, i::Integer, res)
     nearest(res)
 end
 
-function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, min_k; blocksize=Threads.maxthreadid())::Tuple{Int32,Int32,Float32}
+function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, min_k)::Tuple{Int32,Int32,Float32}
     n = length(idx)
     minbatch = getminbatch(n)
-    B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.maxthreadid()]
-    knns = zeros(IdDist, min_k, blocksize)
+    local best
 
-    @BATCHES minbatch for objID in 1:n
-        tID = Threads.threadid()
-        r = knnqueue(KnnSorted, view(knns, :, tID)) # requires KnnSorted to support pop_min!
+    @BATCHES minbatch begin
+    @BEGIN
+        # one column/slot per batch -- @batchid-indexed, so race-free regardless of scheduler
+        knns = zeros(IdDist, min_k, @nbatches)
+        B = Vector{Tuple{Int32,Int32,Float32}}(undef, @nbatches)
+    @BEGINBATCH
+        r = knnqueue(KnnSorted, view(knns, :, @batchid)) # requires KnnSorted to support pop_min!
+        b = (zero(Int32), zero(Int32), typemax(Float32))
+    @LOOP for objID in 1:n
+        reuse!(r)
         p = search_hint(idx, ctx, objID, r)
-        if p.dist < last(B[tID])
-            B[tID] = (Int32(objID), p.id, p.dist)
+        if p.dist < last(b)
+            b = (Int32(objID), p.id, p.dist)
         end
     end
+    @ENDBATCH
+        B[@batchid] = b
+    @END
+        _, i = findmin(last, B)
+        best = B[i]
+    end
 
-    _, i = findmin(last, B)
-    B[i]
+    best
 end
 
 function sequential_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, min_k)::Tuple{Int32,Int32,Float32}
