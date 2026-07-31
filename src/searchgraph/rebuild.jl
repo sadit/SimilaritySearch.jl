@@ -37,22 +37,21 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     minbatch = getminbatch(n)
     qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
 
-    Threads.@threads :static for j in 1:minbatch:n
-        n_ = min(n, j + minbatch - 1)
-        @inbounds for objID in j:n_
+    @BATCH minbatch=minbatch for objID in 1:n
+        @inbounds begin
             tid = 2Threads.threadid()
             tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid - 1))
             N = knnqueue(ctx, view(qcache, 1:ksearch, tid))
             find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
             direct[objID] = collect(IdView(N))
-            # @info length(direct[objID]) neighbors_length(g.adj, objID) 
+            # @info length(direct[objID]) neighbors_length(g.adj, objID)
         end
 
         progress !== nothing && next!(progress)
     end
 
     adj = AdjList(direct)
-    Threads.@threads :static for nodeID in eachindex(direct)
+    @BATCH minbatch=getminbatch(length(direct)) for nodeID in eachindex(direct)
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID != nodeID
         end

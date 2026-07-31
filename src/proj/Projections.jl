@@ -3,6 +3,7 @@ module Projections
 using Polyester, Random, LinearAlgebra, Distributions, StatsBase
 export RandomProjections, outdim, indim, transform, transform!
 using ...SimilaritySearch.Dist.CastF32: dot32
+using ...SimilaritySearch: @BATCH
 
 """
     RandomProjections(map::M) where {M<:AbstractMatrix}
@@ -162,12 +163,12 @@ end
 
 Projects every column (vector) of `X` using `rp`, returning a new matrix with
 `outdim(rp)` rows and the same number of columns as `X`. Columns are projected in
-parallel using `Polyester.@batch`.
+parallel using `@BATCH`.
 
 # Arguments
 - `rp`: the projection to apply
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(rp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `Polyester.@batch`)
+- `minbatch`: minimum number of columns processed per parallel task (see `@BATCH`)
 
 # Examples
 
@@ -200,12 +201,12 @@ columns as `X`. Returns `O`.
 - `rp`: the projection to apply
 - `O`: the output matrix where the projected vectors are stored
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(rp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `Polyester.@batch`)
+- `minbatch`: minimum number of columns processed per parallel task (see `@BATCH`)
 """
 function transform!(rp::RandomProjections, O::AbstractMatrix, X::AbstractMatrix; minbatch::Int=4)
     n = size(X, 2)
 
-    @batch per = thread minbatch = minbatch for i in 1:n
+    @BATCH minbatch=minbatch for i in 1:n
         o = view(O, :, i)
         x = view(X, :, i)
         transform!(rp, o, x)

@@ -167,7 +167,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(m)
     # @info m => Threads.nthreads() => minbatch
-    @batch per=thread minbatch=minbatch for j in 1:m
+    @BATCH minbatch=minbatch for j in 1:m
         res = knnqueue(ctx, view(knns, :, j))
         search(index, ctx, Q[j], res)
         sorted && sortitems!(res)
@@ -197,7 +197,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(m)
     # @show :searchbatch! => m => Threads.nthreads() => minbatch
     # @batch minbatch = minbatch per = thread for i in eachindex(Q)
-    @batch per=thread minbatch=minbatch for i in 1:m
+    @BATCH minbatch=minbatch for i in 1:m
         search(index, ctx, Q[i], knns[i])
     end
 

@@ -10,7 +10,7 @@ module SQgu8
 
 export quantize, NormCosine, SqL2
 
-using ..ScalarQuant: getminbatch, Dist
+using ..ScalarQuant: getminbatch, Dist, @BATCH
 using Statistics: quantile
 using Polyester
 using SIMD
@@ -86,7 +86,7 @@ function quantize(X::AbstractMatrix;
     min = Float32(min)
 
     minbatch = getminbatch(n)
-    @batch per=thread minbatch=minbatch for i in 1:n
+    @BATCH minbatch=minbatch for i in 1:n
         quant_global_u8!(view(Q, :, i), view(X, :, i), min, c)
     end
 

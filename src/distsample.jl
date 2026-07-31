@@ -77,7 +77,7 @@ function distsample(dist::PreMetric, X::AbstractDatabase; samplesize=ceil(Int, s
     n = length(X)
     S = Vector{Float32}(undef, samplesize)
 
-    Threads.@threads :static for i in 1:samplesize
+    @BATCH minbatch=getminbatch(samplesize) for i in 1:samplesize
         u, v = rand(1:n), rand(1:n)
         S[i] = evaluate(dist, X[u], X[v])
     end

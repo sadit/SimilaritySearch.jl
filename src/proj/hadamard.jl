@@ -109,12 +109,12 @@ end
     transform(hp::HadamardProjection, X::AbstractMatrix; minbatch::Int=4)
 
 Projects every column (vector) of `X` using `hp`, returning a new matrix of the same
-size as `X`. Columns are projected in parallel using `Polyester.@batch`.
+size as `X`. Columns are projected in parallel using `@BATCH`.
 
 # Arguments
 - `hp`: the projection to apply
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(hp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `Polyester.@batch`)
+- `minbatch`: minimum number of columns processed per parallel task (see `@BATCH`)
 
 # Examples
 
@@ -146,12 +146,12 @@ stores the result in `O`, which must have the same size as `X`. Returns `O`.
 - `hp`: the projection to apply
 - `O`: the output matrix where the projected vectors are stored
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(hp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `Polyester.@batch`)
+- `minbatch`: minimum number of columns processed per parallel task (see `@BATCH`)
 """
 function transform!(hp::HadamardProjection, O::AbstractMatrix, X::AbstractMatrix; minbatch::Int=4)
     n = size(X, 2)
 
-    @batch per = thread minbatch = minbatch for i in 1:n
+    @BATCH minbatch=minbatch for i in 1:n
         o = view(O, :, i)
         x = view(X, :, i)
         transform!(hp, o, x)

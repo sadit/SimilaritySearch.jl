@@ -38,13 +38,13 @@ packsigns(y::AbstractVector{<:Real}) = packsigns!(zeros(UInt64, cld(length(y), 6
 
 Packs the sign of every column of `Y` (see [`packsigns`](@ref)) into a `Matrix{UInt64}`
 with `cld(size(Y, 1), 64)` rows and the same number of columns as `Y`. Columns are packed
-in parallel using `Polyester.@batch`.
+in parallel using `@BATCH`.
 """
 function packsigns(Y::AbstractMatrix{<:Real}; minbatch::Int=4)
     m, n = size(Y)
     B = Matrix{UInt64}(undef, cld(m, 64), n)
 
-    @batch per=thread minbatch=minbatch for j in 1:n
+    @BATCH minbatch=minbatch for j in 1:n
         packsigns!(view(B, :, j), view(Y, :, j))
     end
 

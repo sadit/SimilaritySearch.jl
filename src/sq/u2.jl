@@ -9,7 +9,7 @@ module SQu2
 
 export quantize, SQu2Vec, SQu2Database, L1, L2, SqL2
 
-using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch
+using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCH
 using Polyester
 import Distances: evaluate
 
@@ -137,7 +137,7 @@ function quantize(X::AbstractMatrix)
     Q = Matrix{UInt8}(undef, m ÷ 4, n)
     E = Vector{SQMinC}(undef, n)
     minbatch = getminbatch(n)
-    @batch per=thread minbatch=minbatch for i in 1:n
+    @BATCH minbatch=minbatch for i in 1:n
         E[i] = quant_u2!(view(Q, :, i), view(X, :, i))
     end
 

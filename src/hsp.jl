@@ -74,15 +74,13 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)]
     minbatch = getminbatch(n)
 
-    Threads.@threads :static for j in 1:minbatch:n
-        for i in j:min(n, j + minbatch - 1)
-            plist = @view knns[:, i]
-            q = Q[i]
-            for p in plist
-                p.id == 0 && break
-                if hsp_should_push(hsp[i], dist, X, q, p.id, p.dist)
-                    push_item!(hsp[i], p)
-                end
+    @BATCH minbatch=minbatch for i in 1:n
+        plist = @view knns[:, i]
+        q = Q[i]
+        for p in plist
+            p.id == 0 && break
+            if hsp_should_push(hsp[i], dist, X, q, p.id, p.dist)
+                push_item!(hsp[i], p)
             end
         end
     end

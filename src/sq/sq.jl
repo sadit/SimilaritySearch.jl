@@ -6,7 +6,7 @@ using Polyester
 using Statistics: quantile
 using StatsBase
 import Distances: evaluate
-using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist
+using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist, @BATCH
 #using ..Dist: fastacos
 
 """

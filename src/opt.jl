@@ -92,11 +92,9 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 
         searchtime = @elapsed begin
             minbatch = getminbatch(m)
-            Threads.@threads :static for j in 1:minbatch:m
-                for i in j:min(m, j + minbatch - 1)
-                    knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
-                    cost[i] = distance_evaluations(r)
-                end
+            @BATCH minbatch=minbatch for i in 1:m
+                knns[i] = r = runconfig(conf, index, ctx, queries[i], reuse!(knns[i]))
+                cost[i] = distance_evaluations(r)
             end
         end
 

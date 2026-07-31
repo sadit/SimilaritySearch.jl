@@ -69,6 +69,12 @@ Internal function to connect reverse links after an insertion batch
 """
 function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
     # The double step algorithm is to avoid weird race conditions
+    # NOTE: kept on native Threads.@threads :static (not @BATCH): the loop body's
+    # `do relID ... end` closure captures `sp` from the enclosing function, and
+    # Polyester's own closure/variable-capture analysis (used by @BATCH on Julia < 1.11)
+    # mishandles nested closures capturing outer variables, raising a spurious
+    # `UndefVarError` for a gensym'd copy of the captured variable -- confirmed to be a
+    # Polyester.@batch limitation, not specific to @BATCH's own implementation.
     Threads.@threads :static for nodeID in sp:ep  # connect all elements smaller than sp:ep
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID < sp
