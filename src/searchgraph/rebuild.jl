@@ -37,7 +37,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     minbatch = getminbatch(n)
     qcache = zeros(IdDist, neighborhoodsize(ctx.neighborhood, n), 2 * Threads.maxthreadid())
 
-    @BATCH minbatch=minbatch for objID in 1:n
+    @BATCHES minbatch for objID in 1:n
         @inbounds begin
             tid = 2Threads.threadid()
             tmp = knnqueue(ctx, view(qcache, 1:ksearch, tid - 1))
@@ -51,7 +51,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     end
 
     adj = AdjList(direct)
-    @BATCH minbatch=getminbatch(length(direct)) for nodeID in eachindex(direct)
+    @BATCHES getminbatch(length(direct)) for nodeID in eachindex(direct)
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID != nodeID
         end

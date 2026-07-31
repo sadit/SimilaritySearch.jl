@@ -189,7 +189,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         u = X[i]
         minbatch = getminbatch(length(tmp))
 
-        @BATCH minbatch=minbatch for jj in firstindex(tmp):lastindex(tmp)
+        @BATCHES minbatch for jj in firstindex(tmp):lastindex(tmp)
             j = tmp[jj]
             d = evaluate(dist, u, X[j])
             try

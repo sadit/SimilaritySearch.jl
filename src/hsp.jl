@@ -74,7 +74,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::Abstr
     hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)]
     minbatch = getminbatch(n)
 
-    @BATCH minbatch=minbatch for i in 1:n
+    @BATCHES minbatch for i in 1:n
         plist = @view knns[:, i]
         q = Q[i]
         for p in plist

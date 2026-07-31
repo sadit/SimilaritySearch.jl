@@ -2,7 +2,6 @@
 
 module SimilaritySearch
 abstract type AbstractSearchIndex end
-using Polyester
 using Accessors
 
 include("parallel.jl")
@@ -24,11 +23,11 @@ function index! end
     getminbatch(n::Int, nt::Int)
     getminbatch(n::Int)
 
-The official, always-valid way to compute a `minbatch` size for [`@BATCH`](@ref)/
-`Polyester.@batch` (aiming for roughly 8 batches per thread): each batch is processed as
-a single unit of work by one task/thread. Always returns a value `>= 1` (or `n` itself
-when `n <= 0`, so that downstream `Iterators.partition`-based chunking never receives a
-non-positive chunk size), so callers do not need to clamp its result themselves.
+The official, always-valid way to compute a `minbatch` size for [`@BATCHES`](@ref)
+(aiming for roughly 8 batches per thread): each batch is processed as a single unit of
+work by one task/thread. Always returns a value `>= 1` (or `n` itself when `n <= 0`, so
+that downstream `Iterators.partition`-based chunking never receives a non-positive chunk
+size), so callers do not need to clamp its result themselves.
 
 # Arguments
 - `n`: the number of elements to process
@@ -167,7 +166,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(m)
     # @info m => Threads.nthreads() => minbatch
-    @BATCH minbatch=minbatch for j in 1:m
+    @BATCHES minbatch for j in 1:m
         res = knnqueue(ctx, view(knns, :, j))
         search(index, ctx, Q[j], res)
         sorted && sortitems!(res)
@@ -197,7 +196,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(m)
     # @show :searchbatch! => m => Threads.nthreads() => minbatch
     # @batch minbatch = minbatch per = thread for i in eachindex(Q)
-    @BATCH minbatch=minbatch for i in 1:m
+    @BATCHES minbatch for i in 1:m
         search(index, ctx, Q[i], knns[i])
     end
 

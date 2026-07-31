@@ -13,7 +13,6 @@ using ..SimilaritySearch:
 import ..SimilaritySearch:
     search, push_item!, append_items!, index!, distance, database, Dist
 
-using Polyester
 
 include("sequential-exhaustive.jl")
 include("parallel-exhaustive.jl")

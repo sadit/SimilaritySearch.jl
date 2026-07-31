@@ -73,7 +73,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     minbatch = getminbatch(n)
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
-        @BATCH minbatch=minbatch for j in 1:n
+        @BATCHES minbatch for j in 1:n
             res = knnqueue(ctx, view(knns, :, j))
             allknn_single_search!(g, ctx, j, res)
             sort && sortitems!(res)

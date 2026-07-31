@@ -11,9 +11,8 @@ module SQgu4
 
 export quantize, NormCosine, SqL2
 
-using ..ScalarQuant: getminbatch, Dist, @BATCH
+using ..ScalarQuant: getminbatch, Dist, @BATCHES
 using Statistics: quantile
-using Polyester
 using SIMD
 
 "Quantizes `v` into `vout` (two 4-bit codes packed per `UInt8`) using the global `min`/scale `c`; returns `vout`."
@@ -107,7 +106,7 @@ function quantize(X::AbstractMatrix;
     min = Float32(min)
 
     minbatch = getminbatch(n)
-    @BATCH minbatch=minbatch for i in 1:n
+    @BATCHES minbatch for i in 1:n
         quant_global_u4!(view(Q, :, i), view(X, :, i), min, c)
     end
 

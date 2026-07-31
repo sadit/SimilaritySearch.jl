@@ -81,35 +81,20 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     n = length(pex)
     minbatch = getminbatch(n)
 
-    # NOTE: on Julia 1.11+, forced to scheduler=:default (not the global :static default)
-    # because this per-query search is itself commonly invoked from *within* an outer
-    # @BATCH-parallelized per-query loop (e.g. searchbatch!/allknn/closestpair when `pex`
-    # is the given index) -- native `:static` errors ("cannot be used concurrently or
-    # nested") in that situation, unlike Polyester's own thread pool (used by @BATCH on
-    # Julia < 1.11), which degrades gracefully to serial execution instead, so no such
-    # override is needed there (and `scheduler=` isn't a keyword @BATCH itself recognizes
-    # on Julia < 1.11 -- it forwards raw args straight to Polyester.@batch). This loop body
-    # only uses a shared lock (no Threads.threadid()-indexed state), so :default's
-    # migratable tasks are safe here regardless of the global scheduler.
-    @static if VERSION >= v"1.11"
-        @BATCH scheduler=:default minbatch=minbatch for i in 1:n
-            d = Dist.evaluate(dist, database(pex, i), q)
-            try
-                lock(elock)
-                push_item!(res, i, d)
-            finally
-                unlock(elock)
-            end
-        end
-    else
-        @BATCH minbatch=minbatch for i in 1:n
-            d = Dist.evaluate(dist, database(pex, i), q)
-            try
-                lock(elock)
-                push_item!(res, i, d)
-            finally
-                unlock(elock)
-            end
+    # NOTE: forced to scheduler=:default (not the global :static default) because this
+    # per-query search is itself commonly invoked from *within* an outer @BATCHES-
+    # parallelized per-query loop (e.g. searchbatch!/allknn/closestpair when `pex` is the
+    # given index) -- native `:static` errors ("cannot be used concurrently or nested") in
+    # that situation. This loop body only uses a shared lock (no Threads.threadid()-
+    # indexed state), so :default's migratable tasks are safe here regardless of the
+    # global scheduler.
+    @BATCHES minbatch scheduler=:default for i in 1:n
+        d = Dist.evaluate(dist, database(pex, i), q)
+        try
+            lock(elock)
+            push_item!(res, i, d)
+        finally
+            unlock(elock)
         end
     end
 

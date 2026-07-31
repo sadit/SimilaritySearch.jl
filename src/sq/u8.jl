@@ -10,8 +10,7 @@ module SQu8
 
 export quantize, SQu8Vec, SQu8Database, L1, L2, SqL2, NormCosine
 
-using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCH
-using Polyester
+using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES
 import Distances: evaluate
 
 ### note we need to avoid overflows in high dimensional vectors (i.e., accumulated squared differences like 127^2)
@@ -113,7 +112,7 @@ struct SQu8Database <: AbstractDatabase
         Q = Matrix{UInt8}(undef, m, n)
         E = Vector{SQMinC}(undef, n)
         minbatch = getminbatch(n)
-        @BATCH minbatch=minbatch for i in 1:n
+        @BATCHES minbatch for i in 1:n
             E[i] = quant_u8!(view(Q, :, i), view(X, :, i))
         end
 

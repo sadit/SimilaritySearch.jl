@@ -67,7 +67,7 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
     B = [(zero(Int32), zero(Int32), typemax(Float32)) for _ in 1:Threads.maxthreadid()]
     knns = zeros(IdDist, min_k, blocksize)
 
-    @BATCH minbatch=minbatch for objID in 1:n
+    @BATCHES minbatch for objID in 1:n
         tID = Threads.threadid()
         r = knnqueue(KnnSorted, view(knns, :, tID)) # requires KnnSorted to support pop_min!
         p = search_hint(idx, ctx, objID, r)
