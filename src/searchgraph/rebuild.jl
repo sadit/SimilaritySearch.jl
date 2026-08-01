@@ -3,7 +3,9 @@
 export rebuild
 
 """
-    rebuild(g::SearchGraph, ctx::SearchGraphContext; progress=Progress(length(g); desc="rebuild", dt=2.0))
+    rebuild(g::SearchGraph, ctx::SearchGraphContext;
+        progress=Progress(length(g); desc="rebuild", dt=2.0),
+        maxbatches::Int=Threads.nthreads() * 16)
 
 Rebuilds the `SearchGraph` index but seeing the whole dataset for the incremental construction, i.e.,
 it can connect the i-th vertex to its knn in the 1..n possible vertices instead of its knn among 1..(i-1) as in the original algorithm.
@@ -17,6 +19,9 @@ Returns a new `SearchGraph` (the input `g` is not modified).
 # Keyword Arguments
 
 - `progress`: a `ProgressMeter.Progress` object (or `nothing` to disable) used to report progress.
+- `maxbatches`: hard cap on the number of batches used by the internal [`@BATCHES`](@ref) call
+  (passed as `getminbatch(n; maxbatches)`), bounding the size of the per-batch scratch buffer
+  (`qcache`) regardless of `n`; see [`getminbatch`](@ref) for the trade-offs of capping it.
 
 # Examples
 
@@ -28,13 +33,14 @@ G = rebuild(G, ctx)
 ```
 """
 function rebuild(g::SearchGraph, ctx::SearchGraphContext;
-    progress=Progress(length(g); desc="rebuild", dt=2.0)
+    progress=Progress(length(g); desc="rebuild", dt=2.0),
+    maxbatches::Int=Threads.nthreads() * 16
 )
     n = length(g)
     ksearch = neighborhoodsize(ctx.neighborhood, n)
     @assert n > 0
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
-    minbatch = getminbatch(n)
+    minbatch = getminbatch(n; maxbatches)
 
     @BATCHES minbatch begin
     @BEGIN

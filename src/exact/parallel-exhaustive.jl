@@ -35,7 +35,8 @@ end
 
 """
 
-    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn) -> res
+    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn;
+        maxbatches::Int=Threads.nthreads() * 16) -> res
 
 Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
 
@@ -49,19 +50,27 @@ The extra memory this needs is `k * @nbatches` `IdDist` entries: `@nbatches` nev
 (the database size) -- [`getminbatch`](@ref) aims for ~8 batches per thread regardless of `n`, and
 `@BATCHES`'s own fast path collapses to a single batch entirely whenever `n` is small relative to the
 computed `minbatch` -- so this temporary buffer stays bounded by the thread count and `k`, not by the
-size of the database being searched.
+size of the database being searched. `maxbatches` (default `nthreads() * 16`, larger than the natural
+~8-per-thread target so it is a no-op by default) directly caps `@nbatches` further, for cases with a
+large `k` and/or `nthreads()` where even that bounded buffer is too large; see [`getminbatch`](@ref)
+for the trade-offs of capping it (fewer batches can leave threads idle and worsens load-balancing).
 
 # Arguments
 - `pex`: the search structure
 - `ctx`: the running context (unused by this method, kept for interface consistency)
 - `q`: the query to solve
 - `res`: the result set that receives the candidates
+
+# Keyword Arguments
+- `maxbatches`: hard cap on the number of batches (and thus on the size of the temporary
+  `k * @nbatches` buffer), passed as `getminbatch(n; maxbatches)`
 """
-function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
+function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn;
+        maxbatches::Int=Threads.nthreads() * 16)
     dist = distance(pex)
     n = length(pex)
     k = maxlength(res)
-    minbatch = getminbatch(n)
+    minbatch = getminbatch(n; maxbatches)
 
     # NOTE: forced to scheduler=:default (not the global :static default) because this
     # per-query search is itself commonly invoked from *within* an outer @BATCHES-

@@ -47,17 +47,22 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
     resize!(index.adj, n)
 
     while sp <= n
-        ep = min(n, sp + ctx.parallel_block)
-        minbatch = getminbatch(ep - sp + 1)
-        @BATCHES minbatch for objID in sp:ep
+        ep = min(n, sp + ctx.parallel_block - 1)  # sp:ep has at most ctx.parallel_block elements
+        ksearch = neighborhoodsize(ctx.neighborhood, ep)
+        minbatch = getminbatch(ep - sp + 1; maxbatches=size(qcache, 2) ÷ 2)
+
+        @BATCHES minbatch begin
+        @BEGINBATCH
+            tmp = knnqueue(ctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
+            neighbors_ = knnqueue(ctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+        @LOOP for objID in sp:ep
             item = database(index, objID)
             R = sp:objID-1
-            ksearch = neighborhoodsize(ctx.neighborhood, ep)
-            ti = 2 * Threads.threadid()
-            tmp = knnqueue(ctx, view(qcache, 1:ksearch, ti - 1))
-            neighbors_ = knnqueue(ctx, view(qcache, 1:ksearch, ti))
+            reuse!(tmp)
+            reuse!(neighbors_)
             find_neighborhood!(neighbors_, index, ctx, item, tmp, R)
             add!(index.adj, objID, IdView(neighbors_))
+        end
         end
 
         LOG(ctx.logger, :add!, index, ctx, sp, ep)
@@ -69,6 +74,44 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         execute_callbacks!(index, ctx, sp, ep)
         sp = ep + 1
     end
+end
+
+
+"""
+    index!(index::SearchGraph, ctx::SearchGraphContext)
+
+Indexes the already initialized database (e.g., given in the constructor method). It can be made in parallel or sequentially.
+The arguments are the same than `append_items!` function but using the internal `index.db` as input.
+
+# Arguments:
+
+- `index`: The graph index
+- `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
+
+"""
+function index!(index::SearchGraph, ctx::SearchGraphContext)
+    n = length(database(index))
+    @assert n > 0
+
+    if ctx.parallel_block == 1 || Threads.nthreads() == 1
+        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2
+            isodd(s) && (s += 1)
+            zeros(IdDist, s, t)
+        end
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
+    else
+        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 8 * Threads.nthreads()
+            isodd(s) && (s += 1)
+            zeros(IdDist, s, t)
+        end
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
+    end
+
+    index
+end
+
+function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Symbol; kwargs...)
+    index!(idx, ctx, Val(kind); kwargs...)
 end
 
 """
