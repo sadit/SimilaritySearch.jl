@@ -126,8 +126,17 @@ Key facts an agent must know before editing anything here:
 - **Index scratch buffers by `@batchid`, never by `Threads.threadid()`.** Batch ids are
   fixed, disjoint ordinals — race-free under *every* scheduler (`:static`/`:default`/
   `:greedy`). `Threads.threadid()`-indexing is only safe under `:static` (the default) and
-  is a silent data race under the others; `dist/seqs.jl` is the one remaining call site
-  that still does this (out of scope so far, a candidate for the same migration).
+  is a silent data race under the others. No remaining call site in `src/` still does
+  this: `dist/seqs.jl`'s `Levenshtein`/`LCS` were the one case that couldn't use
+  `@batchid` at all (their scratch buffer is needed inside `evaluate(dist, a, b)`, the
+  generic, context-free interface shared by *every* distance function in this package —
+  no `ctx`/`@batchid` reaches it), so instead of thread-indexing they use a `Channel`-based
+  buffer pool (`take!`/`put!`, sized from `ctx.maxbatches` when a context is given via
+  `Levenshtein(ctx; ...)`/`LCS(ctx)`) — safe under *any* concurrency model, not just
+  `@BATCHES`, since it has no dependency on thread identity at all. A smaller pool only
+  costs throughput (a `take!` blocks until a buffer is returned), never correctness — this
+  is the preferred pattern over thread/batch-indexing whenever the caller can't supply a
+  `@batchid` at all (e.g. a context-free interface like `evaluate`).
 - **`GenericContext`/`SearchGraphContext` carry `batchid`/`maxbatches` fields** (see
   `searchgraph/context.jl`) precisely so `@batchid`-indexing can flow through the existing
   `search`/`find_neighborhood!` call graph without changing any of those functions'

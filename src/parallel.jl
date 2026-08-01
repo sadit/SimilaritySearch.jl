@@ -121,15 +121,17 @@ const SCHEDULER = Ref{Symbol}(:static)
 Sets the global `Threads.@threads` schedule kind used by [`@BATCHES`](@ref) whenever a
 call site does not give its own `scheduler=` override. Must be one of:
 
-- `:static` (**the default**): one task per thread, never migrates mid-execution. Chosen
-  as the default specifically because it preserves the same non-migration guarantee this
-  package's remaining `Threads.threadid()`/`Threads.maxthreadid()`-indexed per-thread
-  scratch buffer (`dist/seqs.jl`) still depends on -- everywhere else
-  (`searchgraph/context.jl`'s `vstates`/`beams`, `searchgraph/rebuild.jl`,
-  `searchgraph/insertions.jl`, `closestpair.jl`, `exact/parallel-exhaustive.jl`) has been
-  migrated to `@batchid`-indexing, safe under every scheduler. Trade-off: throws
-  immediately if a `@BATCHES` call is ever nested inside another already-threaded region,
-  or invoked from a non-main thread.
+- `:static` (**the default**): one task per thread, never migrates mid-execution. This
+  package no longer has any `Threads.threadid()`-indexed shared state on its own parallel
+  paths: `searchgraph/context.jl`'s `vstates`/`beams`, `searchgraph/rebuild.jl`,
+  `searchgraph/insertions.jl`, `closestpair.jl`, and `exact/parallel-exhaustive.jl` all use
+  `@batchid`-indexing (safe under every scheduler); `dist/seqs.jl`'s `Levenshtein`/`LCS`,
+  which can't reach a `@batchid` at all (their scratch buffer is needed inside the
+  generic, context-free `evaluate(dist, a, b)`), use a `Channel`-based buffer pool
+  instead of thread-indexing. `:static` remains the default for its simpler, more
+  predictable scheduling, not because anything in this package still depends on it for
+  correctness. Trade-off: throws immediately if a `@BATCHES` call is ever nested inside
+  another already-threaded region, or invoked from a non-main thread.
 - `:dynamic`/`:default`: whatever `Threads.@threads` itself currently defaults to
   (currently `:dynamic`; passed through as `:default` here so this package does not hard-
   code a name that Julia itself reserves the right to change).
@@ -141,10 +143,13 @@ call site does not give its own `scheduler=` override. Must be one of:
 !!! warning
     `:default`/`:greedy` use migratable `Task`s: `Threads.threadid()` can change *during*
     a single batch's execution. Switching away from `:static` is **unsafe** for any code
-    that indexes per-thread state by `Threads.threadid()` (currently only `dist/seqs.jl`) --
-    unlike `:static`'s nesting restriction, this failure mode is a **silent data race**,
-    not an error. Prefer indexing by [`@batchid`](@ref) instead (safe under every
-    scheduler) over `Threads.threadid()` for any new `@BATCHES` body.
+    that indexes per-thread state by `Threads.threadid()` -- unlike `:static`'s nesting
+    restriction, this failure mode is a **silent data race**, not an error. Nothing in
+    this package's own `@BATCHES`-parallelized paths does this anymore (see above); this
+    still matters for any *new* code you write. Prefer indexing by [`@batchid`](@ref)
+    (safe under every scheduler); when no `@batchid` is reachable at all (e.g. a
+    context-free interface like `evaluate`), use a `Channel`-based buffer pool instead
+    (see `dist/seqs.jl`'s `Levenshtein`) -- both avoid `Threads.threadid()` entirely.
 
 See also [`get_batch_scheduler`](@ref).
 """

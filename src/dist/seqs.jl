@@ -36,21 +36,49 @@ evaluate(::CommonPrefix, a, b) = 1.0 - common_prefix(a, b) / min(length(a), leng
 
 
 """
-    Levenshtein(;icost, dcost, rcost)
+    Levenshtein(; icost=1, dcost=1, rcost=1)
+    Levenshtein(ctx; icost=1, dcost=1, rcost=1)
 
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
-The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`. Not thread safe, use a copy of for each thread.
+The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
+
+`evaluate(::Levenshtein, a, b)` uses a small pool of scratch buffers (`Cpool`, a
+`Channel{Vector{Int16}}`): each call `take!`s a buffer, uses it, and `put!`s it back
+(inside a `try/finally`, so a thrown exception can't leak it). This has no dependency on
+thread identity at all -- unlike `Threads.threadid()`-indexing, it is safe under *every*
+`@BATCHES` scheduler (`:static`/`:default`/`:greedy`), and under any other concurrency
+model too (e.g. calling `evaluate` from a user's own `Threads.@spawn` code), since
+correctness never relies on which thread/task happens to run a given call. A smaller pool
+only ever costs *throughput* (a `take!` blocks until another call returns a buffer), never
+correctness.
+
+`ctx` (a `GenericContext`/`SearchGraphContext`, anything with a `.maxbatches` field) is
+accepted so the pool's size can be driven by the same `maxbatches` knob used everywhere
+else in this package, instead of a bare `Threads.maxthreadid()`; either way the pool is
+clamped to at least 1 buffer (a zero-sized pool would deadlock on the first call).
 """
 struct Levenshtein <: Metric
     icost::Int32 # insertion cost
     dcost::Int32 # deletion cost
     rcost::Int32 # replace cost
 
-    Cpool::Vector{Vector{Int16}}
+    Cpool::Channel{Vector{Int16}}
+end
+
+function _levenshtein_pool(capacity::Integer)
+    n = max(1, Int(capacity))
+    pool = Channel{Vector{Int16}}(n)
+    for _ in 1:n
+        put!(pool, Vector{Int16}(undef, 64))
+    end
+    pool
 end
 
 Levenshtein(; icost=1, dcost=1, rcost=1) =
-    Levenshtein(icost, dcost, rcost, [Vector{Int16}(undef, 64) for i in 1:Threads.maxthreadid()])
+    Levenshtein(icost, dcost, rcost, _levenshtein_pool(Threads.maxthreadid()))
+
+Levenshtein(ctx; icost=1, dcost=1, rcost=1) =
+    Levenshtein(icost, dcost, rcost, _levenshtein_pool(ctx.maxbatches))
 
 """
     evaluate(::Levenshtein, a, b)
@@ -68,30 +96,34 @@ function evaluate(lev::Levenshtein, a, b)
     alen == 0 && return blen
     blen == 0 && return alen
 
-    C = lev.Cpool[Threads.threadid()]
-    resize!(C, blen + 1)
-    @inbounds for i in 0:blen
-        C[i+1] = i
-    end
-
-    prevA = 0
-    @inbounds for i in 1:alen
-        prevA = i
-        prevC = C[1]
-        j = 1
-
-        while j <= blen
-            cost = a[i] == b[j] ? 0 : lev.rcost
-            C[j] = prevA
-            j += 1
-            prevA = min(C[j] + lev.dcost, prevA + lev.icost, prevC + cost)
-            prevC = C[j]
+    C = take!(lev.Cpool)
+    try
+        resize!(C, blen + 1)
+        @inbounds for i in 0:blen
+            C[i+1] = i
         end
 
-        C[j] = prevA
-    end
+        prevA = 0
+        @inbounds for i in 1:alen
+            prevA = i
+            prevC = C[1]
+            j = 1
 
-    prevA
+            while j <= blen
+                cost = a[i] == b[j] ? 0 : lev.rcost
+                C[j] = prevA
+                j += 1
+                prevA = min(C[j] + lev.dcost, prevA + lev.icost, prevC + cost)
+                prevC = C[j]
+            end
+
+            C[j] = prevA
+        end
+
+        prevA
+    finally
+        put!(lev.Cpool, C)
+    end
 end
 
 
@@ -121,12 +153,15 @@ end
 
 """
     LCS()
- 
-Instantiates a Levenshtein object to perform LCS distance
+    LCS(ctx)
+
+Instantiates a Levenshtein object to perform LCS distance. See [`Levenshtein`](@ref) for
+the meaning of `ctx` (optional; sizes the internal scratch pool from `ctx.maxbatches`).
 """
 struct LCS <: Metric
     lev::Levenshtein
     LCS() = new(Levenshtein(rcost=2))
+    LCS(ctx) = new(Levenshtein(ctx; rcost=2))
 end
 
 @inline evaluate(lcs::LCS, a, b) = evaluate(lcs.lev, a, b)
