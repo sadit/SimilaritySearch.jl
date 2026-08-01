@@ -70,26 +70,20 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
     @assert n > 0 "invalid assertion n > 0"
     @assert n == m "invalid assertion n == m"
     @assert 0 < k <= n
-    minbatch = getminbatch(n)
+    minbatch = getminbatch(ctx, n)
     #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
-        @BATCHES minbatch for j in 1:n
-            res = knnqueue(ctx, view(knns, :, j))
-            allknn_single_search!(g, ctx, j, res)
+        @BATCHES minbatch begin
+        @BEGINBATCH
+            bctx = @set ctx.batchid = @batchid
+        @LOOP for j in 1:n
+            res = knnqueue(bctx, view(knns, :, j))
+            allknn_single_search!(g, bctx, j, res)
             sort && sortitems!(res)
             progress !== nothing && next!(progress)
         end
-    end
-
-    #=
-        progress = Progress(n, desc="allknn", dt=4)
-        @batch per = thread minbatch = minbatch for i in 1:n
-            res = knnqueue(ctx, @view knns[:, i])
-            res = allknn_single_search!(g, ctx, i, res)
-            sort && sortitems!(res)
-            next!(progress)
         end
-    end=#
+    end
 
     knns
 end

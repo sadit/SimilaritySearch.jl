@@ -3,7 +3,7 @@ export SearchGraphContext
 
 """
     SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted,
-        vstates=[Vector{UInt64}(undef, 2^15) for _ in 1:Threads.maxthreadid()];
+        vstates=nothing;
         logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
         verbose=false,
         neighborhood=Neighborhood(filter=SatNeighborhood()),
@@ -12,7 +12,9 @@ export SearchGraphContext
         parallel_block=4Threads.nthreads(),
         logbase_callback=1.5,
         starting_callback=256,
-        beams=zeros(IdDist, 32, Threads.maxthreadid())
+        maxbatches=8Threads.nthreads(),
+        batchid=1,
+        beams=nothing
     ) -> SearchGraphContext
 
     SearchGraphContext(ctx::SearchGraphContext; kwargs...) -> SearchGraphContext
@@ -22,14 +24,15 @@ building and searching a [`SearchGraph`](@ref). It must be passed along to funct
 `index!`, `search`, `searchbatch`, and `optimize_index!`.
 
 The first method builds a new context from scratch, selecting the priority-queue
-implementation `KnnType` (e.g., `KnnSorted` or `KnnHeap`) used internally, and a per-thread
-`vstates` cache of visited-vertices buffers. The second method (a copy constructor) creates a
-modified copy of an existing context `ctx`, overriding only the given keyword arguments while
-reusing the same `KnnType` and `vstates`.
+implementation `KnnType` (e.g., `KnnSorted` or `KnnHeap`) used internally, and a per-batch
+`vstates` cache of visited-vertices buffers (one entry per batch, up to `maxbatches`). The
+second method (a copy constructor) creates a modified copy of an existing context `ctx`,
+overriding only the given keyword arguments while reusing the same `KnnType` and `vstates`.
 
 # Arguments
 - `KnnType`: type of priority queue used for the internal knn caches (`beams`), defaults to `KnnSorted`.
-- `vstates`: per-thread cache of visited-vertices buffers, one entry per thread.
+- `vstates`: per-batch cache of visited-vertices buffers, one entry per batch (`nothing` builds
+  a fresh one sized by `maxbatches`).
 
 # Keyword Arguments
 - `logger`: how to handle and log events, mostly for insertions for now.
@@ -40,7 +43,15 @@ reusing the same `KnnType` and `vstates`.
 - `logbase_callback`: a log base to control when to run callbacks.
 - `starting_callback`: when to start to run callbacks, minimum index length to do it.
 - `parallel_block`: the size of the block that is processed in parallel.
-- `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref)).
+- `maxbatches`: hard cap on the batch count used by [`getminbatch`](@ref) for operations driven
+  by this context, and the capacity (number of columns/entries) of `vstates`/`beams` when they
+  are built automatically. Defaults to `8 * Threads.nthreads()`.
+- `batchid`: the batch slot this context is tagged with (indexes into `vstates`/`beams`). Not
+  meaningful on the root context (always `1`) -- per-batch copies tagging the running
+  `@batchid` are minted internally via `@set ctx.batchid = @batchid`, once per batch, not
+  passed here directly.
+- `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
+  `nothing` builds a fresh one sized by `maxbatches`).
 
 Each of these keyword arguments is stored verbatim in the field of the same name.
 
@@ -51,7 +62,8 @@ Each of these keyword arguments is stored verbatim in the field of the same name
 - `parallel_block`: The number of elements that the multithreading algorithm processes at once,
     it is important to be larger that the number of available threads but not so large since the quality of the search graph could degrade (a few times the number of threads is enough).
     If `parallel_block=1` the algorithm becomes sequential.
-- `beams` and `vstates` are caches that alleviate memory allocations in `SearchGraph` construction and searching. Relevant on multithreading scenarios where distance functions, `evaluate`,
+- `beams` and `vstates` are caches that alleviate memory allocations in `SearchGraph` construction and searching, indexed by `batchid` (race-free under every [`@BATCHES`](@ref)
+  scheduler, unlike the `Threads.threadid()`-indexing used before). Relevant on multithreading scenarios where distance functions, `evaluate`,
 can call other metric indexes that can use these shared resources (globally defined).
 
 # Examples
@@ -61,6 +73,7 @@ using SimilaritySearch
 ctx = SearchGraphContext()                          # default configuration
 ctx = SearchGraphContext(; verbose=true)             # verbose logging
 ctx2 = SearchGraphContext(ctx; parallel_block=64)    # copy overriding one keyword
+ctx3 = SearchGraphContext(; maxbatches=4Threads.nthreads())  # smaller batch-cache cap
 ```
 """
 struct SearchGraphContext{KnnType,VSType} <: AbstractContext
@@ -75,12 +88,14 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     beams::Matrix{IdDist}
     vstates::VSType
     #vstates::Vector{Set{UInt32}}
+    maxbatches::Int32
+    batchid::Int32
 end
 
 function SearchGraphContext(
     KnnType::Type{<:AbstractKnn}=KnnSorted,
-    vstates=[Vector{UInt64}(undef, 2^15) for _ in 1:Threads.maxthreadid()]; # 2^15 * 64 elements without resizing
-    #vstates=[Set{UInt32}() for _ in 1:Threads.maxthreadid()];
+    vstates=nothing; # 2^15 * 64 elements without resizing, one entry per batch (up to maxbatches)
+    #vstates=[Set{UInt32}() for _ in 1:maxbatches];
     logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
@@ -89,14 +104,20 @@ function SearchGraphContext(
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
-    beams=zeros(IdDist, 32, Threads.maxthreadid())
+    maxbatches::Integer=8Threads.nthreads(),
+    batchid::Integer=1,
+    beams=nothing
 )
+    vstates === nothing && (vstates = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
+    beams === nothing && (beams = zeros(IdDist, 32, maxbatches))
+
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
-        beams, vstates)
+        beams, vstates,
+        convert(Int32, maxbatches), convert(Int32, batchid))
 end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
@@ -109,17 +130,36 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     logbase_callback=ctx.logbase_callback,
     starting_callback=ctx.starting_callback,
     beams=ctx.beams,
-    vstates=ctx.vstates
+    vstates=ctx.vstates,
+    maxbatches=ctx.maxbatches,
+    batchid=ctx.batchid
 ) where {KnnType,VSType}
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,
-        beams, vstates)
+        beams, vstates, maxbatches, batchid)
 end
 
-#getminbatch(ctx::SearchGraphContext, n::Int) = getminbatch(n, Threads.nthreads())
+# SearchGraphContext has a phantom type parameter (KnnType, not derivable from any field),
+# so ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it --
+# this override makes `@set ctx.batchid = ...`/`@set ctx.maxbatches = ...` work.
+Accessors.ConstructionBase.constructorof(::Type{<:SearchGraphContext{K,V}}) where {K,V} =
+    (args...) -> SearchGraphContext{K,V}(args...)
+
+"""
+    getminbatch(ctx::AbstractContext, n::Int, nt::Int=Threads.nthreads(); blocks_per_thread::Int=8)
+
+[`getminbatch`](@ref) overload that derives its `maxbatches` cap from `ctx.maxbatches`,
+so that any batch count computed for operations driven by `ctx` never exceeds the
+capacity of its per-batch caches (`vstates`/`beams`, for [`SearchGraphContext`](@ref)).
+This is the preferred way to compute `minbatch` for any [`@BATCHES`](@ref) loop that has
+a context object available.
+"""
+getminbatch(ctx::AbstractContext, n::Int, nt::Int=Threads.nthreads(); blocks_per_thread::Int=8) =
+    getminbatch(n, nt; blocks_per_thread, maxbatches=Int(ctx.maxbatches))
+
 """
     verbose(ctx::SearchGraphContext) -> Bool
 
@@ -138,22 +178,24 @@ knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnq
 """
     getvstate(len::Integer, ctx::SearchGraphContext)
 
-Retrieves the current thread's visited-vertices cache from `ctx.vstates`, resetting/resizing it
-so that it can track visits over `len` elements.
+Retrieves `ctx`'s visited-vertices cache slot (indexed by `ctx.batchid`, race-free
+regardless of `@BATCHES` scheduler -- callers running inside a batch should pass a
+per-batch context tagged via `@set ctx.batchid = @batchid`, see [`@batchid`](@ref)) from
+`ctx.vstates`, resetting/resizing it so that it can track visits over `len` elements.
 """
 @inline function getvstate(len::Integer, ctx::SearchGraphContext)
-    reuse!(ctx.vstates[Threads.threadid()], len)
+    reuse!(ctx.vstates[ctx.batchid], len)
 end
 
 """
     getbeam(nsize::Integer, ctx::SearchGraphContext) -> AbstractKnn
 
-Retrieves the current thread's preallocated beam (a `KnnSorted` queue backed by `ctx.beams`,
-truncated to at most `nsize` elements) used internally by [`BeamSearch`](@ref).
+Retrieves `ctx`'s preallocated beam slot (indexed by `ctx.batchid`; a `KnnSorted` queue
+backed by `ctx.beams`, truncated to at most `nsize` elements) used internally by
+[`BeamSearch`](@ref).
 """
 @inline function getbeam(nsize::Integer, ctx::SearchGraphContext)
     nsize = min(nsize, size(ctx.beams, 1))
-    colID = Threads.threadid()
-    knnqueue(KnnSorted, view(ctx.beams, 1:nsize, colID))
+    knnqueue(KnnSorted, view(ctx.beams, 1:nsize, ctx.batchid))
 end
 

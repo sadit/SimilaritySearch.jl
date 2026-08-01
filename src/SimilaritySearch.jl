@@ -121,15 +121,42 @@ Gets the distance function used in the index
 """
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
+"""
+    GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
+        verbose::Bool=true, logger=InformativeLog(),
+        maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1) -> GenericContext
+
+Lightweight [`AbstractContext`](@ref) implementation used by exact indexes
+([`ExhaustiveSearch`](@ref), [`ParallelExhaustiveSearch`](@ref)) that need no per-thread
+scratch caches.
+
+# Keyword Arguments
+- `verbose`: controls the number of output messages.
+- `logger`: how to handle and log events.
+- `maxbatches`: hard cap on the batch count used by [`getminbatch`](@ref) for operations
+  driven by this context (e.g. [`searchbatch!`](@ref), [`allknn`](@ref),
+  [`closestpair`](@ref), [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnn))).
+  Defaults to `8 * Threads.nthreads()`, matching [`getminbatch`](@ref)'s own default
+  `blocks_per_thread`.
+- `batchid`: the batch slot this context is tagged with; not meaningful on the root
+  context returned here (always `1`) -- per-batch copies tagging the running `@batchid`
+  are minted internally via `Accessors.@set`, one per batch, not per call.
+"""
 struct GenericContext{KnnType} <: AbstractContext
     verbose::Bool
     logger
+    maxbatches::Int32
+    batchid::Int32
 end
 
-GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog()) =
-    GenericContext{KnnType}(verbose, logger)
+GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
+    maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1) =
+    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid))
 
-#getminbatch(ctx::GenericContext, n::Int) = getminbatch(n, Threads.nthreads())
+# GenericContext has a phantom type parameter (KnnType, not derivable from any field), so
+# ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it -- this
+# override makes `@set ctx.batchid = ...`/`@set ctx.maxbatches = ...` work.
+Accessors.ConstructionBase.constructorof(::Type{<:GenericContext{K}}) where {K} = (args...) -> GenericContext{K}(args...)
 
 knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 verbose(ctx::GenericContext) = ctx.verbose
@@ -198,27 +225,17 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m = length(Q)
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(m)
+    minbatch = getminbatch(ctx, m)
     # @info m => Threads.nthreads() => minbatch
-    @BATCHES minbatch for j in 1:m
-        res = knnqueue(ctx, view(knns, :, j))
-        search(index, ctx, Q[j], res)
+    @BATCHES minbatch begin
+    @BEGINBATCH
+        bctx = @set ctx.batchid = @batchid
+    @LOOP for j in 1:m
+        res = knnqueue(bctx, view(knns, :, j))
+        search(index, bctx, Q[j], res)
         sorted && sortitems!(res)
     end
-    #@batch per=core minbatch=4 for j in 1:minbatch:m 
-    ##Threads.@threads :static for j in 1:minbatch:m
-    #    m_ = min(m, j + minbatch - 1)
-    #    res = knnqueue(ctx, view(knns, :, j))
-    #    search(index, ctx, Q[j], res)
-    #    sorted && sortitems!(res)
-    #    i = j + 1
-    #    @inbounds while i <= m_
-    #        reuse!(res, view(knns, :, i))
-    #        search(index, ctx, Q[i], res)
-    #        sorted && sortitems!(res)
-    #        i += 1
-    #    end
-    #end
+    end
 
     knns
 end
@@ -227,11 +244,13 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m = length(Q)
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
-    minbatch = getminbatch(m)
-    # @show :searchbatch! => m => Threads.nthreads() => minbatch
-    # @batch minbatch = minbatch per = thread for i in eachindex(Q)
-    @BATCHES minbatch for i in 1:m
-        search(index, ctx, Q[i], knns[i])
+    minbatch = getminbatch(ctx, m)
+    @BATCHES minbatch begin
+    @BEGINBATCH
+        bctx = @set ctx.batchid = @batchid
+    @LOOP for i in 1:m
+        search(index, bctx, Q[i], knns[i])
+    end
     end
 
     knns

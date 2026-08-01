@@ -126,8 +126,54 @@ Key facts an agent must know before editing anything here:
 - **Index scratch buffers by `@batchid`, never by `Threads.threadid()`.** Batch ids are
   fixed, disjoint ordinals — race-free under *every* scheduler (`:static`/`:default`/
   `:greedy`). `Threads.threadid()`-indexing is only safe under `:static` (the default) and
-  is a silent data race under the others; several older call sites still do this and are
-  candidates for the same migration (search for `Threads.threadid()` in `src/`).
+  is a silent data race under the others; `dist/seqs.jl` is the one remaining call site
+  that still does this (out of scope so far, a candidate for the same migration).
+- **`GenericContext`/`SearchGraphContext` carry `batchid`/`maxbatches` fields** (see
+  `searchgraph/context.jl`) precisely so `@batchid`-indexing can flow through the existing
+  `search`/`find_neighborhood!` call graph without changing any of those functions'
+  signatures: mint a per-batch context once per batch (in `@BEGINBATCH`, not per element)
+  via `bctx = @set ctx.batchid = @batchid` (`Accessors.@set`; already `using Accessors`),
+  then use `bctx` — never the outer `ctx` — for every call made from inside that batch.
+  `getvstate`/`getbeam` (`context.jl`) read `ctx.batchid` to pick their scratch slot.
+  Both context structs have a *phantom* type parameter (`KnnType`, not derivable from any
+  field), so `@set` requires a `ConstructionBase.constructorof` override for each — already
+  defined right after each struct; don't remove it.
+- **The "tagged-handle" hazard (found live in this codebase — read this before touching
+  any `@BATCHES` body that mints a `bctx`/similar per-batch handle).** Unlike
+  `Threads.threadid()`-aliasing, this bug is unsafe under **every** scheduler, including
+  `:static` — it has nothing to do with task migration. It happens when `@BEGINBATCH`
+  correctly mints a tagged per-batch copy, but a call inside `@LOOP`/`@ENDBATCH` is
+  accidentally passed the original, untagged object instead. Every batch then silently
+  resolves to the *same* hardcoded slot (whatever the untagged object's default `batchid`
+  is, typically `1`) — a live data race between concurrently-running batches on genuinely
+  different threads. It type-checks, compiles, and runs without error, producing
+  plausible-looking but silently corrupted results, so it's easy to miss in a quick test.
+  Exactly this bug was caught and fixed in `searchgraph/rebuild.jl` and
+  `searchgraph/insertions.jl`:
+
+  ```julia
+  # BUGGY: tmp/N are correctly @batchid-sliced, but find_neighborhood! still gets the
+  # outer, untagged `ctx` — its internal getvstate/getbeam calls all resolve to slot 1,
+  # for every batch, concurrently.
+  @BEGINBATCH
+      bctx = @set ctx.batchid = @batchid
+      tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
+      N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+  @LOOP for objID in 1:n
+      find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=...)  # ctx, not bctx
+  end
+
+  # FIXED — use the tagged bctx, not the outer ctx
+  @LOOP for objID in 1:n
+      find_neighborhood!(N, g, bctx, database(g, objID), tmp, 1:-1; hints=...)
+  end
+  ```
+
+  **Rule of thumb: once `@BEGINBATCH` mints a `bctx`, grep the rest of that `@BATCHES`
+  body for the original variable's name (`ctx`) — it should not appear inside
+  `@LOOP`/`@ENDBATCH` at all.** This is also why a freshly-built/empty index can mask the
+  bug in a quick test: `find_neighborhood!` only touches `ctx` at all when the target
+  index already has elements (`length(index) > 0`).
 - **`@batchid`/`@nbatches` followed directly by a unary `-` misparses.** `2 * @batchid - 1`
   parses as `2 * @batchid(-1)` (the bare macro slurps the following `-1` as an argument)
   and errors. Always parenthesize: `2 * (@batchid) - 1`.
@@ -137,19 +183,26 @@ Key facts an agent must know before editing anything here:
   local — a real, intermittent, silent data race was caught this way (see the comment
   above `_batches_run_static` in `parallel.jl`). Keep `Threads.@threads` confined to
   plain, hand-written, non-macro functions.
-- `getminbatch(n, nt=Threads.nthreads(); blocks_per_thread=8, maxbatches=0)` is the only
-  sanctioned way to compute `minbatch` for `@BATCHES`. `maxbatches` (a plain `Int`, `0`
-  means uncapped — deliberately not `Union{Nothing,Int}`, to stay type-stable) directly
-  bounds the resulting batch count, for call sites where each batch allocates its own
-  `@nbatches`-sized scratch (e.g. `exact/parallel-exhaustive.jl`, `searchgraph/rebuild.jl`,
-  `searchgraph/insertions.jl`). Read `getminbatch`'s docstring's "Extreme cases" warning
-  before picking a `maxbatches`/`blocks_per_thread` value — capping too aggressively can
-  leave threads idle.
+- `getminbatch(n, nt=Threads.nthreads(); blocks_per_thread=8, maxbatches=0)` is the
+  underlying, always-valid way to compute `minbatch` for `@BATCHES`. `maxbatches` (a plain
+  `Int`, `0` means uncapped — deliberately not `Union{Nothing,Int}`, to stay type-stable)
+  directly bounds the resulting batch count. **Prefer the context-aware overload,
+  `getminbatch(ctx::AbstractContext, n)`** (`searchgraph/context.jl`), whenever a context
+  object is available — it derives `maxbatches` from `ctx.maxbatches` (default
+  `8 * Threads.nthreads()` for both context types), so the cap stays consistent with the
+  capacity of that context's own caches (`vstates`/`beams`, for `SearchGraphContext`)
+  instead of being an independent, easy-to-drift number. `ParallelExhaustiveSearch`'s
+  `search` and `rebuild` used to each carry their own bespoke `maxbatches` keyword; both
+  were dropped in favor of this single, context-level knob — set it via
+  `GenericContext(; maxbatches=...)`/`SearchGraphContext(; maxbatches=...)` instead. Read
+  `getminbatch`'s docstring's "Extreme cases" warning before picking a
+  `maxbatches`/`blocks_per_thread` value — capping too aggressively can leave threads idle.
 - When a scratch buffer's width is tied to `maxbatches`, derive the cap from the buffer's
   *actual* allocated size (`size(buf, 2) ÷ slots_per_batch`), not from an assumed
   relationship with some other parameter (e.g. a caller-supplied block size) — a mismatch
   between an assumed relationship and the real buffer size caused a real out-of-bounds
-  crash during development (`searchgraph/insertions.jl`'s `qcache`).
+  crash during development (`searchgraph/insertions.jl`'s `qcache`, which is why its width
+  is sized directly from `ctx.maxbatches` in `index!`).
 - Some search methods (e.g. `ParallelExhaustiveSearch`'s `search`) are commonly invoked
   from *within* another `@BATCHES`-parallelized outer loop (`searchbatch!`/`allknn`/
   `closestpair` all do this generically). Native `:static` throws if nested/concurrent;

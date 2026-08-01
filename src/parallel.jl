@@ -123,12 +123,13 @@ call site does not give its own `scheduler=` override. Must be one of:
 
 - `:static` (**the default**): one task per thread, never migrates mid-execution. Chosen
   as the default specifically because it preserves the same non-migration guarantee this
-  package's `Threads.threadid()`/`Threads.maxthreadid()`-indexed per-thread scratch
-  buffers (e.g. in `searchgraph/context.jl`, `searchgraph/rebuild.jl`,
-  `searchgraph/staticindexing.jl`, `searchgraph/insertions.jl`, `closestpair.jl`,
-  `dist/hacks.jl`, `dist/seqs.jl`) already depend on. Trade-off: throws immediately if a
-  `@BATCHES` call is ever nested inside another already-threaded region, or invoked from a
-  non-main thread.
+  package's remaining `Threads.threadid()`/`Threads.maxthreadid()`-indexed per-thread
+  scratch buffer (`dist/seqs.jl`) still depends on -- everywhere else
+  (`searchgraph/context.jl`'s `vstates`/`beams`, `searchgraph/rebuild.jl`,
+  `searchgraph/insertions.jl`, `closestpair.jl`, `exact/parallel-exhaustive.jl`) has been
+  migrated to `@batchid`-indexing, safe under every scheduler. Trade-off: throws
+  immediately if a `@BATCHES` call is ever nested inside another already-threaded region,
+  or invoked from a non-main thread.
 - `:dynamic`/`:default`: whatever `Threads.@threads` itself currently defaults to
   (currently `:dynamic`; passed through as `:default` here so this package does not hard-
   code a name that Julia itself reserves the right to change).
@@ -140,7 +141,7 @@ call site does not give its own `scheduler=` override. Must be one of:
 !!! warning
     `:default`/`:greedy` use migratable `Task`s: `Threads.threadid()` can change *during*
     a single batch's execution. Switching away from `:static` is **unsafe** for any code
-    that indexes per-thread state by `Threads.threadid()` (see the files listed above) --
+    that indexes per-thread state by `Threads.threadid()` (currently only `dist/seqs.jl`) --
     unlike `:static`'s nesting restriction, this failure mode is a **silent data race**,
     not an error. Prefer indexing by [`@batchid`](@ref) instead (safe under every
     scheduler) over `Threads.threadid()` for any new `@BATCHES` body.
@@ -408,6 +409,52 @@ be individually omitted).
     data race, not an error, since those two schedulers use migratable `Task`s). Prefer
     [`@batchid`](@ref)-indexed scratch space in new code -- it is safe under every
     scheduler. See [`set_batch_scheduler!`](@ref) for the full explanation.
+
+!!! danger "The tagged-handle hazard: passing the wrong *object*, not the wrong index"
+    A second, more insidious hazard shows up whenever `@batchid`-indexed state is resolved
+    **indirectly**, through a shared object that a callee re-derives batch-local state
+    from several call frames below where the batch was tagged -- e.g.
+    `searchgraph/context.jl`'s `getvstate`/`getbeam`, which read `ctx.batchid` deep inside
+    `find_neighborhood!`/`search`, not at the `@BATCHES` call site itself (see
+    `SearchGraphContext`). The pattern that makes this safe is: mint a tagged, per-batch
+    copy once in `@BEGINBATCH` (`bctx = @set ctx.batchid = @batchid`, via `Accessors.@set`)
+    and use *that* copy -- never the original, outer object -- for every call made from
+    inside that batch. **If even one call inside `@LOOP`/`@ENDBATCH` is accidentally
+    passed the untagged original instead of the tagged copy, every batch silently
+    resolves to the same hardcoded slot** (whatever the untagged object's default
+    `batchid` is, typically `1`). This is unsafe under **every** scheduler, including
+    `:static` -- unlike `Threads.threadid()`-aliasing above, it has nothing to do with
+    task migration: batches running concurrently on genuinely different threads simply
+    all read and write the same slot. It type-checks, compiles, and runs without error,
+    returning plausible-looking (just silently wrong/corrupted) results, so it is easy to
+    miss in a quick test. A real instance of exactly this bug was caught and fixed in
+    `searchgraph/rebuild.jl` and `searchgraph/insertions.jl` during development: both
+    files' `@BEGINBATCH` correctly minted `bctx`, but their `@LOOP` body still called
+    `find_neighborhood!(N, g, ctx, ...)` (the outer, untagged context) instead of
+    `find_neighborhood!(N, g, bctx, ...)` (the tagged one) --
+
+    ```julia
+    # BUGGY: every batch's find_neighborhood! call resolves getvstate/getbeam via the
+    # SAME outer `ctx` (batchid always 1) -- a live race across concurrently-running
+    # batches, on every scheduler, despite `tmp`/`N` themselves being correctly
+    # @batchid-sliced right above it.
+    @BEGINBATCH
+        bctx = @set ctx.batchid = @batchid
+        tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
+        N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+    @LOOP for objID in 1:n
+        find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=...)  # bug: ctx, not bctx
+    end
+
+    # FIXED
+    @LOOP for objID in 1:n
+        find_neighborhood!(N, g, bctx, database(g, objID), tmp, 1:-1; hints=...)
+    end
+    ```
+
+    **When reviewing/writing a `@BATCHES` body that mints a tagged per-batch handle, grep
+    the diff for the original untagged variable's name inside `@LOOP`/`@ENDBATCH` -- it
+    should not appear there at all.**
 
 !!! note "Julia 1.10 and stack-allocated scratch buffers"
     This macro no longer uses `Polyester.@batch` at all (on any Julia version), so its

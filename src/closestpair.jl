@@ -63,7 +63,7 @@ end
 
 function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, min_k)::Tuple{Int32,Int32,Float32}
     n = length(idx)
-    minbatch = getminbatch(n)
+    minbatch = getminbatch(ctx, n)
     local best
 
     @BATCHES minbatch begin
@@ -72,11 +72,12 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
         knns = zeros(IdDist, min_k, @nbatches)
         B = Vector{Tuple{Int32,Int32,Float32}}(undef, @nbatches)
     @BEGINBATCH
+        bctx = @set ctx.batchid = @batchid
         r = knnqueue(KnnSorted, view(knns, :, @batchid)) # requires KnnSorted to support pop_min!
         b = (zero(Int32), zero(Int32), typemax(Float32))
     @LOOP for objID in 1:n
         reuse!(r)
-        p = search_hint(idx, ctx, objID, r)
+        p = search_hint(idx, bctx, objID, r)
         if p.dist < last(b)
             b = (Int32(objID), p.id, p.dist)
         end
