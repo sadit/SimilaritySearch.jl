@@ -21,36 +21,48 @@ function index! end
 
 """
     getminbatch(n::Int, nt::Int=Threads.nthreads();
-                blocks_per_thread::Int=8, maxbatches::Int=0)
+                blocks_per_thread::Int=8, maxbatches::Int=n)
 
 The official, always-valid way to compute a `minbatch` size for [`@BATCHES`](@ref). Always
 returns a value `>= 1` (or `n` itself when `n <= 0` or `nt <= 1`), so callers do not need
 to clamp its result themselves.
 
-`maxbatches` is a plain `Int` (`0` meaning "no cap") rather than `Union{Nothing,Int}`, to
-keep this fully type-stable/monomorphic and avoid extra compilation from union-splitting
-at call sites (this is meant to be cheap to call from inside performance-sensitive code).
+`maxbatches` is a plain `Int`, deliberately with **no special/sentinel value** (no `0`
+meaning "off", no `Union{Nothing,Int}`) -- it is simply a hard ceiling on the batch count,
+always in effect, and defaults to `n` because `n` is already the largest a batch count
+could ever sensibly be (a batch needs >= 1 element, so more than `n` batches is
+meaningless). That default is therefore a genuine no-op, not a disguised "disabled" flag:
+whatever `blocks_per_thread * nt` computes is used as-is. Pass anything smaller and it
+takes direct, immediate effect on the result -- there is nothing else to know. This also
+keeps the function fully type-stable/monomorphic and total (every `Int`, including `0` or
+negative, produces a well-defined result; see below), cheap to call from
+performance-sensitive code.
 
 - `blocks_per_thread` (default `8`): the natural batch-count target is
   `blocks_per_thread * nt` -- always tied to the thread count, never an
   independent/arbitrary number.
-- `maxbatches` (default `0` = no cap): if `> 0`, a **hard ceiling** on the batch count,
-  overriding the natural target above when it would be larger. Use this to directly
-  bound the memory of per-batch scratch allocations (e.g. [`@BATCHES`](@ref)'s
-  `@BEGIN`-declared, [`@nbatches`](@ref)-sized buffers) for very large `n`.
+- `maxbatches` (default `n`, i.e. no effective restriction): a **hard ceiling** on the
+  batch count, overriding the natural target above whenever it would be larger. Use this
+  to directly bound the memory of per-batch scratch allocations (e.g. [`@BATCHES`](@ref)'s
+  `@BEGIN`-declared, [`@nbatches`](@ref)-sized buffers) for very large `n`. When a context
+  object is available, prefer the `getminbatch(ctx::AbstractContext, n)` overload
+  (`searchgraph/context.jl`) instead, which derives this from `ctx.maxbatches`.
 
 !!! warning "Extreme cases / contraindications"
     - `maxbatches < nt`: some threads get **no work at all** (`@BATCHES` only dispatches
       `nbatches` tasks; if `nbatches < nthreads()` the remaining threads sit idle).
       Deliberately trading away parallelism for memory -- know that you're doing it.
-    - `maxbatches` very small (e.g. `1`) with large `n`: collapses to one giant batch,
-      i.e. essentially serial execution despite having many threads. Only sensible when
-      per-batch memory, not speed, is the dominant constraint.
+    - `maxbatches` very small (e.g. `1`, or even `0`/negative -- all collapse to the same
+      single-batch result) with large `n`: essentially serial execution despite having
+      many threads. Only sensible when per-batch memory, not speed, is the dominant
+      constraint.
     - Fewer, larger batches worsen load-balancing under uneven per-element cost: one
       batch can straggle while others finish early and idle -- the classic
-      granularity-vs-balance trade-off, and exactly why the default is `8`, not `1`.
+      granularity-vs-balance trade-off, and exactly why the default target is
+      `blocks_per_thread=8`, not `1`.
     - `maxbatches` has no effect once it exceeds `n` (a batch needs >= 1 element; the
-      result is already clamped to at most `n` batches regardless).
+      result is already clamped to at most `n` batches regardless) -- this is exactly why
+      `n` is the default: it is the natural "no restriction" value.
     - A large `maxbatches`/small `blocks_per_thread` combination can still land inside
       `@BATCHES`'s own small-`n` fast path (`n <= minbatch` -> single serial batch, no
       threading at all) -- consistent, not a bug, but easy to trip over unexpectedly.
@@ -61,16 +73,16 @@ at call sites (this is meant to be cheap to call from inside performance-sensiti
 
 # Keyword Arguments
 - `blocks_per_thread`: target batches per thread (default `8`)
-- `maxbatches`: optional hard cap on the total batch count, for bounding per-batch
-  memory directly regardless of `nt` (`0` disables the cap)
+- `maxbatches`: hard cap on the total batch count, for bounding per-batch memory directly
+  regardless of `nt` (defaults to `n`, a genuine no-op unless set to something smaller)
 """
 function getminbatch(n::Int, nt::Int=Threads.nthreads();
-                      blocks_per_thread::Int=8, maxbatches::Int=0)
+                      blocks_per_thread::Int=8, maxbatches::Int=n)
     n <= 0 && return 1
     nt <= 1 && return n
 
     nblocks = blocks_per_thread * nt
-    maxbatches > 0 && (nblocks = min(nblocks, maxbatches))
+    nblocks = min(nblocks, maxbatches)
     nblocks = clamp(nblocks, 1, n)
 
     max(1, ceil(Int, n / nblocks))

@@ -192,10 +192,16 @@ Key facts an agent must know before editing anything here:
   local — a real, intermittent, silent data race was caught this way (see the comment
   above `_batches_run_static` in `parallel.jl`). Keep `Threads.@threads` confined to
   plain, hand-written, non-macro functions.
-- `getminbatch(n, nt=Threads.nthreads(); blocks_per_thread=8, maxbatches=0)` is the
+- `getminbatch(n, nt=Threads.nthreads(); blocks_per_thread=8, maxbatches=n)` is the
   underlying, always-valid way to compute `minbatch` for `@BATCHES`. `maxbatches` (a plain
-  `Int`, `0` means uncapped — deliberately not `Union{Nothing,Int}`, to stay type-stable)
-  directly bounds the resulting batch count. **Prefer the context-aware overload,
+  `Int`, deliberately with **no special/sentinel value** — no `0`-means-off, no
+  `Union{Nothing,Int}` — to stay type-stable *and* simple to reason about) is just a hard
+  ceiling, always in effect; it defaults to `n` because `n` is already the largest a
+  batch count could sensibly be, so that default is a genuine no-op, not a disguised
+  "disabled" flag. Pass anything smaller and it directly reduces the batch count (raising
+  `minbatch` correspondingly) — there is no other case to remember, and every `Int`
+  (including `0` or negative) produces a well-defined result. **Prefer the context-aware
+  overload,
   `getminbatch(ctx::AbstractContext, n)`** (`searchgraph/context.jl`), whenever a context
   object is available — it derives `maxbatches` from `ctx.maxbatches` (default
   `8 * Threads.nthreads()` for both context types), so the cap stays consistent with the
