@@ -45,7 +45,7 @@ function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDa
     seq
 end
 
-function index!(seq::ExhaustiveSearch, ::AbstractContext)
+function index!(seq::ExhaustiveSearch, ctx::AbstractContext)
     # do nothing
     n = length(seq)
     LOG(ctx.logger, :index!, seq, ctx, n, n)

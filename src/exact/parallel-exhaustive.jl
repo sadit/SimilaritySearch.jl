@@ -112,7 +112,7 @@ function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::Ab
     pex
 end
 
-function index!(pex::ParallelExhaustiveSearch, ::GenericContext)
+function index!(pex::ParallelExhaustiveSearch, ctx::GenericContext)
     # do nothing
     LOG(ctx.logger, :index!, pex, ctx, length(pex), length(pex))
     pex
