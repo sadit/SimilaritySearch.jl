@@ -60,6 +60,18 @@ index!
 rebuild
 ```
 
+## Logging
+Insertion-related functions (`push_item!`, `append_items!`, `index!`) report their
+progress through `ctx.logger` instead of depending on any particular logging backend;
+see the [logging tutorial](@ref "Logs, and capturing neighbors as they're built") for a
+worked example of writing a custom one.
+```@docs
+AbstractLog
+LogList
+InformativeLog
+LOG
+```
+
 ## Distance functions
 The distance functions are defined to work under the `evaluate(::metric, u, v)` function (borrowed from [Distances.jl](https://github.com/JuliaStats/Distances.jl) package). None of them are re-exported from `SimilaritySearch` directly; access them through the `Dist` submodule, e.g. `Dist.L2()`.
 
@@ -129,6 +141,8 @@ Several algorithms support arguments that modify the performance, for instance, 
 
 ```@docs
 getminbatch
+AbstractContext
+GenericContext
 SearchGraphContext
 BeamSearch
 BeamSearchSpace
@@ -172,7 +186,6 @@ execute_callbacks!
 ```@docs
 AbstractDatabase
 MatrixDatabase
-StrideMatrixDatabase
 BlockMatrixDatabase
 VectorDatabase
 SubDatabase
@@ -256,27 +269,24 @@ ScalarQuant.SQgu8.NormCosine
 ScalarQuant.SQgu8.SqL2
 ```
 
-## Random projections (`Special.Projections` submodule)
+## Random projections (`Projections` submodule)
 ```@docs
-Special.Projections.RandomProjections
-Special.Projections.gaussian
-Special.Projections.qr
-Special.Projections.outdim
-Special.Projections.indim
-Special.Projections.transform
-Special.Projections.transform!
+Projections.RandomProjections
+Projections.gaussian
+Projections.qr
+Projections.outdim
+Projections.indim
+Projections.transform
+Projections.transform!
 ```
 
-## Hadamard projection (`Special.HadamardProjection` submodule)
+## Hadamard projection (`Projections.HadamardProjection`)
 
 A dimensionality-reduction projection computed with the fast Walsh-Hadamard transform
 (via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht`) instead of a dense
-random matrix.
+random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!` generic functions
+documented above for `RandomProjections`.
 
 ```@docs
-Special.HadamardProjection.Projection
-Special.HadamardProjection.outdim
-Special.HadamardProjection.indim
-Special.HadamardProjection.transform
-Special.HadamardProjection.transform!
+Projections.HadamardProjection
 ```

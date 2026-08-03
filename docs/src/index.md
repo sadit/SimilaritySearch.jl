@@ -45,5 +45,11 @@ also, you can run the set of tests as follows
 ```
 
 # Using the library
-You can find a brief tutorial and examples in [https://github.com/sadit/SimilaritySearchDemos](https://github.com/sadit/SimilaritySearchDemos). You will find a list of Jupyter and Pluto notebooks, and some scripts that exemplifies its usage.
- 
+
+See the [Tutorial](@ref) for a guided walkthrough of the library, using small
+self-contained synthetic datasets (no downloads needed) -- start there if this is your
+first time using `SimilaritySearch.jl`.
+
+For further worked examples over real-world datasets (embeddings, images, text corpora),
+see [https://github.com/sadit/SimilaritySearchDemos](https://github.com/sadit/SimilaritySearchDemos).
+

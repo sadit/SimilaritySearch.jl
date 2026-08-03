@@ -14,6 +14,16 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Tutorial" => [
+            "tutorial/index.md",
+            "tutorial/databases.md",
+            "tutorial/distances.md",
+            "tutorial/searchgraph.md",
+            "tutorial/operations.md",
+            "tutorial/parallelism.md",
+            "tutorial/persistence.md",
+            "tutorial/logging.md",
+        ],
         "API" => "api.md"
     ],
     doctest=false,

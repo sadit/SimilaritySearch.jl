@@ -12,6 +12,13 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     SearchResult, push_item!, append_items!, getminbatch,
     IdDist, Dist, Exact, Special, ScalarQuant
 
+"""
+    abstract type AbstractContext end
+
+Base type for context objects (e.g. [`GenericContext`](@ref), [`SearchGraphContext`](@ref)):
+per-call configuration, hyperparameters, caches, and a logger, passed alongside an index to
+[`search`](@ref), [`searchbatch`](@ref), [`index!`](@ref), and similar functions.
+"""
 abstract type AbstractContext end
 function searchbatch! end
 function search end
@@ -21,7 +28,7 @@ function index! end
 
 """
     getminbatch(n::Int, nt::Int=Threads.nthreads();
-                blocks_per_thread::Int=8, maxbatches::Int=n)
+                blocks_per_thread::Int=4, maxbatches::Int=n)
 
 The official, always-valid way to compute a `minbatch` size for [`@BATCHES`](@ref). Always
 returns a value `>= 1` (or `n` itself when `n <= 0` or `nt <= 1`), so callers do not need
@@ -38,7 +45,7 @@ keeps the function fully type-stable/monomorphic and total (every `Int`, includi
 negative, produces a well-defined result; see below), cheap to call from
 performance-sensitive code.
 
-- `blocks_per_thread` (default `8`): the natural batch-count target is
+- `blocks_per_thread` (default `4`): the natural batch-count target is
   `blocks_per_thread * nt` -- always tied to the thread count, never an
   independent/arbitrary number.
 - `maxbatches` (default `n`, i.e. no effective restriction): a **hard ceiling** on the
@@ -74,10 +81,10 @@ performance-sensitive code.
 # Keyword Arguments
 - `blocks_per_thread`: target batches per thread (default `8`)
 - `maxbatches`: hard cap on the total batch count, for bounding per-batch memory directly
-  regardless of `nt` (defaults to `n`, a genuine no-op unless set to something smaller)
+  regardless of `nt` (defaults to `n`, a no-op unless set to something smaller)
 """
 function getminbatch(n::Int, nt::Int=Threads.nthreads();
-                      blocks_per_thread::Int=8, maxbatches::Int=n)
+                      blocks_per_thread::Int=4, maxbatches::Int=n)
     n <= 0 && return 1
     nt <= 1 && return n
 

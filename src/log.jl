@@ -15,6 +15,13 @@ Concrete subtypes must implement:
 """
 abstract type AbstractLog end
 
+"""
+    LogList(list::Vector{AbstractLog}=AbstractLog[InformativeLog()])
+
+An [`AbstractLog`](@ref) backend that fans a single log event out to every logger in
+`list`, in order -- use it to attach more than one logger (e.g. the default
+[`InformativeLog`](@ref) plus a custom one) to the same context at once.
+"""
 struct LogList <: AbstractLog
     list::Vector{AbstractLog}
 
