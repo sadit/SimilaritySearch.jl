@@ -290,3 +290,19 @@ documented above for `RandomProjections`.
 ```@docs
 Projections.HadamardProjection
 ```
+
+## Spherical embedding for MIPS (`Special.Spherical` submodule)
+
+Turns Maximum Inner Product Search into ordinary nearest-neighbor search (Neyshabur &
+Srebro's asymmetric spherical embedding), for dense and sparse vectors alike.
+
+```@docs
+Special.Spherical
+Special.Spherical.SphericalEmbedding
+Special.Spherical.outdim
+Special.Spherical.indim
+Special.Spherical.transform
+Special.Spherical.transform!
+Special.Spherical.transform_query
+Special.Spherical.transform_query!
+```

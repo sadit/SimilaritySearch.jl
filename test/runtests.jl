@@ -22,6 +22,7 @@ end
 include("testdb.jl")
 include("testresults.jl")
 include("testscalarquant.jl")
+include("testspherical.jl")
 include("testexactseq.jl")
 include("testexact.jl")
 include("testhsp.jl")
