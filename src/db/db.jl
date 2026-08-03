@@ -1,7 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
 # Database interface
-using StrideArraysCore
 using Random
 
 """
@@ -47,7 +46,7 @@ include("matrixdatabase.jl")
 include("vectordatabase.jl")
 include("subdatabase.jl")
 
-export AbstractDatabase, MatrixDatabase, StrideMatrixDatabase, BlockMatrixDatabase, VectorDatabase, SubDatabase
+export AbstractDatabase, MatrixDatabase, BlockMatrixDatabase, VectorDatabase, SubDatabase
 
 """
     view(db::AbstractDatabase, map)
@@ -146,20 +145,12 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 MatrixDatabase(V::MatrixDatabase) = MatrixDatabase(V.matrix)
 
 """
-    MatrixDatabase(V::StrideMatrixDatabase)
-
-Creates a `MatrixDatabase` from a `StrideMatrixDatabase`. Both objects will share their internal data.
-Please see [`AbstractDatabase`](@ref) for general usage.
-"""
-MatrixDatabase(V::StrideMatrixDatabase) = MatrixDatabase(V.matrix)
-
-"""
-    MatrixDatabase(V::Union{MatrixDatabase,StrideMatrixDatabase,VectorDatabase})
+    MatrixDatabase(V::Union{MatrixDatabase,VectorDatabase})
 
 Creates a new `MatrixDatabase` by copying and horizontally concatenating the elements of `V` into a fresh matrix.
 Unlike the single-argument conversions, the resulting matrix does not share memory with `V`. `V` must be non-empty.
 """
-function MatrixDatabase(V::Union{MatrixDatabase,StrideMatrixDatabase,VectorDatabase})
+function MatrixDatabase(V::Union{MatrixDatabase,VectorDatabase})
     @assert length(V) > 0 "copy empty datasets is not allowed"
     MatrixDatabase(hcat(V...))
 end
@@ -170,24 +161,3 @@ end
 Creates a new `MatrixDatabase` from any `AbstractDatabase` by horizontally concatenating its elements into a fresh matrix.
 """
 MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
-
-"""
-    StrideMatrixDatabase(V::MatrixDatabase)
-
-Creates a `StrideMatrixDatabase` from a `MatrixDatabase`, wrapping the same underlying matrix as a `StrideArray`.
-"""
-StrideMatrixDatabase(V::MatrixDatabase) = StrideMatrixDatabase(V.matrix)
-
-"""
-    StrideMatrixDatabase(V::StrideMatrixDatabase)
-
-Creates a `StrideMatrixDatabase` from another `StrideMatrixDatabase`. Both objects will share their internal data.
-"""
-StrideMatrixDatabase(V::StrideMatrixDatabase) = StrideMatrixDatabase(V.matrix)
-
-"""
-    StrideMatrixDatabase(V::AbstractDatabase)
-
-Creates a new `StrideMatrixDatabase` from any `AbstractDatabase` by horizontally concatenating its elements into a fresh matrix.
-"""
-StrideMatrixDatabase(V::AbstractDatabase) = StrideMatrixDatabase(hcat(V...))

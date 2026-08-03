@@ -128,3 +128,18 @@ Breaking changes:
 
 New features:
 - Distances and dataset wrappers to handle non-Float32 that are casted to Float32 just before distance computations. This could improve the performance in several high throughput setups.
+
+## About v0.15 series
+
+Finishes a threading-model migration: every parallel loop now uses this package's own `@BATCHES` macro (a thin, native `Threads.@threads`-based construct), and the `Polyester`/`StrideArraysCore` dependencies are gone. This isn't just a simplification -- `Polyester` (and the low-level codegen machinery it and `StrideArraysCore` build on) has measurable performance regressions on Julia 1.12 and is a poor fit for static/binary deployment targets (`PackageCompiler`, WASM) that don't tolerate its runtime code-generation approach well. Native `Threads.@threads` has neither problem, which is the actual point: it's what lets this package properly support Julia 1.12+ and those deployment targets going forward.
+
+Also in this series:
+- Scalar quantization (`ScalarQuant`): reorganized into per-scheme submodules (`SQu2`/`SQu4`/`SQu8`/`SQgu4`/`SQgu8`) behind a common API, with SIMD-accelerated global 4-/8-bit quantizers.
+- Random/Hadamard projections and bit sketches (`Projections`): random-rotation and Hadamard-transform dimensionality reduction, plus SimHash-style bit sketches.
+- Distance functions reorganized into independent submodules under `Dist`.
+- Sparse-matrix support via `SimilaritySearch.Special.Sparse`.
+- Assorted bug fixes and expanded docstrings across the package.
+
+Breaking changes:
+- Removes `StrideMatrixDatabase`; use `MatrixDatabase` instead (it already accepts any `AbstractMatrix`, including a user-provided `StrideArray`).
+- Removes the `StrideArraysCore` and `Polyester` dependencies (`Polyester` had already been unused internally since `@BATCHES` replaced it).

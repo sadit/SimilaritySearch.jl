@@ -152,13 +152,6 @@ end
         abs_matrixhints(graph, ctx, B, MatrixDatabase)
     end
 
-    @testset "StrideMatrixDatabase" begin
-        B = prepare_benchmark(StrideMatrixDatabase)
-        graph, ctx = abs_minrecall(B)
-        abs_rebuild(graph, ctx, B)
-        # abs_save_and_load(graph, ctx, B)
-        abs_matrixhints(graph, ctx, B, StrideMatrixDatabase)
-    end
     #@test_call target_modules=(@__MODULE__,) search(graph, ctx, queries[1], knn(1))
     #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
 

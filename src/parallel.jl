@@ -464,10 +464,12 @@ be individually omitted).
 !!! note "Julia 1.10 and stack-allocated scratch buffers"
     This macro no longer uses `Polyester.@batch` at all (on any Julia version), so its
     stack-allocated, non-GC-tracked `threadlocal=`-style buffers are not available here.
-    If you relied on that for performance, initialize your own `@BEGIN`/`@BEGINBATCH`
-    scratch arrays as a `StrideArraysCore.PtrArray` (from `StrideArraysCore.jl`, already a
-    transitive dependency of this package) instead of a plain `Array`, to get comparable
-    non-GC-tracked, stack-friendly behavior.
+    Since v0.15, `Polyester`/`StrideArraysCore` are no longer dependencies of this
+    package at all (removed for Julia 1.12+ compatibility and better static/binary
+    deployment support). If you relied on that for performance, initialize your own
+    `@BEGIN`/`@BEGINBATCH` scratch arrays as a `StrideArraysCore.PtrArray` instead of a
+    plain `Array` to get comparable non-GC-tracked, stack-friendly behavior -- you'll
+    need to add `StrideArraysCore` to your own project's dependencies to do so.
 
 # Examples
 

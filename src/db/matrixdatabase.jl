@@ -37,10 +37,7 @@ end
 
 @inline Base.eltype(db::MatrixDatabase) = typeof(db[1])
 
-# @inline Base.getindex(db::MatrixDatabase{<:StrideArray}, i::Integer) = view(db.matrix, :, i)
 @inline Base.getindex(db::MatrixDatabase{<:DenseArray}, i::Integer) = view(db.matrix, :, i)
-#@inline Base.getindex(db::MatrixDatabase{Matrix{Float32}}, i::Integer) = PtrArray(view(db.matrix, :, i))
-#@inline Base.getindex(db::MatrixDatabase{Matrix{Float64}}, i::Integer) = PtrArray(view(db.matrix, :, i))
 @inline Base.getindex(db::MatrixDatabase, i::Integer) = view(db.matrix, :, i)
 @inline Base.setindex!(db::MatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
 
@@ -60,67 +57,6 @@ or [`VectorDatabase`](@ref) instead if you need to grow the database.
 """
 @inline append_items!(a::MatrixDatabase, b) = error("append! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)
-
-
-"""
-    struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
-
-    StrideMatrixDatabase(M::Matrix)
-
-Wraps a `Matrix` as a `StrideArray` and stores it as a database, i.e., each column of the matrix is
-one object of the database. `StrideArray`s can provide faster indexing than plain `Matrix` for some
-distance computations. It is a static, fixed-size database (no `push_item!`/`append_items!` support);
-use [`BlockMatrixDatabase`](@ref) or [`VectorDatabase`](@ref) when incremental growth is needed.
-Please see [`AbstractDatabase`](@ref) for general usage.
-
-# Examples
-
-```julia
-matrix = rand(Float32, 8, 100)  # 100 objects of dimension 8
-db = StrideMatrixDatabase(matrix)
-db[1]        # the first object (a view of the first column)
-length(db)   # 100
-```
-"""
-struct StrideMatrixDatabase{M<:StrideArray} <: AbstractDatabase
-    matrix::M
-end
-
-function show(io::IO, db::StrideMatrixDatabase; prefix="", indent="  ")
-    println(io, prefix, "StrideMatrixDatabase:")
-    prefix = prefix * indent
-    println(io, prefix, "eltype: ", eltype(db))
-    println(io, prefix, "size: ", size(db.matrix))
-end
-
-"""
-    StrideMatrixDatabase(M::Matrix)
-
-Creates a `StrideMatrixDatabase` from `M`, wrapping it as a `StrideArray`.
-"""
-#StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, StaticInt.(size(M))))
-StrideMatrixDatabase(M::Matrix) = StrideMatrixDatabase(StrideArray(M, (size(M))))
-
-@inline Base.eltype(db::StrideMatrixDatabase) = typeof(view(db.matrix, :, 1))
-
-@inline Base.getindex(db::StrideMatrixDatabase, i::Integer) = view(db.matrix, :, i)
-@inline Base.setindex!(db::StrideMatrixDatabase, value, i::Integer) = @inbounds (db.matrix[:, i] .= value)
-"""
-    push_item!(db::StrideMatrixDatabase, v)
-
-Not supported; `StrideMatrixDatabase` is a fixed-size wrapper over a matrix. Use [`BlockMatrixDatabase`](@ref)
-or [`VectorDatabase`](@ref) instead if you need to grow the database.
-"""
-@inline push_item!(db::StrideMatrixDatabase, v) = error("push! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
-
-"""
-    append_items!(a::StrideMatrixDatabase, b)
-
-Not supported; `StrideMatrixDatabase` is a fixed-size wrapper over a matrix. Use [`BlockMatrixDatabase`](@ref)
-or [`VectorDatabase`](@ref) instead if you need to grow the database.
-"""
-@inline append_items!(a::StrideMatrixDatabase, b) = error("append! is not supported for StrideMatrixDatabase, please see DynamicMatrixDatabase")
-@inline Base.length(db::StrideMatrixDatabase) = size(db.matrix, 2)
 
 
 """

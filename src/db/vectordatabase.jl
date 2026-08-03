@@ -8,7 +8,7 @@
 
 Wraps a vector-like object `vecs` (e.g., a `Vector` of vectors, or any structure supporting `getindex`,
 `setindex!`, `length`, `push!`) into an `AbstractDatabase`, i.e., each element of `vecs` is one object of
-the database. Unlike [`MatrixDatabase`](@ref)/[`StrideMatrixDatabase`](@ref), it can hold objects of any
+the database. Unlike [`MatrixDatabase`](@ref), it can hold objects of any
 type (not just columns of a matrix) and supports growth via `push_item!`/`append_items!`.
 
 # Fields

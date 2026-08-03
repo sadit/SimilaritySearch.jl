@@ -13,7 +13,7 @@ function create_database(dim, n)
         normalize!(c)
     end
 
-    StrideMatrixDatabase(X)
+    MatrixDatabase(X)
 end
 
 function run(dim, n, k)
@@ -25,7 +25,7 @@ function run(dim, n, k)
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
         parallel_block=1024
     )
-    goldsearchtime = @elapsed gold_knns = allknn(Exact.ExhaustiveSearch(dist, db), ctx, k)
+    goldsearchtime = @elapsed gold_knns = allknn(ExhaustiveSearch(dist, db), ctx, k)
     @info "----- computing search graph with k=$k"
     H = SearchGraph(; db, dist)
     index!(H, ctx)

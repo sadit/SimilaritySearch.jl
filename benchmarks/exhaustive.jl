@@ -2,8 +2,8 @@ using SimilaritySearch
 SimilaritySearch.getminbatch(::Int, ::Int, Int) = 8
 
 function main(n, m, dim, k)
-    db = StrideMatrixDatabase(rand(Float32, dim, n))
-    queries = StrideMatrixDatabase(rand(Float32, dim, m))
+    db = MatrixDatabase(rand(Float32, dim, n))
+    queries = MatrixDatabase(rand(Float32, dim, m))
     dist = Dist.SqL2()
     seq = ExhaustiveSearch(dist, db)
     ctx = GenericContext()
