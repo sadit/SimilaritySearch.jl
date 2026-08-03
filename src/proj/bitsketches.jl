@@ -88,11 +88,11 @@ sketches approximates the angular distance between the corresponding original ve
 ```julia
 julia> using SimilaritySearch
 
-julia> R = Projections.gaussian(128, 256).map;
+julia> R = SimilaritySearch.Projections.gaussian(128, 256).map;
 
 julia> X = rand(Float32, 128, 1000);
 
-julia> B = Projections.bitsketch(R, X);
+julia> B = SimilaritySearch.Projections.bitsketch(R, X);
 
 julia> size(B), eltype(B)  # (4, 1000), UInt64  -- cld(256, 64) == 4 words per sketch
 ```
@@ -116,15 +116,15 @@ already-sketched dataset, so that the resulting sketches are comparable.
 ```julia
 julia> using SimilaritySearch
 
-julia> rp = Projections.gaussian(128, 256);
+julia> rp = SimilaritySearch.Projections.gaussian(128, 256);
 
 julia> X = rand(Float32, 128, 1000);
 
-julia> B = Projections.bitsketch(rp, X);
+julia> B = SimilaritySearch.Projections.bitsketch(rp, X);
 
 julia> q = rand(Float32, 128);
 
-julia> bq = Projections.bitsketch(rp, q);  # same rotation, comparable to B's columns
+julia> bq = SimilaritySearch.Projections.bitsketch(rp, q);  # same rotation, comparable to B's columns
 ```
 """
 bitsketch(rp::RandomProjections, v::AbstractVector{<:AbstractFloat}) = _bitsketch_apply(rp, v)
@@ -157,13 +157,13 @@ julia> using SimilaritySearch
 
 julia> X = rand(Float32, 128, 1000);
 
-julia> B, R = Projections.bitsketch(:gaussian, 256, X);
+julia> B, R = SimilaritySearch.Projections.bitsketch(:gaussian, 256, X);
 
 julia> size(B), eltype(B)  # (4, 1000), UInt64
 
 julia> q = rand(Float32, 128);
 
-julia> bq = Projections.bitsketch(R, q);  # reuse R, comparable to B's columns
+julia> bq = SimilaritySearch.Projections.bitsketch(R, q);  # reuse R, comparable to B's columns
 ```
 """
 function bitsketch(method::Symbol, outdim::Int, data::AbstractVecOrMat{<:AbstractFloat};
@@ -208,11 +208,11 @@ coordinates into `UInt64`-packed bits (see [`packsigns`](@ref)).
 ```julia
 julia> using SimilaritySearch
 
-julia> hp = Projections.HadamardProjection(128);  # 128 is a power of two
+julia> hp = SimilaritySearch.Projections.HadamardProjection(128);  # 128 is a power of two
 
 julia> X = rand(Float32, 128, 1000);
 
-julia> B = Projections.bitsketch(hp, X);
+julia> B = SimilaritySearch.Projections.bitsketch(hp, X);
 
 julia> size(B), eltype(B)  # (2, 1000), UInt64  -- cld(128, 64) == 2 words per sketch
 ```

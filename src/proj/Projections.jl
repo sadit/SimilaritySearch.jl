@@ -25,9 +25,9 @@ Use [`gaussian`](@ref) or [`qr`](@ref) to build a `RandomProjections` map, and
 ```julia
 julia> using SimilaritySearch
 
-julia> rp = Special.Projections.gaussian(128, 32);  # random gaussian projection 128 -> 32
+julia> rp = SimilaritySearch.Projections.gaussian(128, 32);  # random gaussian projection 128 -> 32
 
-julia> rp2 = Special.Projections.qr(128, 32);  # QR-orthogonalized projection 128 -> 32
+julia> rp2 = SimilaritySearch.Projections.qr(128, 32);  # QR-orthogonalized projection 128 -> 32
 ```
 """
 struct RandomProjections{M<:AbstractMatrix}
@@ -57,9 +57,9 @@ orthogonal to each other, but generating and applying it is cheaper.
 ```julia
 julia> using SimilaritySearch
 
-julia> rp = Special.Projections.gaussian(128, 32);
+julia> rp = SimilaritySearch.Projections.gaussian(128, 32);
 
-julia> size(Special.Projections.getmap(rp))
+julia> size(SimilaritySearch.Projections.getmap(rp))
 (128, 32)
 ```
 """
@@ -177,9 +177,9 @@ julia> using SimilaritySearch
 
 julia> X = rand(Float32, 128, 1000);
 
-julia> rp = Special.Projections.gaussian(128, 32);
+julia> rp = SimilaritySearch.Projections.gaussian(128, 32);
 
-julia> Y = Special.Projections.transform(rp, X);
+julia> Y = SimilaritySearch.Projections.transform(rp, X);
 
 julia> size(Y)
 (32, 1000)
