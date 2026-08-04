@@ -87,6 +87,82 @@ end
 you, with none of its batching/memory-reuse benefits -- prefer `searchbatch` whenever
 your workload fits its shape (a batch of independent queries against one index).
 
+## Writing custom parallel code: `@BATCHES`
+
+If your workload doesn't fit any of the built-in batch functions above, `@BATCHES` is the
+primitive they are all built on internally -- prefer it over hand-rolled `Threads.@threads`
+(see above) for any new parallel code written in this style.
+
+The simple form splits `range` into consecutive chunks and runs each chunk as one task:
+
+```julia-repl
+julia> using SimilaritySearch
+
+julia> n = 100_000; out = zeros(Int, n);
+
+julia> @BATCHES getminbatch(n) for i in 1:n
+           out[i] = i^2
+       end
+
+julia> out == [i^2 for i in 1:n]
+true
+```
+
+[`getminbatch`](@ref)`(n)` picks a reasonable chunk size (aiming for a handful of batches
+per thread) -- use it instead of hand-picking `minbatch`.
+
+When each batch needs its own scratch state (so concurrent batches never write to the
+same memory), `@BATCHES` accepts five optional sections instead of a bare loop:
+
+```julia-repl
+julia> function sumsq(n, minbatch)
+           local total
+           @BATCHES minbatch begin
+           @BEGIN
+               partial = zeros(Float64, @nbatches())      # one slot per batch
+           @BEGINBATCH
+               acc = 0.0                                  # this batch's running total
+           @LOOP for i in 1:n
+               acc += abs2(i)
+           end
+           @ENDBATCH
+               partial[@batchid()] = acc                  # race-free: batch ids are disjoint
+           @END
+               total = sum(partial)
+           end
+           total
+       end;
+
+julia> sumsq(1000, getminbatch(1000)) == sum(abs2, 1:1000)
+true
+```
+
+- `@BEGIN` runs once, before any batch starts -- typically to size a shared,
+  [`@nbatches()`](@ref)-sized array.
+- `@BEGINBATCH` runs once per batch, before that batch's `@LOOP` iterations.
+- `@LOOP for i in range ... end` is the only mandatory section: the per-element body.
+- `@ENDBATCH` runs once per batch, after that batch's `@LOOP` iterations.
+- `@END` runs once, after every batch has joined -- typically to reduce the now-populated
+  array from `@BEGIN` (`total = sum(partial)` above).
+
+[`@batchid()`](@ref) is each batch's fixed, 1-based index, stable for that batch's whole
+lifetime -- indexing a shared array by it (`partial[@batchid()]` above) is race-free by
+construction, since no two concurrently-running batches ever share one; prefer it over
+`Threads.threadid()`, which can alias or migrate mid-batch under some schedulers (below).
+
+Always write `@batchid()`/`@nbatches()` with the explicit, empty parentheses shown above,
+even though they take no arguments: it means exactly the same thing as the bare macro
+call, but a bare `@batchid` directly followed by a unary `-` parses as `@batchid` being
+*passed* `-1` as an argument, not as subtraction on its result -- `2 * @batchid - 1` parses
+as `2 * @batchid(-1)`, an error. `@batchid()` cannot be misparsed that way.
+
+`@BATCHES` dispatches batches via `Threads.@threads`, under a scheduler that defaults to
+`:static` (one task per thread, never migrates) and can be overridden globally with
+[`set_batch_scheduler!`](@ref) or per call with a `scheduler=` keyword. If your batch body
+captures a shared handle (e.g. a `SearchGraphContext`) and re-derives per-batch state from
+it several calls deep, read the [`@BATCHES`](@ref) docstring's tagged-handle hazard warning
+before writing that pattern yourself -- it's a real bug this package's own code hit once.
+
 ## Don't nest two parallel index types
 
 [`SimilaritySearch.Exact.ParallelExhaustiveSearch`](@ref) parallelizes *within* a single
