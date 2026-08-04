@@ -1,0 +1,6 @@
+#!/usr/bin/env julia
+projectdir = normpath(joinpath(@__DIR__, ".."))
+import Pkg
+Pkg.activate(projectdir; io=devnull)
+include(joinpath(projectdir, "src", "SimSearch.jl"))
+exit(SimSearch.main(ARGS))
