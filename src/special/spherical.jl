@@ -128,14 +128,14 @@ function _maxnorm_dense(X::AbstractMatrix)
 
     @BATCHES minbatch begin
     @BEGIN
-        B = zeros(Float32, @nbatches)
+        B = zeros(Float32, @nbatches())
     @BEGINBATCH
         b = 0f0
     @LOOP for j in 1:n
         b = max(b, norm32(view(X, :, j)))
     end
     @ENDBATCH
-        B[@batchid] = b
+        B[@batchid()] = b
     @END
         best = maximum(B)
     end

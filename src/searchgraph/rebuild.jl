@@ -42,16 +42,16 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
 
     @BATCHES minbatch begin
     @BEGIN
-        # one private pair of scratch buffers per batch (`tmp`/`N`), indexed by @batchid --
-        # @nbatches is bounded (~8 * nthreads(), via getminbatch), never by n, so this
+        # one private pair of scratch buffers per batch (`tmp`/`N`), indexed by @batchid() --
+        # @nbatches() is bounded (~8 * nthreads(), via getminbatch), never by n, so this
         # never grows with the database size. Unlike Threads.threadid()-indexing, this
         # stays race-free under every scheduler (:static/:default/:greedy), not just the
         # default :static.
-        qcache = zeros(IdDist, ksearch, 2 * @nbatches)
+        qcache = zeros(IdDist, ksearch, 2 * @nbatches())
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid
-        tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
-        N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+        bctx = @set ctx.batchid = @batchid()
+        tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid() - 1))
+        N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid()))
     @LOOP for objID in 1:n
         reuse!(tmp)
         reuse!(N)

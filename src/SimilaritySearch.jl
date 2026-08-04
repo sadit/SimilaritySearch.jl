@@ -51,7 +51,7 @@ performance-sensitive code.
 - `maxbatches` (default `n`, i.e. no effective restriction): a **hard ceiling** on the
   batch count, overriding the natural target above whenever it would be larger. Use this
   to directly bound the memory of per-batch scratch allocations (e.g. [`@BATCHES`](@ref)'s
-  `@BEGIN`-declared, [`@nbatches`](@ref)-sized buffers) for very large `n`. When a context
+  `@BEGIN`-declared, [`@nbatches()`](@ref)-sized buffers) for very large `n`. When a context
   object is available, prefer the `getminbatch(ctx::AbstractContext, n)` overload
   (`searchgraph/context.jl`) instead, which derives this from `ctx.maxbatches`.
 
@@ -158,7 +158,7 @@ scratch caches.
   Defaults to `8 * Threads.nthreads()`, matching [`getminbatch`](@ref)'s own default
   `blocks_per_thread`.
 - `batchid`: the batch slot this context is tagged with; not meaningful on the root
-  context returned here (always `1`) -- per-batch copies tagging the running `@batchid`
+  context returned here (always `1`) -- per-batch copies tagging the running `@batchid()`
   are minted internally via `Accessors.@set`, one per batch, not per call.
 """
 struct GenericContext{KnnType} <: AbstractContext
@@ -248,7 +248,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     # @info m => Threads.nthreads() => minbatch
     @BATCHES minbatch begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid
+        bctx = @set ctx.batchid = @batchid()
     @LOOP for j in 1:m
         res = knnqueue(bctx, view(knns, :, j))
         search(index, bctx, Q[j], res)
@@ -266,7 +266,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid
+        bctx = @set ctx.batchid = @batchid()
     @LOOP for i in 1:m
         search(index, bctx, Q[i], knns[i])
     end

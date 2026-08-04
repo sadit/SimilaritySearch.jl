@@ -66,12 +66,12 @@ end
 # --- context macros ----------------------------------------------------------------
 
 """
-    @nbatches
+    @nbatches()
 
 Inside a [`@BATCHES`](@ref) call (any section: `@BEGIN`, `@BEGINBATCH`, `@LOOP`,
 `@ENDBATCH`, `@END`), expands to the total number of batches/chunks used for that call
 (always `>= 1`; `1` when the fast/serial path was taken). Typically used in `@BEGIN` to
-size a shared, `@batchid`-indexed array. Raises `UndefVarError` if used outside of
+size a shared, `@batchid()`-indexed array. Raises `UndefVarError` if used outside of
 `@BATCHES`.
 """
 macro nbatches()
@@ -79,22 +79,27 @@ macro nbatches()
 end
 
 """
-    @batchid
+    @batchid()
 
 Inside a `@BATCHES` call's `@BEGINBATCH`, `@LOOP`, or `@ENDBATCH` section, expands to the
 current batch's fixed, 1-based ordinal index (stable for the whole lifetime of that
 batch's task). Since batch ids are disjoint -- no two concurrently-running batches ever
-share one -- indexing a shared, `@nbatches`-sized array by `@batchid` is race-free by
+share one -- indexing a shared, `@nbatches()`-sized array by `@batchid()` is race-free by
 construction, regardless of scheduler (`:static`/`:default`/`:greedy`); this is safer than
 indexing by `Threads.threadid()`, which can alias/migrate under non-`:static` schedulers.
 Not meaningful in `@BEGIN`/`@END` (those run once, globally, not per batch) -- using it
 there raises `UndefVarError`.
 
-!!! note
-    Like any bare (parenthesis-free) macro call, `@batchid`/`@nbatches` followed directly
-    by a unary `-` is parsed as `@batchid(-...)` (an argument!), not as subtraction --
-    e.g. `2 * @batchid - 1` parses as `2 * @batchid(-1)`, which errors. Wrap it in
-    parentheses whenever it appears inside a larger expression: `2 * (@batchid) - 1`.
+!!! note "Always call it like a function: `@batchid()`, not bare `@batchid`"
+    A bare (parenthesis-free) macro call followed directly by a unary `-` is parsed as
+    the macro being passed that `-...` as an argument, not as subtraction on its result --
+    e.g. `2 * @batchid - 1` parses as `2 * @batchid(-1)`, which errors. This is why every
+    signature, docstring, and call site in this package writes `@batchid()`/`@nbatches()`
+    with explicit empty parentheses, even though they take no arguments: it is exactly
+    equivalent to the bare form, but the `()` closes the argument list right at the call
+    site, so a following `- 1` can never be swallowed into it. Prefer that style over
+    wrapping a bare call in parentheses yourself (`(@batchid) - 1`) -- it reads as what it
+    is, a function-like call, and cannot be misparsed regardless of what follows it.
 """
 macro batchid()
     esc(:__batch_id)
@@ -125,8 +130,8 @@ call site does not give its own `scheduler=` override. Must be one of:
   package no longer has any `Threads.threadid()`-indexed shared state on its own parallel
   paths: `searchgraph/context.jl`'s `vstates`/`beams`, `searchgraph/rebuild.jl`,
   `searchgraph/insertions.jl`, `closestpair.jl`, and `exact/parallel-exhaustive.jl` all use
-  `@batchid`-indexing (safe under every scheduler); `dist/seqs.jl`'s `Levenshtein`/`LCS`,
-  which can't reach a `@batchid` at all (their scratch buffer is needed inside the
+  `@batchid()`-indexing (safe under every scheduler); `dist/seqs.jl`'s `Levenshtein`/`LCS`,
+  which can't reach a `@batchid()` at all (their scratch buffer is needed inside the
   generic, context-free `evaluate(dist, a, b)`), use a `Channel`-based buffer pool
   instead of thread-indexing. `:static` remains the default for its simpler, more
   predictable scheduling, not because anything in this package still depends on it for
@@ -146,8 +151,8 @@ call site does not give its own `scheduler=` override. Must be one of:
     that indexes per-thread state by `Threads.threadid()` -- unlike `:static`'s nesting
     restriction, this failure mode is a **silent data race**, not an error. Nothing in
     this package's own `@BATCHES`-parallelized paths does this anymore (see above); this
-    still matters for any *new* code you write. Prefer indexing by [`@batchid`](@ref)
-    (safe under every scheduler); when no `@batchid` is reachable at all (e.g. a
+    still matters for any *new* code you write. Prefer indexing by [`@batchid()`](@ref)
+    (safe under every scheduler); when no `@batchid()` is reachable at all (e.g. a
     context-free interface like `evaluate`), use a `Channel`-based buffer pool instead
     (see `dist/seqs.jl`'s `Levenshtein`) -- both avoid `Threads.threadid()` entirely.
 
@@ -380,10 +385,10 @@ don't need any of the section machinery.
 - `@BEGIN`: runs once, in the *caller's own scope*, before any batch starts. Variables
   declared here are plain local variables of the enclosing function -- visible later in
   `@END`, and (via ordinary closure capture) inside every batch's `@BEGINBATCH`/`@LOOP`/
-  `@ENDBATCH` too. [`@nbatches`](@ref) is available here (typically to size a shared,
-  per-batch array, e.g. `results = Vector{Float32}(undef, @nbatches)`).
+  `@ENDBATCH` too. [`@nbatches()`](@ref) is available here (typically to size a shared,
+  per-batch array, e.g. `results = Vector{Float32}(undef, @nbatches())`).
 - `@BEGINBATCH`: runs once **per batch**, at the start of that batch's task, before its
-  `@LOOP` iterations. [`@batchid`](@ref)/[`@nbatches`](@ref) and `@BEGIN`'s variables are
+  `@LOOP` iterations. [`@batchid()`](@ref)/[`@nbatches()`](@ref) and `@BEGIN`'s variables are
   available.
 - `@LOOP for i in range ... end`: **mandatory**. The per-element body, run once for every
   `i` in this batch's chunk of `range`. Shares one lexical/closure scope with
@@ -391,7 +396,7 @@ don't need any of the section machinery.
   `@BEGINBATCH` can be read and updated here directly.
 - `@ENDBATCH`: runs once **per batch**, after that batch's `@LOOP` iterations finish
   (same task, before it joins). Sees `@BEGIN`'s variables plus whatever `@BEGINBATCH`/
-  `@LOOP` left in the per-batch scope. Writing into `results[@batchid]` here is race-free
+  `@LOOP` left in the per-batch scope. Writing into `results[@batchid()]` here is race-free
   by construction (batch ids are disjoint, unlike `Threads.threadid()` which can
   alias/migrate under non-`:static` schedulers -- see [`set_batch_scheduler!`](@ref)).
 - `@END`: runs once, in the *caller's own scope*, after **all** batches have joined. Sees
@@ -412,17 +417,17 @@ be individually omitted).
     **`:static` is the global default scheduler; switching to `:default`/`:greedy` is
     unsafe for code that indexes per-thread state by `Threads.threadid()`** (a silent
     data race, not an error, since those two schedulers use migratable `Task`s). Prefer
-    [`@batchid`](@ref)-indexed scratch space in new code -- it is safe under every
+    [`@batchid()`](@ref)-indexed scratch space in new code -- it is safe under every
     scheduler. See [`set_batch_scheduler!`](@ref) for the full explanation.
 
 !!! danger "The tagged-handle hazard: passing the wrong *object*, not the wrong index"
-    A second, more insidious hazard shows up whenever `@batchid`-indexed state is resolved
+    A second, more insidious hazard shows up whenever `@batchid()`-indexed state is resolved
     **indirectly**, through a shared object that a callee re-derives batch-local state
     from several call frames below where the batch was tagged -- e.g.
     `searchgraph/context.jl`'s `getvstate`/`getbeam`, which read `ctx.batchid` deep inside
     `find_neighborhood!`/`search`, not at the `@BATCHES` call site itself (see
     `SearchGraphContext`). The pattern that makes this safe is: mint a tagged, per-batch
-    copy once in `@BEGINBATCH` (`bctx = @set ctx.batchid = @batchid`, via `Accessors.@set`)
+    copy once in `@BEGINBATCH` (`bctx = @set ctx.batchid = @batchid()`, via `Accessors.@set`)
     and use *that* copy -- never the original, outer object -- for every call made from
     inside that batch. **If even one call inside `@LOOP`/`@ENDBATCH` is accidentally
     passed the untagged original instead of the tagged copy, every batch silently
@@ -442,11 +447,11 @@ be individually omitted).
     # BUGGY: every batch's find_neighborhood! call resolves getvstate/getbeam via the
     # SAME outer `ctx` (batchid always 1) -- a live race across concurrently-running
     # batches, on every scheduler, despite `tmp`/`N` themselves being correctly
-    # @batchid-sliced right above it.
+    # @batchid()-sliced right above it.
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid
-        tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
-        N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+        bctx = @set ctx.batchid = @batchid()
+        tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid() - 1))
+        N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid()))
     @LOOP for objID in 1:n
         find_neighborhood!(N, g, ctx, database(g, objID), tmp, 1:-1; hints=...)  # bug: ctx, not bctx
     end
@@ -489,14 +494,14 @@ julia> function sumsq(n, minbatch)
            local total
            @BATCHES minbatch begin
                @BEGIN
-                   partial = zeros(Float64, @nbatches)
+                   partial = zeros(Float64, @nbatches())
                @BEGINBATCH
                    acc = 0.0
                @LOOP for i in 1:n
                    acc += abs2(i)
                end
                @ENDBATCH
-                   partial[@batchid] = acc
+                   partial[@batchid()] = acc
                @END
                    total = sum(partial)
            end

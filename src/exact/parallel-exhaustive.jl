@@ -11,7 +11,7 @@ export ParallelExhaustiveSearch
 
 A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
 against every element of `db` in parallel (across `Threads.nthreads()` tasks). Each batch of the underlying
-[`@BATCHES`](@ref) call accumulates its own private, lock-free top-k buffer (indexed by `@batchid`), merged
+[`@BATCHES`](@ref) call accumulates its own private, lock-free top-k buffer (indexed by `@batchid()`), merged
 into the final result once all batches join -- see [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnn))
 for details. Useful as a gold-standard baseline for small-to-medium datasets where parallelizing a single
 query is beneficial.
@@ -41,23 +41,23 @@ Solves queries evaluating `dist` in parallel for the query and all elements in t
 
 Solves query `q` by evaluating the distance between `q` and every item of the indexed database in
 parallel. Instead of pushing every candidate into the shared `res` under a lock, each batch
-accumulates its own private top-`k` buffer (`k = maxlength(res)`), indexed by `@batchid` -- race-free
+accumulates its own private top-`k` buffer (`k = maxlength(res)`), indexed by `@batchid()` -- race-free
 by construction, no lock needed -- and all batches' buffers are merged into `res` once they have all
 joined (`@END`, run sequentially, once).
 
-The extra memory this needs is `k * @nbatches` `IdDist` entries: `@nbatches` never scales with `n`
+The extra memory this needs is `k * @nbatches()` `IdDist` entries: `@nbatches()` never scales with `n`
 (the database size) -- [`getminbatch`](@ref) aims for ~8 batches per thread regardless of `n`, and
 `@BATCHES`'s own fast path collapses to a single batch entirely whenever `n` is small relative to the
 computed `minbatch` -- so this temporary buffer stays bounded by the thread count and `k`, not by the
 size of the database being searched. `ctx.maxbatches` (default `8 * nthreads()`, see
-[`GenericContext`](@ref)) directly caps `@nbatches` further, for cases with a large `k` and/or
+[`GenericContext`](@ref)) directly caps `@nbatches()` further, for cases with a large `k` and/or
 `nthreads()` where even that bounded buffer is too large; see [`getminbatch`](@ref) for the
 trade-offs of capping it (fewer batches can leave threads idle and worsens load-balancing).
 
 # Arguments
 - `pex`: the search structure
 - `ctx`: the running context; `ctx.maxbatches` bounds the number of batches (and thus the size of
-  the temporary `k * @nbatches` buffer), passed as `getminbatch(ctx, n)`
+  the temporary `k * @nbatches()` buffer), passed as `getminbatch(ctx, n)`
 - `q`: the query to solve
 - `res`: the result set that receives the candidates
 """
@@ -72,24 +72,24 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     # parallelized per-query loop (e.g. searchbatch!/allknn/closestpair when `pex` is the
     # given index) -- native `:static` errors ("cannot be used concurrently or nested") in
     # that situation. This loop body has no Threads.threadid()-indexed state at all (each
-    # batch only ever touches its own @batchid-indexed column), so :default's migratable
+    # batch only ever touches its own @batchid()-indexed column), so :default's migratable
     # tasks are safe here regardless of the global scheduler.
     @BATCHES minbatch scheduler=:default begin
     @BEGIN
-        # one private, lock-free top-k buffer per batch; @nbatches is bounded (~8 * nthreads(),
+        # one private, lock-free top-k buffer per batch; @nbatches() is bounded (~8 * nthreads(),
         # via getminbatch), never by n, so this never grows with the database size
-        R = zeros(IdDist, k, @nbatches)
-        used = zeros(Int32, @nbatches)
+        R = zeros(IdDist, k, @nbatches())
+        used = zeros(Int32, @nbatches())
     @BEGINBATCH
-        r = knnqueue(KnnSorted, view(R, :, @batchid))
+        r = knnqueue(KnnSorted, view(R, :, @batchid()))
     @LOOP for i in 1:n
         d = Dist.evaluate(dist, database(pex, i), q)
         push_item!(r, i, d)
     end
     @ENDBATCH
-        used[@batchid] = length(r)
+        used[@batchid()] = length(r)
     @END
-        for b in 1:@nbatches, j in 1:used[b]
+        for b in 1:@nbatches(), j in 1:used[b]
             push_item!(res, R[j, b])
         end
     end

@@ -68,12 +68,12 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
 
     @BATCHES minbatch begin
     @BEGIN
-        # one column/slot per batch -- @batchid-indexed, so race-free regardless of scheduler
-        knns = zeros(IdDist, min_k, @nbatches)
-        B = Vector{Tuple{Int32,Int32,Float32}}(undef, @nbatches)
+        # one column/slot per batch -- @batchid()-indexed, so race-free regardless of scheduler
+        knns = zeros(IdDist, min_k, @nbatches())
+        B = Vector{Tuple{Int32,Int32,Float32}}(undef, @nbatches())
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid
-        r = knnqueue(KnnSorted, view(knns, :, @batchid)) # requires KnnSorted to support pop_min!
+        bctx = @set ctx.batchid = @batchid()
+        r = knnqueue(KnnSorted, view(knns, :, @batchid())) # requires KnnSorted to support pop_min!
         b = (zero(Int32), zero(Int32), typemax(Float32))
     @LOOP for objID in 1:n
         reuse!(r)
@@ -83,7 +83,7 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
         end
     end
     @ENDBATCH
-        B[@batchid] = b
+        B[@batchid()] = b
     @END
         _, i = findmin(last, B)
         best = B[i]

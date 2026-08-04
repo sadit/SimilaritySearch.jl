@@ -94,7 +94,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             minbatch = getminbatch(ctx, m)
             @BATCHES minbatch begin
             @BEGINBATCH
-                bctx = @set ctx.batchid = @batchid
+                bctx = @set ctx.batchid = @batchid()
             @LOOP for i in 1:m
                 knns[i] = r = runconfig(conf, index, bctx, queries[i], reuse!(knns[i]))
                 cost[i] = distance_evaluations(r)

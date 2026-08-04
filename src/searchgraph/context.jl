@@ -48,7 +48,7 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   are built automatically. Defaults to `8 * Threads.nthreads()`.
 - `batchid`: the batch slot this context is tagged with (indexes into `vstates`/`beams`). Not
   meaningful on the root context (always `1`) -- per-batch copies tagging the running
-  `@batchid` are minted internally via `@set ctx.batchid = @batchid`, once per batch, not
+  `@batchid()` are minted internally via `@set ctx.batchid = @batchid()`, once per batch, not
   passed here directly.
 - `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
   `nothing` builds a fresh one sized by `maxbatches`).
@@ -180,7 +180,7 @@ knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnq
 
 Retrieves `ctx`'s visited-vertices cache slot (indexed by `ctx.batchid`, race-free
 regardless of `@BATCHES` scheduler -- callers running inside a batch should pass a
-per-batch context tagged via `@set ctx.batchid = @batchid`, see [`@batchid`](@ref)) from
+per-batch context tagged via `@set ctx.batchid = @batchid()`, see [`@batchid()`](@ref)) from
 `ctx.vstates`, resetting/resizing it so that it can track visits over `len` elements.
 """
 @inline function getvstate(len::Integer, ctx::SearchGraphContext)

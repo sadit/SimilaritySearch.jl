@@ -55,9 +55,9 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         @BATCHES minbatch begin
         @BEGINBATCH
-            bctx = @set ctx.batchid = @batchid
-            tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid) - 1))
-            neighbors_ = knnqueue(bctx, view(qcache, 1:ksearch, 2 * (@batchid)))
+            bctx = @set ctx.batchid = @batchid()
+            tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid() - 1))
+            neighbors_ = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid()))
         @LOOP for objID in sp:ep
             item = database(index, objID)
             R = sp:objID-1
