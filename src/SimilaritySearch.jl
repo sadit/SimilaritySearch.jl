@@ -7,10 +7,12 @@ using Accessors
 include("parallel.jl")
 
 import Base: push!, append!
+using Statistics: mean
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
     SearchResult, push_item!, append_items!, getminbatch,
-    IdDist, Dist, Exact, Special, ScalarQuant
+    IdDist, Dist, Exact, Special, ScalarQuant,
+    distance_evaluations, block_evaluations, distance_stats, block_stats
 
 """
     abstract type AbstractContext end
@@ -160,17 +162,24 @@ scratch caches.
 - `batchid`: the batch slot this context is tagged with; not meaningful on the root
   context returned here (always `1`) -- per-batch copies tagging the running `@batchid()`
   are minted internally via `Accessors.@set`, one per batch, not per call.
+- `costdist`/`costblk`: per-batch distance/block-evaluation counters (size `maxbatches`,
+  indexed by `batchid`), accumulated via `add_distance_evaluations!`/`add_block_evaluations!`
+  and read via [`distance_evaluations`](@ref)/[`distance_stats`](@ref) and their block
+  counterparts. Never reset automatically -- they accumulate for the lifetime of the context.
 """
 struct GenericContext{KnnType} <: AbstractContext
     verbose::Bool
     logger
     maxbatches::Int32
     batchid::Int32
+    costdist::Vector{Int}
+    costblk::Vector{Int}
 end
 
 GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
-    maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1) =
-    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid))
+    maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
+    costdist=zeros(Int, maxbatches), costblk=zeros(Int, maxbatches)) =
+    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), costdist, costblk)
 
 # GenericContext has a phantom type parameter (KnnType, not derivable from any field), so
 # ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it -- this
@@ -179,6 +188,51 @@ Accessors.ConstructionBase.constructorof(::Type{<:GenericContext{K}}) where {K} 
 
 knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
 verbose(ctx::GenericContext) = ctx.verbose
+
+# A slot counts toward these stats if it's nonzero -- a real search always performs >= 1
+# evaluation, so 0 reliably means "never touched" (lifetime form) / "untouched since the
+# snapshot" (diff form below) -- true regardless of how large the raw cumulative value is.
+function _batchstats(v::AbstractVector{Int})
+    active = filter(!iszero, v)
+    isempty(active) && return (min=0, mean=0.0, max=0)
+    (min=minimum(active), mean=mean(active), max=maximum(active))
+end
+
+@inline add_distance_evaluations!(ctx::AbstractContext, v) = (ctx.costdist[ctx.batchid] += v)
+@inline add_block_evaluations!(ctx::AbstractContext, v) = (ctx.costblk[ctx.batchid] += v)
+
+"""
+    distance_stats(ctx::AbstractContext) -> (; min, mean, max)
+    distance_stats(ctx::AbstractContext, snapshot::Vector{Int}) -> (; min, mean, max)
+
+Min/mean/max distance evaluations across `ctx`'s active batch slots, at batch granularity
+(not query granularity). The 1-arg form reads `ctx.costdist` as-is: since it's never reset,
+this is a **lifetime** statistic (since `ctx` was created). The 2-arg form measures a single
+operation instead: pass a `snapshot = copy(ctx.costdist)` taken before that operation, and
+this diffs the *raw* vectors (`ctx.costdist .- snapshot`) before computing stats on the
+result -- **not** the other way around. Diffing precomputed stats instead is mathematically
+wrong for `min`/`max` (only `mean`/`sum` commute with subtraction) and would also break
+"active slot" detection, since a slot's raw value is cumulative garbage from every prior
+call -- only the delta reliably reflects whether that slot was touched during the snapshot
+window.
+
+Note: reads `ctx.costdist` with no synchronization -- only call this once every `@BATCHES`
+region writing into `ctx` has already joined (i.e. from sequential code).
+"""
+distance_stats(ctx::AbstractContext) = _batchstats(ctx.costdist)
+distance_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costdist .- snapshot)
+
+"Mean of [`distance_stats`](@ref) (1-arg or 2-arg form)."
+distance_evaluations(ctx::AbstractContext) = distance_stats(ctx).mean
+distance_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = distance_stats(ctx, snapshot).mean
+
+"Block-evaluations counterpart of [`distance_stats`](@ref) (1-arg or 2-arg form)."
+block_stats(ctx::AbstractContext) = _batchstats(ctx.costblk)
+block_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costblk .- snapshot)
+
+"Mean of [`block_stats`](@ref) (1-arg or 2-arg form)."
+block_evaluations(ctx::AbstractContext) = block_stats(ctx).mean
+block_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = block_stats(ctx, snapshot).mean
 
 include("perf.jl")
 include("fft.jl")

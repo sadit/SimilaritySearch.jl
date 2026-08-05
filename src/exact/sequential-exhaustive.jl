@@ -60,11 +60,11 @@ database, pushing each candidate into `res`.
 
 # Arguments
 - `seq`: the exhaustive search index
-- `ctx`: the running context (unused by this method, kept for interface consistency)
+- `ctx`: the running context, charged with the distance-evaluation count
 - `q`: the query to solve
 - `res`: the result set that receives the candidates
 """
-@inline function search(seq::ExhaustiveSearch, ::AbstractContext, q, res::AbstractKnn)
+@inline function search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractKnn)
     dist = distance(seq)
     db = database(seq)
     n = length(db)
@@ -74,6 +74,6 @@ database, pushing each candidate into `res`.
         push_item!(res, i, d)
     end
 
-    add_distance_evaluations!(res, n)
+    add_distance_evaluations!(ctx, n)
     res
 end

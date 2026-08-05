@@ -4,31 +4,31 @@ using Random
 
 
 """
-    enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
+    enqueue_item!(index::SearchGraph, ctx, q, obj, res, objID, vstate)
 
 Internal function that evaluates the distance between a database object `obj` with id `objID` and the query `q`.
 It helps to evaluate, mark as visited, and enqueue in the result set.
 """
-@inline function enqueue_item!(index::SearchGraph, q, obj, res, objID, vstate)
+@inline function enqueue_item!(index::SearchGraph, ctx, q, obj, res, objID, vstate)
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
     d = evaluate(distance(index), q, obj)
     push_item!(res, objID, d)
-    add_distance_evaluations!(res, 1)
+    add_distance_evaluations!(ctx, 1)
     res
 end
 
 """
-    beamsearch_init(bs::BeamSearch, index::SearchGraph, q, res::AbstractKnn, hints, vstate)
+    beamsearch_init(bs::BeamSearch, index::SearchGraph, ctx, q, res::AbstractKnn, hints, vstate)
 
 Internal helper that seeds the search with the given `hints` (or, if that yields nothing,
 with a small logarithmic sample of the database), enqueuing the corresponding items into `res`.
 """
-function beamsearch_init(::BeamSearch, index::SearchGraph, q, res::AbstractKnn, hints, vstate)
-    res = approx_by_hints!(index, q, hints, res, vstate)
+function beamsearch_init(::BeamSearch, index::SearchGraph, ctx, q, res::AbstractKnn, hints, vstate)
+    res = approx_by_hints!(index, ctx, q, hints, res, vstate)
     if length(res) == 0
         n = length(index)
         for objID in 1:ceil(Int, log(2, 1 + n))
-            enqueue_item!(index, q, database(index, objID), res, objID, vstate)
+            enqueue_item!(index, ctx, q, database(index, objID), res, objID, vstate)
         end
     end
 end
@@ -99,12 +99,12 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
             push_item!(res, i, d)
         end
 
-        add_distance_evaluations!(res, n)
+        add_distance_evaluations!(ctx, n)
     else
-        beamsearch_init(bs, index, q, res, hints, vstate)
+        beamsearch_init(bs, index, ctx, q, res, hints, vstate)
         costdists, costblocks = beamsearch_inner_beam(bs, index, ctx, q, res, vstate)
-        add_distance_evaluations!(res, costdists)
-        add_block_evaluations!(res, costblocks)
+        add_distance_evaluations!(ctx, costdists)
+        add_block_evaluations!(ctx, costblocks)
     end
 
     res

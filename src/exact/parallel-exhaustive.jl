@@ -94,7 +94,7 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
         end
     end
 
-    add_distance_evaluations!(res, length(pex))
+    add_distance_evaluations!(ctx, length(pex))
     res
 end
 

@@ -11,8 +11,6 @@ sorted order without an explicit call to `sortitems!`.
 - `sp::Int32`: start position (index) of the active range within `items`.
 - `ep::Int32`: end position (index) of the active range within `items`.
 - `maxlen::Int32`: maximum number of items to keep (the `k` of the k-nn search).
-- `costdist::Int32`: number of distance evaluations charged to this result set.
-- `costblk::Int32`: number of block evaluations charged to this result set.
 
 Use [`knnqueue`](@ref) to create one instead of calling the constructor directly.
 
@@ -31,18 +29,7 @@ mutable struct KnnSorted{VEC<:AbstractVector} <: AbstractKnn
     sp::Int32
     ep::Int32
     maxlen::Int32
-    costdist::Int32
-    costblk::Int32
 end
-
-"Number of distance evaluations charged to `res`."
-@inline distance_evaluations(res::KnnSorted) = res.costdist
-"Number of block evaluations charged to `res`."
-@inline block_evaluations(res::KnnSorted) = res.costblk
-"Adds `v` to the distance-evaluations counter of `res`."
-@inline add_distance_evaluations!(res::KnnSorted, v) = (res.costdist += v)
-"Adds `v` to the block-evaluations counter of `res`."
-@inline add_block_evaluations!(res::KnnSorted, v) = (res.costblk += v)
 
 """
     sort_last_item!(order::Ordering, plist, sp, ep)
@@ -219,8 +206,6 @@ existing memory buffers instead of allocating a new result set.
     res.sp = 1
     res.ep = 0
     res.maxlen = maxlen
-    res.costdist = 0
-    res.costblk = 0
     res
 end
 

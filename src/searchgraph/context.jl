@@ -90,6 +90,8 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     #vstates::Vector{Set{UInt32}}
     maxbatches::Int32
     batchid::Int32
+    costdist::Vector{Int}
+    costblk::Vector{Int}
 end
 
 function SearchGraphContext(
@@ -106,10 +108,14 @@ function SearchGraphContext(
     starting_callback=256,
     maxbatches::Integer=8Threads.nthreads(),
     batchid::Integer=1,
-    beams=nothing
+    beams=nothing,
+    costdist=nothing,
+    costblk=nothing
 )
     vstates === nothing && (vstates = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
     beams === nothing && (beams = zeros(IdDist, 32, maxbatches))
+    costdist === nothing && (costdist = zeros(Int, maxbatches))
+    costblk === nothing && (costblk = zeros(Int, maxbatches))
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
@@ -117,7 +123,8 @@ function SearchGraphContext(
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
         beams, vstates,
-        convert(Int32, maxbatches), convert(Int32, batchid))
+        convert(Int32, maxbatches), convert(Int32, batchid),
+        costdist, costblk)
 end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
@@ -132,14 +139,17 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     beams=ctx.beams,
     vstates=ctx.vstates,
     maxbatches=ctx.maxbatches,
-    batchid=ctx.batchid
+    batchid=ctx.batchid,
+    costdist=ctx.costdist,
+    costblk=ctx.costblk
 ) where {KnnType,VSType}
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,
-        beams, vstates, maxbatches, batchid)
+        beams, vstates, maxbatches, batchid,
+        costdist, costblk)
 end
 
 # SearchGraphContext has a phantom type parameter (KnnType, not derivable from any field),

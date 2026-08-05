@@ -6,7 +6,6 @@
 export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdDist
 export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, nearest, frontier
 export DistView, IdView
-export distance_evaluations, block_evaluations
 
 """
     AbstractKnn
@@ -163,7 +162,7 @@ push_item!(res, 2 => 0.1f0)
 nearest(res)
 ```
 """
-knnqueue(::Type{KnnHeap}, vec::AbstractVector) = KnnHeap(vec, zero(IdDist), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+knnqueue(::Type{KnnHeap}, vec::AbstractVector) = KnnHeap(vec, zero(IdDist), zero(Int32), Int32(length(vec)))
 
 """
     knnqueue(::Type{KnnSorted}, vec::AbstractVector)
@@ -172,7 +171,7 @@ Creates a [`KnnSorted`](@ref) k-NN result queue using `vec` as its initial backi
 (its length sets the capacity `k`). Behaves like `knnqueue(KnnHeap, vec)`, but keeps its
 active items always sorted by distance.
 """
-knnqueue(::Type{KnnSorted}, vec::AbstractVector) = KnnSorted(vec, one(Int32), zero(Int32), Int32(length(vec)), zero(Int32), zero(Int32))
+knnqueue(::Type{KnnSorted}, vec::AbstractVector) = KnnSorted(vec, one(Int32), zero(Int32), Int32(length(vec)))
 
 """
     knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn}

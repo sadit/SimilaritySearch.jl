@@ -11,8 +11,6 @@ it against the root, and inserted in `O(log k)` time.
 - `min::IdDist`: the closest item seen so far (tracked separately from the heap root).
 - `len::Int32`: number of active items currently stored.
 - `maxlen::Int32`: maximum number of items to keep (the `k` of the k-nn search).
-- `costdist::Int32`: number of distance evaluations charged to this result set.
-- `costblk::Int32`: number of block evaluations charged to this result set.
 
 Use [`knnqueue`](@ref) to create one instead of calling the constructor directly.
 
@@ -31,18 +29,7 @@ mutable struct KnnHeap{VEC<:AbstractVector} <: AbstractKnn
     min::IdDist
     len::Int32
     maxlen::Int32
-    costdist::Int32
-    costblk::Int32
 end
-:$
-"Number of distance evaluations charged to `res`."
-@inline distance_evaluations(res::KnnHeap) = res.costdist
-"Number of block evaluations charged to `res`."
-@inline block_evaluations(res::KnnHeap) = res.costblk
-"Adds `v` to the distance-evaluations counter of `res`."
-@inline add_distance_evaluations!(res::KnnHeap, v) = (res.costdist += v)
-"Adds `v` to the block-evaluations counter of `res`."
-@inline add_block_evaluations!(res::KnnHeap, v) = (res.costblk += v)
 
 "Number of active items currently stored in `res`."
 @inline Base.length(res::KnnHeap) = res.len
@@ -164,8 +151,6 @@ existing memory buffers instead of allocating a new result set.
     res.min = zero(IdDist)
     res.len = 0
     res.maxlen = maxlen
-    res.costdist = 0
-    res.costblk = 0
     res
 end
 

@@ -74,6 +74,27 @@ struct ParetoRadius <: ErrorFunction end
 function setconfig! end
 
 """
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+
+Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)` methods
+(e.g. `src/searchgraph/optbs.jl`): runs `conf` against every query in `queries`, in parallel,
+mirroring [`searchbatch!`](@ref). Internal function used by [`create_error_function`](@ref).
+"""
+function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
+                    queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+    m = length(queries)
+    minbatch = getminbatch(ctx, m)
+    @BATCHES minbatch begin
+    @BEGINBATCH
+        bctx = @set ctx.batchid = @batchid()
+    @LOOP for i in 1:m
+        runconfig(conf, index, bctx, queries[i], reuse!(knns[i]))
+    end
+    end
+    knns
+end
+
+"""
     create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
 
 Builds and returns a performance-evaluation closure that runs `queries` against `index` under
@@ -83,25 +104,14 @@ a candidate configuration and reports its cost (visited nodes), radius, recall (
 function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
     n = length(index)
     m = length(queries)
-    cost = zeros(Int, m)
     cov = Vector{Float64}(undef, m)
     R = [Set{UInt32}() for _ in knns]
 
     function lossfun(conf)
         empty!(cov)
+        before = copy(ctx.costdist)
 
-        searchtime = @elapsed begin
-            minbatch = getminbatch(ctx, m)
-            @BATCHES minbatch begin
-            @BEGINBATCH
-                bctx = @set ctx.batchid = @batchid()
-            @LOOP for i in 1:m
-                knns[i] = r = runconfig(conf, index, bctx, queries[i], reuse!(knns[i]))
-                cost[i] = distance_evaluations(r)
-            end
-            end
-        end
-
+        searchtime = @elapsed runconfig(conf, index, ctx, queries, knns)
         searchtime /= m
 
         for r in knns
@@ -146,7 +156,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             #exit(0)
         end
 
-        visited = (min=minimum(cost), mean=mean(cost), max=maximum(cost))
+        visited = distance_stats(ctx, before)
         verbose(ctx) && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
         (; visited, radius, recall, searchtime, conf)
     end
