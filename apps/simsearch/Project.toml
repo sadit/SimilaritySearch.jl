@@ -1,6 +1,6 @@
 name = "SimSearch"
 uuid = "bbb04437-ed91-4d38-89c0-f7ccff285f87"
-version = "0.1.0"
+version = "1.0.0"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
