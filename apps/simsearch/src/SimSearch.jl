@@ -45,7 +45,7 @@ end
 
 Entry point: dispatches to the requested subcommand. Returns a process exit code.
 """
-function main(args::Vector{String}=ARGS)
+function (@main)(args::Vector{String}=ARGS)
     if isempty(args) || first(args) in ("-h", "--help")
         print_top_help(stdout)
         return 0

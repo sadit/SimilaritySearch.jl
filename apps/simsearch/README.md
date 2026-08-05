@@ -16,24 +16,35 @@ Julia than its dependency.
 
 ## Install
 
+`simsearch` is a [Julia app](https://pkgdocs.julialang.org/dev/apps/) (Pkg's
+app support is currently experimental). Install it once, from the repo root:
+
 ```sh
-julia --project=apps/simsearch -e 'using Pkg; Pkg.instantiate()'
-chmod +x apps/simsearch/bin/simsearch   # optional, only needed once
+julia -e 'using Pkg; pkg"app develop apps/simsearch"'
 ```
 
-Run it either as a script under an activated project:
+This registers a `simsearch` executable under `~/.julia/bin/`, managed by
+Pkg. Make sure `~/.julia/bin` is on your `PATH` (Pkg does not add it for you),
+then run it directly:
+
+```sh
+simsearch <subcommand> [options]
+```
+
+`app develop` (as opposed to `app add`) points the installed app at this
+checked-out source, mirroring the `[sources] SimilaritySearch = {path =
+"../.."}` local-dev mechanism already used by this project — edits to
+`apps/simsearch` or the parent `SimilaritySearch` package take effect without
+reinstalling.
+
+If you'd rather not install anything, run it as a plain script under an
+activated project instead:
 
 ```sh
 julia --project=apps/simsearch apps/simsearch/src/main.jl <subcommand> [options]
 ```
 
-or as a standalone executable (activates its own project internally):
-
-```sh
-apps/simsearch/bin/simsearch <subcommand> [options]
-```
-
-The examples below use the second form for brevity.
+The examples below use the installed-executable form for brevity.
 
 ## The `path:key` dataset convention
 

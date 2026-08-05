@@ -1,3 +1,7 @@
+name = "SimSearch"
+uuid = "bbb04437-ed91-4d38-89c0-f7ccff285f87"
+version = "0.1.0"
+
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
 ArgParse = "c7e460c6-2fb9-53a9-8c5b-16f535851c63"
@@ -14,3 +18,5 @@ SimilaritySearch = {path = "../.."}
 
 [compat]
 julia = "1.12"
+
+[apps.simsearch]
