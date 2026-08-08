@@ -11,7 +11,7 @@ using Statistics: mean
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
     SearchResult, push_item!, append_items!, getminbatch,
-    IdDist, Dist, Exact, Special, ScalarQuant,
+    IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
     distance_evaluations, block_evaluations, distance_stats, block_stats
 
 """
@@ -250,6 +250,8 @@ end
 
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
+include("intersections/Intersections.jl")
+include("invertedfiles/InvertedFiles.jl")
 include("permindex.jl")
 include("deprecated.jl")
 

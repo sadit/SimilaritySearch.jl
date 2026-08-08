@@ -65,6 +65,10 @@ julia +1.12 -t8 --project=. -e 'using SimilaritySearch'   # at least a load smok
   rebuild-from-scratch (`rebuild.jl`), beam search (`beamsearch.jl`), neighborhood
   filters (`neighborhood.jl`), adjacency backends (`../adj/`), per-call state
   (`context.jl` → `SearchGraphContext`).
+- `intersections/` (`Intersections` submodule) — posting list intersection algorithms
+  (`svs`, `bk`, `bkt`, `umerge`, `imerge`, `xmerge`, etc.).
+- `invertedfiles/` (`InvertedFiles` submodule) — general inverted index representations
+  (`WeightedInvertedFile`, `BinaryInvertedFile`, `InvertedFileContext`).
 - `sq/` (`ScalarQuant` submodule) — per-column (`SQu2`/`SQu4`/`SQu8`) and global
   (`SQgu4`/`SQgu8`) scalar quantization, each its own nested submodule.
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
