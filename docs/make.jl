@@ -23,6 +23,7 @@ makedocs(;
             "tutorial/parallelism.md",
             "tutorial/persistence.md",
             "tutorial/logging.md",
+            "tutorial/invertedfiles.md",
         ],
         "API" => "api.md"
     ],

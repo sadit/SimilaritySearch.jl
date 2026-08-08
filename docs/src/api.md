@@ -306,3 +306,34 @@ Special.Spherical.transform!
 Special.Spherical.transform_query
 Special.Spherical.transform_query!
 ```
+
+## Inverted files (`InvertedFiles` submodule)
+
+Inverted file index data structures and context for sparse vectors, MIPS, and set search.
+
+```@docs
+InvertedFiles.AbstractInvertedFile
+InvertedFiles.WeightedInvertedFile
+InvertedFiles.BinaryInvertedFile
+InvertedFiles.InvertedFileContext
+InvertedFiles.getcontext
+InvertedFiles.search_invfile
+InvertedFiles.select_posting_lists
+InvertedFiles.IdWeight
+InvertedFiles.IdIntWeight
+InvertedFiles.SortedIntSet
+```
+
+## Posting list intersections (`Intersections` submodule)
+
+Algorithms for set and posting list intersections.
+
+```@docs
+Intersections.svs
+Intersections.bk!
+Intersections.bkt!
+Intersections.umerge!
+Intersections.imerge!
+Intersections.xmerge!
+```
+

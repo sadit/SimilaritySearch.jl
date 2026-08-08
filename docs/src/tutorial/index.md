@@ -40,6 +40,9 @@ Pages, in the order we recommend reading them:
 8. [Logs, and capturing neighbors as they're built](logging.md) -- the logging system,
    custom loggers, and how (and how not) to use them to capture a `SearchGraph`'s
    neighbor lists incrementally during construction.
+9. [Inverted files and posting list intersections](invertedfiles.md) -- inverted index
+   representations (`WeightedInvertedFile`, `BinaryInvertedFile`) for sparse vector and
+   set search, and posting list intersection algorithms (`Intersections`).
 
 ## Installation
 
