@@ -33,7 +33,8 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/sadit/SimilaritySearch.jl",
-    devbranch=nothing,
-    branch = "gh-pages",
-    versions = ["stable" => "v^", "v#.#.#", "dev" => "dev"]
+    devbranch="main",
+    devurl="dev",
+    versions=["stable" => "v^", "v#.#", "dev" => "dev"],
+    push_preview=true,
 )
