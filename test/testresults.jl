@@ -9,10 +9,17 @@ using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!
     for k in [7, 8, 12, 15, 16, 31, 32, 67]
         X = rand(Float32, k)
         ids = UInt32.(1:k)
-        heapify!(Forward, ids, X)
-        @test isheap(Forward, ids, X)
-        heapsort!(Forward, ids, X)
-        @test issorted(X)
+        
+        _lt = (T, i, j) -> T[2][i] < T[2][j]
+        _swap = (T, i, j) -> begin
+            T[1][i], T[1][j] = T[1][j], T[1][i]
+            T[2][i], T[2][j] = T[2][j], T[2][i]
+        end
+        T = (ids, X)
+        heapify!(_lt, _swap, T, k)
+        @test isheap(_lt, T, k)
+        heapsort!(_lt, _swap, T, k)
+        @test issorted(X, rev=false) # heapsort puts max at the end, resulting in ascending order
     end
 
 end

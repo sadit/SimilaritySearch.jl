@@ -107,6 +107,7 @@ include("sq/sq.jl")
 include("distsample.jl")
 include("iddist.jl")
 include("adj/Adj.jl")
+include("intersections/Intersections.jl")
 include("special/special.jl")
 include("proj/Projections.jl")
 
@@ -250,7 +251,6 @@ end
 
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
-include("intersections/Intersections.jl")
 include("invertedfiles/InvertedFiles.jl")
 include("permindex.jl")
 include("deprecated.jl")

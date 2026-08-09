@@ -74,12 +74,12 @@ end
     @test length(Pdb) == length(db)
     for i in 1:length(db)
         v = Pdb[i]
-        @test norm(collect(v.V)) ≈ 1f0 atol=1f-4
+        @test norm(collect(v.nzval)) ≈ 1f0 atol=1f-4
     end
 
     q = db[1]
     Qq = Spherical.transform_query(se, q)
-    @test norm(collect(Qq.V)) ≈ 1f0 atol=1f-4
+    @test norm(collect(Qq.nzval)) ≈ 1f0 atol=1f-4
 end
 
 @testset "Spherical: stale maxnorm clamps instead of erroring" begin

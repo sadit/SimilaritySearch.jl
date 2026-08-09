@@ -298,13 +298,13 @@ padding (`se.pad == 0`, the default for sparse inputs).
 function transform(se::SphericalEmbedding, x::SparseVecView)
     se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform: sparse inputs require pad=0 (got pad=$(se.pad))"))
     invM = 1f0 / se.maxnorm
-    m = length(x.I)
-    I = Vector{eltype(x.I)}(undef, m + 1)
+    m = length(x.nzind)
+    I = Vector{eltype(x.nzind)}(undef, m + 1)
     V = Vector{Float32}(undef, m + 1)
     s = 0f0
     @inbounds for i in 1:m
-        v = Float32(x.V[i]) * invM
-        I[i] = x.I[i]
+        v = Float32(x.nzval[i]) * invM
+        I[i] = x.nzind[i]
         V[i] = v
         s = muladd(v, v, s)
     end
@@ -462,7 +462,7 @@ function transform_query(se::SphericalEmbedding, q::SparseVecView)
     se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform_query: sparse inputs require pad=0 (got pad=$(se.pad))"))
     nq = norm32(q)
     invn = nq > 0 ? 1f0 / nq : 0f0
-    SparseVecView(copy(q.I), Float32.(q.V) .* invn)
+    SparseVecView(copy(q.nzind), Float32.(q.nzval) .* invn)
 end
 
 function transform_query(se::SphericalEmbedding, q::SparseVector)
