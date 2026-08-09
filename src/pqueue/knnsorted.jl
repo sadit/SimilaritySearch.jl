@@ -72,12 +72,17 @@ The algorithm:
     # Block shift: move ids[lo:ep-1] → ids[lo+1:ep]
     # We use a manual reverse loop instead of `copyto!` because `copyto!` on overlapping
     # `SubArray`s falls back to an allocating path in Base Julia, causing massive GC pressure.
+    # Nota: La asignación debe hacerse por separado para maximizar la optimización vectorial SIMD y caches
+
     @inbounds @simd for i in ep:-1:lo+1
         ids[i] = ids[i - 1]
+    end
+    @inbounds ids[lo] = item_id
+
+    @inbounds @simd for i in ep:-1:lo+1
         dists[i] = dists[i - 1]
     end
-
-    @inbounds ids[lo]   = item_id
+    
     @inbounds dists[lo] = item_dist
     nothing
 end

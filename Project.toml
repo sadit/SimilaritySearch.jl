@@ -1,7 +1,7 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
-authors = ["Eric S. Tellez <donsadit@gmail.com>"]
 version = "1.0.0"
+authors = ["Eric S. Tellez <donsadit@gmail.com>"]
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
@@ -9,6 +9,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
 Hadamard = "4a05ff16-5f95-55f4-bb53-bb3f467c689a"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -25,6 +26,7 @@ Dates = "^1.0"
 Distances = "0.10"
 Distributions = "0.25"
 Hadamard = "^1.8"
+JSON = "1.7.0"
 LinearAlgebra = "^1.0"
 ProgressMeter = "1.10"
 Random = "^1.0"
