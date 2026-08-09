@@ -2,7 +2,7 @@ using SimilaritySearch, Statistics, StatsBase, Random, JSON
 
 function run(D, dist, db, queries, gold; logbase, ksearch, minrecall, minrecall_search, dim, exdim)
     algo = "SearchGraph"
-    graph = SearchGraph(; db, dist)
+    graph = SearchGraph(dist, db)
     ctx = SearchGraphContext(
         neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
         hyperparameters_callback=OptimizeParameters(MinRecall(minrecall)),
@@ -10,8 +10,8 @@ function run(D, dist, db, queries, gold; logbase, ksearch, minrecall, minrecall_
     )
     buildtime = @elapsed index!(graph, ctx)
     opttime = @elapsed optimize_index!(graph, ctx, MinRecall(minrecall_search))
-    searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch; sorted=false)
-    recall = macrorecall(gold, knns)
+    searchtime = @elapsed knns_ids, knns_dists = searchbatch(graph, ctx, queries, ksearch)
+    recall = macrorecall(gold, knns_ids)
     @info graph
     mem = sum(map(length, graph.adj.end_point)) * sizeof(eltype(graph.adj.end_point[1])) / 2^20 # adj mem
     n, m = length(db), length(queries)
@@ -41,9 +41,9 @@ function main_l2(D, n, m, dim, exdim;
         MatrixDatabase(P * X)
     end
 
-    seq = ExhaustiveSearch(; dist, db)
-    gold = searchbatch(seq, GenericContext(), queries, ksearch)
-    run(D, dist, db, queries, gold; logbase, ksearch, minrecall, minrecall_search, dim, exdim)
+    seq = ExhaustiveSearch(dist, db)
+    gold_ids, gold_dists = searchbatch(seq, GenericContext(), queries, ksearch)
+    run(D, dist, db, queries, gold_ids; logbase, ksearch, minrecall, minrecall_search, dim, exdim)
 end
 
 D = []

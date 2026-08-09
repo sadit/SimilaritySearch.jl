@@ -69,10 +69,13 @@ The algorithm:
         end
     end
 
-    # Block shift: move ids[lo:ep-1] → ids[lo+1:ep]  (overlapping, uses memmove)
-    n = ep - lo
-    @inbounds copyto!(ids,   lo + 1, ids,   lo, n)
-    @inbounds copyto!(dists, lo + 1, dists, lo, n)
+    # Block shift: move ids[lo:ep-1] → ids[lo+1:ep]
+    # We use a manual reverse loop instead of `copyto!` because `copyto!` on overlapping
+    # `SubArray`s falls back to an allocating path in Base Julia, causing massive GC pressure.
+    @inbounds @simd for i in ep:-1:lo+1
+        ids[i] = ids[i - 1]
+        dists[i] = dists[i - 1]
+    end
 
     @inbounds ids[lo]   = item_id
     @inbounds dists[lo] = item_dist
@@ -132,8 +135,10 @@ Appends an item into the result set
     @inbounds if len < maxlength(res)
         if ep == length(res.ids)  # reorganizing the queue (shift data to the beginning)
             n = ep - sp + 1
-            copyto!(res.ids,   1, res.ids,   sp, n)
-            copyto!(res.dists, 1, res.dists, sp, n)
+            @inbounds @simd for i in 1:n
+                res.ids[i] = res.ids[sp + i - 1]
+                res.dists[i] = res.dists[sp + i - 1]
+            end
             sp = res.sp = one(sp)
             ep = res.ep = Int32(n)
         end
