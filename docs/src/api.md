@@ -212,7 +212,13 @@ viewitems
 covradius
 reuse!
 sortitems!
+sort_last_item!
 maxlength
+isheap
+heapsort!
+heapfix_down!
+pop_min!
+pop_max!
 IdDist
 IdIntDist
 IdOrder
@@ -306,6 +312,19 @@ Special.Spherical.transform!
 Special.Spherical.transform_query
 Special.Spherical.transform_query!
 ```
+
+## Sparse vector support (`Special.Sparse` submodule)
+
+A sparse matrix view tailored for distance evaluations, replacing Base's `SparseVector`
+with an explicit dimension-tracking read-only wrapper `SparseVecView`.
+
+```@docs
+Special.Sparse
+Special.Sparse.SparseVecView
+Special.Sparse.SparseDatabase
+Special.Sparse.sparsedot
+```
+
 
 ## Inverted files (`InvertedFiles` submodule)
 

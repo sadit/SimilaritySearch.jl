@@ -38,6 +38,7 @@ it returns `typemax(Float32)`, since any candidate should still be accepted.
 @inline Base.argmax(res::AbstractKnn)  = frontier(res).id
 @inline Base.minimum(res::AbstractKnn) = nearest(res).dist
 @inline Base.argmin(res::AbstractKnn)  = nearest(res).id
+@inline Base.iterate(res::AbstractKnn, state=1) = iterate(viewitems(res), state)
 
 # ── IdView ────────────────────────────────────────────────────────────────────
 

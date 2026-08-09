@@ -475,7 +475,41 @@ function transform_query(se::SphericalEmbedding, q::SparseVector)
     end
     nq = sqrt(s)
     invn = nq > 0 ? 1f0 / nq : 0f0
-    sparsevec(copy(nzind), Float32.(nzval) .* invn, outdim(se))
+    SparseVector(outdim(se), copy(nzind), Float32.(nzval) .* invn)
+end
+
+"""
+    transform_query!(se::SphericalEmbedding, q::Special.Sparse.SparseVecView) -> SparseVecView
+    transform_query!(se::SphericalEmbedding, q::SparseArrays.SparseVector) -> SparseArrays.SparseVector
+
+In-place version of [`transform_query`](@ref) for sparse vectors. This method modifies the 
+input vector's values in-place (avoiding allocations for the values), but it returns a new 
+vector/view object because the output dimensionality is `outdim(se)` (typically `dim + 1`).
+"""
+function transform_query!(se::SphericalEmbedding, q::SparseVecView)
+    se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform_query!: sparse inputs require pad=0 (got pad=$(se.pad))"))
+    nq = norm32(q)
+    invn = nq > 0 ? 1f0 / nq : 0f0
+    @inbounds for i in eachindex(q.nzval)
+        q.nzval[i] = q.nzval[i] * invn
+    end
+    SparseVecView(outdim(se), q.nzind, q.nzval)
+end
+
+function transform_query!(se::SphericalEmbedding, q::SparseVector)
+    se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform_query!: sparse inputs require pad=0 (got pad=$(se.pad))"))
+    nzind = SparseArrays.nonzeroinds(q)
+    nzval = nonzeros(q)
+    s = 0f0
+    @inbounds for v in nzval
+        s = muladd(Float32(v), Float32(v), s)
+    end
+    nq = sqrt(s)
+    invn = nq > 0 ? 1f0 / nq : 0f0
+    @inbounds for i in eachindex(nzval)
+        nzval[i] = nzval[i] * invn
+    end
+    SparseVector(outdim(se), nzind, nzval)
 end
 
 end

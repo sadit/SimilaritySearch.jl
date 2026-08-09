@@ -1,4 +1,4 @@
-1using Documenter, SimilaritySearch
+using Documenter, SimilaritySearch
 
 makedocs(;
     modules=[SimilaritySearch],
