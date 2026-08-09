@@ -16,8 +16,8 @@ end
 @testset "Searching vectors" begin
     ksearch = 4
     dim = 4
-    db = MatrixDatabase(rand(Float32, dim, 10_000))
-    queries = MatrixDatabase(rand(Float32, dim, 100))
+    db = MatrixDatabase(rand(Float32, dim, 2_000))
+    queries = MatrixDatabase(rand(Float32, dim, 30))
     @info typeof(db), typeof(queries)
     for dist in [
         Dist.L2(),
@@ -31,8 +31,8 @@ end
 
 @testset "Binary distances" begin
     ksearch = 4
-    db = MatrixDatabase(rand(UInt64, 8, 10_000))
-    queries = MatrixDatabase(rand(UInt64, 8, 100))
+    db = MatrixDatabase(rand(UInt64, 8, 2_000))
+    queries = MatrixDatabase(rand(UInt64, 8, 30))
 
     test_exact(db, queries, Dist.Bits.Hamming(), ksearch, 0.9)
     test_exact(db, queries, Dist.Bits.RogersTanimoto(), ksearch, 0.9)

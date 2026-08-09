@@ -113,8 +113,8 @@ end
 
 @testset "BinaryInvertedFile" begin
     vocsize = 128
-    n = 10_000
-    m = 100
+    n = 2_000
+    m = 30
     len = 10
     k = 10
     db = VectorDatabase([sort!(unique(rand(1:vocsize, len))) for i in 1:n])

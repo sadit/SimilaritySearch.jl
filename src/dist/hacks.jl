@@ -28,7 +28,7 @@ struct SimilarityFromDistance{Dist<:SemiMetric} <: SemiMetric
     dist::Dist
 end
 
-@inline evaluate(sim::SimilarityFromDistance, u, v) = 1 / (1 + evaluate(sim.dist, u, v))
+@inline evaluate(sim::SimilarityFromDistance, u, v)::Float32 = 1.0f0 / (1.0f0 + evaluate(sim.dist, u, v))
 
 """
     DistanceWithIdentifiers(distance, database)

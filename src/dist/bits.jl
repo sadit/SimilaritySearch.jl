@@ -15,17 +15,17 @@ struct Hamming <: Metric end
 
 Computes the binary hamming distance for bit types and arrays of bit types
 """
-function evaluate(::Hamming, a, b)
+function evaluate(::Hamming, a, b)::Float32
     d = 0
     @inbounds @simd for i in eachindex(a)
         d += count_ones(a[i] ⊻ b[i])
     end
 
-    d
+    Float32(d)
 end
 
-function evaluate(::Hamming, a::T, b::T)::Float64 where {T<:Unsigned}
-    count_ones(a ⊻ b)
+function evaluate(::Hamming, a::T, b::T)::Float32 where {T<:Unsigned}
+    Float32(count_ones(a ⊻ b))
 end
 
 """

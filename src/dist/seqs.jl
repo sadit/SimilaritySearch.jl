@@ -32,7 +32,7 @@ end
 
 Computes a dissimilarity based on the common prefix between two strings
 """
-evaluate(::CommonPrefix, a, b) = 1.0 - common_prefix(a, b) / min(length(a), length(b))
+evaluate(::CommonPrefix, a, b)::Float32 = 1.0f0 - Float32(common_prefix(a, b) / min(length(a), length(b)))
 
 
 """
@@ -85,7 +85,7 @@ Levenshtein(ctx; icost=1, dcost=1, rcost=1) =
 
 Computes the edit distance between two strings, this is a low level function
 """
-function evaluate(lev::Levenshtein, a, b)
+function evaluate(lev::Levenshtein, a, b)::Float32
     if length(a) < length(b)
         a, b = b, a
     end
@@ -93,8 +93,8 @@ function evaluate(lev::Levenshtein, a, b)
     alen = length(a)
     blen = length(b)
 
-    alen == 0 && return blen
-    blen == 0 && return alen
+    alen == 0 && return Float32(blen)
+    blen == 0 && return Float32(alen)
 
     C = take!(lev.Cpool)
     try
@@ -120,7 +120,7 @@ function evaluate(lev::Levenshtein, a, b)
             C[j] = prevA
         end
 
-        prevA
+        Float32(prevA)
     finally
         put!(lev.Cpool, C)
     end
@@ -140,14 +140,14 @@ end
      
 Computes the hamming distance between two sequences of the same length
 """
-function evaluate(::Hamming, a, b)
+function evaluate(::Hamming, a, b)::Float32
     d = 0
 
     @inbounds for i in 1:length(a)
         d += Int(a[i] != b[i])
     end
 
-    d
+    Float32(d)
 end
 
 

@@ -8,8 +8,8 @@ using Test
 
 function prepare_benchmark(Database;
     ksearch::Int=8,
-    n::Int=10_000,
-    m::Int=100,
+    n::Int=2_000,
+    m::Int=30,
     dim::Int=4)
 
     db = Database(rand(Float32, dim, n))

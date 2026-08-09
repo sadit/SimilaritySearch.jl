@@ -71,9 +71,9 @@ struct Jaccard <: Metric end
 Computes the Jaccard's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
-function evaluate(::Jaccard, a, b)
+function evaluate(::Jaccard, a, b)::Float32
     isize = intersectionsize(a, b)
-    1.0 - isize / unionsize(a, b, isize)
+    1.0f0 - Float32(isize / unionsize(a, b, isize))
 end
 
 """
@@ -94,9 +94,9 @@ struct Dice <: SemiMetric end
 Computes the Dice's distance of `a` and `b` both sets specified as
 sorted vectors.
 """
-function evaluate(::Dice, a, b)
+function evaluate(::Dice, a, b)::Float32
     i = intersectionsize(a, b)
-    1.0 - 2 * i / (length(a) + length(b))
+    1.0f0 - Float32(2 * i / (length(a) + length(b)))
 end
 
 """
@@ -137,7 +137,7 @@ Computes the Rogers-Tanimoto dissimilarity of `a` and `b`, both sets specified a
 vectors of positive integers, using `rt.σ` as the size of the full universe (needed to
 compute the number of shared zeros).
 """
-function evaluate(rt::RogersTanimoto, a, b)
+function evaluate(rt::RogersTanimoto, a, b)::Float32
     o = Forward
     len_a::Int = length(a)
     len_b::Int = length(b)
@@ -179,9 +179,9 @@ struct Intersection <: SemiMetric end
 
 Uses the intersection as a distance function (non-metric)
 """
-function evaluate(::Intersection, a, b)
+function evaluate(::Intersection, a, b)::Float32
     i = intersectionsize(a, b)
-    return 1.0 - i / max(length(a), length(b))
+    1.0f0 - Float32(i / max(length(a), length(b)))
 end
 
 """
@@ -197,6 +197,6 @@ struct CosineSet <: SemiMetric end
 
 Computes the cosine distance where `a` and `b` are sorted lists of integers (emulating binary sparse vectores)
 """
-function evaluate(::CosineSet, U, V)
-    1 - intersectionsize(U, V) / (sqrt(length(U)) * sqrt(length(V)))
+function evaluate(::CosineSet, U, V)::Float32
+    1.0f0 - Float32(intersectionsize(U, V) / (sqrt(length(U)) * sqrt(length(V))))
 end

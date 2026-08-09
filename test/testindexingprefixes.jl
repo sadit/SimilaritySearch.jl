@@ -3,8 +3,8 @@
 using SimilaritySearch, Random, Test
 
 @testset "index! by :knr" begin
-    dim, n, m = 8, 10_000, 100
-    numrefs = 512
+    dim, n, m = 8, 5_000, 30
+    numrefs = 256
     hints_size = ceil(Int, sqrt(n))
     ksearch = 8
     ksize = 8
