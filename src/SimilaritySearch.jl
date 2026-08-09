@@ -186,7 +186,7 @@ GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logge
 # override makes `@set ctx.batchid = ...`/`@set ctx.maxbatches = ...` work.
 Accessors.ConstructionBase.constructorof(::Type{<:GenericContext{K}}) where {K} = (args...) -> GenericContext{K}(args...)
 
-knnqueue(::GenericContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
+knnqueue(::GenericContext{KnnType}, args...) where {KnnType<:AbstractKnn} = knnqueue(KnnType, args...)
 verbose(ctx::GenericContext) = ctx.verbose
 
 # A slot counts toward these stats if it's nonzero -- a real search always performs >= 1
@@ -262,57 +262,61 @@ include("hsp.jl")
 include("rerank.jl")
 
 """
-    searchbatch(index, ctx, Q, k::Integer) -> indices, distances
-    searchbatch(index, Q, k::Integer) -> indices, distances
+    searchbatch(index, ctx, Q, k::Integer) -> (ids::Matrix{UInt32}, dists::Matrix{Float32})
+    searchbatch(index, Q, k::Integer) -> (ids::Matrix{UInt32}, dists::Matrix{Float32})
 
 Searches a batch of queries in the given index (searches for k neighbors).
+Returns a tuple `(ids, dists)` where both are `(k, length(Q))` matrices.
 
 # Arguments
 - `index`: The search structure
 - `Q`: The set of queries
 - `k`: The number of neighbors to retrieve
-- `context`: caches, hyperparameters, and meta data
+- `ctx`: caches, hyperparameters, and meta data
 - `sorted=true`: ensures that the results are sorted by distance.
 
-Note: The i-th column in indices and distances correspond to the i-th query in `Q`
-Note: The final indices at each column can be `0` if the search process was unable to retrieve `k` neighbors.
+Note: The i-th column in `ids`/`dists` corresponds to the i-th query in `Q`.
+Note: Unused slots (fewer than `k` neighbors found) are filled with `0`/`Inf32`.
 """
 function searchbatch(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, k::Integer; sorted::Bool=true)
-    knns = zeros(IdDist, k, length(Q))
-    searchbatch!(index, ctx, Q, knns; sorted)
+    ids   = zeros(UInt32,  k, length(Q))
+    dists = fill(typemax(Float32), k, length(Q))
+    searchbatch!(index, ctx, Q, ids, dists; sorted)
 end
 
 """
-    searchbatch!(index, ctx, Q, knns; sorted) -> knns
+    searchbatch!(index, ctx, Q, ids, dists; sorted) -> (ids, dists)
 
-Searches a batch of queries in the given index and use `knns` as output (searches for `k=size(I, 1)`)
+In-place batch search. Fills `ids::AbstractMatrix{UInt32}` and `dists::AbstractMatrix{Float32}`
+(each of size `(k, length(Q))`) with the `k` nearest neighbors of each query in `Q`.
 
 # Arguments
 - `index`: The search structure
-- `ctx`: Context of the search algorithm, environment for running searches (hyperparameters and caches)
+- `ctx`: Context of the search algorithm
 - `Q`: The set of queries
-- `knns`: Output, a matrix of IdDist elements (initialized with `zeros`); an array of KnnAbstract elements, use this form to retrieve search costs.
+- `ids`: Output matrix of `UInt32` identifiers, size `(k, length(Q))`
+- `dists`: Output matrix of `Float32` distances, size `(k, length(Q))`
 
 # Keyword arguments
-- `sorted`: indicates whether the output should be sorted or not.
+- `sorted`: whether each column should be sorted by distance (default `false`).
 """
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{IdDist}; sorted::Bool=false)
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase,
+                      ids::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}; sorted::Bool=false)
     m = length(Q)
     m > 0 || throw(ArgumentError("empty set of queries"))
-    m == size(knns, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
+    m == size(ids, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx, m)
-    # @info m => Threads.nthreads() => minbatch
     @BATCHES minbatch begin
     @BEGINBATCH
         bctx = @set ctx.batchid = @batchid()
     @LOOP for j in 1:m
-        res = knnqueue(bctx, view(knns, :, j))
+        res = knnqueue(bctx, view(ids, :, j), view(dists, :, j))
         search(index, bctx, Q[j], res)
         sorted && sortitems!(res)
     end
     end
 
-    knns
+    ids, dists
 end
 
 function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})

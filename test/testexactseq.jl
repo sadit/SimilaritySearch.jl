@@ -16,14 +16,16 @@ function test_seq(db, queries, dist::Dist.SemiMetric, ksearch; valid_lower::Floa
     idx = Exact.ExhaustiveSearch(dist, db)
     # idx = Exact.BasketList(dist, db, 256)
     ctx = GenericContext()
-    knns = zeros(IdDist, ksearch, length(queries))
-    @time "$(typeof(dist))" knns = searchbatch!(idx, ctx, queries, knns)
-    fill!(knns, zero(IdDist))
-    @time "$(typeof(dist))" knns = searchbatch!(idx, ctx, queries, knns)
+    knns_ids = zeros(UInt32, ksearch, length(queries))
+    knns_dists = fill(typemax(Float32), ksearch, length(queries))
+    @time "$(typeof(dist))" searchbatch!(idx, ctx, queries, knns_ids, knns_dists)
+    fill!(knns_ids, zero(UInt32))
+    fill!(knns_dists, typemax(Float32))
+    @time "$(typeof(dist))" searchbatch!(idx, ctx, queries, knns_ids, knns_dists)
     #@test_call target_modules=(@__MODULE__,) searchbatch(idx, ctx, queries, ksearch)
 
-    for c in eachcol(knns)
-        @test c[1].dist < valid_lower
+    for c in eachcol(knns_dists)
+        @test c[1] < valid_lower
     end    
 
 end

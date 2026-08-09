@@ -1,10 +1,10 @@
 # This file is a part of SimilaritySearch.jl
 
-export allknn
+export allknn, allknn!
 using ProgressMeter
 
 """
-    allknn(index::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort::Bool=true, progress=Progress(length(index); desc="allknn", dt=4)) -> knns
+    allknn(index::AbstractSearchIndex, ctx::AbstractContext, k::Integer; sort::Bool=true, progress=Progress(length(index); desc="allknn", dt=4)) -> (ids, dists)
 
 Computes all the k nearest neighbors (all vs all) using the given index. Note that each object is its own
 nearest neighbor, so the user is responsible for removing these self references from the output if needed.
@@ -19,9 +19,9 @@ nearest neighbor, so the user is responsible for removing these self references 
 - `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
 
 # Returns
-- `knns`: a `(k, n)` matrix of `IdDist` elements (as created with `zeros(IdDist, k, n)`); the `i`-th column
-  corresponds to the `i`-th object in the dataset. Trailing zeros at the end of a column mean that the
-  retrieval found fewer than the desired `k` neighbors for that object.
+A tuple `(ids, dists)` where both are `(k, n)` matrices. The `i`-th column corresponds to
+the `i`-th object in the dataset. Trailing zeros in `ids` (and `Inf32` in `dists`) mean
+that the retrieval found fewer than the desired `k` neighbors for that object.
 
 # Examples
 
@@ -30,10 +30,10 @@ using SimilaritySearch
 
 X = MatrixDatabase(rand(Float32, 8, 10^3))
 G = SearchGraph(; dist=Dist.SqL2(), db=X)
-ctx = getcontext(G)
+ctx = SearchGraphContext()
 index!(G, ctx)
 
-knns = allknn(G, ctx, 8)  # (8, 10^3) matrix of `IdDist`
+ids, dists = allknn(G, ctx, 8)  # both are (8, 10^3) matrices
 ```
 """
 function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
@@ -41,43 +41,45 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, k::Integer;
     progress=Progress(length(g); desc="allknn", dt=4)
 )
     n = length(g)
-    knns = zeros(IdDist, k, n)
-    allknn(g, ctx, knns; sort, progress)
+    ids   = zeros(UInt32,  k, n)
+    dists = fill(typemax(Float32), k, n)
+    allknn!(g, ctx, ids, dists; sort, progress)
 end
 
 """
-    allknn(index::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix; sort::Bool=true, progress=nothing) -> knns
+    allknn!(index::AbstractSearchIndex, ctx::AbstractContext, ids, dists; sort::Bool=true, progress=nothing) -> (ids, dists)
 
-In-place variant of [`allknn`](@ref) that receives a preallocated `(k, n)` matrix of `IdDist` elements
-(e.g., `zeros(IdDist, k, n)`) as output, where `n == length(index)`. Useful to reuse memory across calls
-or to resume/replace previously computed results.
+In-place variant of [`allknn`](@ref) that receives preallocated `(k, n)` matrices as output,
+where `n == length(index)`. Useful to reuse memory across calls or to resume/replace previously
+computed results.
 
 # Arguments
 - `index`: the index
 - `ctx`: the index's context (caches, hyperparameters, logger, etc)
-- `knns`: an output `(k, n)` matrix of `IdDist` elements, `n == length(index)`
+- `ids`: an output `(k, n)` matrix of `UInt32`, `n == length(index)`
+- `dists`: an output `(k, n)` matrix of `Float32`, parallel to `ids`
 
 # Keyword Arguments
 - `sort`: ensures that each result set is presented in ascending order by distance
 - `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
 """
-function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatrix;
+function allknn!(g::AbstractSearchIndex, ctx::AbstractContext,
+                 ids::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32};
     sort::Bool=true,
     progress=nothing
 )
     m = length(g)  # don't use n from knns, use directly length(g), i.e., allows to reuse knns
-    k, n = size(knns)
+    k, n = size(ids)
     @assert n > 0 "invalid assertion n > 0"
     @assert n == m "invalid assertion n == m"
     @assert 0 < k <= n
     minbatch = getminbatch(ctx, n)
-    #progress = Progress(n, desc="allknn", dt=4, enabled=show_progress)
     let progress = progress
         @BATCHES minbatch begin
         @BEGINBATCH
             bctx = @set ctx.batchid = @batchid()
         @LOOP for j in 1:n
-            res = knnqueue(bctx, view(knns, :, j))
+            res = knnqueue(bctx, view(ids, :, j), view(dists, :, j))
             allknn_single_search!(g, bctx, j, res)
             sort && sortitems!(res)
             progress !== nothing && next!(progress)
@@ -85,7 +87,7 @@ function allknn(g::AbstractSearchIndex, ctx::AbstractContext, knns::AbstractMatr
         end
     end
 
-    knns
+    ids, dists
 end
 
 function allknn_single_search!(g::SearchGraph, ctx::SearchGraphContext, i::Integer, res)

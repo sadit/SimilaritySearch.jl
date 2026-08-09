@@ -32,32 +32,31 @@ function append_items!(
     index!(index, ctx)
 end
 
-function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache)
+function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
     @inbounds while sp <= n
         ksearch = neighborhoodsize(ctx.neighborhood, sp)
-        tmp = knnqueue(ctx, view(qcache, 1:ksearch, 1))
-        neighbors = knnqueue(ctx, view(qcache, 1:ksearch, 2))
+        tmp       = knnqueue(ctx, view(qcache_ids, 1:ksearch, 1), view(qcache_dists, 1:ksearch, 1))
+        neighbors = knnqueue(ctx, view(qcache_ids, 1:ksearch, 2), view(qcache_dists, 1:ksearch, 2))
 
         push_item!(index, ctx, database(index, sp), tmp, neighbors, false)
         sp += 1
     end
 end
 
-function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache)
+function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
     resize!(index.adj, n)
 
     while sp <= n
         ep = min(n, sp + ctx.parallel_block - 1)  # sp:ep has at most ctx.parallel_block elements
         ksearch = neighborhoodsize(ctx.neighborhood, ep)
-        # qcache's width is sized from ctx.maxbatches (see index!), so this cap is consistent
-        # with it by construction; still derived from the buffer's actual size, not assumed.
-        minbatch = getminbatch(ep - sp + 1; maxbatches=size(qcache, 2) ÷ 2)
+        # qcache width is sized from ctx.maxbatches (see index!), derived from actual buffer size
+        minbatch = getminbatch(ep - sp + 1; maxbatches=size(qcache_ids, 2) ÷ 2)
 
         @BATCHES minbatch begin
         @BEGINBATCH
             bctx = @set ctx.batchid = @batchid()
-            tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid() - 1))
-            neighbors_ = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid()))
+            tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
+            neighbors_ = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
         @LOOP for objID in sp:ep
             item = database(index, objID)
             R = sp:objID-1
@@ -97,17 +96,17 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
     @assert n > 0
 
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
-        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2
+        qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2
             isodd(s) && (s += 1)
-            zeros(IdDist, s, t)
+            zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
     else
-        qcache = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * ctx.maxbatches
+        qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * ctx.maxbatches
             isodd(s) && (s += 1)
-            zeros(IdDist, s, t)
+            zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache)
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
     end
 
     index

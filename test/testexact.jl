@@ -7,8 +7,8 @@ function test_exact(db, queries, dist::Dist.Metric, ksearch::Integer, minrecall:
     seq = Exact.ExhaustiveSearch(dist, db)
     idx = Exact.BasketList(dist, db, 32)
     ctx = GenericContext()
-    gold_knns = searchbatch(seq, ctx, queries, ksearch)
-    knns = searchbatch(idx, ctx, queries, ksearch)
+    gold_knns, _ = searchbatch(seq, ctx, queries, ksearch)
+    knns, _ = searchbatch(idx, ctx, queries, ksearch)
     recall = macrorecall(gold_knns, knns)
     @assert recall >= minrecall  "$recall < $minrecall" # just to allow collisions (we are testing with low dimensional and discrete data)
 end

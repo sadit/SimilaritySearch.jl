@@ -1,5 +1,5 @@
 """
-    KnnHeap{VEC<:AbstractVector} <: AbstractKnn
+    KnnHeap{IDS<:AbstractVector{UInt32}, DSTS<:AbstractVector{Float32}} <: AbstractKnn
 
 A k-NN result container backed by a binary max-heap (ordered by [`DistOrder`](@ref)).
 The root of the heap always holds the current farthest item, so once the container is
@@ -7,8 +7,10 @@ full a new candidate can be accepted or discarded in `O(1)` amortized time by co
 it against the root, and inserted in `O(log k)` time.
 
 # Fields
-- `items::VEC`: backing storage for the heap entries (each an [`IdDist`](@ref)).
-- `min::IdDist`: the closest item seen so far (tracked separately from the heap root).
+- `ids::IDS`: backing storage for the identifiers (`UInt32`).
+- `dists::DSTS`: backing storage for the distances (`Float32`), parallel to `ids`.
+- `min_id::UInt32`: the id of the closest item seen so far (tracked separately).
+- `min_dist::Float32`: the distance of the closest item seen so far.
 - `len::Int32`: number of active items currently stored.
 - `maxlen::Int32`: maximum number of items to keep (the `k` of the k-nn search).
 
@@ -24,9 +26,12 @@ nearest(res)     # IdDist with the smallest distance seen so far
 viewitems(res)   # view of the active items
 ```
 """
-mutable struct KnnHeap{VEC<:AbstractVector} <: AbstractKnn
-    items::VEC
-    min::IdDist
+mutable struct KnnHeap{IDS<:AbstractVector{UInt32},
+                       DSTS<:AbstractVector{Float32}} <: AbstractKnn
+    ids::IDS
+    dists::DSTS
+    min_id::UInt32
+    min_dist::Float32
     len::Int32
     maxlen::Int32
 end
@@ -47,36 +52,34 @@ The maximum allowed cardinality (the k of knn)
 Returns the farthest item currently stored in `res` (the heap root), i.e., the item
 that would be evicted next when a closer candidate is pushed.
 """
-@inline frontier(res::KnnHeap) = res.items[1]
+@inline frontier(res::KnnHeap) = @inbounds IdDist(res.ids[1], res.dists[1])
 
 """
     nearest(res::KnnHeap)
 
 Returns the closest item ([`IdDist`](@ref)) seen so far in `res`.
 """
-@inline nearest(res::KnnHeap) = res.min
-
+@inline nearest(res::KnnHeap) = IdDist(res.min_id, res.min_dist)
 
 """
     viewitems(res::KnnHeap)
 
-Returns a zero-copy view of the active items of `res` (in heap order, not sorted by
-distance). Use [`sortitems!`](@ref) if a distance-sorted view is needed instead.
+Returns a zero-copy view of the active items of `res` as an `IdDistView` wrapper
+(in heap order, not sorted by distance). Use [`sortitems!`](@ref) if a distance-sorted
+view is needed instead.
 """
-function viewitems(res::KnnHeap)
-    view(res.items, 1:res.len)
-end
+@inline viewitems(res::KnnHeap) = IdDistView(res.ids, res.dists, 1, Int(res.len))
 
 """
     sortitems!(res::KnnHeap)
 
-Sort items and returns a view of the active items; this operations destroys the internal heap structure.
-It is possible to give the heap structure without calling `heapify!` just applying `reverse!` on the view.
+Sort items and returns a view of the active items; this operation destroys the internal
+heap structure. It is possible to restore the heap structure without calling `heapify!`
+by applying `reverse!` on the returned view.
 """
 function sortitems!(res::KnnHeap)
-    it = viewitems(res)
-    heapsort!(DistOrder, it)
-    it
+    heapsort!(DistOrder, view(res.ids, 1:res.len), view(res.dists, 1:res.len))
+    viewitems(res)
 end
 
 """
@@ -89,23 +92,25 @@ Appends an item into the result set
 
     if length(res) < maxlength(res)
         len += one(len)
-        res.items[len] = item
-        heapfix_up!(DistOrder, res.items, len)
-        if len == one(len) || lt(DistOrder, item, res.min)
-            res.min = item
+        @inbounds res.ids[len]   = item.id
+        @inbounds res.dists[len] = item.dist
+        heapfix_up!(DistOrder, res.ids, res.dists, len)
+        if len == one(len) || item.dist < res.min_dist
+            res.min_id   = item.id
+            res.min_dist = item.dist
         end
-
         res.len = len
         return true
     end
 
     item.dist >= maximum(res) && return false
-    res.items[1] = item
-    heapfix_down!(DistOrder, res.items, len)
-    if lt(DistOrder, item, res.min)
-        res.min = item
+    @inbounds res.ids[1]   = item.id
+    @inbounds res.dists[1] = item.dist
+    heapfix_down!(DistOrder, res.ids, res.dists, len)
+    if item.dist < res.min_dist
+        res.min_id   = item.id
+        res.min_dist = item.dist
     end
-
     true
 end
 
@@ -115,7 +120,7 @@ end
 Convenience overload of [`push_item!`](@ref) that builds the [`IdDist`](@ref) item from
 an `id`/`dist` pair given as separate arguments.
 """
-push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdDist(convert(UInt32, i), convert(Float32, d)))
+@inline push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdDist(convert(UInt32, i), convert(Float32, d)))
 
 """
     push_item!(res::KnnHeap, p::Pair)
@@ -123,7 +128,7 @@ push_item!(res::KnnHeap, i::Integer, d::Real) = push_item!(res, IdDist(convert(U
 Convenience overload of [`push_item!`](@ref) that builds the [`IdDist`](@ref) item from
 a `id => dist` pair.
 """
-push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdDist(convert(UInt32, p.first), convert(Float32, p.second)))
+@inline push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdDist(convert(UInt32, p.first), convert(Float32, p.second)))
 
 """
     pop_max!(res::KnnHeap)
@@ -131,36 +136,38 @@ push_item!(res::KnnHeap, p::Pair) = push_item!(res, IdDist(convert(UInt32, p.fir
 Removes and returns the farthest item (the heap root) from `res`, shrinking its length by one.
 """
 @inline function pop_max!(res::KnnHeap)
-    p = res.items[1]
+    @inbounds p = IdDist(res.ids[1], res.dists[1])
     len = res.len
-    heapswap!(res.items, 1, len)
+    heapswap!(res.ids, res.dists, 1, len)
     len -= 1
-    heapfix_down!(DistOrder, res.items, len)
+    heapfix_down!(DistOrder, res.ids, res.dists, len)
     res.len = len
     p
 end
 
 """
-    reuse!(res::KnnHeap, maxlen=length(res.items))
+    reuse!(res::KnnHeap, maxlen=length(res.ids))
 
 Resets `res` to a fresh initial state (empty, with capacity `maxlen`), reusing its
 existing memory buffers instead of allocating a new result set.
 """
-@inline function reuse!(res::KnnHeap, maxlen::Int=length(res.items))
-    @assert maxlen <= length(res.items)
-    res.min = zero(IdDist)
-    res.len = 0
-    res.maxlen = maxlen
+@inline function reuse!(res::KnnHeap, maxlen::Int=length(res.ids))
+    @assert maxlen <= length(res.ids)
+    res.min_id   = zero(UInt32)
+    res.min_dist = typemax(Float32)
+    res.len      = 0
+    res.maxlen   = maxlen
     res
 end
 
 """
-    reuse!(res::KnnHeap{T}, items::T, maxlen=length(items)) where T
+    reuse!(res::KnnHeap, ids, dists, maxlen=length(ids))
 
-Like `reuse!(res, maxlen)`, but also replaces the backing storage of `res` with `items`
-before resetting its state.
+Like `reuse!(res, maxlen)`, but also replaces the backing storage of `res` with `ids`
+and `dists` before resetting its state.
 """
-@inline function reuse!(res::KnnHeap{T}, items::T, maxlen::Int=length(items)) where T
-    res.items = items
+@inline function reuse!(res::KnnHeap, ids::IDS, dists::DSTS, maxlen::Int=length(ids)) where {IDS, DSTS}
+    res.ids   = ids
+    res.dists = dists
     reuse!(res, maxlen)
 end

@@ -1,11 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
-#module KnnResult
-
-# export AbstractKnnQueueesult
 export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdDist
-export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, nearest, frontier
-export DistView, IdView
+export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, pop_min!, nearest, frontier
+export DistView, IdView, IdDistView
 
 """
     AbstractKnn
@@ -17,24 +14,6 @@ search and keep only the `k` closest ones. They share a common interface built a
 [`covradius`](@ref), and [`reuse!`](@ref); use [`knnqueue`](@ref) to construct one.
 """
 abstract type AbstractKnn end
-
-#=struct IdDist
-    id::UInt32
-    dist::Float32
-end=#
-
-#using Base.Order
-#import Base.Order: lt
-#
-#struct WeightOrderingType <: Ordering end
-#struct RevWeightOrderingType <: Ordering end
-#const DistOrder = WeightOrderingType()
-#const RevDistOrder = RevWeightOrderingType()
-
-##@inline lt(::WeightOrderingType, a::IdDist, b::IdDist) = a.dist < b.dist
-##@inline lt(::RevWeightOrderingType, a::IdDist, b::IdDist) = b.dist < a.dist
-##@inline lt(::WeightOrderingType, a::Number, b::Number) = a < b
-##@inline lt(::RevWeightOrderingType, a::Number, b::Number) = b < a
 
 include("heap.jl")
 include("knnheap.jl")
@@ -49,136 +28,154 @@ it returns `typemax(Float32)`, since any candidate should still be accepted.
 """
 @inline covradius(res::AbstractKnn)::Float32 = length(res) < maxlength(res) ? typemax(Float32) : maximum(res)
 @inline Base.maximum(res::AbstractKnn) = frontier(res).dist
-@inline Base.argmax(res::AbstractKnn) = frontier(res).id
+@inline Base.argmax(res::AbstractKnn)  = frontier(res).id
 @inline Base.minimum(res::AbstractKnn) = nearest(res).dist
-@inline Base.argmin(res::AbstractKnn) = nearest(res).id
+@inline Base.argmin(res::AbstractKnn)  = nearest(res).id
 
-Base.convert(::Type{T}, v::IdDist) where {T<:Integer} = convert(T, v.id)
-Base.convert(::Type{T}, v::IdDist) where {T<:AbstractFloat} = convert(T, v.dist)
-Base.convert(::Type{T}, v::AbstractVector{IdDist}) where {T<:Vector{<:Integer}} = T(IdView(v))
-Base.convert(::Type{T}, v::AbstractVector{IdDist}) where {T<:Vector{<:AbstractFloat}} = T(DistView(v))
-function Base.convert(::Type{T}, v::AbstractMatrix{IdDist}) where {T<:Matrix{<:Integer}}
-    X = T(undef, size(v))
-    V = IdView(v)
-    for i in eachindex(X)
-        X[i] = V[i]
-    end
-    X
-end
-
-function Base.convert(::Type{T}, v::AbstractMatrix{IdDist}) where {T<:Matrix{<:AbstractFloat}}
-    X = T(undef, size(v))
-    V = DistView(v)
-    for i in eachindex(X)
-        X[i] = V[i]
-    end
-    X
-end
+# ── IdView ────────────────────────────────────────────────────────────────────
 
 """
     IdView{ARR}
 
-A zero-copy view over the identifier column of a collection of [`IdDist`](@ref) items
-(e.g., a [`KnnHeap`](@ref)/[`KnnSorted`](@ref) result set, or an `AbstractVector`/
-`AbstractMatrix{IdDist}`). Indexing an `IdView` returns the `id` field of the
-corresponding item instead of the full `IdDist`.
+A zero-copy view over the identifier column of a collection. Indexing returns `UInt32`.
 
-# Fields
-- `A`: the underlying collection being viewed.
+Supported wrappable types: `AbstractVector{UInt32}`, `AbstractMatrix{UInt32}`,
+`AbstractVector{IdDist}`, `AbstractMatrix{IdDist}`, `KnnSorted`, `KnnHeap`.
 """
 struct IdView{ARR}
     A::ARR
 end
 
-Base.length(res::IdView) = length(res.A)
-Base.size(res::IdView) = size(res.A)
-Base.eltype(::IdView) = UInt32
+Base.length(res::IdView)   = length(res.A)
+Base.size(res::IdView)     = size(res.A)
+Base.eltype(::IdView)      = UInt32
 Base.eltype(::Type{<:IdView}) = UInt32
 Base.IteratorSize(::IdView{T}) where {T<:AbstractMatrix} = Base.HasShape{2}()
 Base.IteratorSize(::IdView{T}) where {T<:AbstractVector} = Base.HasShape{1}()
 Base.firstindex(res::IdView) = 1
-Base.lastindex(res::IdView) = length(res)
-Base.eachindex(res::IdView) = firstindex(res):lastindex(res)
+Base.lastindex(res::IdView)  = length(res)
+Base.eachindex(res::IdView)  = firstindex(res):lastindex(res)
+
+# SoA structs: delegate to ids field
+Base.getindex(res::IdView{<:KnnSorted}, i::Integer) = @inbounds res.A.ids[res.A.sp + i - 1]
+Base.getindex(res::IdView{<:KnnHeap},   i::Integer) = @inbounds res.A.ids[i]
+
+# Plain UInt32 arrays
+Base.getindex(res::IdView{<:AbstractMatrix{UInt32}}, i...) = res.A[i...]
+Base.getindex(res::IdView{<:AbstractVector{UInt32}}, i::Integer) = res.A[i]
+
+# Legacy IdDist arrays (kept for compatibility during transition)
 Base.getindex(res::IdView{<:AbstractMatrix{IdDist}}, i...) = res.A[i...].id
 Base.getindex(res::IdView{<:AbstractVector{IdDist}}, i::Integer) = UInt32(res.A[i].id)
 Base.getindex(res::IdView{<:AbstractVector{<:Integer}}, i::Integer) = UInt32(res.A[i])
-Base.getindex(res::IdView{<:KnnHeap}, i::Integer) = res.A.items[i].id
-Base.getindex(res::IdView{<:KnnSorted}, i::Integer) = res.A.items[res.A.sp+i-1].id
+
+# ── DistView ──────────────────────────────────────────────────────────────────
 
 """
     DistView{ARR}
 
-A zero-copy view over the distance column of a collection of [`IdDist`](@ref) items
-(e.g., a [`KnnHeap`](@ref)/[`KnnSorted`](@ref) result set, or an `AbstractVector`/
-`AbstractMatrix{IdDist}`). Indexing a `DistView` returns the `dist` field of the
-corresponding item instead of the full `IdDist`.
+A zero-copy view over the distance column of a collection. Indexing returns `Float32`.
 
-# Fields
-- `A`: the underlying collection being viewed.
+Supported wrappable types: `AbstractVector{Float32}`, `AbstractMatrix{Float32}`,
+`AbstractVector{IdDist}`, `AbstractMatrix{IdDist}`, `KnnSorted`, `KnnHeap`.
 """
 struct DistView{ARR}
     A::ARR
 end
 
-Base.length(res::DistView) = length(res.A)
-Base.eltype(::DistView) = Float32
+Base.length(res::DistView)   = length(res.A)
+Base.size(res::DistView)     = size(res.A)
+Base.eltype(::DistView)      = Float32
+Base.eltype(::Type{<:DistView}) = Float32
 Base.IteratorSize(::DistView{T}) where {T<:AbstractMatrix} = Base.HasShape{2}()
 Base.IteratorSize(::DistView{T}) where {T<:AbstractVector} = Base.HasShape{1}()
-Base.eltype(::Type{<:DistView}) = Float32
-Base.size(res::DistView) = size(res.A)
 Base.firstindex(res::DistView) = 1
-Base.lastindex(res::DistView) = length(res)
-Base.eachindex(res::DistView) = firstindex(res):lastindex(res)
+Base.lastindex(res::DistView)  = length(res)
+Base.eachindex(res::DistView)  = firstindex(res):lastindex(res)
+
+# SoA structs: delegate to dists field
+Base.getindex(res::DistView{<:KnnSorted}, i::Integer) = @inbounds res.A.dists[res.A.sp + i - 1]
+Base.getindex(res::DistView{<:KnnHeap},   i::Integer) = @inbounds res.A.dists[i]
+
+# Plain Float32 arrays
+Base.getindex(res::DistView{<:AbstractMatrix{Float32}}, i...) = res.A[i...]
+Base.getindex(res::DistView{<:AbstractVector{Float32}}, i::Integer) = res.A[i]
+Base.getindex(res::DistView{<:AbstractVector{<:AbstractFloat}}, i::Integer) = Float32(res.A[i])
+
+# Legacy IdDist arrays
 Base.getindex(res::DistView{<:AbstractMatrix{IdDist}}, i...) = res.A[i...].dist
 Base.getindex(res::DistView{<:AbstractVector{IdDist}}, i::Integer) = res.A[i].dist
-Base.getindex(res::DistView{<:AbstractVector{<:AbstractFloat}}, i::Integer) = Float32(res.A[i])
-Base.getindex(res::DistView{<:KnnHeap}, i::Integer) = res.A.items[i].dist
-Base.getindex(res::DistView{<:KnnSorted}, i::Integer) = res.A.items[res.A.sp+i-1].dist
 
+# Shared iterator for IdView and DistView
 function Base.iterate(res::T, state::Int=1) where {T<:Union{<:IdView,<:DistView}}
     n = length(res)
-    if n == 0 || state > n
-        nothing
-    else
-        res[state], state + 1
-    end
+    n == 0 || state > n ? nothing : (res[state], state + 1)
 end
 
+# ── IdDistView ────────────────────────────────────────────────────────────────
 
 """
-    knnqueue(::Type{KnnHeap}, vec::AbstractVector)
+    IdDistView{IDS, DSTS}
 
-Creates a [`KnnHeap`](@ref) k-NN result queue using `vec` as its initial backing storage
-(its length sets the capacity `k`). The queue starts with zero items and grows with
-[`push_item!`](@ref) calls until capacity `k` is reached; after that, only the closest
-items (by distance) are preserved.
-
-# Examples
-
-```julia
-res = knnqueue(KnnHeap, 3)   # capacity k = 3
-push_item!(res, 1, 0.5f0)
-push_item!(res, 2 => 0.1f0)
-nearest(res)
-```
+A lazy, zero-copy view over a range of a pair of parallel `ids`/`dists` arrays that
+presents them as a sequence of [`IdDist`](@ref) pairs. Used by [`viewitems`](@ref) on
+`KnnSorted` and `KnnHeap` to provide the `AbstractVector{IdDist}`-like interface without
+allocating.
 """
-knnqueue(::Type{KnnHeap}, vec::AbstractVector) = KnnHeap(vec, zero(IdDist), zero(Int32), Int32(length(vec)))
+struct IdDistView{IDS, DSTS} <: AbstractVector{IdDist}
+    ids::IDS
+    dists::DSTS
+    sp::Int
+    ep::Int
+end
+
+Base.length(v::IdDistView)   = max(0, v.ep - v.sp + 1)
+Base.size(v::IdDistView)     = (length(v),)
+Base.eltype(::IdDistView)    = IdDist
+Base.eltype(::Type{<:IdDistView}) = IdDist
+Base.firstindex(v::IdDistView) = 1
+Base.lastindex(v::IdDistView)  = length(v)
+Base.eachindex(v::IdDistView)  = firstindex(v):lastindex(v)
+
+@inline function Base.getindex(v::IdDistView, i::Integer)
+    j = v.sp + i - 1
+    @inbounds IdDist(v.ids[j], v.dists[j])
+end
+
+function Base.iterate(v::IdDistView, state::Int=1)
+    state > length(v) ? nothing : (v[state], state + 1)
+end
+
+# ── knnqueue constructors ─────────────────────────────────────────────────────
 
 """
-    knnqueue(::Type{KnnSorted}, vec::AbstractVector)
+    knnqueue(::Type{KnnHeap}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
 
-Creates a [`KnnSorted`](@ref) k-NN result queue using `vec` as its initial backing storage
-(its length sets the capacity `k`). Behaves like `knnqueue(KnnHeap, vec)`, but keeps its
-active items always sorted by distance.
+Creates a [`KnnHeap`](@ref) k-NN result queue using `ids` and `dists` as its parallel
+backing storage (their length sets the capacity `k`). The queue starts empty.
 """
-knnqueue(::Type{KnnSorted}, vec::AbstractVector) = KnnSorted(vec, one(Int32), zero(Int32), Int32(length(vec)))
+function knnqueue(::Type{KnnHeap}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+    @assert length(ids) == length(dists)
+    KnnHeap(ids, dists, zero(UInt32), typemax(Float32), zero(Int32), Int32(length(ids)))
+end
+
+"""
+    knnqueue(::Type{KnnSorted}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+
+Creates a [`KnnSorted`](@ref) k-NN result queue using `ids` and `dists` as its parallel
+backing storage. The queue starts empty.
+"""
+function knnqueue(::Type{KnnSorted}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+    @assert length(ids) == length(dists)
+    KnnSorted(ids, dists, one(Int32), zero(Int32), Int32(length(ids)))
+end
 
 """
     knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn}
 
 Creates a k-NN result queue of concrete type `T` (either [`KnnHeap`](@ref) or
-[`KnnSorted`](@ref)) with capacity `k`, allocating a fresh backing vector of `k` zeroed
-[`IdDist`](@ref) items.
+[`KnnSorted`](@ref)) with capacity `k`, allocating fresh backing vectors of `k` zeroed
+`UInt32` ids and `Float32` distances.
 
 # Examples
 
@@ -186,7 +183,5 @@ Creates a k-NN result queue of concrete type `T` (either [`KnnHeap`](@ref) or
 res = knnqueue(KnnSorted, 3)  # capacity k = 3, freshly allocated storage
 ```
 """
-knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn} = knnqueue(T, zeros(IdDist, k))
-
-#const xknn = xknn
-#end
+knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn} =
+    knnqueue(T, zeros(UInt32, k), zeros(Float32, k))

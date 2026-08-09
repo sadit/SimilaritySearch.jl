@@ -8,9 +8,10 @@ using SimilaritySearch: heapify!, heapsort!, isheap, pop_min!
 @testset "heap" begin
     for k in [7, 8, 12, 15, 16, 31, 32, 67]
         X = rand(Float32, k)
-        heapify!(Forward, X)
-        @test isheap(Forward, X)
-        heapsort!(Forward, X)
+        ids = UInt32.(1:k)
+        heapify!(Forward, ids, X)
+        @test isheap(Forward, ids, X)
+        heapsort!(Forward, ids, X)
         @test issorted(X)
     end
 

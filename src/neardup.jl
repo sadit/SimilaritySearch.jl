@@ -91,7 +91,8 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     ϵ = convert(Float32, ϵ)
     n = length(X)
     blocksize = min(blocksize, n)
-    knns = Matrix{IdDist}(undef, k, blocksize)
+    knns_ids   = Matrix{UInt32}(undef, k, blocksize)
+    knns_dists = Matrix{Float32}(undef, k, blocksize)
 
     L = zeros(Int32, n)
     D = zeros(Float32, n)
@@ -107,27 +108,32 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; filterblocks)
         else
             empty!(imap)
-            if size(knns, 2) != length(range)
-                knns_ = view(knns, :, 1:length(range)) # the last range can change its size
-                fill!(knns_, zero(IdDist))
-                searchbatch!(idx, ctx, X[range], knns_; sorted=true)
+            if size(knns_ids, 2) != length(range)
+                rng = 1:length(range)
+                knns_ids_   = view(knns_ids,   :, rng)
+                knns_dists_ = view(knns_dists, :, rng)
+                fill!(knns_ids_,   zero(UInt32))
+                fill!(knns_dists_, typemax(Float32))
+                searchbatch!(idx, ctx, X[range], knns_ids_, knns_dists_; sorted=true)
+                knns_ids_view, knns_dists_view = knns_ids_, knns_dists_
             else
-                fill!(knns, zero(IdDist))
-                searchbatch!(idx, ctx, X[range], knns; sorted=true)
+                fill!(knns_ids,   zero(UInt32))
+                fill!(knns_dists, typemax(Float32))
+                searchbatch!(idx, ctx, X[range], knns_ids, knns_dists; sorted=true)
+                knns_ids_view, knns_dists_view = knns_ids, knns_dists
             end
-            # @assert all(r -> length(r) > 0, view(knns, :, 1:length(range)))
             if verbose
                 @info "neardup> range: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
             end
 
             for (i, j) in enumerate(range) # collecting non-discarded near duplicated objects
-                #d, nn = knns[1, i] #p = nearest(knns[i])
-                p = knns[1, i]
-                if p.dist > ϵ
+                pid  = knns_ids_view[1, i]
+                pdist = knns_dists_view[1, i]
+                if pdist > ϵ
                     push!(imap, j)
                 else
-                    D[j] = p.dist
-                    L[j] = M[p.id]
+                    D[j] = pdist
+                    L[j] = M[pid]
                 end
             end
 

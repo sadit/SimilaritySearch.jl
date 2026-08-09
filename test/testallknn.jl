@@ -12,12 +12,12 @@ using Test, SimilaritySearch, StatsBase
     E = ExhaustiveSearch(dist, db)
     ectx = GenericContext()
 
-    @time "ExhaustiveSearch allknn" gold_knns = allknn(E, ectx, k)
+    @time "ExhaustiveSearch allknn" gold_knns_ids, gold_knns_dists = allknn(E, ectx, k)
     #@test_call target_modules=(@__MODULE__,) allknn(E, ectx, k)
-    @test size(gold_knns) == (k, n)
+    @test size(gold_knns_ids) == (k, n)
     for i in 1:k
         @info "All KNN quartile $i-th:"
-        @info i => quantile(collect(DistView(gold_knns[i, :])), 0:0.25:1)
+        @info i => quantile(gold_knns_dists[i, :], 0:0.25:1)
     end
 
     #= P = ParallelExhaustiveSearch(; db=X, dist)
@@ -31,9 +31,9 @@ using Test, SimilaritySearch, StatsBase
     index!(G, ctx)
     @test length(G) == n
     optimize_index!(G, ctx, MinRecall(0.95))
-    @time "SearchGraph allknn" knns = allknn(G, ctx, k)
-    @test size(knns) == (k, n)
-    recall = macrorecall(gold_knns, knns)
+    @time "SearchGraph allknn" knns_ids, knns_dists = allknn(G, ctx, k)
+    @test size(knns_ids) == (k, n)
+    recall = macrorecall(gold_knns_ids, knns_ids)
     @show recall recall > 0.8
     @show recall quantile(neighbors_length.(Ref(G.adj), 1:length(G)), 0:0.25:1)
 end

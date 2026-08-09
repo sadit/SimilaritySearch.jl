@@ -9,7 +9,8 @@ export BasketList
 mutable struct BasketList{DIST<:PreMetric,DB<:AbstractDatabase} <: AbstractSearchIndex
     dist::DIST
     db::DB
-    baskets::Vector{Vector{IdDist}}
+    baskets_ids::Vector{Vector{UInt32}}
+    baskets_dists::Vector{Vector{Float32}}
     numitems::Int # number of total objects in all baskets
 end
 
@@ -34,23 +35,28 @@ function BasketList(dist::PreMetric, db::AbstractDatabase, k::Int)
         end
     end
 
-    baskets = [IdDist[] for _ in 1:length(codes)]
+    baskets_ids = [UInt32[] for _ in 1:length(codes)]
+    baskets_dists = [Float32[] for _ in 1:length(codes)]
 
     for (objID, (nn, d)) in enumerate(zip(C.nn, C.dists))
         basketID = codes[nn] # get the basket id for this center
-        L = baskets[basketID]
-        if length(L) == 0
-            push!(L, IdDist(nn, d)) # the header contains the center's object ID and the covering radius
+        L_ids = baskets_ids[basketID]
+        L_dists = baskets_dists[basketID]
+        if length(L_ids) == 0
+            push!(L_ids, nn) # the header contains the center's object ID and the covering radius
+            push!(L_dists, d)
         end
 
-        push!(L, IdDist(objID, d)) # the 2nd to the end stores the oject ID and its distance to the center (dco)
+        push!(L_ids, objID) # the 2nd to the end stores the oject ID and its distance to the center (dco)
+        push!(L_dists, d)
         
-        if L[1].dist < d # updates the covering radius if needed (at header)
-            L[1] = IdDist(nn, d)
+        if L_dists[1] < d # updates the covering radius if needed (at header)
+            L_ids[1] = nn
+            L_dists[1] = d
         end
     end
 
-    BasketList{typeof(dist),typeof(db)}(dist, db, baskets, length(db))
+    BasketList{typeof(dist),typeof(db)}(dist, db, baskets_ids, baskets_dists, length(db))
 end
 
 # search for an item in baskets using metric properties to discard baskets that cannot contain it
@@ -59,21 +65,23 @@ function search(bl::BasketList, ctx::AbstractContext, query, res::AbstractKnn)
     cost = 0
     k = maxlength(res)
     α = 1f0 # an α factor to reduce the radius of the query ball to increase the chance of discarding baskets, can be tuned for better performance   
-    for L in bl.baskets
-        length(L) == 0 && continue
+    for (L_ids, L_dists) in zip(bl.baskets_ids, bl.baskets_dists)
+        length(L_ids) == 0 && continue
 
-        center = L[1]
+        c_id = L_ids[1]
+        c_dist = L_dists[1]
         cost += 1
-        dcq = Dist.evaluate(DIST, database(bl, center.id), query)  # get the distance from the query to the center of the basket
+        dcq = Dist.evaluate(DIST, database(bl, c_id), query)  # get the distance from the query to the center of the basket
 
         # check if any item in the basket can be in the ball center at center
-        if length(res) < k || dcq <= (maximum(res) + center.dist) * α # the ball centered at center.id with radius center.dist intersects with the query ball
-            for item in L[2:end]
-                dco = item.dist  # distance from the center to the item
+        if length(res) < k || dcq <= (maximum(res) + c_dist) * α # the ball centered at center.id with radius center.dist intersects with the query ball
+            for i in 2:length(L_ids)
+                item_id = L_ids[i]
+                dco = L_dists[i]  # distance from the center to the item
                 if length(res) < k || abs(dcq - dco) <= maximum(res) * α  # check if the item can be in the ball of radius maximum(res) around the query
                     cost += 1
-                    d = Dist.evaluate(DIST, database(bl, item.id), query)
-                    push_item!(res, IdDist(item.id, d))
+                    d = Dist.evaluate(DIST, database(bl, item_id), query)
+                    push_item!(res, item_id, d)
                 end
             end
         end
@@ -82,4 +90,3 @@ function search(bl::BasketList, ctx::AbstractContext, query, res::AbstractKnn)
     add_distance_evaluations!(ctx, cost)
     res
 end
-

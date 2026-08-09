@@ -95,7 +95,7 @@ Random.seed!(0)
     end
 
     ak = allknn(ExhaustiveSearch(Dist.NormCosine(), B), ectx, 3)
-    @test 1.0 == macrorecall(ak, searchbatch(I, ctx, B, 3))
+    @test 1.0 == macrorecall(ak[1], searchbatch(I, ctx, B, 3)[1])
 
     #=@testset "saveindex and loadindex WeightedInvertedFile" begin
         tmpfile = tempname()
@@ -134,15 +134,15 @@ end
         @time search(IF, ctx, queries[1], knnqueue(KnnSorted, k))
         @time search(IF, ctx, queries[2], knnqueue(KnnSorted, k))
         #@test_call search(IF, ctx, queries[2], knnqueue(KnnSorted, k))
-        recall = macrorecall(gold, knns)
+        recall = macrorecall(gold[1], knns[1])
         @show dist, recall
         @test recall > 0.95  # sets can be tricky since we can expect many similar distances
         err = 0.0
         for i in 1:m
-            d = evaluate(Dist.L2(), collect(Float32, DistView(gold[:, i])), collect(Float32, DistView(knns[:, i])))
+            d = evaluate(Dist.L2(), gold[2][:, i], knns[2][:, i])
             err += d
             if d > 0.1
-                @info dist, i, gold[:, i], knns[:, i]
+                @info dist, i, gold[2][:, i], knns[2][:, i]
                 @info dist, i, queries[i]
             end
         end

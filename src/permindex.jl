@@ -45,9 +45,11 @@ relative to the original, unpermuted dataset.
 """
 function search(p::PermutedSearchIndex, ctx::AbstractContext, q, res)
     out = search(p.index, ctx, q, res)
-    @inbounds for i in eachindex(res.items)
-        x = res.items[i]
-        res.items[i] = IdDist(p.π[x.id], x.dist)
+    @inbounds for i in eachindex(res.ids)
+        pid = res.ids[i]
+        if pid != 0
+            res.ids[i] = p.π[pid]
+        end
     end
 
     out

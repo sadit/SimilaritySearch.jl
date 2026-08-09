@@ -3,7 +3,6 @@
 export hsp_queries
 
 iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
-iterate_hsp_(h::Vector{IdDist}) = IdView(h)
 iterate_hsp_(h::AbstractKnn) = IdView(h)
 
 function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
@@ -34,23 +33,25 @@ function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase
 end
 
 """
-    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix) -> matrix, hsp
+    hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
+                knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32}) -> (ids, dists, hsp)
 
 Computes the Half-Space Proximal (HSP) neighborhood of each query in `Q` by filtering its candidate
-neighbors (given by `knns`, e.g., as previously computed with `searchbatch`) so that only proximal,
-non-redundant neighbors are kept -- neighbors `p` for which no already accepted neighbor is closer to
-`p` than the query itself is closer to `p`. This function takes no keyword arguments.
+neighbors (given by `knns_ids`/`knns_dists`, e.g., as produced by `searchbatch`) so that only proximal,
+non-redundant neighbors are kept.
 
 # Arguments
 - `dist`: the distance function used to evaluate candidates
-- `X`: the database the candidate identifiers in `knns` point into
-- `Q`: the set of queries (its `i`-th element corresponds to the `i`-th column of `knns`)
-- `knns`: a `(k, n)` matrix of `IdDist` candidate neighbors for each query in `Q` (e.g., as produced by `searchbatch`)
+- `X`: the database the candidate identifiers in `knns_ids` point into
+- `Q`: the set of queries (its `i`-th element corresponds to the `i`-th column)
+- `knns_ids`: a `(k, n)` matrix of `UInt32` identifiers (e.g., as produced by `searchbatch`)
+- `knns_dists`: a `(k, n)` matrix of `Float32` distances, parallel to `knns_ids`
 
 # Returns
-A tuple `(matrix, hsp)` where:
-- `matrix`: a `(k, n)` matrix of `IdDist` elements (same shape as `knns`) backing the `hsp` result objects
-- `hsp`: a vector of `AbstractKnn` objects, one per query, containing its HSP-filtered neighborhood
+A tuple `(hsp_ids, hsp_dists, hsp)` where:
+- `hsp_ids`: a `(k, n)` matrix of `UInt32` identifiers backing the `hsp` result objects
+- `hsp_dists`: a `(k, n)` matrix of `Float32` distances backing the `hsp` result objects
+- `hsp`: a vector of `KnnSorted` objects, one per query, containing its HSP-filtered neighborhood
 
 # Examples
 
@@ -60,32 +61,36 @@ using SimilaritySearch
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 4, 10^3))
 E = ExhaustiveSearch(; dist, db=X)
-ctx = getcontext(E)
+ctx = GenericContext()
 
-knns = searchbatch(E, ctx, X, 32)
-matrix, hsp = hsp_queries(dist, X, X, knns)
+ids, dists = searchbatch(E, ctx, X, 32)
+hsp_ids, hsp_dists, hsp = hsp_queries(dist, X, X, ids, dists)
 length.(hsp)  # size of each query's HSP neighborhood
 ```
 """
-function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase, knns::AbstractMatrix)
-    n = length(Q)
-    matrix = zeros(IdDist, size(knns)...)
-    # KnnSorted iteration is made in ascending order but it is not required here, so it can be changed if we expect a very high hsp
-    hsp = [knnqueue(KnnSorted, c) for c in eachcol(matrix)]
+function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
+                     knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32})
+    k, n = size(knns_ids)
+    @assert size(knns_dists) == (k, n)
+    hsp_ids   = zeros(UInt32,  k, n)
+    hsp_dists = fill(typemax(Float32), k, n)
+    # KnnSorted iteration is in ascending order, not required here but consistent
+    hsp = [knnqueue(KnnSorted, view(hsp_ids, :, i), view(hsp_dists, :, i)) for i in 1:n]
     minbatch = getminbatch(n)
 
     @BATCHES minbatch for i in 1:n
-        plist = @view knns[:, i]
         q = Q[i]
-        for p in plist
-            p.id == 0 && break
-            if hsp_should_push(hsp[i], dist, X, q, p.id, p.dist)
-                push_item!(hsp[i], p)
+        for j in 1:k
+            pid  = knns_ids[j, i]
+            pid == 0 && break
+            pdist = knns_dists[j, i]
+            if hsp_should_push(hsp[i], dist, X, q, pid, pdist)
+                push_item!(hsp[i], pid, pdist)
             end
         end
     end
 
-    matrix, hsp
+    hsp_ids, hsp_dists, hsp
 end
 
 function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, center, neighborhood; neardup::Float32=1.0f-4, neardupcaptureprob::Float32=0.5f0)

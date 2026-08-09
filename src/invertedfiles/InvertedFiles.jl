@@ -18,8 +18,8 @@ include("plists.jl")
 struct InvertedFileContext{A,B,C,D} <: AbstractContext
     logger::AbstractLog
     parallel_block::Int
-    maxbatches::Int32
-    batchid::Int32
+    maxbatches::Int
+    batchid::Int
     costdist::Vector{Int}
     costblk::Vector{Int}
     positions::A
@@ -43,13 +43,13 @@ function InvertedFileContext(;
         knns = zeros(IdWeight, 64, maxbatches)
     )
 
-    InvertedFileContext(logger, parallel_block, convert(Int32, maxbatches), convert(Int32, batchid),
+    InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid),
                          costdist, costblk, positions, cont_u32, cont_iw, cont_iiw, knns)
 end
 
 Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B,C,D}}) where {A,B,C,D} = (args...) -> InvertedFileContext{A,B,C,D}(args...)
 
-knnqueue(::InvertedFileContext, arg) = knnqueue(KnnSorted, arg)
+knnqueue(::InvertedFileContext, args...) = knnqueue(KnnSorted, args...)
 
 include("invfile.jl")
 include("winvfile.jl")

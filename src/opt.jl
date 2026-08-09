@@ -244,13 +244,14 @@ function optimize_index!(
         verbose(ctx) && @info "using $(length(queries)) given as hyperparameter"
     end
 
-    knnsmatrix = zeros(IdDist, ksearch, length(queries))
-    knns = [knnqueue(ctx, c) for c in eachcol(knnsmatrix)]
+    knns_ids = zeros(UInt32, ksearch, length(queries))
+    knns_dists = zeros(Float32, ksearch, length(queries))
+    knns = [knnqueue(ctx, view(knns_ids, :, i), view(knns_dists, :, i)) for i in 1:length(queries)]
     gold = nothing
     if kind isa ParetoRecall || kind isa MinRecall
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
-        knns = searchbatch!(seq, ctx, queries, knns)
+        searchbatch!(seq, ctx, queries, knns)
         gold = [idset(c) for c in knns]
     end
 

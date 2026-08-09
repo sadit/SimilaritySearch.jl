@@ -17,7 +17,7 @@ using SimilaritySearch, Random, Test
     ctx = SearchGraphContext()
 
     seq = ExhaustiveSearch(dist, db)
-    gold_knns = searchbatch(seq, GenericContext(), queries, ksearch)
+    gold_knns_ids, gold_knns_dists = searchbatch(seq, GenericContext(), queries, ksearch)
 
     @testset "index! :knr with :fft" begin
         graph = SearchGraph(dist, db)
@@ -27,8 +27,8 @@ using SimilaritySearch, Random, Test
 
         #@time "rebuild" graph = rebuild(graph, ctx)
         #optimize_index!(graph, ctx, MinRecall(0.85); queries, ksearch)
-        @time "search" knns = searchbatch(graph, ctx, queries, ksearch)
-        recall = macrorecall(gold_knns, knns)
+        @time "search" knns_ids, knns_dists = searchbatch(graph, ctx, queries, ksearch)
+        recall = macrorecall(gold_knns_ids, knns_ids)
         @info "knr (:fft + rebuild) recall: $recall"
         @test recall >= 0.7
     end
@@ -41,8 +41,8 @@ using SimilaritySearch, Random, Test
 
         #@time "rebuild" graph = rebuild(graph, ctx)
         #optimize_index!(graph, ctx, MinRecall(0.85); queries, ksearch)
-        @time "search" knns = searchbatch(graph, ctx, queries, ksearch)
-        recall = macrorecall(gold_knns, knns)
+        @time "search" knns_ids, knns_dists = searchbatch(graph, ctx, queries, ksearch)
+        recall = macrorecall(gold_knns_ids, knns_ids)
         @info "knr (:random + rebuild) recall: $recall"
         @test recall >= 0.7
     end

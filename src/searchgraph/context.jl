@@ -85,9 +85,9 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     logbase_callback::Float32
     starting_callback::Int32
     parallel_block::Int32
-    beams::Matrix{IdDist}
+    beam_ids::Matrix{UInt32}
+    beam_dists::Matrix{Float32}
     vstates::VSType
-    #vstates::Vector{Set{UInt32}}
     maxbatches::Int32
     batchid::Int32
     costdist::Vector{Int}
@@ -96,33 +96,34 @@ end
 
 function SearchGraphContext(
     KnnType::Type{<:AbstractKnn}=KnnSorted,
-    vstates=nothing; # 2^15 * 64 elements without resizing, one entry per batch (up to maxbatches)
-    #vstates=[Set{UInt32}() for _ in 1:maxbatches];
+    vstates=nothing;
     logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     verbose=false,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
     hints_callback=RandomHints(; logbase=1.1),
-    hyperparameters_callback=OptimizeParameters(MinRecall(0.97)),  # use high MinRecall to achieve good graph structures
+    hyperparameters_callback=OptimizeParameters(MinRecall(0.97)),
     parallel_block=4Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
     maxbatches::Integer=8Threads.nthreads(),
     batchid::Integer=1,
-    beams=nothing,
+    beam_ids=nothing,
+    beam_dists=nothing,
     costdist=nothing,
     costblk=nothing
 )
-    vstates === nothing && (vstates = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
-    beams === nothing && (beams = zeros(IdDist, 32, maxbatches))
-    costdist === nothing && (costdist = zeros(Int, maxbatches))
-    costblk === nothing && (costblk = zeros(Int, maxbatches))
+    vstates    === nothing && (vstates    = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
+    beam_ids   === nothing && (beam_ids   = zeros(UInt32,  32, maxbatches))
+    beam_dists === nothing && (beam_dists = zeros(Float32, 32, maxbatches))
+    costdist   === nothing && (costdist   = zeros(Int, maxbatches))
+    costblk    === nothing && (costblk    = zeros(Int, maxbatches))
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
-        beams, vstates,
+        beam_ids, beam_dists, vstates,
         convert(Int32, maxbatches), convert(Int32, batchid),
         costdist, costblk)
 end
@@ -136,7 +137,8 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     parallel_block=ctx.parallel_block,
     logbase_callback=ctx.logbase_callback,
     starting_callback=ctx.starting_callback,
-    beams=ctx.beams,
+    beam_ids=ctx.beam_ids,
+    beam_dists=ctx.beam_dists,
     vstates=ctx.vstates,
     maxbatches=ctx.maxbatches,
     batchid=ctx.batchid,
@@ -148,7 +150,7 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,
-        beams, vstates, maxbatches, batchid,
+        beam_ids, beam_dists, vstates, maxbatches, batchid,
         costdist, costblk)
 end
 
@@ -183,7 +185,8 @@ verbose(ctx::SearchGraphContext) = ctx.verbose
 Creates a knn priority queue of type `KnnType` (the type parameter stored in `ctx`), using `arg`
 to initialize it (either an integer `k` or a preallocated vector), see [`knnqueue`](@ref).
 """
-knnqueue(::SearchGraphContext{KnnType}, arg) where {KnnType<:AbstractKnn} = knnqueue(KnnType, arg)
+knnqueue(::SearchGraphContext{KnnType}, ids, dists) where {KnnType<:AbstractKnn} = knnqueue(KnnType, ids, dists)
+knnqueue(::SearchGraphContext{KnnType}, k::Int) where {KnnType<:AbstractKnn} = knnqueue(KnnType, k)
 
 """
     getvstate(len::Integer, ctx::SearchGraphContext)
@@ -201,11 +204,13 @@ end
     getbeam(nsize::Integer, ctx::SearchGraphContext) -> AbstractKnn
 
 Retrieves `ctx`'s preallocated beam slot (indexed by `ctx.batchid`; a `KnnSorted` queue
-backed by `ctx.beams`, truncated to at most `nsize` elements) used internally by
-[`BeamSearch`](@ref).
+backed by `ctx.beam_ids`/`ctx.beam_dists`, truncated to at most `nsize` elements) used
+internally by [`BeamSearch`](@ref).
 """
 @inline function getbeam(nsize::Integer, ctx::SearchGraphContext)
-    nsize = min(nsize, size(ctx.beams, 1))
-    knnqueue(KnnSorted, view(ctx.beams, 1:nsize, ctx.batchid))
+    nsize = min(nsize, size(ctx.beam_ids, 1))
+    knnqueue(KnnSorted,
+        view(ctx.beam_ids,   1:nsize, ctx.batchid),
+        view(ctx.beam_dists, 1:nsize, ctx.batchid))
 end
 
