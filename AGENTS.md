@@ -17,10 +17,10 @@ See `README.md`/`docs/src/index.md` for the research background and citations.
 ```sh
 # from the repo root
 julia --project=. -e 'using Pkg; Pkg.instantiate()'   # first-time setup
-julia -t8 --project=. -e 'using Pkg; Pkg.test()'       # run the full test suite
+julia -t auto --project=. -e 'using Pkg; Pkg.test()'   # run the full test suite
 ```
 
-**Always pass `-tN` (e.g. `-t8`) when testing anything threading-related.** The default
+**Always pass `-t auto` (or `-tN`) when testing anything threading-related.** The default
 session is single-threaded (`Threads.nthreads() == 1`), which silently takes every fast
 serial path in `@BATCHES` and never exercises real parallelism, races, or
 scheduler-specific behavior.
@@ -39,8 +39,8 @@ supports 1.11 and 1.12 (verified by hand repeatedly during development, not by C
 installed, cross-check with:
 
 ```sh
-julia +1.11 -t8 --project=. -e 'using Pkg; Pkg.test()'
-julia +1.12 -t8 --project=. -e 'using SimilaritySearch'   # at least a load smoke-test
+julia +1.11 -t auto --project=. -e 'using Pkg; Pkg.test()'
+julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load smoke-test
 ```
 
 ## Architecture map (`src/`)
