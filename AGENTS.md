@@ -32,8 +32,8 @@ than editing `runtests.jl`. `Aqua.jl` ambiguity/quality checks only run under
 
 ### Julia version matrix
 
-CI (`.github/workflows/ci.yml`) only officially tests **Julia 1.10**. The package also
-supports 1.11 and 1.12 (verified by hand repeatedly during development, not by CI) via
+CI (`.github/workflows/ci.yml`) only officially tests **Julia 1.12**. The package also
+supports 1.10 and 1.11 (verified by hand repeatedly during development, not by CI) via
 `@static if VERSION >= v"1.11"` gates, mainly in `src/parallel.jl` (native
 `Threads.@threads :greedy` doesn't exist before 1.11). If `juliaup` has other versions
 installed, cross-check with:

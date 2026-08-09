@@ -114,8 +114,9 @@ neighbors(adj, 2)  # => nothing (no entry)
 ```
 """
 Base.@propagate_inbounds @inline function neighbors(adj::AdjDict, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    get(adj.end_point, i, nothing)
+    lock(adj.glock) do
+        get(adj.end_point, i, nothing)
+    end
 end
 
 """
@@ -124,9 +125,10 @@ end
 Returns the number of neighbors stored for node `i` in `adj`, or `0` if node `i` has no entry.
 """
 Base.@propagate_inbounds @inline function neighbors_length(adj::AdjDict, i)
-    # we can access undefined posting lists, it is responsability of the algorithm to ensure this doesn't happens
-    L = get(adj.end_point, i, nothing)
-    L === nothing ? 0 : length(L)
+    lock(adj.glock) do
+        L = get(adj.end_point, i, nothing)
+        L === nothing ? 0 : length(L)
+    end
 end
 
 """

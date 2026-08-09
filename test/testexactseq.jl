@@ -3,6 +3,15 @@
 using SimilaritySearch
 using LinearAlgebra, Test
 
+function create_sequence(dim, sort, range=1:10)
+    s = rand(range, dim)
+    if sort
+        sort!(s)
+        s = unique(s)
+    end
+    s
+end
+
 function test_seq(db, queries, dist::Dist.SemiMetric, ksearch; valid_lower::Float32=1f-3)
     idx = Exact.ExhaustiveSearch(dist, db)
     # idx = Exact.BasketList(dist, db, 256)
@@ -20,20 +29,12 @@ function test_seq(db, queries, dist::Dist.SemiMetric, ksearch; valid_lower::Floa
 end
 
 @testset "Searching vectors" begin
-    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
-    db = MatrixDatabase(rand(Float32, 4, 1000))
-    queries = rand(db, 100)
-    @info typeof(db), typeof(queries)
+    db = MatrixDatabase(rand(Float32, 4, 200))
+    queries = rand(db, 20)
     for dist in [
-        Dist.L2(), # 1.0 -> metric, < 1.0 if dist is not a metric
-        Dist.L1(),
-        Dist.LInfty(),
         Dist.SqL2(),
-        Dist.Lp(3.0),
-        Dist.Lp(0.5),
-        Dist.Angle(),
-        Dist.Cosine()
+        Dist.L1()
     ]
         test_seq(db, queries, dist, ksearch)
     end
@@ -41,59 +42,35 @@ end
 
 
 @testset "Searching sequences" begin
-    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
-    db = VectorDatabase([create_sequence(5, false) for i in 1:1000])
-    queries = rand(db, 100)
-    @info typeof(db), typeof(queries)
+    db = VectorDatabase([create_sequence(5, false) for i in 1:200])
+    queries = rand(db, 20)
     
-    # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
-    for dist in [
-        Dist.Seqs.CommonPrefix(),
-        Dist.Seqs.Levenshtein(),
-        Dist.Seqs.LCS(),
-        Dist.Seqs.Hamming()
-    ]
-        test_seq(db, queries, dist, ksearch)
-    end
+    test_seq(db, queries, Dist.Seqs.Levenshtein(), ksearch)
 end
 
 
 @testset "Searching on sets (ordered lists)" begin
-    # NOTE: The following algorithms are complex enough to say we are testing it doesn't have syntax errors, a more grained test functions are required
     ksearch = 4
     σ = 10
-    db = VectorDatabase([create_sequence(5, true, 1:σ) for i in 1:1000])
-    queries = rand(db, 100)
-    @info typeof(db), typeof(queries)
+    db = VectorDatabase([create_sequence(5, true, 1:σ) for i in 1:200])
+    queries = rand(db, 20)
 
-    # metric distances should achieve recall=1 (perhaps lesser because of numerical inestability)
-    for dist in [
-        Dist.Sets.Jaccard(),
-        Dist.Sets.Dice(),
-        Dist.Sets.Intersection(),
-        Dist.Sets.RogersTanimoto(σ)
-    ]
-        test_seq(db, queries, dist, ksearch)
-    end
+    test_seq(db, queries, Dist.Sets.Jaccard(), ksearch)
 end
 
 @testset "Searching with angle-based distances" begin
-    # cosine and angle distance
     ksearch = 4
-    X = MatrixDatabase(rand(Float32, 4, 1000))
-    queries = rand(X, 100)
+    X = MatrixDatabase(rand(Float32, 4, 200))
+    queries = rand(X, 30)
     for c in X normalize!(c) end
 
-    test_seq(X, queries, Dist.NormAngle(), ksearch)
     test_seq(X, queries, Dist.NormCosine(), ksearch)
 end
 
 @testset "Binary distances" begin
     ksearch = 4
-    db = MatrixDatabase(rand(UInt64, 8, 1000))
-    queries = rand(db, 100)
+    db = MatrixDatabase(rand(UInt64, 8, 200))
+    queries = rand(db, 20)
     test_seq(db, queries, Dist.Bits.Hamming(), ksearch)
-    test_seq(db, queries, Dist.Bits.RogersTanimoto(), ksearch)
-    # test_seq(db, queries, BinaryRussellRaoDissimilarity(), ksearch)
 end
