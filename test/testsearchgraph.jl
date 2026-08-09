@@ -20,9 +20,9 @@ function prepare_benchmark(Database;
     ectx = GenericContext()
 
     @time searchbatch(seq, ectx, queries, ksearch)
-    searchtime = @elapsed gold_knns = searchbatch(seq, ectx, queries, ksearch)
+    searchtime = @elapsed gold_knns_ids, gold_knns_dists = searchbatch(seq, ectx, queries, ksearch)
 
-    B = (; dist, db, queries, ksearch, n, m, dim, gold=(; knns=gold_knns, searchtime))
+    B = (; dist, db, queries, ksearch, n, m, dim, gold=(; ids=gold_knns_ids, dists=gold_knns_dists, searchtime))
 
     let res = knnqueue(ectx, ksearch), q = queries[2], ectx = ectx, seq = seq
         #@test_call target_modules = (@__MODULE__,) search(seq, ectx, queries[2], res)
@@ -58,8 +58,8 @@ function abs_minrecall(B; kwargs...)
     @test B.n == length(B.db) == length(graph)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
     searchtime = @elapsed knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
-    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.knns[1])
-    recall = macrorecall(B.gold.knns[1], knns_ids)
+    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.ids)
+    recall = macrorecall(B.gold.ids, knns_ids)
     @info "minrecall: queries per second: $(B.m/searchtime), recall: $(recall)"
     @show graph.algo
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
@@ -76,8 +76,8 @@ function abs_rebuild(graph, ctx, B)
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
     @show graph.algo, length(B.queries), B.ksearch
     searchtime = @elapsed knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
-    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.knns[1])
-    recall = macrorecall(B.gold.knns[1], knns_ids)
+    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.ids)
+    recall = macrorecall(B.gold.ids, knns_ids)
     @info "rebuild: queries per second: $(B.m/searchtime), recall: $(recall)"
     @show graph.algo
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
@@ -106,7 +106,7 @@ function abs_save_and_load(graph, ctx, B)
 
         @time knns_ids, _ = searchbatch(G, ctx, B.queries, B.ksearch)
         searchtime = @elapsed knns_ids, _ = searchbatch(G, ctx, B.queries, B.ksearch)
-        recall = macrorecall(B.gold.knns[1], knns_ids)
+        recall = macrorecall(B.gold.ids, knns_ids)
 
         @info "loaded: queries per second: $(B.m/searchtime), recall: $(recall)"
         @show G.algo
@@ -123,8 +123,8 @@ function abs_matrixhints(graph, ctx, B, _Database)
     @show graph.algo, length(B.queries), B.ksearch
     @time knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
     searchtime = @elapsed knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
-    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.knns[1])
-    recall = macrorecall(B.gold.knns[1], knns_ids)
+    @test size(knns_ids) == (B.ksearch, B.m) == size(B.gold.ids)
+    recall = macrorecall(B.gold.ids, knns_ids)
     @info "matrixhints: queries per second: $(B.m/searchtime), recall: $(recall)"
     @show graph.algo
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)

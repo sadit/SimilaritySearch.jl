@@ -94,8 +94,9 @@ Random.seed!(0)
         #@show recallscore(a, b)
     end
 
-    ak = allknn(ExhaustiveSearch(Dist.NormCosine(), B), ectx, 3)
-    @test 1.0 == macrorecall(ak[1], searchbatch(I, ctx, B, 3)[1])
+    ak_ids, ak_dists = allknn(ExhaustiveSearch(Dist.NormCosine(), B), ectx, 3)
+    I_knns_ids, I_knns_dists = searchbatch(I, ctx, B, 3)
+    @test 1.0 == macrorecall(ak_ids, I_knns_ids)
 
     #=@testset "saveindex and loadindex WeightedInvertedFile" begin
         tmpfile = tempname()
@@ -125,24 +126,24 @@ end
     #for dist in [JaccardDistance(), DiceDistance(), CosineDistanceSet(), IntersectionDissimilarity()]
     for dist in [Dist.Sets.Jaccard()]
         S = ExhaustiveSearch(dist, db)
-        gold = searchbatch(S, ectx, queries, k)
+        gold_ids, gold_dists = searchbatch(S, ectx, queries, k)
 
         IF = BinaryInvertedFile(vocsize, dist)
         append_items!(IF, ctx, db)
-        knns = searchbatch(IF, ctx, queries, k)
+        knns_ids, knns_dists = searchbatch(IF, ctx, queries, k)
         ctx = getcontext(IF)
         @time search(IF, ctx, queries[1], knnqueue(KnnSorted, k))
         @time search(IF, ctx, queries[2], knnqueue(KnnSorted, k))
         #@test_call search(IF, ctx, queries[2], knnqueue(KnnSorted, k))
-        recall = macrorecall(gold[1], knns[1])
+        recall = macrorecall(gold_ids, knns_ids)
         @show dist, recall
         @test recall > 0.95  # sets can be tricky since we can expect many similar distances
         err = 0.0
         for i in 1:m
-            d = evaluate(Dist.L2(), gold[2][:, i], knns[2][:, i])
+            d = evaluate(Dist.L2(), gold_dists[:, i], knns_dists[:, i])
             err += d
             if d > 0.1
-                @info dist, i, gold[2][:, i], knns[2][:, i]
+                @info dist, i, gold_dists[:, i], knns_dists[:, i]
                 @info dist, i, queries[i]
             end
         end
