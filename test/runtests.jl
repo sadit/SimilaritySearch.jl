@@ -22,6 +22,7 @@ end
 include("testdistances.jl")
 include("testdb.jl")
 include("testresults.jl")
+include("testsparse.jl")
 include("testscalarquant.jl")
 include("testspherical.jl")
 include("testexactseq.jl")

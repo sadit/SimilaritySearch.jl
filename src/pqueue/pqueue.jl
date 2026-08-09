@@ -3,6 +3,7 @@
 export AbstractKnn, KnnHeap, KnnSorted, knnqueue, IdDist
 export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, pop_min!, nearest, frontier
 export DistView, IdView, IdDistView
+export knn_matrices
 
 """
     AbstractKnn
@@ -185,3 +186,5 @@ res = knnqueue(KnnSorted, 3)  # capacity k = 3, freshly allocated storage
 """
 knnqueue(::Type{T}, k::Int) where {T<:AbstractKnn} =
     knnqueue(T, zeros(UInt32, k), zeros(Float32, k))
+
+include("sparse_conversion.jl")
