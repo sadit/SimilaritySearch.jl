@@ -67,18 +67,6 @@ const π_2 = Float32(π / 2)
 end
 
 """
-    clamp_acos(d) -> Float32
-
-Branch-free alternative to [`fastacos`](@ref): clamps `d` to `[-1, 1]` and
-calls `acos`. Produces the same results as `fastacos` on every input, but
-always pays the `acos` cost — there are no early-exit paths for `d ≥ 1`,
-`d ≤ -1`, or `d == 0`. Use when branch misprediction dominates (e.g. when
-inputs are uniformly distributed in `[-1, 1]`).
-"""
-@inline clamp_acos(d::AbstractFloat) = clamp_acos(convert(Float32, d))
-@inline clamp_acos(d::Float32)::Float32 = acos(clamp(d, -1.0f0, 1.0f0))
-
-"""
     evaluate(::NormCosine, a, b)
 
 Computes the cosine distance between two vectors, it expects normalized vectors.

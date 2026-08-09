@@ -1,11 +1,10 @@
 name = "SimilaritySearch"
 uuid = "053f045d-5466-53fd-b400-a066f88fe02a"
-version = "1.0.0"
 authors = ["Eric S. Tellez <donsadit@gmail.com>"]
+version = "1.0.0"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
-BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
@@ -22,7 +21,6 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 [compat]
 Accessors = "0.1"
 Aqua = "0.8"
-BenchmarkTools = "1.8.0"
 Dates = "^1.0"
 Distances = "0.10"
 Distributions = "0.25"
