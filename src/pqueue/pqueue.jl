@@ -16,6 +16,12 @@ search and keep only the `k` closest ones. They share a common interface built a
 """
 abstract type AbstractKnn end
 
+@inline _lt_dist(X, i, j) = @inbounds X[2][i] < X[2][j]
+@inline function _swap_ids_dists(X, i, j)
+    @inbounds X[1][i], X[1][j] = X[1][j], X[1][i]
+    @inbounds X[2][i], X[2][j] = X[2][j], X[2][i]
+end
+
 include("heap.jl")
 include("knnheap.jl")
 include("knnsorted.jl")
@@ -150,25 +156,12 @@ end
 # ── knnqueue constructors ─────────────────────────────────────────────────────
 
 """
-    knnqueue(::Type{KnnHeap}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+    knnqueue(::Type{T}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) where {T<:AbstractKnn}
 
-Creates a [`KnnHeap`](@ref) k-NN result queue using `ids` and `dists` as its parallel
-backing storage (their length sets the capacity `k`). The queue starts empty.
+Creates a k-NN result queue of type `T` using `ids` and `dists` as its parallel backing storage.
 """
-function knnqueue(::Type{KnnHeap}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
-    @assert length(ids) == length(dists)
-    KnnHeap(ids, dists, zero(UInt32), typemax(Float32), zero(Int32), Int32(length(ids)))
-end
-
-"""
-    knnqueue(::Type{KnnSorted}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
-
-Creates a [`KnnSorted`](@ref) k-NN result queue using `ids` and `dists` as its parallel
-backing storage. The queue starts empty.
-"""
-function knnqueue(::Type{KnnSorted}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
-    @assert length(ids) == length(dists)
-    KnnSorted(ids, dists, one(Int32), zero(Int32), Int32(length(ids)))
+function knnqueue(::Type{T}, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) where {T<:AbstractKnn}
+    T(ids, dists)
 end
 
 """

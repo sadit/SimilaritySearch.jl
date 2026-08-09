@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-# a simple heap for KnnHeap
+# a generic simple heap 
 
 "Index of the parent of the (1-based) binary-heap position `i`."
 heapparent(i) = i>>1
@@ -8,28 +8,16 @@ heapparent(i) = i>>1
 heapleft(i) = 2i
 
 """
-    heapswap!(ids, dists, i, j)
-
-Swaps the elements at positions `i` and `j` in both `ids` and `dists` in place,
-keeping the two arrays in sync.
-"""
-@inline function heapswap!(ids, dists, i::Integer, j::Integer)
-    @inbounds ids[i],   ids[j]   = ids[j],   ids[i]
-    @inbounds dists[i], dists[j] = dists[j], dists[i]
-end
-
-"""
-    heapfix_up!(order, ids, dists, i)
+    heapfix_up!(lt::Function, swap::Function, X, i)
 
 Restores the heap property by moving the item at position `i` upwards (towards the root)
-while it violates `order` with respect to its parent. `ids` and `dists` are the parallel
-backing arrays; `order` is a `Base.Order.Ordering` used to compare distances (e.g.,
-[`DistOrder`](@ref)).
+while it violates `lt` with respect to its parent. `X` is the backing array (or data structure),
+`lt` checks the heap property, and `swap` swaps two items.
 """
-function heapfix_up!(order, ids, dists, i)
+function heapfix_up!(lt::Function, swap::Function, X, i)
     @inbounds while (p = heapparent(i)) > 0
-        if lt(order, dists[p], dists[i])
-            heapswap!(ids, dists, i, p)
+        if lt(X, p, i)
+            swap(X, i, p)
             i = p
         else
             break
@@ -39,23 +27,23 @@ function heapfix_up!(order, ids, dists, i)
 end
 
 """
-    heapfix_down!(order, ids, dists, n)
+    heapfix_down!(lt::Function, swap::Function, X, n)
 
 Restores the heap property by moving the item at the root (position 1) downwards while
-it violates `order` with respect to its children, considering only the first `n` elements
-of `ids`/`dists`. `order` is a `Base.Order.Ordering` used to compare distances.
+it violates `lt` with respect to its children, considering only the first `n` elements
+of `X`.
 """
-function heapfix_down!(order, ids, dists, n)
+function heapfix_down!(lt::Function, swap::Function, X, n)
     i = 1
     @inbounds while (l = heapleft(i)) <= n
         r = l + 1
-        if r > n || lt(order, dists[r], dists[l])
-            lt(order, dists[l], dists[i]) && break
-            heapswap!(ids, dists, i, l)
+        if r > n || lt(X, r, l)
+            lt(X, l, i) && break
+            swap(X, i, l)
             i = l
         else
-            lt(order, dists[r], dists[i]) && break
-            heapswap!(ids, dists, i, r)
+            lt(X, r, i) && break
+            swap(X, i, r)
             i = r
         end
     end
@@ -63,50 +51,47 @@ function heapfix_down!(order, ids, dists, n)
 end
 
 """
-    heapify!(order, ids, dists)
+    heapify!(lt::Function, swap::Function, X, n)
 
-Rearranges `ids`/`dists` in place so that they satisfy the binary-heap property with
-respect to `order`.
+Rearranges `X[1:n]` in place so that it satisfies the binary-heap property with
+respect to `lt`.
 """
-function heapify!(order, ids, dists)
-    for i in 2:length(ids)
-        heapfix_up!(order, ids, dists, i)
+function heapify!(lt::Function, swap::Function, X, n)
+    for i in 2:n
+        heapfix_up!(lt, swap, X, i)
     end
 end
 
 """
-    heapsort!(order, ids, dists)
+    heapsort!(lt::Function, swap::Function, X, n)
 
-Sorts `ids`/`dists` in place using the heap they already contain (built with `heapify!`),
-repeatedly moving the root to the end and restoring the heap on the remaining prefix. The
-result is sorted in the reverse of `order`.
+Sorts `X[1:n]` in place using the heap it already contains (built with `heapify!`),
+repeatedly moving the root to the end and restoring the heap on the remaining prefix. 
 """
-function heapsort!(order, ids, dists)
-    for n in length(ids):-1:2
-        heapswap!(ids, dists, 1, n)
-        heapfix_down!(order, ids, dists, n - 1)
+function heapsort!(lt::Function, swap::Function, X, n)
+    for i in n:-1:2
+        swap(X, 1, i)
+        heapfix_down!(lt, swap, X, i - 1)
     end
 end
 
 """
-    isheap(order, ids, dists, i)
+    isheap(lt::Function, X, i, n)
 
 Checks whether the subtree rooted at position `i` satisfies the binary-heap property with
-respect to `order` (only the immediate children of `i` are checked).
+respect to `lt` up to `n` items (only the immediate children of `i` are checked).
 """
-function isheap(order, ids, dists, i)
+function isheap(lt::Function, X, i, n)
     l = heapleft(i)
     r = l + 1
-    n = length(ids)
-    (l > n || !lt(order, dists[i], dists[l])) && (r > n || !lt(order, dists[i], dists[r]))
+    (l > n || !lt(X, i, l)) && (r > n || !lt(X, i, r))
 end
 
 """
-    isheap(order, ids, dists)
+    isheap(lt::Function, X, n)
 
-Checks whether `ids`/`dists` fully satisfy the binary-heap property with respect to `order`.
+Checks whether `X[1:n]` fully satisfy the binary-heap property with respect to `lt`.
 """
-function isheap(order, ids, dists)
-    n = length(ids)
-    all(i -> isheap(order, ids, dists, i), 1:ceil(Int, n / 2))
+function isheap(lt::Function, X, n)
+    all(i -> isheap(lt, X, i, n), 1:ceil(Int, n / 2))
 end

@@ -36,6 +36,29 @@ mutable struct KnnHeap{IDS<:AbstractVector{UInt32},
     maxlen::Int32
 end
 
+function KnnHeap(ids::IDS, dists::DSTS; is_items=false) where {IDS, DSTS}
+    @assert length(ids) == length(dists)
+    if is_items
+        len = length(ids)
+        X = (ids, dists)
+        heapify!(_lt_dist, _swap_ids_dists, X, len)
+        
+        min_id = ids[1]
+        min_dist = dists[1]
+        @inbounds @simd for i in 2:len
+            d = dists[i]
+            if d < min_dist
+                min_dist = d
+                min_id = ids[i]
+            end
+        end
+
+        KnnHeap(ids, dists, min_id, min_dist, Int32(len), Int32(len))
+    else
+        KnnHeap(ids, dists, zero(UInt32), typemax(Float32), zero(Int32), Int32(length(ids)))
+    end
+end
+
 "Number of active items currently stored in `res`."
 @inline Base.length(res::KnnHeap) = res.len
 
@@ -78,7 +101,7 @@ heap structure. It is possible to restore the heap structure without calling `he
 by applying `reverse!` on the returned view.
 """
 function sortitems!(res::KnnHeap)
-    heapsort!(DistOrder, view(res.ids, 1:res.len), view(res.dists, 1:res.len))
+    heapsort!(_lt_dist, _swap_ids_dists, (res.ids, res.dists), Int(res.len))
     viewitems(res)
 end
 
@@ -94,7 +117,7 @@ Appends an item into the result set
         len += one(len)
         @inbounds res.ids[len]   = item.id
         @inbounds res.dists[len] = item.dist
-        heapfix_up!(DistOrder, res.ids, res.dists, len)
+        heapfix_up!(_lt_dist, _swap_ids_dists, (res.ids, res.dists), len)
         if len == one(len) || item.dist < res.min_dist
             res.min_id   = item.id
             res.min_dist = item.dist
@@ -106,7 +129,7 @@ Appends an item into the result set
     item.dist >= maximum(res) && return false
     @inbounds res.ids[1]   = item.id
     @inbounds res.dists[1] = item.dist
-    heapfix_down!(DistOrder, res.ids, res.dists, len)
+    heapfix_down!(_lt_dist, _swap_ids_dists, (res.ids, res.dists), len)
     if item.dist < res.min_dist
         res.min_id   = item.id
         res.min_dist = item.dist
@@ -138,9 +161,9 @@ Removes and returns the farthest item (the heap root) from `res`, shrinking its 
 @inline function pop_max!(res::KnnHeap)
     @inbounds p = IdDist(res.ids[1], res.dists[1])
     len = res.len
-    heapswap!(res.ids, res.dists, 1, len)
+    _swap_ids_dists((res.ids, res.dists), 1, len)
     len -= 1
-    heapfix_down!(DistOrder, res.ids, res.dists, len)
+    heapfix_down!(_lt_dist, _swap_ids_dists, (res.ids, res.dists), len)
     res.len = len
     p
 end

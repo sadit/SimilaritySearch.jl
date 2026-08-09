@@ -6,6 +6,12 @@ using SparseArrays
 Converts a k-NN queue into a `SparseVector` of length `n`. 
 The `(id, distance)` pairs are extracted and sorted by `id` to satisfy the `SparseVector` constraints.
 """
+@inline _lt_id(X, i, j) = @inbounds X[1][i] < X[1][j]
+@inline function _swap_id_val(X, i, j)
+    @inbounds X[1][i], X[1][j] = X[1][j], X[1][i]
+    @inbounds X[2][i], X[2][j] = X[2][j], X[2][i]
+end
+
 function SparseArrays.sparse(res::AbstractKnn, n::Integer)
     len = length(res)
     nzind = Vector{Int}(undef, len)
@@ -23,9 +29,9 @@ function SparseArrays.sparse(res::AbstractKnn, n::Integer)
     end
     
     # Sort by ID for SparseVector
-    p = sortperm(nzind)
-    nzind = nzind[p]
-    nzval = nzval[p]
+    X = (nzind, nzval)
+    heapify!(_lt_id, _swap_id_val, X, len)
+    heapsort!(_lt_id, _swap_id_val, X, len)
     
     SparseVector(n, nzind, nzval)
 end
@@ -62,14 +68,15 @@ function SparseArrays.sparse(ids::AbstractMatrix{UInt32}, dists::AbstractMatrix{
         
         v_ind = view(buf_ind, 1:len)
         v_val = view(buf_val, 1:len)
-        p = sortperm(v_ind)
+        X = (v_ind, v_val)
+        heapify!(_lt_id, _swap_id_val, X, len)
+        heapsort!(_lt_id, _swap_id_val, X, len)
         
-        for i in 1:len
-            idx = p[i]
-            @inbounds rowval[pos] = v_ind[idx]
-            @inbounds nzval[pos] = v_val[idx]
-            pos += 1
+        @inbounds @simd for i in 1:len
+            rowval[pos + i - 1] = v_ind[i]
+            nzval[pos + i - 1] = v_val[i]
         end
+        pos += len
         @inbounds colptr[j+1] = pos
     end
     
@@ -78,6 +85,8 @@ function SparseArrays.sparse(ids::AbstractMatrix{UInt32}, dists::AbstractMatrix{
     
     SparseMatrixCSC(n, m, colptr, rowval, nzval)
 end
+
+@inline _lt_val(X, i, j) = @inbounds X[2][i] < X[2][j]
 
 """
     knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnn}
@@ -92,6 +101,19 @@ function knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnn}
         @inbounds push_item!(res, vec.nzind[i], vec.nzval[i])
     end
     res
+end
+
+function knnqueue(::Type{KnnSorted}, vec::SparseVector)
+    k = nnz(vec)
+    ids = Vector{UInt32}(undef, k)
+    dists = Vector{Float32}(undef, k)
+    
+    @inbounds @simd for i in 1:k
+        ids[i] = vec.nzind[i]
+        dists[i] = vec.nzval[i]
+    end
+    
+    KnnSorted(ids, dists; is_items=true)
 end
 
 """
@@ -112,19 +134,42 @@ function knn_matrices(mat::SparseMatrixCSC, k::Integer)
         
         if len > 0
             res = knnqueue(KnnSorted, k)
-            @inbounds @simd for i in start_idx:end_idx
-                push_item!(res, mat.rowval[i], mat.nzval[i])
-            end
             
-            n_res = length(res)
-            v_ids = IdView(res)
-            v_dists = DistView(res)
-            @inbounds @simd for i in 1:n_res
-                ids[i, j] = v_ids[i]
-            end
+            if len <= k
+                ids_col = Vector{UInt32}(undef, len)
+                dists_col = Vector{Float32}(undef, len)
+                @inbounds @simd for i in 1:len
+                    ids_col[i] = mat.rowval[start_idx + i - 1]
+                    dists_col[i] = mat.nzval[start_idx + i - 1]
+                end
+                
+                res = KnnSorted(ids_col, dists_col; is_items=true)
+                
+                v_ids = IdView(res)
+                v_dists = DistView(res)
+                @inbounds @simd for i in 1:len
+                    ids[i, j] = v_ids[i]
+                end
 
-            @inbounds @simd for i in 1:n_res
-                dists[i, j] = v_dists[i]
+                @inbounds @simd for i in 1:len
+                    dists[i, j] = v_dists[i]
+                end
+            else
+                res = knnqueue(KnnSorted, k)
+                @inbounds @simd for i in start_idx:end_idx
+                    push_item!(res, mat.rowval[i], mat.nzval[i])
+                end
+                
+                n_res = length(res)
+                v_ids = IdView(res)
+                v_dists = DistView(res)
+                @inbounds @simd for i in 1:n_res
+                    ids[i, j] = v_ids[i]
+                end
+
+                @inbounds @simd for i in 1:n_res
+                    dists[i, j] = v_dists[i]
+                end
             end
         end
     end

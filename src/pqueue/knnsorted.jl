@@ -37,6 +37,19 @@ mutable struct KnnSorted{IDS<:AbstractVector{UInt32},
     maxlen::Int32
 end
 
+function KnnSorted(ids::IDS, dists::DSTS; is_items=false) where {IDS, DSTS}
+    @assert length(ids) == length(dists)
+    if is_items
+        len = length(ids)
+        X = (ids, dists)
+        heapify!(_lt_dist, _swap_ids_dists, X, len)
+        heapsort!(_lt_dist, _swap_ids_dists, X, len)
+        KnnSorted(ids, dists, one(Int32), Int32(len), Int32(len))
+    else
+        KnnSorted(ids, dists, one(Int32), zero(Int32), Int32(length(ids)))
+    end
+end
+
 """
     sort_last_item!(ids, dists, sp, ep)
 
