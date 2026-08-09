@@ -310,7 +310,7 @@ function transform(se::SphericalEmbedding, x::SparseVecView)
     end
     I[end] = se.indim + 1
     V[end] = sqrt(max(1f0 - s, 0f0))
-    SparseVecView(I, V)
+    SparseVecView(outdim(se), I, V)
 end
 
 """
@@ -462,7 +462,7 @@ function transform_query(se::SphericalEmbedding, q::SparseVecView)
     se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform_query: sparse inputs require pad=0 (got pad=$(se.pad))"))
     nq = norm32(q)
     invn = nq > 0 ? 1f0 / nq : 0f0
-    SparseVecView(copy(q.nzind), Float32.(q.nzval) .* invn)
+    SparseVecView(outdim(se), copy(q.nzind), Float32.(q.nzval) .* invn)
 end
 
 function transform_query(se::SphericalEmbedding, q::SparseVector)

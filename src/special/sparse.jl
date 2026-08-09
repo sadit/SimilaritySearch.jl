@@ -19,16 +19,19 @@ struct SparseDatabase{MType<:SparseMatrixCSC} <: AbstractDatabase
 end
 
 """
-    SparseVecView(nzind, nzval)
+    SparseVecView(n, nzind, nzval)
 
-A read-only view of a single sparse vector, given as parallel arrays of non-zero
+A read-only view of a single sparse vector of length `n`, given as parallel arrays of non-zero
 indices `nzind` and non-zero values `nzval` (as produced by, e.g., `rowvals`/`nonzeros` on a
 column of a `SparseMatrixCSC`).
 """
 struct SparseVecView{IType,VType}
+    n::Int
     nzind::IType
     nzval::VType
 end
+
+Base.length(v::SparseVecView) = v.n
 
 const SparseVectorLike = Union{SparseVector, SparseVecView}
 
@@ -134,7 +137,7 @@ function Base.getindex(D::SparseDatabase, i)
     r = nzrange(D.M, i)
     rows = rowvals(D.M)
     vals = nonzeros(D.M)
-    SparseVecView(view(rows, r), view(vals, r))
+    SparseVecView(size(D.M, 1), view(rows, r), view(vals, r))
 end
 
 end
