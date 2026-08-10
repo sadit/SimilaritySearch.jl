@@ -43,6 +43,8 @@ Pages, in the order we recommend reading them:
 9. [Inverted files and posting list intersections](invertedfiles.md) -- inverted index
    representations (`WeightedInvertedFile`, `BinaryInvertedFile`) for sparse vector and
    set search, and posting list intersection algorithms (`Intersections`).
+10. [Quantization and Bit Sketches](quantization_and_bitsketches.md) -- techniques for compressing vectors into 
+   smaller memory footprints and accelerating search using `ScalarQuant` and `bitsketch` with `ExhaustiveSearch`.
 
 ## Installation
 

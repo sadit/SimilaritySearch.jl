@@ -24,6 +24,7 @@ makedocs(;
             "tutorial/persistence.md",
             "tutorial/logging.md",
             "tutorial/invertedfiles.md",
+            "tutorial/quantization_and_bitsketches.md",
         ],
         "API" => "api.md"
     ],
