@@ -212,7 +212,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 
 ```julia
 ctx = SearchGraphContext()
-G = SearchGraph(; dist, db)
+G = SearchGraph(dist, db)
 index!(G, ctx)
 optimize_index!(G, ctx, MinRecall(0.95))
 ```

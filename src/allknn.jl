@@ -29,7 +29,7 @@ that the retrieval found fewer than the desired `k` neighbors for that object.
 using SimilaritySearch
 
 X = MatrixDatabase(rand(Float32, 8, 10^3))
-G = SearchGraph(; dist=Dist.SqL2(), db=X)
+G = SearchGraph(Dist.SqL2(), X)
 ctx = SearchGraphContext()
 index!(G, ctx)
 

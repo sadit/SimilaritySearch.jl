@@ -26,7 +26,7 @@ using SimilaritySearch
 
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 2, 10^3))
-G = SearchGraph(; dist, db=X)
+G = SearchGraph(dist, X)
 ctx = getcontext(G)
 index!(G, ctx)
 

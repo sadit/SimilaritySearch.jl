@@ -88,7 +88,7 @@ BeamSearch is an iteratively improving local search algorithm that explores the 
 using SimilaritySearch
 
 algo = BeamSearch(; bsize=8, Δ=1.0, maxvisits=10^6)
-G = SearchGraph(; db=VectorDatabase(), algo=Ref(algo))
+G = SearchGraph(Dist.SqL2(), VectorDatabase(); algo=Ref(algo))
 ```
 """
 struct BeamSearch <: LocalSearchAlgorithm
@@ -107,7 +107,7 @@ end
 ### Basic operations on the index
 
 """
-    SearchGraph(; dist=Dist.SqL2(), db=VectorDatabase(), adj=AdjList(UInt32), hints=UInt32[],
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[],
                   algo=Ref(BeamSearch()), len=Ref(zero(Int64))) -> SearchGraph
 
 SearchGraph index. It stores a set of points that can be compared through a distance function `dist`.
@@ -132,7 +132,7 @@ const Dist = SimilaritySearch.Dist
 X = rand(Float32, 8, 10^4)          # 10^4 vectors of dimension 8
 db = MatrixDatabase(X)
 
-G = SearchGraph(; db, dist=Dist.SqL2())
+G = SearchGraph(Dist.SqL2(), db)
 ctx = SearchGraphContext()
 index!(G, ctx)                       # builds the graph (inserts all items in db)
 

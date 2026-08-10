@@ -54,7 +54,7 @@ X = MatrixDatabase(rand(Float32, 4, 10^3))
 ϵ = 0.1
 
 # using an explicit index
-G = SearchGraph(; dist, db=VectorDatabase(Vector{Float32}[]))
+G = SearchGraph(dist, VectorDatabase(Vector{Float32}[]))
 ctx = SearchGraphContext()
 D = neardup(G, ctx, X, ϵ; blocksize=256)
 D.map, D.nn, D.dist, D.centers
@@ -67,7 +67,7 @@ function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwa
     dist_ = SimilaritySearch.Dist.Hacks.DistanceWithIdentifiers(dist, X)
     X_ = VectorDatabase(Int32[])
     if recall < 1.0
-        idx = SearchGraph(; dist=dist_, db=X_)
+        idx = SearchGraph(dist_, X_)
         hyperparameters_callback = OptimizeParametes(MinRecall(recall))
         ctx = SearchGraphContext(; hyperparameters_callback)
     else

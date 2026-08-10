@@ -47,7 +47,7 @@ improve cache locality when hints are repeatedly accessed while searching. Retur
 # Examples
 
 ```julia
-G = SearchGraph(; dist, db)
+G = SearchGraph(dist, db)
 index!(G, ctx)
 G = matrixhints(G)  # hints are now stored using a MatrixDatabase
 ```
@@ -304,7 +304,7 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Eps
     sample = VectorDatabase(s)
     out = VectorDatabase(Int32[])
     dist = DistanceWithIdentifiers(distance(index), database(index))
-    E = ExhaustiveSearch(; dist, db=out)
+    E = ExhaustiveSearch(dist, out)
     ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
         D = distsample(dist, sample; samplesize=m)
         max(opt.minepsilon, quantile(D, opt.quantile))

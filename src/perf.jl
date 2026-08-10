@@ -56,11 +56,11 @@ using SimilaritySearch
 
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 8, 10^3))
-E = ExhaustiveSearch(; dist, db=X)
+E = ExhaustiveSearch(dist, X)
 ctx = getcontext(E)
 
 gold = searchbatch(E, ctx, X, 8)
-G = SearchGraph(; dist, db=X)
+G = SearchGraph(dist, X)
 gctx = getcontext(G)
 index!(G, gctx)
 res = allknn(G, gctx, 8)

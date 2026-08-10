@@ -26,7 +26,7 @@ Returns a new `SearchGraph` (the input `g` is not modified).
 
 ```julia
 ctx = SearchGraphContext()
-G = SearchGraph(; dist, db)
+G = SearchGraph(dist, db)
 index!(G, ctx)
 G = rebuild(G, ctx)
 ```

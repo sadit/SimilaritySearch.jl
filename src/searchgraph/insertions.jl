@@ -18,7 +18,7 @@ Appends all items in db to the index. It can be made in parallel or sequentially
 # Examples
 
 ```julia
-G = SearchGraph(; dist, db=VectorDatabase())
+G = SearchGraph(dist, VectorDatabase())
 ctx = SearchGraphContext()
 append_items!(G, ctx, MatrixDatabase(rand(Float32, 8, 1000)))
 ```

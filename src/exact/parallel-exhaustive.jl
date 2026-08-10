@@ -7,7 +7,7 @@ export ParallelExhaustiveSearch
 
     ParallelExhaustiveSearch(dist::PreMetric, db::AbstractDatabase)
     ParallelExhaustiveSearch(dist::PreMetric, db::AbstractVecOrMat)
-    ParallelExhaustiveSearch(; dist=Dist.SqL2(), db=VectorDatabase{Float32}())
+
 
 A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
 against every element of `db` in parallel (across `Threads.nthreads()` tasks). Each batch of the underlying

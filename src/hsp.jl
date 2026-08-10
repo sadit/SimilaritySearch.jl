@@ -60,7 +60,7 @@ using SimilaritySearch
 
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 4, 10^3))
-E = ExhaustiveSearch(; dist, db=X)
+E = ExhaustiveSearch(dist, X)
 ctx = GenericContext()
 
 ids, dists = searchbatch(E, ctx, X, 32)
