@@ -163,7 +163,7 @@ scratch caches.
 - `batchid`: the batch slot this context is tagged with; not meaningful on the root
   context returned here (always `1`) -- per-batch copies tagging the running `@batchid()`
   are minted internally via `Accessors.@set`, one per batch, not per call.
-- `costdist`/`costblk`: per-batch distance/block-evaluation counters (size `maxbatches`,
+- `costdists`/`costblocks`: per-batch distance/block-evaluation counters (size `maxbatches`,
   indexed by `batchid`), accumulated via `add_distance_evaluations!`/`add_block_evaluations!`
   and read via [`distance_evaluations`](@ref)/[`distance_stats`](@ref) and their block
   counterparts. Never reset automatically -- they accumulate for the lifetime of the context.
@@ -173,14 +173,14 @@ struct GenericContext{KnnType} <: AbstractContext
     logger
     maxbatches::Int32
     batchid::Int32
-    costdist::Vector{Int}
-    costblk::Vector{Int}
+    costdists::Vector{Int}
+    costblocks::Vector{Int}
 end
 
 GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
     maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
-    costdist=zeros(Int, maxbatches), costblk=zeros(Int, maxbatches)) =
-    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), costdist, costblk)
+    costdists=zeros(Int, maxbatches), costblocks=zeros(Int, maxbatches)) =
+    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), costdists, costblocks)
 
 # GenericContext has a phantom type parameter (KnnType, not derivable from any field), so
 # ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it -- this
@@ -199,41 +199,41 @@ function _batchstats(v::AbstractVector{Int})
     (min=minimum(active), mean=mean(active), max=maximum(active))
 end
 
-@inline add_distance_evaluations!(ctx::AbstractContext, v) = (ctx.costdist[ctx.batchid] += v)
-@inline add_block_evaluations!(ctx::AbstractContext, v) = (ctx.costblk[ctx.batchid] += v)
+@inline add_distance_evaluations!(ctx::AbstractContext, v) = (ctx.costdists[ctx.batchid] += v)
+@inline add_block_evaluations!(ctx::AbstractContext, v) = (ctx.costblocks[ctx.batchid] += v)
 
 """
     distance_stats(ctx::AbstractContext) -> (; min, mean, max)
     distance_stats(ctx::AbstractContext, snapshot::Vector{Int}) -> (; min, mean, max)
 
 Min/mean/max distance evaluations across `ctx`'s active batch slots, at batch granularity
-(not query granularity). The 1-arg form reads `ctx.costdist` as-is: since it's never reset,
+(not query granularity). The 1-arg form reads `ctx.costdists` as-is: since it's never reset,
 this is a **lifetime** statistic (since `ctx` was created). The 2-arg form measures a single
-operation instead: pass a `snapshot = copy(ctx.costdist)` taken before that operation, and
-this diffs the *raw* vectors (`ctx.costdist .- snapshot`) before computing stats on the
+operation instead: pass a `snapshot = copy(ctx.costdists)` taken before that operation, and
+this diffs the *raw* vectors (`ctx.costdists .- snapshot`) before computing stats on the
 result -- **not** the other way around. Diffing precomputed stats instead is mathematically
 wrong for `min`/`max` (only `mean`/`sum` commute with subtraction) and would also break
 "active slot" detection, since a slot's raw value is cumulative garbage from every prior
 call -- only the delta reliably reflects whether that slot was touched during the snapshot
 window.
 
-Note: reads `ctx.costdist` with no synchronization -- only call this once every `@BATCHES`
+Note: reads `ctx.costdists` with no synchronization -- only call this once every `@BATCHES`
 region writing into `ctx` has already joined (i.e. from sequential code).
 """
-distance_stats(ctx::AbstractContext) = _batchstats(ctx.costdist)
-distance_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costdist .- snapshot)
+distance_stats(ctx::AbstractContext) = _batchstats(ctx.costdists)
+distance_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costdists .- snapshot)
 
-"Mean of [`distance_stats`](@ref) (1-arg or 2-arg form)."
-distance_evaluations(ctx::AbstractContext) = distance_stats(ctx).mean
-distance_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = distance_stats(ctx, snapshot).mean
+"Total distance evaluations across all batch slots (1-arg: lifetime; 2-arg: diffed against `snapshot`, see [`distance_stats`](@ref))."
+distance_evaluations(ctx::AbstractContext) = sum(ctx.costdists)
+distance_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = sum(ctx.costdists .- snapshot)
 
 "Block-evaluations counterpart of [`distance_stats`](@ref) (1-arg or 2-arg form)."
-block_stats(ctx::AbstractContext) = _batchstats(ctx.costblk)
-block_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costblk .- snapshot)
+block_stats(ctx::AbstractContext) = _batchstats(ctx.costblocks)
+block_stats(ctx::AbstractContext, snapshot::Vector{Int}) = _batchstats(ctx.costblocks .- snapshot)
 
-"Mean of [`block_stats`](@ref) (1-arg or 2-arg form)."
-block_evaluations(ctx::AbstractContext) = block_stats(ctx).mean
-block_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = block_stats(ctx, snapshot).mean
+"Total block evaluations across all batch slots (1-arg: lifetime; 2-arg: diffed against `snapshot`, see [`block_stats`](@ref))."
+block_evaluations(ctx::AbstractContext) = sum(ctx.costblocks)
+block_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = sum(ctx.costblocks .- snapshot)
 
 include("perf.jl")
 include("fft.jl")

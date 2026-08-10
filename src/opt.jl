@@ -109,7 +109,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 
     function lossfun(conf)
         empty!(cov)
-        before = copy(ctx.costdist)
+        before = copy(ctx.costdists)
 
         searchtime = @elapsed runconfig(conf, index, ctx, queries, knns)
         searchtime /= m

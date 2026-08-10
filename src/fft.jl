@@ -26,6 +26,8 @@ A named tuple with the following fields:
 - `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
 - `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
 - `dmax`: the smallest distance among the (`k`) selected centers, i.e., the separation achieved by the traversal
+- `costdists`: total number of distance evaluations performed by this call (`k * length(X)`), counted locally (no `ctx` involved)
+- `costblocks`: always `0` for `fft` (no block-evaluation concept applies here)
 
 Based on `enet.jl` from `KCenters.jl`
 
@@ -39,10 +41,11 @@ using SimilaritySearch
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 4, 10^3))
 R = fft(dist, X, 16)
-R.centers   # 16 well-separated identifiers into X
-R.nn        # nearest selected center for each object of X
-R.dists     # distance to the nearest selected center
-R.dmax      # separation radius achieved by the traversal
+R.centers      # 16 well-separated identifiers into X
+R.nn           # nearest selected center for each object of X
+R.dists        # distance to the nearest selected center
+R.dmax         # separation radius achieved by the traversal
+R.costdists    # distance evaluations performed by this call
 ```
 """
 function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, threads::Bool=true)
@@ -56,7 +59,8 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
     nn = zeros(UInt32, N)
     imax::Int = start == 0 ? rand(1:N) : start
     dmax::Float32 = typemax(Float32)
-    N == 0 && return (; centers, nn, dists=nndists, dmax)
+    N == 0 && return (; centers, nn, dists=nndists, dmax, costdists=0, costblocks=0)
+    costdists = 0
     minbatch = getminbatch(N)
 
     @inbounds for _ in 1:k
@@ -83,9 +87,10 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
                 end
             end
         end
+        costdists += N
 
         dmax, imax = findmax(nndists)
     end
 
-    (; centers, nn, dists=nndists, dmax)
+    (; centers, nn, dists=nndists, dmax, costdists=costdists, costblocks=0)
 end

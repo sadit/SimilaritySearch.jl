@@ -20,8 +20,8 @@ struct InvertedFileContext{A,B,C,D} <: AbstractContext
     parallel_block::Int
     maxbatches::Int
     batchid::Int
-    costdist::Vector{Int}
-    costblk::Vector{Int}
+    costdists::Vector{Int}
+    costblocks::Vector{Int}
     positions::A
     cont_u32::B
     cont_iw::C
@@ -34,8 +34,8 @@ function InvertedFileContext(;
         maxbatches::Integer = 8Threads.nthreads(),
         parallel_block = maxbatches,
         batchid::Integer = 1,
-        costdist::Vector{Int} = zeros(Int, maxbatches),
-        costblk::Vector{Int} = zeros(Int, maxbatches),
+        costdists::Vector{Int} = zeros(Int, maxbatches),
+        costblocks::Vector{Int} = zeros(Int, maxbatches),
         positions = [Vector{UInt32}(undef, 32) for _ in 1:maxbatches],
         cont_u32 = [Vector{PostingList{Vector{UInt32}}}(undef, 32) for _ in 1:maxbatches],
         cont_iw = [Vector{PostingList{Vector{IdWeight}}}(undef, 32) for _ in 1:maxbatches],
@@ -44,7 +44,7 @@ function InvertedFileContext(;
     )
 
     InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid),
-                         costdist, costblk, positions, cont_u32, cont_iw, cont_iiw, knns)
+                         costdists, costblocks, positions, cont_u32, cont_iw, cont_iiw, knns)
 end
 
 Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B,C,D}}) where {A,B,C,D} = (args...) -> InvertedFileContext{A,B,C,D}(args...)

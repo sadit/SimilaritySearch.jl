@@ -90,8 +90,8 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     vstates::VSType
     maxbatches::Int32
     batchid::Int32
-    costdist::Vector{Int}
-    costblk::Vector{Int}
+    costdists::Vector{Int}
+    costblocks::Vector{Int}
 end
 
 function SearchGraphContext(
@@ -109,14 +109,14 @@ function SearchGraphContext(
     batchid::Integer=1,
     beam_ids=nothing,
     beam_dists=nothing,
-    costdist=nothing,
-    costblk=nothing
+    costdists=nothing,
+    costblocks=nothing
 )
     vstates    === nothing && (vstates    = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
     beam_ids   === nothing && (beam_ids   = zeros(UInt32,  32, maxbatches))
     beam_dists === nothing && (beam_dists = zeros(Float32, 32, maxbatches))
-    costdist   === nothing && (costdist   = zeros(Int, maxbatches))
-    costblk    === nothing && (costblk    = zeros(Int, maxbatches))
+    costdists   === nothing && (costdists   = zeros(Int, maxbatches))
+    costblocks    === nothing && (costblocks    = zeros(Int, maxbatches))
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
         hints_callback, hyperparameters_callback,
@@ -125,7 +125,7 @@ function SearchGraphContext(
         convert(Int32, parallel_block),
         beam_ids, beam_dists, vstates,
         convert(Int32, maxbatches), convert(Int32, batchid),
-        costdist, costblk)
+        costdists, costblocks)
 end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
@@ -142,8 +142,8 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     vstates=ctx.vstates,
     maxbatches=ctx.maxbatches,
     batchid=ctx.batchid,
-    costdist=ctx.costdist,
-    costblk=ctx.costblk
+    costdists=ctx.costdists,
+    costblocks=ctx.costblocks
 ) where {KnnType,VSType}
 
     SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
@@ -151,7 +151,7 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
         logbase_callback, starting_callback,
         parallel_block,
         beam_ids, beam_dists, vstates, maxbatches, batchid,
-        costdist, costblk)
+        costdists, costblocks)
 end
 
 # SearchGraphContext has a phantom type parameter (KnnType, not derivable from any field),

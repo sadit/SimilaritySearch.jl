@@ -13,11 +13,13 @@ The two-argument `dist`-based method is a convenience wrapper that builds and ma
 it uses an `ExhaustiveSearch` (exact) when `recall == 1.0`, or otherwise a `SearchGraph` (approximate) tuned to
 approach the given `recall` via `OptimizeParametes(MinRecall(recall))`.
 
-The function returns a named tuple `(idx, map, nn, dist, centers)` where:
+The function returns a named tuple `(idx, map, nn, dist, costdists, costblocks, centers)` where:
 - `idx`: the index of the non duplicated elements
 - `map`: a mapping from `1:length(idx)` to its positions in `X`
 - `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
 - `dist`: an array of distance values to each covering element (corresponds to each element in `nn`)
+- `costdists`: [`distance_evaluations`](@ref) for this call (`ctx` diffed against a snapshot taken before the call)
+- `costblocks`: [`block_evaluations`](@ref) for this call, same diffing
 - `centers`: the identifiers of `X` that survived as non-duplicates (i.e., the ``ϵ``-net); sorted for the
   `idx`-based method, in construction order for the `dist`-based convenience method
 
@@ -58,6 +60,7 @@ G = SearchGraph(dist, VectorDatabase(Vector{Float32}[]))
 ctx = SearchGraphContext()
 D = neardup(G, ctx, X, ϵ; blocksize=256)
 D.map, D.nn, D.dist, D.centers
+D.costdists, D.costblocks  # cost of this call
 
 # convenience wrapper (builds its own exact index since recall=1.0)
 D2 = neardup(dist, X, ϵ)
@@ -99,6 +102,9 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     M = UInt32[]
     imap = UInt32[]
     tmp = UInt32[]
+
+    dist_snapshot = copy(ctx.costdists)
+    blk_snapshot = copy(ctx.costblocks)
 
     for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
@@ -142,11 +148,15 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
             end
         end
     end
+    
     if verbose
         @info "neardup> finished current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
     end
 
-    (idx=idx, map=M, nn=L, dist=D)
+    costdists = distance_evaluations(ctx, dist_snapshot)
+    costblocks = block_evaluations(ctx, blk_snapshot)
+
+    (idx=idx, map=M, nn=L, dist=D, costdists=costdists, costblocks=costblocks)
 end
 
 
@@ -196,8 +206,8 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
 
         @BATCHES minbatch begin
             @BEGIN
-                B_j = Vector{Int32}(undef, @nbatches)
-                B_d = Vector{Float32}(undef, @nbatches)
+                B_j = Vector{Int32}(undef, @nbatches())
+                B_d = Vector{Float32}(undef, @nbatches())
             @BEGINBATCH
                 b_min_j = zero(Int32)
                 b_min_d = typemax(Float32)
@@ -213,11 +223,12 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
                 B_j[@batchid] = b_min_j
                 B_d[@batchid] = b_min_d
             @END
-                for b in 1:@nbatches
+                for b in 1:@nbatches()
                     if B_j[b] > 0
                         push_item!(res, B_j[b], B_d[b])
                     end
                 end
+                add_distance_evaluations!(ctx, length(tmp))
         end
 
         let nn = nearest(res)
