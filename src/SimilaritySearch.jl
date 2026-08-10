@@ -12,7 +12,8 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
     SearchResult, push_item!, append_items!, getminbatch,
     IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
-    distance_evaluations, block_evaluations, distance_stats, block_stats
+    distance_evaluations, block_evaluations, distance_stats, block_stats,
+    KCenters, fft, dnet, randsel, multirandsel
 
 """
     abstract type AbstractContext end
@@ -236,8 +237,11 @@ block_evaluations(ctx::AbstractContext) = sum(ctx.costblocks)
 block_evaluations(ctx::AbstractContext, snapshot::Vector{Int}) = sum(ctx.costblocks .- snapshot)
 
 include("perf.jl")
-include("fft.jl")
 include("exact/Exact.jl")
+
+using SimilaritySearch.Exact
+include("kcenters/KCenters.jl")
+using .KCenters
 
 using SimilaritySearch.Exact
 
