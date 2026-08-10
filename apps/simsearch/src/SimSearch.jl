@@ -5,7 +5,7 @@ using Statistics: mean, std, quantile
 using StatsBase: Histogram, fit
 using SimilaritySearch
 using SimilaritySearch: Dist, Exact, MinRecall, Neighborhood, SatNeighborhood,
-    RandomHints, SearchGraphContext, GenericContext, IdDist, IdView, DistView,
+    RandomHints, SearchGraphContext, GenericContext,
     macrorecall, recallscore, neighbors_length, distance, database
 
 include("datasetio.jl")
