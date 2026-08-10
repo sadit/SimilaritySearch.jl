@@ -31,8 +31,8 @@ end
 
 function InvertedFileContext(;
         logger = InformativeLog(dt=1.0),
-        parallel_block = 256,
         maxbatches::Integer = 8Threads.nthreads(),
+        parallel_block = maxbatches,
         batchid::Integer = 1,
         costdist::Vector{Int} = zeros(Int, maxbatches),
         costblk::Vector{Int} = zeros(Int, maxbatches),
