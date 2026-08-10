@@ -187,7 +187,6 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
 
     dist = distance(idx)
     res = knnqueue(ctx, 1)
-    push_lock = Threads.SpinLock()
 
     for ii in 2:n
         reuse!(res)
@@ -195,15 +194,30 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         u = X[i]
         minbatch = getminbatch(ctx, length(tmp))
 
-        @BATCHES minbatch for jj in firstindex(tmp):lastindex(tmp)
-            j = tmp[jj]
-            d = evaluate(dist, u, X[j])
-            try
-                lock(push_lock)
-                push_item!(res, j, d)
-            finally
-                unlock(push_lock)
+        @BATCHES minbatch begin
+            @BEGIN
+                B_j = Vector{Int32}(undef, @nbatches)
+                B_d = Vector{Float32}(undef, @nbatches)
+            @BEGINBATCH
+                b_min_j = zero(Int32)
+                b_min_d = typemax(Float32)
+            @LOOP for jj in firstindex(tmp):lastindex(tmp)
+                j = tmp[jj]
+                d = evaluate(dist, u, X[j])
+                if d < b_min_d
+                    b_min_d = d
+                    b_min_j = j
+                end
             end
+            @ENDBATCH
+                B_j[@batchid] = b_min_j
+                B_d[@batchid] = b_min_d
+            @END
+                for b in 1:@nbatches
+                    if B_j[b] > 0
+                        push_item!(res, B_j[b], B_d[b])
+                    end
+                end
         end
 
         let nn = nearest(res)
