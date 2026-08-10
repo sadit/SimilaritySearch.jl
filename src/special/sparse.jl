@@ -7,6 +7,8 @@ import ...SimilaritySearch.Dist.CastF32: dot32, norm32
 using SparseArrays
 using LinearAlgebra
 
+export centroid, sparsedot
+
 """
     SparseDatabase(M::MType) where {MType<:SparseMatrixCSC}
 
@@ -32,6 +34,7 @@ struct SparseVecView{IType,VType}
 end
 
 Base.length(v::SparseVecView) = v.n
+SparseArrays.nnz(v::SparseVecView) = length(v.nzind)
 
 const SparseVectorLike = Union{SparseVector, SparseVecView}
 
@@ -139,5 +142,68 @@ function Base.getindex(D::SparseDatabase, i)
     vals = nonzeros(D.M)
     SparseVecView(size(D.M, 1), view(rows, r), view(vals, r))
 end
+
+"""
+    Base.sum(cluster::AbstractVector{<:SparseVectorLike})
+
+`SparseVector` counterpart of `sum(::AbstractVector{<:Dict})`: concatenate every
+`(index, value)` pair from every input vector, sort once by index, then combine
+consecutive equal indices in a single linear pass. Beat every alternative tried
+(naive `+`-folding, pairwise tree merging, a k-way heap merge) at every cluster size
+benchmarked, and — unlike a dense-accumulator approach — its cost does not depend on
+the vectors' dimension, only on their total number of stored entries. See
+[sadit/TextSearch.jl#25](https://github.com/sadit/TextSearch.jl/issues/25).
+
+All vectors in `cluster` must have the same dimension (`length`).
+"""
+function Base.sum(cluster::AbstractVector{<:SparseVectorLike})
+    n = length(cluster[1])
+    total = sum(nnz, cluster)
+    Tv = eltype(cluster[1].nzval)
+    Ti = eltype(cluster[1].nzind)
+    
+    all_ind = Vector{Ti}(undef, total)
+    all_val = Vector{Tv}(undef, total)
+    p = 1
+    for v in cluster
+        @assert length(v) == n "all vectors in `cluster` must share the same dimension"
+        m = nnz(v)
+        copyto!(all_ind, p, v.nzind, 1, m)
+        copyto!(all_val, p, v.nzval, 1, m)
+        p += m
+    end
+
+    perm = sortperm(all_ind)
+    permute!(all_ind, perm)
+    permute!(all_val, perm)
+
+    out_ind = Vector{Ti}()
+    sizehint!(out_ind, total)
+    out_val = Vector{Tv}()
+    sizehint!(out_val, total)
+    
+    i = 1
+    @inbounds while i <= total
+        j = i
+        s = all_val[i]
+        while j < total && all_ind[j+1] == all_ind[i]
+            j += 1
+            s += all_val[j]
+        end
+        push!(out_ind, all_ind[i])
+        push!(out_val, s)
+        i = j + 1
+    end
+
+    SparseVector(n, out_ind, out_val)
+end
+
+"""
+    centroid(cluster::AbstractVector{<:SparseVectorLike})
+
+Centroid (normalized sum) of a cluster of `SparseVector`s. See
+[`sum(::AbstractVector{<:SparseVectorLike})`](@ref sum) for the algorithm.
+"""
+centroid(cluster::AbstractVector{<:SparseVectorLike}) = normalize!(sum(cluster))
 
 end
