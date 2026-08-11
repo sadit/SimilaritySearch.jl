@@ -1,7 +1,8 @@
 # This file is a part of SimilaritySearch.jl
 
 using SimilaritySearch
-using LinearAlgebra, Test
+using LinearAlgebra, Test, Random
+Random.seed!(0)
 
 function test_exact(db, queries, dist::Dist.Metric, ksearch::Integer, minrecall::AbstractFloat)
     seq = Exact.ExhaustiveSearch(dist, db)
@@ -32,7 +33,7 @@ end
 @testset "Binary distances" begin
     ksearch = 4
     db = MatrixDatabase(rand(UInt64, 8, 2_000))
-    queries = MatrixDatabase(rand(UInt64, 8, 30))
+    queries = MatrixDatabase(rand(UInt64, 8, 100))  # more queries than "Searching vectors" to keep recall variance low with a hard @assert
 
     test_exact(db, queries, Dist.Bits.Hamming(), ksearch, 0.9)
     test_exact(db, queries, Dist.Bits.RogersTanimoto(), ksearch, 0.9)
