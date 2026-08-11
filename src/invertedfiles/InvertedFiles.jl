@@ -25,7 +25,7 @@ struct InvertedFileContext{A,B} <: AbstractContext
     costdists::Vector{Int}
     costblocks::Vector{Int}
     positions::A
-    cont_u32::B
+    buffer::B
 end
 
 function InvertedFileContext(;
@@ -37,11 +37,11 @@ function InvertedFileContext(;
         costdists::Vector{Int} = zeros(Int, maxbatches),
         costblocks::Vector{Int} = zeros(Int, maxbatches),
         positions = [Vector{UInt32}(undef, 32) for _ in 1:maxbatches],
-        cont_u32 = [Vector{PostingList{Vector{UInt32}}}(undef, 32) for _ in 1:maxbatches],
+        buffer = [Vector{PostingList{Vector{UInt32}}}(undef, 32) for _ in 1:maxbatches],
     )
 
     InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
-                         costdists, costblocks, positions, cont_u32)
+                         costdists, costblocks, positions, buffer)
 end
 
 Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B}}) where {A,B} = (args...) -> InvertedFileContext{A,B}(args...)

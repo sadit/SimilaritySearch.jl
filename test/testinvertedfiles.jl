@@ -61,7 +61,7 @@ Random.seed!(0)
         normalize!(A_)
     end
 
-    B = VectorDatabase(A)
+    B = VectorDatabase([sparse(a) for a in A])
     I = append_items!(InvertedFile(300, Dist.NormCosine()), ctx, B)
     k = 1  # the aggresive cut of the attributes need a small k
     @test length(I) == length(B)

@@ -87,7 +87,7 @@ function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     Q
 end
 
-getcontainer(adj::AdjList{UInt32}, ctx) = ctx.cont_u32[ctx.batchid]
+getcontainer(adj::AdjList{UInt32}, ctx) = ctx.buffer[ctx.batchid]
 
 function getcontainer(adj::StaticAdjList, ctx)
     Q = [PostingList(neighbors(adj, 1), zero(UInt32), 0.0f0)]
@@ -105,41 +105,17 @@ end
 
 
 """
-    sparseiterator(db, i)
-
-Creates an iterator for indices and values of the `i`-th db's element (e.g., column).
-Several specializations are provided.
-"""
-function sparseiterator(db::MatrixDatabase{<:SparseMatrixCSC}, i)
-    sparseiterator(db.matrix, i)
-end
-
-function sparseiterator(X::SparseMatrixCSC, i)
-    r = nzrange(X, i)
-    rows = rowvals(X)
-    vals = nonzeros(X)
-    zip(view(rows, r), view(vals, r))
-end
-
-function sparseiterator(vec::SubArray{<:AbstractFloat, 1, <:SparseMatrixCSC})  # to efficiently support views
-    _, i = vec.indices
-    sparseiterator(vec.parent, i)
-end
-
-sparseiterator(db::MatrixDatabase{<:Matrix}, i) = enumerate(view(db.matrix, i))
-sparseiterator(db::AbstractDatabase, i) = sparseiterator(db[i])
-
-"""
     sparseiterator(obj)
 
-`(id, weight)` iterator for `obj` for generic databases.
+`(id, weight)` iterator for `obj` for generic databases. Dense `Vector`s are not accepted directly —
+convert to a `SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to non-zero
+components is explicit in the caller's code.
 """
-sparseiterator(obj::AbstractVector{<:AbstractFloat}) = enumerate(obj)
 sparseiterator(obj::SparseVector) = zip(obj.nzind, obj.nzval)
 sparseiterator(obj::SparseVecView) = zip(obj.nzind, obj.nzval)
-sparseiterator(obj::Set) = (convertpair(u) for u in obj)
-sparseiterator(obj::SortedIntSet) = (convertpair(u) for u in obj)
-sparseiterator(obj) = (convertpair(u) for u in obj)
+sparseiterator(obj::Set) = (convertid(u) for u in obj)
+sparseiterator(obj::SortedIntSet) = (convertid(u) for u in obj)
+sparseiterator(obj) = (convertid(u) for u in obj)
 
 """
     sparseiterator(dist::PreMetric, obj)
@@ -152,14 +128,14 @@ the enclosing index is built for (e.g. a different candidate-generation encoding
 sparseiterator(::PreMetric, obj) = sparseiterator(obj)
 
 """
-    convertpair(u)
+    convertid(u)
 
-Converts an element of an `sparseiterator` into an usable pair.
+Converts an element of a `sparseiterator` into an usable `(id, weight)` pair.
 """
-convertpair(u::Integer) = (u, 1)
-convertpair(u::Tuple) = u # assert length(u) = 2
-convertpair(u::Vector) = u # assert length(u) = 2
-convertpair(u::Pair) = u
+convertid(u::Integer) = (u, 1)
+convertid(u::Tuple) = u # assert length(u) = 2
+convertid(u::Vector) = u # assert length(u) = 2
+convertid(u::Pair) = u
 
 """
     append_items!(idx, ctx, items; tol=1e-6)
@@ -169,7 +145,9 @@ Appends all `items` elements into the index `idx`. It work in parallel using all
 # Arguments:
 - `idx`: The inverted index
 - `items`: The database of sparse objects, it can be only indices if each object is a list of integers or a set of integers,
-    sparse matrices, dense matrices, among other combinations.
+    `SparseVector`s, among other combinations (see [`sparseiterator`](@ref) for the exact set of
+    natively supported object types; dense vectors are not accepted directly — convert with
+    `SparseArrays.sparse` first).
 - `n`: The number of items to insert (defaults to all)
 
 # Keyword arguments:

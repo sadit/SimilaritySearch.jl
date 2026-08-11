@@ -171,7 +171,7 @@ reconfiguring an existing one.
 
 ## Extending `InvertedFile` to new object types and distances
 
-`database(idx)` always holds the original objects exactly as given — no canonical encoding is imposed, so a `db` can freely mix `Set`s, sorted `Vector`s, `Dict`s, dense or sparse vectors, or any other type your distance's `evaluate` accepts. The piece that turns a native object into an `(id, weight)` stream for building/querying posting lists is [`InvertedFiles.sparseiterator`](@ref); `SparseArrays.SparseVector` and this package's `Special.Sparse.SparseVecView` are both handled efficiently out of the box (iterating only the non-zero entries), which is what `Dist.NormCosine()`/`Cosine()`/`Angle()`/`NormAngle()` expect — those distances have no `evaluate` method for `Dict`.
+`database(idx)` always holds the original objects exactly as given — no canonical encoding is imposed, so a `db` can freely mix `Set`s, sorted `Vector`s, `Dict`s, sparse vectors, or any other type your distance's `evaluate` accepts. The piece that turns a native object into an `(id, weight)` stream for building/querying posting lists is [`InvertedFiles.sparseiterator`](@ref); `SparseArrays.SparseVector` and this package's `Special.Sparse.SparseVecView` are both handled efficiently out of the box (iterating only the non-zero entries), which is what `Dist.NormCosine()`/`Cosine()`/`Angle()`/`NormAngle()` expect — those distances have no `evaluate` method for `Dict`. A plain dense `Vector` is *not* accepted by `sparseiterator` — convert it first (e.g. `SparseArrays.sparse(v)`) so the reduction to non-zero components is explicit in your own code rather than happening silently.
 
 ```julia
 sparseiterator(dist::PreMetric, obj)
