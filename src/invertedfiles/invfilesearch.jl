@@ -40,14 +40,22 @@ function search_invfile(accept_posting_list::Function, idx::AbstractInvertedFile
     Q = select_posting_lists(accept_posting_list, idx, ctx, q)
     n = length(Q)
     n == 0 && return res
-    search_invfile(idx, ctx, Q, res, t)
-
-    if !has_exact_fastpath(idx.dist)
-        rerank!(idx.dist, idx.db, q, res)
-        add_distance_evaluations!(ctx, res.ep - res.sp + 1)  # rerank! calls evaluate() directly, outside the merge's own cost counter
-    end
-
+    search_invfile(idx, ctx, q, Q, res, t)
     res
+end
+
+# ── Generic fallback (no closed-form fast path) ─────────────────────────────
+
+struct FallbackInvFileOutput{InvFileType<:InvertedFile,QType,Knn<:AbstractKnn}
+    idx::InvFileType
+    q::QType
+    res::Knn
+end
+
+function Intersections.onmatch!(output::FallbackInvFileOutput, L, P, m::Int)
+    @inbounds objID = L[1][P[1]]
+    d = Dist.evaluate(output.idx.dist, output.idx.db[objID], output.q)
+    push_item!(output.res, objID, d)
 end
 
 # ── Set/token adjacency (AdjType eltype == UInt32) ──────────────────────────
@@ -65,55 +73,28 @@ function Intersections.onmatch!(output::SetInvFileOutput, L, P, isize::Int)
 end
 
 """
-  search_invfile(idx::InvertedFile, ctx::InvertedFileContext, Q, res::AbstractKnn, t)
+  search_invfile(idx::InvertedFile, ctx::InvertedFileContext, q, Q, res::AbstractKnn, t)
 
 Find candidates for solving query `Q` using `idx`. It calls `callback` on each candidate `(objID, dist)`
 
 # Arguments
 
 - `idx`: inverted index
+- `q`: the query object, only used for distances without an exact fast path (see [`InvertedFiles.has_exact_fastpath`](@ref))
 - `Q`: the set of involved posting lists, see [`select_posting_lists`](@ref)
-- `t`: threshold (t=1 union, t > 1 solves the t-threshold problem)
+- `t`: threshold (t=1 union, t > 1 solves the t-threshold problem); for distances without an exact
+  fast path, `t` also bounds how many real `evaluate` calls happen per query — raise it to reduce cost.
 """
-function search_invfile(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, Q::Vector{PostType}, res::AbstractKnn, t) where {PostType<:PostingList}
+function search_invfile(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, q, Q::Vector{PostType}, res::AbstractKnn, t) where {PostType<:PostingList}
     n = length(Q)
     P = getpositions(n, ctx)
-    cost = xmerge!(SetInvFileOutput(idx, res, n), Q, P; t)
-    add_block_evaluations!(ctx, length(Q))
-    add_distance_evaluations!(ctx, cost)
-    res
-end
-
-# ── Weighted adjacency (AdjType eltype == IdWeight) ──────────────────────────
-
-struct WeightedInvFileOutput{InvFileType<:InvertedFile,Knn<:AbstractKnn}
-    idx::InvFileType
-    res::Knn
-end
-
-function Intersections.onmatch!(output::WeightedInvFileOutput, L, P, m::Int)
-    @inbounds w = 1.0 - L[1].weight * L[1].list[P[1]].weight
-    @inbounds objID = L[1].list[P[1]].id
-    @inbounds @simd for i in 2:m
-        w -= L[i].weight * L[i].list[P[i]].weight
+    cost = if has_exact_fastpath(idx.dist)
+        xmerge!(SetInvFileOutput(idx, res, n), Q, P; t)
+    else
+        xmerge!(FallbackInvFileOutput(idx, q, res), Q, P; t)
     end
-
-    push_item!(output.res, objID, w)
-end
-
-"""
-  search_invfile(idx::InvertedFile, ctx::InvertedFileContext, Q, res::AbstractKnn, t)
-
-Find candidates for solving query `Q` using `idx`. It calls `callback` on each candidate `(objID, dist)`
-
-# Arguments:
-- `idx`: inverted index
-- `Q`: the set of involved posting lists, see [`select_posting_lists`](@ref)
-"""
-function search_invfile(idx::InvertedFile{<:Any,<:AbstractAdjList{IdWeight}}, ctx::InvertedFileContext, Q::Vector{PostType}, res::AbstractKnn, t) where {PostType<:PostingList}
-    P = getpositions(length(Q), ctx)
-    cost = xmerge!(WeightedInvFileOutput(idx, res), Q, P; t)
     add_block_evaluations!(ctx, length(Q))
     add_distance_evaluations!(ctx, cost)
     res
 end
+

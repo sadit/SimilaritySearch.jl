@@ -1,19 +1,20 @@
 # This file is part of SimilaritySearch.jl
 
-using SimilaritySearch, SimilaritySearch.InvertedFiles, LinearAlgebra
+using SimilaritySearch, SimilaritySearch.InvertedFiles, LinearAlgebra, SparseArrays
 using SimilaritySearch: Dist, evaluate
 using Test
 using Random
 Random.seed!(0)
 
-@testset "WeightedInvertedFile" begin
-    A = MatrixDatabase(normalize!(rand(300, 1000)))
-    B = VectorDatabase([Dict(enumerate(a)) for a in A])
+@testset "InvertedFile with Dist.NormCosine()" begin
+    @test !SimilaritySearch.InvertedFiles.has_exact_fastpath(Dist.NormCosine())
 
-    # testing with Vector container (map=nothing)
+    A = MatrixDatabase(normalize!(rand(300, 1000)))
+    B = VectorDatabase([sparse(a) for a in A])
+
     ectx = GenericContext()
     ctx = InvertedFileContext()
-    I = append_items!(WeightedInvertedFile(300), ctx, B)
+    I = append_items!(InvertedFile(300, Dist.NormCosine()), ctx, B)
 
     k = 30
     for i in 1:10
@@ -26,8 +27,7 @@ Random.seed!(0)
         #end
     end
 
-    # testing with Dict container (map != nothing)
-    I = append_items!(WeightedInvertedFile(300), ctx, B)
+    I = append_items!(InvertedFile(300, Dist.NormCosine()), ctx, B)
 
     k = 30
     for i in 1:10
@@ -61,11 +61,8 @@ Random.seed!(0)
         normalize!(A_)
     end
 
-    create_sparse(A_) = Dict([i => a for (i, a) in enumerate(A_) if a > 0.0])
-
-    #B = VectorDatabase([create_sparse(A_) for A_ in A])
     B = VectorDatabase(A)
-    I = append_items!(WeightedInvertedFile(300), ctx, B)
+    I = append_items!(InvertedFile(300, Dist.NormCosine()), ctx, B)
     k = 1  # the aggresive cut of the attributes need a small k
     @test length(I) == length(B)
     for i in 1:10
@@ -80,7 +77,7 @@ Random.seed!(0)
         #end
     end
 
-    I = WeightedInvertedFile(300)
+    I = InvertedFile(300, Dist.NormCosine())
     @test length(I) == 0
     append_items!(I, ctx, B)
     @test length(I) == length(B)
@@ -98,7 +95,7 @@ Random.seed!(0)
     I_knns_ids, I_knns_dists = searchbatch(I, ctx, B, 3)
     @test 1.0 == macrorecall(ak_ids, I_knns_ids)
 
-    #=@testset "saveindex and loadindex WeightedInvertedFile" begin
+    #=@testset "saveindex and loadindex InvertedFile" begin
         tmpfile = tempname()
         @info "--- load and save!!!"
 
@@ -155,8 +152,9 @@ end
         @test err < 0.01  # acc. floating point errors
     end
 
-    @testset "generic distance, rerank fallback path" begin
-        # a distance with no closed-form set_distance_evaluate case; search must fall back to rerank!
+    @testset "generic distance, direct-evaluate fallback path" begin
+        # a distance with no closed-form set_distance_evaluate case; search must evaluate `dist`
+        # directly against `db` for every merge candidate (see `FallbackInvFileOutput`)
         struct SizeDiffDist <: Dist.SemiMetric end
         SimilaritySearch.evaluate(::SizeDiffDist, a, b)::Float32 = abs(Float32(length(a)) - Float32(length(b)))
 
@@ -166,14 +164,27 @@ end
         IF = InvertedFile(vocsize, dist)
         append_items!(IF, ctx, db)
         q = queries[1]
-        res = search(IF, ctx, q, knnqueue(KnnSorted, k); t=1)
-        @test length(res) > 0
 
-        for it in viewitems(res)
-            @test evaluate(dist, database(IF)[it.id], q) ≈ it.dist
+        costs = Int[]
+        for t in (1, 2)
+            ctx_t = getcontext(IF)
+            res = search(IF, ctx_t, q, knnqueue(KnnSorted, k); t)
+            @test length(res) > 0
+
+            for it in viewitems(res)
+                @test evaluate(dist, database(IF)[it.id], q) ≈ it.dist
+            end
+            dists = [it.dist for it in viewitems(res)]
+            @test issorted(dists)
+            # every onmatch! call pays exactly one real `evaluate()` call, so at least one per
+            # surviving item, but possibly more (candidates evaluated then evicted from `res`)
+            cost = sum(ctx_t.costdists)
+            @test cost >= length(res)
+            push!(costs, cost)
         end
-        dists = [it.dist for it in viewitems(res)]
-        @test issorted(dists)
+        # raising `t` tightens the merge-agreement requirement, so it must not increase the
+        # number of real `evaluate()` calls (it's the fallback path's cost-control knob)
+        @test costs[2] <= costs[1]
     end
 
     @testset "sparseiterator(dist, obj) is overloadable per (DistType, ObjType)" begin

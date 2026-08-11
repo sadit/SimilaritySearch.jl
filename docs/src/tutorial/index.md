@@ -41,8 +41,8 @@ Pages, in the order we recommend reading them:
    custom loggers, and how (and how not) to use them to capture a `SearchGraph`'s
    neighbor lists incrementally during construction.
 9. [Inverted files and posting list intersections](invertedfiles.md) -- the `InvertedFile`
-   index (with `WeightedInvertedFile` as its weighted-vector constructor) for sparse vector
-   and set search, and posting list intersection algorithms (`Intersections`).
+   index for sparse vector, MIPS, and set search, and posting list intersection algorithms
+   (`Intersections`).
 10. [Quantization and Bit Sketches](quantization_and_bitsketches.md) -- techniques for compressing vectors into 
    smaller memory footprints and accelerating search using `ScalarQuant` and `bitsketch` with `ExhaustiveSearch`.
 

@@ -4,26 +4,38 @@ CurrentModule = SimilaritySearch
 
 # Inverted Files and Posting List Intersections
 
-Inverted indexes store posting lists mapping component dimensions (or set elements/tokens) to document identifiers and, optionally, weights. They enable fast exact and approximate search over high-dimensional sparse data, set collections, and Maximum Inner Product Search (MIPS) workloads.
+Inverted indexes store posting lists mapping component dimensions (or set elements/tokens) to document identifiers. They enable fast exact search over high-dimensional sparse data, set collections, and Maximum Inner Product Search (MIPS) workloads.
 
 `SimilaritySearch.jl` exposes inverted indexes in the `InvertedFiles` submodule (`SimilaritySearch.InvertedFiles`) and lower-level posting list intersection algorithms in `Intersections` (`SimilaritySearch.Intersections`).
 
 ## `InvertedFiles` Overview
 
-There is a single index type, [`InvertedFiles.InvertedFile`](@ref), used through two constructors:
+There is a single index type and a single constructor: [`InvertedFiles.InvertedFile(vocsize, dist)`](@ref)
+— plain token/set-membership posting lists (`AdjType`'s element type is always `UInt32`). The
+distance `dist` alone decides how candidates get scored:
 
-1. **`InvertedFile(vocsize, dist)`** — plain token/set-membership posting lists (no weights). Use it with set distances (`Dist.Sets.Jaccard()`, `Dist.Sets.Dice()`, `Dist.Sets.Intersection()`, `Dist.Sets.CosineSet()`, `Dist.Sets.RogersTanimoto(σ)`), or with any other distance via the generic rerank fallback described below.
-2. **`InvertedFiles.WeightedInvertedFile(vocsize)`** — float-weighted posting lists, for sparse vector search, MIPS, and cosine similarity (defaults to `Dist.NormCosine()`).
+1. For a handful of distances (the five set metrics: `Dist.Sets.Jaccard()`, `Dist.Sets.Dice()`,
+   `Dist.Sets.Intersection()`, `Dist.Sets.CosineSet()`, `Dist.Sets.RogersTanimoto(σ)`), the score
+   computed while merging posting lists is already the exact distance — no extra work needed.
+2. For any other distance — including `Dist.NormCosine()`, used below for sparse-vector search,
+   MIPS, and cosine similarity — `search` evaluates `dist` directly against the objects stored in
+   `database(idx)` for every merge candidate, so results stay exact. This is what lets `InvertedFile`
+   support distances with no posting-list-friendly closed form — e.g. a sequence-edit distance over
+   shared-token candidates — with no new indexing machinery: as long as your object type has a
+   [`sparseiterator`](@ref InvertedFiles.sparseiterator) method (see the last section), you can plug
+   in `evaluate(mydist, a, b)` and get a working, exact-per-candidate search out of the box. The
+   `t`-threshold parameter of `search` (see below) doubles as this path's cost knob: raise it above
+   the default `1` to reduce how many real `evaluate` calls happen per query.
 
-Both calls build the *same* `InvertedFile` struct — the only real difference is the element type of its adjacency list (plain ids vs. id-weight pairs), which is decided by which constructor you call, not by the distance. Both support the standard `SimilaritySearch` interface (`append_items!`, `push_item!`, `search`, `searchbatch`), and both **always** keep a copy of every indexed object in `database(idx)`.
-
-For a handful of distances (the five set metrics above, plus `Dist.NormCosine`) the score computed while merging posting lists is already the exact distance — no extra work needed. For any other distance, `search` automatically falls back to [`rerank!`](@ref) against the objects stored in `database(idx)` to compute the true distance over whatever candidates the (cheap, approximate) merge already found. This is what lets `InvertedFile` support distances with no posting-list-friendly closed form — e.g. a sequence-edit distance over shared-token candidates — with no new indexing machinery: as long as your object type has a [`sparseiterator`](@ref InvertedFiles.sparseiterator) method (see the last section), you can plug in `evaluate(mydist, a, b)` and get a working, if approximately-recalled, search out of the box.
+`InvertedFile` always supports the standard `SimilaritySearch` interface (`append_items!`,
+`push_item!`, `search`, `searchbatch`), and always keeps a copy of every indexed object in
+`database(idx)`.
 
 ---
 
 ## Worked example: which recipe uses these ingredients?
 
-We'll index a handful of recipes twice — once as plain ingredient *sets* (for `InvertedFile`/AND/OR/Jaccard/RogersTanimoto), once as ingredient *quantity* vectors (for `WeightedInvertedFile`/NormCosine) — and answer the same kind of question five different ways.
+We'll index a handful of recipes twice — once as plain ingredient *sets* (AND/OR/Jaccard/RogersTanimoto), once as ingredient *quantity* vectors (`Dist.NormCosine()`) — and answer the same kind of question five different ways.
 
 ```julia
 using SimilaritySearch, SimilaritySearch.InvertedFiles
@@ -109,29 +121,31 @@ end
 # Omelette        => 0.5
 ```
 
-Same ranking order as Jaccard here, but note the *gap* between the top two changes (`0.5`/`0.75` under Jaccard vs. `0.286`/`0.4` under RogersTanimoto) — with only 12 ingredients in the universe, shared absences carry real weight. Like the four set metrics above it, this is also an exact fast path: no `rerank!` needed.
+Same ranking order as Jaccard here, but note the *gap* between the top two changes (`0.5`/`0.75` under Jaccard vs. `0.286`/`0.4` under RogersTanimoto) — with only 12 ingredients in the universe, shared absences carry real weight. Like the four set metrics above it, this is also an exact fast path: no extra evaluation against `database(idx)` needed.
 
 ### NormCosine ranking
 
-For a *quantity*-sensitive answer (not just "does it contain X"), index each recipe as an L2-normalized ingredient-quantity vector and use `WeightedInvertedFile`:
+For a *quantity*-sensitive answer (not just "does it contain X"), index each recipe as an L2-normalized ingredient-quantity vector and build an `InvertedFile` with `Dist.NormCosine()`:
 
 ```julia
-l2normalize(d::Dict) = (n = sqrt(sum(abs2, values(d))); Dict(k => Float32(v / n) for (k, v) in d))
+using SparseArrays, LinearAlgebra
+
+l2normalize(idx::Vector{<:Integer}, val::Vector{<:Real}, n) = normalize!(sparsevec(idx, Float32.(val), n))
 
 recipe_weights = Dict(
-    "Pancakes"        => l2normalize(Dict(id("flour")=>3.0, id("sugar")=>1.0, id("egg")=>2.0, id("milk")=>2.0)),
-    "Bread"           => l2normalize(Dict(id("flour")=>4.0, id("salt")=>1.0, id("yeast")=>1.0)),
-    "MargheritaPizza" => l2normalize(Dict(id("flour")=>3.0, id("tomato")=>2.0, id("cheese")=>2.0, id("basil")=>1.0)),
-    "Omelette"        => l2normalize(Dict(id("egg")=>3.0, id("butter")=>1.0, id("milk")=>1.0, id("cheese")=>2.0)),
-    "ChickenRice"     => l2normalize(Dict(id("chicken")=>2.0, id("rice")=>2.0, id("salt")=>1.0)),
-    "Cheesecake"      => l2normalize(Dict(id("sugar")=>2.0, id("egg")=>2.0, id("butter")=>1.0, id("cheese")=>3.0)),
+    "Pancakes"        => l2normalize([id("flour"),id("sugar"),id("egg"),id("milk")], [3.0,1.0,2.0,2.0], vocsize),
+    "Bread"           => l2normalize([id("flour"),id("salt"),id("yeast")], [4.0,1.0,1.0], vocsize),
+    "MargheritaPizza" => l2normalize([id("flour"),id("tomato"),id("cheese"),id("basil")], [3.0,2.0,2.0,1.0], vocsize),
+    "Omelette"        => l2normalize([id("egg"),id("butter"),id("milk"),id("cheese")], [3.0,1.0,1.0,2.0], vocsize),
+    "ChickenRice"     => l2normalize([id("chicken"),id("rice"),id("salt")], [2.0,2.0,1.0], vocsize),
+    "Cheesecake"      => l2normalize([id("sugar"),id("egg"),id("butter"),id("cheese")], [2.0,2.0,1.0,3.0], vocsize),
 )
 weights = VectorDatabase([recipe_weights[n] for n in names])
 
-W = WeightedInvertedFile(vocsize)  # Dist.NormCosine() by default
+W = InvertedFile(vocsize, Dist.NormCosine())
 append_items!(W, ctx, weights)
 
-qw = l2normalize(Dict(id("flour")=>1.0, id("egg")=>1.0, id("cheese")=>1.0))
+qw = l2normalize([id("flour"),id("egg"),id("cheese")], [1.0,1.0,1.0], vocsize)
 res = knnqueue(ctx, 6)
 search(W, ctx, qw, res)
 for it in viewitems(res)
@@ -146,21 +160,24 @@ end
 
 `MargheritaPizza` was the clear AND/Jaccard/RogersTanimoto winner, but under NormCosine `Omelette` (which weights egg and cheese heavily, matching the query's emphasis on egg/cheese/flour in *proportion*, not just presence) comes out ahead — same question, a genuinely different notion of "closest" depending on whether presence or proportion is what matters, echoing the same point [A gallery of distances](distances.md) makes about `Jaccard` vs. `Levenshtein`.
 
-### Why two index instances?
+### Why three index instances?
 
-`IJ`/`IR` (built via `InvertedFile`) and `W` (built via `WeightedInvertedFile`) are all `InvertedFile` — but they're still separate objects, because the *adjacency element type* (plain ids vs. id-weight pairs), not the distance, decides which constructor to use: a plain membership index has nothing to weight posting lists by, and a weighted index needs those weights for every object. Pick the constructor that matches your data (sets/tokens vs. weighted/sparse vectors); the distance is a separate, later choice.
+`IJ`, `IR`, and `W` are all `InvertedFile` — built with the same constructor, differing only in the
+`dist` passed at construction time. An index is tied to one distance for its lifetime, so answering
+the same question under a different notion of "closest" means building a separate instance, not
+reconfiguring an existing one.
 
 ---
 
 ## Extending `InvertedFile` to new object types and distances
 
-`database(idx)` always holds the original objects exactly as given — no canonical encoding is imposed, so a `db` can freely mix `Set`s, sorted `Vector`s, `Dict`s, dense or sparse vectors, or any other type your distance's `evaluate` accepts. The piece that turns a native object into an `(id, weight)` stream for building/querying posting lists is [`InvertedFiles.sparseiterator`](@ref):
+`database(idx)` always holds the original objects exactly as given — no canonical encoding is imposed, so a `db` can freely mix `Set`s, sorted `Vector`s, `Dict`s, dense or sparse vectors, or any other type your distance's `evaluate` accepts. The piece that turns a native object into an `(id, weight)` stream for building/querying posting lists is [`InvertedFiles.sparseiterator`](@ref); `SparseArrays.SparseVector` and this package's `Special.Sparse.SparseVecView` are both handled efficiently out of the box (iterating only the non-zero entries), which is what `Dist.NormCosine()`/`Cosine()`/`Angle()`/`NormAngle()` expect — those distances have no `evaluate` method for `Dict`.
 
 ```julia
 sparseiterator(dist::PreMetric, obj)
 ```
 
-which defaults to the distance-agnostic `sparseiterator(obj)` dispatch already used above (covering `Set`, sorted integer vectors, `Dict`s, dense/sparse vectors). Overload it for a specific `(DistType, ObjType)` pair when the same native object type needs to be tokenized or weighted differently depending on which distance the index is built for — for instance, a sequence distance (e.g. `Dist.Seqs.Levenshtein`) could plug in this way, generating candidates from shared tokens/shingles and letting the generic `rerank!` fallback compute the true edit distance over the stored raw sequences. This package does not ship string/q-gram tokenization support out of the box — that's tracked as a follow-up in [`TextSearch.jl`](https://github.com/sadit/TextSearch.jl), which builds on `InvertedFile` for exactly that use case.
+which defaults to the distance-agnostic `sparseiterator(obj)` dispatch already used above (covering `Set`, sorted integer vectors, `Dict`s, dense/sparse vectors). Overload it for a specific `(DistType, ObjType)` pair when the same native object type needs to be tokenized or weighted differently depending on which distance the index is built for — for instance, a sequence distance (e.g. `Dist.Seqs.Levenshtein`) could plug in this way, generating candidates from shared tokens/shingles and letting the generic direct-evaluate fallback compute the true edit distance over the stored raw sequences. This package does not ship string/q-gram tokenization support out of the box — that's tracked as a follow-up in [`TextSearch.jl`](https://github.com/sadit/TextSearch.jl), which builds on `InvertedFile` for exactly that use case.
 
 ---
 

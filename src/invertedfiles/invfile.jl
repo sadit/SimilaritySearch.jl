@@ -1,13 +1,12 @@
 # This file is part of InvertedFiles.jl
 
 using LinearAlgebra, SparseArrays
-export AbstractInvertedFile, InvertedFile, WeightedInvertedFile
+export AbstractInvertedFile, InvertedFile
 
 """
     abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
-Abstract inverted file; the concrete data structure is [`InvertedFile`](@ref) (with the
-[`WeightedInvertedFile`](@ref) constructor as a convenience for the weighted/float-adjacency case).
+Abstract inverted file; the concrete data structure is [`InvertedFile`](@ref).
 """
 abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
@@ -22,23 +21,24 @@ Base.length(idx::AbstractInvertedFile) = length(idx.sizes)
     struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:AbstractDatabase} <: AbstractInvertedFile
 
 A general-purpose inverted index: a sparse matrix-like representation mapping component
-dimensions (or set elements/tokens) to identifiers, optionally paired with a weight
-(`AdjType`'s element type is `UInt32` for plain token/set membership, or `IdWeight` for
-float-weighted posting lists). It always keeps the original indexed object in `db`.
+dimensions (or set elements/tokens) to identifiers (`AdjType`'s element type is `UInt32`, plain
+token/set membership; other concrete adjacency element types, e.g. a compressed encoding, can be
+added by extending [`getcontainer`](@ref), `internal_push!`, and [`sort_postinglist!`](@ref)). It
+always keeps the original indexed object in `db`.
 
 # Fields
 
 - `dist`: distance function used at search time (e.g. `Dist.Sets.Jaccard()`, `Dist.NormCosine()`).
-- `adj`: posting lists (non-zero id-elements, optionally paired with weights, in rows).
+- `adj`: posting lists (non-zero id-elements, in rows).
 - `sizes`: number of non-zero values in each element (non-zero values in columns).
 - `db`: the original indexed objects, one per identifier; always populated by `push_item!`/`append_items!`.
 
-For a handful of distances (the set metrics in `Dist.Sets` plus `Dist.NormCosine`, see
+For a handful of distances (the set metrics in `Dist.Sets`, see
 [`InvertedFiles.has_exact_fastpath`](@ref)) the score computed while merging posting lists is already
-exact. For any other distance, `search` falls back to [`rerank!`](@ref) against the objects stored in
-`db` to compute the true distance — candidates are limited to whatever the (cheap, approximate) merge
-score already placed in the result set, so recall for such distances is not guaranteed to recover the
-literal top-k; increase `k` if you need better coverage.
+exact, at O(1) cost. For any other distance (including `Dist.NormCosine`), every merge candidate is
+instead scored by evaluating `dist` directly against the objects stored in `db`, so results for that
+path are exact too — the number of such evaluations (hence cost) is controlled by the `t`-threshold
+parameter of `search`; raise `t` above the default `1` to bound the number of real evaluations per query.
 """
 struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:AbstractDatabase} <: AbstractInvertedFile
     dist::DistType
@@ -64,8 +64,9 @@ database(idx::InvertedFile) = idx.db
 
 Creates an empty `InvertedFile` with plain token/set-membership posting lists (`AdjType`'s element type is
 `UInt32`), for the given vocabulary size and distance function `dist` (typically one of the set metrics in
-`Dist.Sets`, e.g. `Jaccard`, `Dice`, `Intersection`, `CosineSet`, `RogersTanimoto`, or any other `PreMetric`
-via the generic rerank fallback).
+`Dist.Sets`, e.g. `Jaccard`, `Dice`, `Intersection`, `CosineSet`, `RogersTanimoto`; or any other `PreMetric`
+— e.g. `Dist.NormCosine()` for sparse-vector/MIPS-style cosine search — via the generic direct-evaluate
+fallback).
 
 # Arguments
 - `vocsize`: the vocabulary size of the index
@@ -80,27 +81,6 @@ function InvertedFile(vocsize::Integer, dist::PreMetric=Dist.Sets.Jaccard(); db:
     InvertedFile(dist, resize!(AdjList(UInt32), vocsize), UInt32[], db)
 end
 
-"""
-    WeightedInvertedFile(vocsize::Integer, dist::PreMetric=Dist.NormCosine(); db::AbstractDatabase=VectorDatabase(Any[]))
-
-Convenience constructor for an [`InvertedFile`](@ref) with float-weighted posting lists (`AdjType`'s element
-type is `IdWeight`), for the given vocabulary size and distance function `dist`. This index is optimized to
-efficiently solve `k` nearest neighbors under `Dist.NormCosine()` (cosine distance, using previously
-normalized vectors), and, via the generic rerank fallback, supports any other `PreMetric` over the stored
-weighted vectors.
-
-# Arguments
-- `vocsize`: the vocabulary size of the index
-- `dist`: the distance function to be used in searches
-
-# Keyword arguments
-- `db`: see [`InvertedFile`](@ref).
-"""
-function WeightedInvertedFile(vocsize::Integer, dist::PreMetric=Dist.NormCosine(); db::AbstractDatabase=VectorDatabase(Any[]))
-    vocsize > 0 || throw(ArgumentError("voc must not be empty"))
-    InvertedFile(dist, resize!(AdjList(IdWeight), vocsize), UInt32[], db)
-end
-
 function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     Q = getcontainer(idx.adj, ctx)
     empty!(Q)
@@ -108,8 +88,6 @@ function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
 end
 
 getcontainer(adj::AdjList{UInt32}, ctx) = ctx.cont_u32[ctx.batchid]
-getcontainer(adj::AdjList{IdWeight}, ctx) = ctx.cont_iw[ctx.batchid]
-getcontainer(adj::AdjList{IdIntWeight}, ctx) = ctx.cont_iiw[ctx.batchid]
 
 function getcontainer(adj::StaticAdjList, ctx)
     Q = [PostingList(neighbors(adj, 1), zero(UInt32), 0.0f0)]
@@ -157,6 +135,8 @@ sparseiterator(db::AbstractDatabase, i) = sparseiterator(db[i])
 `(id, weight)` iterator for `obj` for generic databases.
 """
 sparseiterator(obj::AbstractVector{<:AbstractFloat}) = enumerate(obj)
+sparseiterator(obj::SparseVector) = zip(obj.nzind, obj.nzval)
+sparseiterator(obj::SparseVecView) = zip(obj.nzind, obj.nzval)
 sparseiterator(obj::Set) = (convertpair(u) for u in obj)
 sparseiterator(obj::SortedIntSet) = (convertpair(u) for u in obj)
 sparseiterator(obj) = (convertpair(u) for u in obj)
@@ -180,8 +160,6 @@ convertpair(u::Integer) = (u, 1)
 convertpair(u::Tuple) = u # assert length(u) = 2
 convertpair(u::Vector) = u # assert length(u) = 2
 convertpair(u::Pair) = u
-convertpair(u::IdWeight) = (u.id, u.weight)
-convertpair(u::IdIntWeight) = (u.id, u.weight)
 
 """
     append_items!(idx, ctx, items; tol=1e-6)
@@ -245,18 +223,14 @@ end
 internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, tokenID, objID, _) =
     add!(idx.adj, tokenID, (objID,))
 
-internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{IdWeight}}, ctx::InvertedFileContext, tokenID, objID, weight) =
-    add!(idx.adj, tokenID, (IdWeight(objID, weight),))
-
 """
     sort_postinglist!(adj::AbstractAdjList, N)
 
 Sorts a single posting list `N` (as returned by `neighbors(adj, tokenID)`) back into the order the
-merge/search algorithms rely on: ascending by id for plain token adjacency (`UInt32`), ascending by
-the `.id` field for weighted adjacency (`IdWeight`/`IdIntWeight`).
+merge/search algorithms rely on: ascending by id, for plain token adjacency (`UInt32`). Override for
+a different concrete adjacency element type (e.g. a compressed encoding).
 """
 sort_postinglist!(::AbstractAdjList{UInt32}, N) = sort!(N)
-sort_postinglist!(::AbstractAdjList{<:Union{IdWeight,IdIntWeight}}, N) = sort!(N, by=p -> p.id)
 
 function parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, startID::Int, n::Int, tol::Float64)
     internal_parallel_prepare_append!(idx, startID + n)

@@ -355,13 +355,10 @@ Inverted file index data structures and context for sparse vectors, MIPS, and se
 ```@docs
 InvertedFiles.AbstractInvertedFile
 InvertedFiles.InvertedFile
-InvertedFiles.WeightedInvertedFile
 InvertedFiles.InvertedFileContext
 InvertedFiles.getcontext
 InvertedFiles.search_invfile
 InvertedFiles.select_posting_lists
-InvertedFiles.IdWeight
-InvertedFiles.IdIntWeight
 InvertedFiles.SortedIntSet
 ```
 

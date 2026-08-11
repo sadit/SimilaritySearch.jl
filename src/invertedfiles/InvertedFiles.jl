@@ -7,16 +7,16 @@ import ..SimilaritySearch:
     add_block_evaluations!, add_distance_evaluations!
 using ..SimilaritySearch
 using ..SimilaritySearch: Dist, AbstractContext, getminbatch, @BATCHES, AbstractLog, InformativeLog, AbstractDatabase, KnnSorted, IdDist, AbstractSearchIndex, KnnHeap, Accessors
+using ..Special.Sparse: SparseVecView
 using Distances: PreMetric
 
 using Base.Threads: SpinLock
 
 export InvertedFileContext, getcontext
-include("idweight.jl")
 include("sortedintset.jl")
 include("plists.jl")
 
-struct InvertedFileContext{A,B,C,D} <: AbstractContext
+struct InvertedFileContext{A,B} <: AbstractContext
     logger::AbstractLog
     parallel_block::Int
     maxbatches::Int
@@ -26,9 +26,6 @@ struct InvertedFileContext{A,B,C,D} <: AbstractContext
     costblocks::Vector{Int}
     positions::A
     cont_u32::B
-    cont_iw::C
-    cont_iiw::D
-    knns::Matrix{IdWeight}
 end
 
 function InvertedFileContext(;
@@ -41,16 +38,13 @@ function InvertedFileContext(;
         costblocks::Vector{Int} = zeros(Int, maxbatches),
         positions = [Vector{UInt32}(undef, 32) for _ in 1:maxbatches],
         cont_u32 = [Vector{PostingList{Vector{UInt32}}}(undef, 32) for _ in 1:maxbatches],
-        cont_iw = [Vector{PostingList{Vector{IdWeight}}}(undef, 32) for _ in 1:maxbatches],
-        cont_iiw = [Vector{PostingList{Vector{IdIntWeight}}}(undef, 32) for _ in 1:maxbatches],
-        knns = zeros(IdWeight, 64, maxbatches)
     )
 
     InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
-                         costdists, costblocks, positions, cont_u32, cont_iw, cont_iiw, knns)
+                         costdists, costblocks, positions, cont_u32)
 end
 
-Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B,C,D}}) where {A,B,C,D} = (args...) -> InvertedFileContext{A,B,C,D}(args...)
+Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B}}) where {A,B} = (args...) -> InvertedFileContext{A,B}(args...)
 
 knnqueue(::InvertedFileContext, args...) = knnqueue(KnnSorted, args...)
 
