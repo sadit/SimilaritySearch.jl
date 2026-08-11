@@ -1,12 +1,13 @@
 # This file is part of InvertedFiles.jl
 
 using LinearAlgebra, SparseArrays
-export AbstractInvertedFile
+export AbstractInvertedFile, InvertedFile, WeightedInvertedFile
 
 """
     abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
-Abstract inverted file, actual data structures are [`WeightedInvertedFile`](@ref) and [`BinaryInvertedFile`](@ref)
+Abstract inverted file; the concrete data structure is [`InvertedFile`](@ref) (with the
+[`WeightedInvertedFile`](@ref) constructor as a convenience for the weighted/float-adjacency case).
 """
 abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
@@ -16,8 +17,89 @@ abstract type AbstractInvertedFile <: AbstractSearchIndex end
 Number of indexed elements
 """
 Base.length(idx::AbstractInvertedFile) = length(idx.sizes)
-Base.show(io::IO, idx::AbstractInvertedFile) = print(io, "{$(typeof(idx)) vocsize=$(length(idx.adj)), n=$(length(idx))}")
-database(idx::AbstractInvertedFile) = nothing
+
+"""
+    struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:AbstractDatabase} <: AbstractInvertedFile
+
+A general-purpose inverted index: a sparse matrix-like representation mapping component
+dimensions (or set elements/tokens) to identifiers, optionally paired with a weight
+(`AdjType`'s element type is `UInt32` for plain token/set membership, or `IdWeight` for
+float-weighted posting lists). It always keeps the original indexed object in `db`.
+
+# Fields
+
+- `dist`: distance function used at search time (e.g. `Dist.Sets.Jaccard()`, `Dist.NormCosine()`).
+- `adj`: posting lists (non-zero id-elements, optionally paired with weights, in rows).
+- `sizes`: number of non-zero values in each element (non-zero values in columns).
+- `db`: the original indexed objects, one per identifier; always populated by `push_item!`/`append_items!`.
+
+For a handful of distances (the set metrics in `Dist.Sets` plus `Dist.NormCosine`, see
+[`InvertedFiles.has_exact_fastpath`](@ref)) the score computed while merging posting lists is already
+exact. For any other distance, `search` falls back to [`rerank!`](@ref) against the objects stored in
+`db` to compute the true distance — candidates are limited to whatever the (cheap, approximate) merge
+score already placed in the result set, so recall for such distances is not guaranteed to recover the
+literal top-k; increase `k` if you need better coverage.
+"""
+struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:AbstractDatabase} <: AbstractInvertedFile
+    dist::DistType
+    adj::AdjType
+    sizes::Vector{UInt32}
+    db::DbType
+end
+
+function Base.show(io::IO, invfile::InvertedFile; prefix="", indent="\t")
+    println(io, prefix, "InvertedFile:")
+    prefix = indent * prefix
+    println(io, prefix, "dist: ", invfile.dist)
+    println(io, prefix, "length: ", length(invfile))
+    println(io, prefix, "adj: ", typeof(invfile.adj))
+    println(io, prefix, "db: ", typeof(invfile.db))
+end
+
+distance(idx::InvertedFile) = idx.dist
+database(idx::InvertedFile) = idx.db
+
+"""
+    InvertedFile(vocsize::Integer, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]))
+
+Creates an empty `InvertedFile` with plain token/set-membership posting lists (`AdjType`'s element type is
+`UInt32`), for the given vocabulary size and distance function `dist` (typically one of the set metrics in
+`Dist.Sets`, e.g. `Jaccard`, `Dice`, `Intersection`, `CosineSet`, `RogersTanimoto`, or any other `PreMetric`
+via the generic rerank fallback).
+
+# Arguments
+- `vocsize`: the vocabulary size of the index
+- `dist`: the distance function to be used in searches
+
+# Keyword arguments
+- `db`: the database that will receive a copy of every indexed object (must support `push_item!`/`append_items!`
+  for incremental construction, e.g. a `VectorDatabase`); defaults to an empty, untyped `VectorDatabase`.
+"""
+function InvertedFile(vocsize::Integer, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]))
+    vocsize > 0 || throw(ArgumentError("voc must not be empty"))
+    InvertedFile(dist, resize!(AdjList(UInt32), vocsize), UInt32[], db)
+end
+
+"""
+    WeightedInvertedFile(vocsize::Integer, dist::PreMetric=Dist.NormCosine(); db::AbstractDatabase=VectorDatabase(Any[]))
+
+Convenience constructor for an [`InvertedFile`](@ref) with float-weighted posting lists (`AdjType`'s element
+type is `IdWeight`), for the given vocabulary size and distance function `dist`. This index is optimized to
+efficiently solve `k` nearest neighbors under `Dist.NormCosine()` (cosine distance, using previously
+normalized vectors), and, via the generic rerank fallback, supports any other `PreMetric` over the stored
+weighted vectors.
+
+# Arguments
+- `vocsize`: the vocabulary size of the index
+- `dist`: the distance function to be used in searches
+
+# Keyword arguments
+- `db`: see [`InvertedFile`](@ref).
+"""
+function WeightedInvertedFile(vocsize::Integer, dist::PreMetric=Dist.NormCosine(); db::AbstractDatabase=VectorDatabase(Any[]))
+    vocsize > 0 || throw(ArgumentError("voc must not be empty"))
+    InvertedFile(dist, resize!(AdjList(IdWeight), vocsize), UInt32[], db)
+end
 
 function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     Q = getcontainer(idx.adj, ctx)
@@ -80,6 +162,16 @@ sparseiterator(obj::SortedIntSet) = (convertpair(u) for u in obj)
 sparseiterator(obj) = (convertpair(u) for u in obj)
 
 """
+    sparseiterator(dist::PreMetric, obj)
+
+Distance-aware `(id, weight)` iterator for `obj`. Defaults to the distance-agnostic
+[`sparseiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
+pair when the same native object type must be tokenized/weighted differently depending on which distance
+the enclosing index is built for (e.g. a different candidate-generation encoding for a sequence distance).
+"""
+sparseiterator(::PreMetric, obj) = sparseiterator(obj)
+
+"""
     convertpair(u)
 
 Converts an element of an `sparseiterator` into an usable pair.
@@ -91,14 +183,6 @@ convertpair(u::Pair) = u
 convertpair(u::IdWeight) = (u.id, u.weight)
 convertpair(u::IdIntWeight) = (u.id, u.weight)
 
-#=function SimilaritySearch.index!(idx::AbstractInvertedFile, ctx::InvertedFileContext; tol=1e-6)
-    startID = length(idx)
-    db = database(idx)
-    n = length(db) - startID
-    n == 0 && return idx
-    parallel_append!(idx, ctx, db, startID, n, tol, true)
-end=#
-
 """
     append_items!(idx, ctx, items; tol=1e-6)
 
@@ -106,7 +190,7 @@ Appends all `items` elements into the index `idx`. It work in parallel using all
 
 # Arguments:
 - `idx`: The inverted index
-- `items`: The database of sparse objects, it can be only indices if each object is a list of integers or a set of integers (useful for `BinaryInvertedFile`),
+- `items`: The database of sparse objects, it can be only indices if each object is a list of integers or a set of integers,
     sparse matrices, dense matrices, among other combinations.
 - `n`: The number of items to insert (defaults to all)
 
@@ -135,20 +219,20 @@ Inserts a single element into the index. This operation is not thread-safe.
 """
 function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, objID=length(idx) + 1; tol=1e-6)
     nz = internal_push_object!(idx, ctx, objID, obj, tol)
-    for (tokenID, _) in sparseiterator(obj)
+    for (tokenID, _) in sparseiterator(idx.dist, obj)
         N = neighbors(idx.adj, tokenID)
         N === nothing && continue
-        sort!(N)
+        sort_postinglist!(idx.adj, N)
     end
     push!(idx.sizes, nz)
-    !isnothing(idx.db) && push_item!(idx.db, obj)
+    push_item!(idx.db, obj)
     LOG(ctx.logger, :push_item!, idx, ctx, objID, objID)
     idx
 end
 
 function internal_push_object!(idx::AbstractInvertedFile, ctx::InvertedFileContext, objID::Integer, obj, tol::Float64)
     nz = 0
-    @inbounds for (tokenID, weight) in sparseiterator(obj)
+    @inbounds for (tokenID, weight) in sparseiterator(idx.dist, obj)
         weight < tol && continue
         tokenID == 0 && continue  # object 0 is a centinel
         nz += 1
@@ -158,29 +242,37 @@ function internal_push_object!(idx::AbstractInvertedFile, ctx::InvertedFileConte
     nz
 end
 
-function parallel_append!(idx, ctx::InvertedFileContext, db::AbstractDatabase, startID::Int, n::Int, tol::Float64)
+internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, tokenID, objID, _) =
+    add!(idx.adj, tokenID, (objID,))
+
+internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{IdWeight}}, ctx::InvertedFileContext, tokenID, objID, weight) =
+    add!(idx.adj, tokenID, (IdWeight(objID, weight),))
+
+"""
+    sort_postinglist!(adj::AbstractAdjList, N)
+
+Sorts a single posting list `N` (as returned by `neighbors(adj, tokenID)`) back into the order the
+merge/search algorithms rely on: ascending by id for plain token adjacency (`UInt32`), ascending by
+the `.id` field for weighted adjacency (`IdWeight`/`IdIntWeight`).
+"""
+sort_postinglist!(::AbstractAdjList{UInt32}, N) = sort!(N)
+sort_postinglist!(::AbstractAdjList{<:Union{IdWeight,IdIntWeight}}, N) = sort!(N, by=p -> p.id)
+
+function parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, startID::Int, n::Int, tol::Float64)
     internal_parallel_prepare_append!(idx, startID + n)
     minbatch = getminbatch(n)
 
     @BATCHES minbatch scheduler=ctx.scheduler for i in 1:n
         objID = i + startID
-        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, db[i], tol)
+        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, items[i], tol)
     end
 
-    if idx isa BinaryInvertedFile
-        @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
-            N = neighbors(idx.adj, i)
-            N === nothing && continue
-            sort!(N)
-        end
-    elseif idx isa WeightedInvertedFile
-        @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
-            N = neighbors(idx.adj, i)
-            N === nothing && continue
-            sort!(N, by=p -> p.id)
-        end
-    else
-        throw(ArgumentError("Unknown invertedfile type $(typeof(idx))"))
+    append_items!(idx.db, n == length(items) ? items : view(items, 1:n))
+
+    @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
+        N = neighbors(idx.adj, i)
+        N === nothing && continue
+        sort_postinglist!(idx.adj, N)
     end
 
     idx

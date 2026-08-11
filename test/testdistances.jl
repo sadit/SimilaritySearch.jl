@@ -163,9 +163,9 @@ using SimilaritySearch, Test, LinearAlgebra
         # CosineSet(set1,set2): 1 - 2/(√4*√4) = 1 - 2/4 = 0.5
         @test Dist.evaluate(Dist.Sets.CosineSet(), set1, set2) == 0.5f0
         # RogersTanimoto(10) set1=[1,2,3,4] x set2=[3,4,5,6]:
-        # The merge loop exits as soon as set1 is exhausted → tail [5,6] of set2 never counted as ft.
-        # Actual: tt=2, tf=2, ft=0, ff=σ-tt-tf-ft=10-2-2-0=6 → 1-(2+6)/(2+6+2*(2+0))=1-8/12=1/3
-        @test isapprox(Dist.evaluate(Dist.Sets.RogersTanimoto(10), set1, set2), 1.0f0/3.0f0; atol=1e-6)
+        # tt=|{3,4}|=2, tf=|set1\set2|=|{1,2}|=2, ft=|set2\set1|=|{5,6}|=2, ff=σ-tt-tf-ft=10-2-2-2=4
+        # → 1-(tt+ff)/(tt+ff+2*(tf+ft)) = 1-(2+4)/(2+4+2*4) = 1-6/14 = 4/7
+        @test isapprox(Dist.evaluate(Dist.Sets.RogersTanimoto(10), set1, set2), 4.0f0/7.0f0; atol=1e-6)
 
         # Second pair: set3=[1,3,5] set4=[1,2,3]: inter={1,3}=2, union={1,2,3,5}=4
         set3 = [1, 3, 5]

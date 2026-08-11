@@ -7,6 +7,7 @@ import ..SimilaritySearch:
     add_block_evaluations!, add_distance_evaluations!
 using ..SimilaritySearch
 using ..SimilaritySearch: Dist, AbstractContext, getminbatch, @BATCHES, AbstractLog, InformativeLog, AbstractDatabase, KnnSorted, IdDist, AbstractSearchIndex, KnnHeap, Accessors
+using Distances: PreMetric
 
 using Base.Threads: SpinLock
 
@@ -54,11 +55,8 @@ Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B,C,D}})
 knnqueue(::InvertedFileContext, args...) = knnqueue(KnnSorted, args...)
 
 include("invfile.jl")
-include("winvfile.jl")
-include("binvfile.jl")
+include("fastpath.jl")
 include("invfilesearch.jl")
-include("winvfilesearch.jl")
-include("binvfilesearch.jl")
 
 getcontext(invfile::AbstractInvertedFile; kwargs...) = InvertedFileContext(; kwargs...)
 getcontext(; kwargs...) = InvertedFileContext(; kwargs...)

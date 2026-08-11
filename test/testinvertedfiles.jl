@@ -112,7 +112,7 @@ Random.seed!(0)
     end=#
 end
 
-@testset "BinaryInvertedFile" begin
+@testset "InvertedFile" begin
     vocsize = 128
     n = 2_000
     m = 30
@@ -123,13 +123,17 @@ end
     ectx = GenericContext()
     ctx = InvertedFileContext()
 
-    #for dist in [JaccardDistance(), DiceDistance(), CosineDistanceSet(), IntersectionDissimilarity()]
-    for dist in [Dist.Sets.Jaccard()]
+    # exact fast-path set metrics: score is computed purely from intersection size + set sizes,
+    # so recall/error should match ExhaustiveSearch tightly (no rerank! needed for these).
+    for dist in [Dist.Sets.Jaccard(), Dist.Sets.RogersTanimoto(vocsize)]
+        @test SimilaritySearch.InvertedFiles.has_exact_fastpath(dist)
+
         S = ExhaustiveSearch(dist, db)
         gold_ids, gold_dists = searchbatch(S, ectx, queries, k)
 
-        IF = BinaryInvertedFile(vocsize, dist)
+        IF = InvertedFile(vocsize, dist)
         append_items!(IF, ctx, db)
+        @test length(database(IF)) == length(db)
         knns_ids, knns_dists = searchbatch(IF, ctx, queries, k)
         ctx = getcontext(IF)
         @time search(IF, ctx, queries[1], knnqueue(KnnSorted, k))
@@ -149,20 +153,38 @@ end
         end
         @show dist, err
         @test err < 0.01  # acc. floating point errors
+    end
 
-        #=@testset "saveindex and loadindex BinaryInvertedFile" begin
-            tmpfile = tempname()
-            @info "--- load and save!!!"
-            saveindex(tmpfile, IF; meta=[1, 2, 4, 8], store_db=false)
-            let
-                G, meta = loadindex(tmpfile, database(IF); staticgraph=true)
-                @test meta == [1, 2, 4, 8]
-                @test G.adj isa StaticAdjacencyList
-                knns = searchbatch(G, ctx, queries, k)
-                recall = macrorecall(gold, knns)
-                @test recall > 0.95
-            end
-        end=#
+    @testset "generic distance, rerank fallback path" begin
+        # a distance with no closed-form set_distance_evaluate case; search must fall back to rerank!
+        struct SizeDiffDist <: Dist.SemiMetric end
+        SimilaritySearch.evaluate(::SizeDiffDist, a, b)::Float32 = abs(Float32(length(a)) - Float32(length(b)))
 
+        dist = SizeDiffDist()
+        @test !SimilaritySearch.InvertedFiles.has_exact_fastpath(dist)
+
+        IF = InvertedFile(vocsize, dist)
+        append_items!(IF, ctx, db)
+        q = queries[1]
+        res = search(IF, ctx, q, knnqueue(KnnSorted, k); t=1)
+        @test length(res) > 0
+
+        for it in viewitems(res)
+            @test evaluate(dist, database(IF)[it.id], q) ≈ it.dist
+        end
+        dists = [it.dist for it in viewitems(res)]
+        @test issorted(dists)
+    end
+
+    @testset "sparseiterator(dist, obj) is overloadable per (DistType, ObjType)" begin
+        struct TaggedWeightDist <: Dist.SemiMetric end
+        SimilaritySearch.InvertedFiles.sparseiterator(::TaggedWeightDist, obj::AbstractVector{<:Integer}) =
+            ((u, 7) for u in obj)
+
+        default_iter = collect(SimilaritySearch.InvertedFiles.sparseiterator(db[1]))
+        tagged_iter = collect(SimilaritySearch.InvertedFiles.sparseiterator(TaggedWeightDist(), db[1]))
+        @test all(w == 7 for (_, w) in tagged_iter)
+        @test any(w != 7 for (_, w) in default_iter)
+        @test [id for (id, _) in default_iter] == [id for (id, _) in tagged_iter]
     end
 end

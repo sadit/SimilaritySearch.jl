@@ -158,6 +158,10 @@ function evaluate(rt::RogersTanimoto, a, b)::Float32
         end
     end
 
+    # elements past whichever pointer stopped first are necessarily "only in a" / "only in b"
+    _tf += len_a - ia + 1
+    _ft += len_b - ib + 1
+
     _ff = rt.σ - _tt - _tf - _ft
 
     1f0 - Float32(_tt + _ff) / Float32(_tt + _ff + 2 * (_tf + _ft))
