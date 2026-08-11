@@ -84,7 +84,7 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
                     queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
     m = length(queries)
     minbatch = getminbatch(ctx, m)
-    @BATCHES minbatch begin
+    @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = @set ctx.batchid = @batchid()
     @LOOP for i in 1:m

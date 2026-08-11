@@ -75,7 +75,7 @@ function allknn!(g::AbstractSearchIndex, ctx::AbstractContext,
     @assert 0 < k <= n
     minbatch = getminbatch(ctx, n)
     let progress = progress
-        @BATCHES minbatch begin
+        @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
             bctx = @set ctx.batchid = @batchid()
         @LOOP for j in 1:n

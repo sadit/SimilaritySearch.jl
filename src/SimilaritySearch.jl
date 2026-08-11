@@ -147,7 +147,8 @@ Gets the distance function used in the index
 """
     GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
         verbose::Bool=true, logger=InformativeLog(),
-        maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1) -> GenericContext
+        maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
+        scheduler::Symbol=get_batch_scheduler()) -> GenericContext
 
 Lightweight [`AbstractContext`](@ref) implementation used by exact indexes
 ([`ExhaustiveSearch`](@ref), [`ParallelExhaustiveSearch`](@ref)) that need no per-thread
@@ -164,6 +165,12 @@ scratch caches.
 - `batchid`: the batch slot this context is tagged with; not meaningful on the root
   context returned here (always `1`) -- per-batch copies tagging the running `@batchid()`
   are minted internally via `Accessors.@set`, one per batch, not per call.
+- `scheduler`: the [`@BATCHES`](@ref) scheduler used by every `@BATCHES` call driven by this
+  context (passed through as `scheduler=ctx.scheduler`). Defaults to whatever
+  [`get_batch_scheduler`](@ref) currently returns, captured once at construction time (later
+  calls to [`set_batch_scheduler!`](@ref) do not retroactively change an already-built
+  context). Pass `scheduler=:sequential` to force every `@BATCHES` call driven by this
+  context to run unthreaded, regardless of `Threads.nthreads()`.
 - `costdists`/`costblocks`: per-batch distance/block-evaluation counters (size `maxbatches`,
   indexed by `batchid`), accumulated via `add_distance_evaluations!`/`add_block_evaluations!`
   and read via [`distance_evaluations`](@ref)/[`distance_stats`](@ref) and their block
@@ -174,14 +181,15 @@ struct GenericContext{KnnType} <: AbstractContext
     logger
     maxbatches::Int32
     batchid::Int32
+    scheduler::Symbol
     costdists::Vector{Int}
     costblocks::Vector{Int}
 end
 
 GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
-    maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
+    maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1, scheduler::Symbol=get_batch_scheduler(),
     costdists=zeros(Int, maxbatches), costblocks=zeros(Int, maxbatches)) =
-    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), costdists, costblocks)
+    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
 
 # GenericContext has a phantom type parameter (KnnType, not derivable from any field), so
 # ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it -- this
@@ -310,7 +318,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == size(ids, 2) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx, m)
-    @BATCHES minbatch begin
+    @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = @set ctx.batchid = @batchid()
     @LOOP for j in 1:m
@@ -328,7 +336,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))
     minbatch = getminbatch(ctx, m)
-    @BATCHES minbatch begin
+    @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = @set ctx.batchid = @batchid()
     @LOOP for i in 1:m

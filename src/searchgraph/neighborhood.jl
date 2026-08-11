@@ -63,13 +63,16 @@ function connect_reverse_links!(mustconnect::Function, adj::AbstractAdjList, nod
 end
 
 """
-    connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
+    connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer; scheduler::Symbol=get_batch_scheduler())
 
-Internal function to connect reverse links after an insertion batch
+Internal function to connect reverse links after an insertion batch. `scheduler` is the
+[`@BATCHES`](@ref) scheduler used for the batch (pass `ctx.scheduler` when called from a
+context-bearing caller, since this function has no context of its own); defaults to
+[`get_batch_scheduler`](@ref).
 """
-function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer)
+function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer; scheduler::Symbol=get_batch_scheduler())
     # The double step algorithm is to avoid weird race conditions
-    @BATCHES getminbatch(ep - sp + 1) for nodeID in sp:ep  # connect all elements smaller than sp:ep
+    @BATCHES getminbatch(ep - sp + 1) scheduler=scheduler for nodeID in sp:ep  # connect all elements smaller than sp:ep
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID < sp
         end
@@ -164,7 +167,7 @@ struct KCentersNeighborhood <: NeighborhoodFilter end
     S = SubDatabase(database(G), IdView(res))
     k = ceil(Int, log2(length(res)))
     k = min(16, k)
-    C = fft(distance(G), S, k; threads=false, verbose=false)
+    C = fft(distance(G), S, k; threads=false, verbose=false, scheduler=:sequential)
     for i in C.centers
         push_item!(output, res[i])
     end

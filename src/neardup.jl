@@ -204,7 +204,7 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
         u = X[i]
         minbatch = getminbatch(ctx, length(tmp))
 
-        @BATCHES minbatch begin
+        @BATCHES minbatch scheduler=ctx.scheduler begin
             @BEGIN
                 B_j = Vector{Int32}(undef, @nbatches())
                 B_d = Vector{Float32}(undef, @nbatches())

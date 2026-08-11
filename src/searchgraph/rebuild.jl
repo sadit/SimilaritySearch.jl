@@ -40,7 +40,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     direct = Vector{Vector{UInt32}}(undef, n)  # this separated links version needs has easier multithreading/locking needs
     minbatch = getminbatch(ctx, n)
 
-    @BATCHES minbatch begin
+    @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGIN
         # one private pair of scratch buffers per batch (`tmp`/`N`), indexed by @batchid() --
         # @nbatches() is bounded (~8 * nthreads(), via getminbatch), never by n, so this
@@ -65,7 +65,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     end
 
     adj = AdjList(direct)
-    @BATCHES getminbatch(ctx, length(direct)) for nodeID in eachindex(direct)
+    @BATCHES getminbatch(ctx, length(direct)) scheduler=ctx.scheduler for nodeID in eachindex(direct)
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID != nodeID
         end

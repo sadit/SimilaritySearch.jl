@@ -4,7 +4,7 @@ import Random: shuffle!
 export dnet
 
 """
-    dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, threads::Bool=true)
+    dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
 
 Selects `numcenters` points far from each other based on density nets. It behaves similarly to `fft`,
 returning a similar named tuple so they are interchangeable.
@@ -16,36 +16,39 @@ returning a similar named tuple so they are interchangeable.
 
 # Keyword Arguments
 - `verbose`: controls the verbosity of the function
-- `threads`: whether to use multiple threads for context operations (if `true`, it uses an internal `GenericContext` allowing up to `Threads.nthreads()` batches)
+- `scheduler`: the [`@BATCHES`](@ref) scheduler stored in the internal `GenericContext`
+  used for this call (`:default`, `:static`, `:greedy`, or `:sequential` to disable
+  threading entirely). Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns
 A named tuple with the following fields:
 - `centers`: the list of the selected centers (identifiers into ``X``)
 - `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
 - `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
-- `dmax`: the max distance evaluated to a center in the net
 - `costdists`: total number of distance evaluations performed by this call
 - `costblocks`: always `0` for `dnet`
+
+Note: unlike `fft`/`multirandsel`, `dnet`'s selection isn't a greedy farthest-point traversal,
+so there's no well-defined minimum-separation-among-centers quantity to report here -- no
+`dmax` field is returned.
 """
-function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, threads::Bool=true)
+function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
     N = length(X)
     centers = UInt32[]
     sizehint!(centers, numcenters)
-    dmaxlist = Float32[]
-    sizehint!(dmaxlist, numcenters)
     nndists = Vector{Float32}(undef, N)
     fill!(nndists, typemax(Float32))
     nn = zeros(UInt32, N)
     costdists = 0
 
-    N == 0 && return (; centers, nn, dists=nndists, dmax=typemax(Float32), costdists=0, costblocks=0)
+    N == 0 && return (; centers, nn, dists=nndists, costdists=0, costblocks=0)
 
     k = N ÷ numcenters
     k == 0 && (k = 1)
 
     S = SubDatabase(X, shuffle!(collect(1:N)))
     I = ExhaustiveSearch(dist, S)
-    ctx = GenericContext(maxbatches = threads ? 8*Threads.nthreads() : 1)
+    ctx = GenericContext(; scheduler)
     
     res = knnqueue(KnnSorted, k)
     rlist = Int32[]
@@ -56,15 +59,14 @@ function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbos
         
         c = S.map[n]
         push!(centers, c)
-        push!(dmaxlist, maximum(res))
-        
+
         for item in res
             orig_id = S.map[item.id]
             nn[orig_id] = c
             nndists[orig_id] = item.dist
         end
-        
-        verbose && println(stderr, "dnet -- selected-center: $(length(centers)), id: $c, dmax: $(dmaxlist[end])")
+
+        verbose && println(stderr, "dnet -- selected-center: $(length(centers)), id: $c, dmax: $(maximum(res))")
         
         m = n - length(res)
         empty!(rlist)
@@ -94,6 +96,5 @@ function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbos
     end
     
     costdists = distance_evaluations(ctx)
-    dmax = isempty(dmaxlist) ? typemax(Float32) : maximum(dmaxlist)
-    (; centers, nn, dists=nndists, dmax, costdists, costblocks=0)
+    (; centers, nn, dists=nndists, costdists, costblocks=0)
 end

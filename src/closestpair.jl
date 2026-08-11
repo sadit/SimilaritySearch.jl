@@ -66,7 +66,7 @@ function parallel_closestpair(idx::AbstractSearchIndex, ctx::AbstractContext, mi
     minbatch = getminbatch(ctx, n)
     local best
 
-    @BATCHES minbatch begin
+    @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGIN
         # one column/slot per batch -- @batchid()-indexed, so race-free regardless of scheduler
         knns_ids = zeros(UInt32, min_k, @nbatches())

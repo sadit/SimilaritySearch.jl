@@ -162,19 +162,19 @@ function parallel_append!(idx, ctx::InvertedFileContext, db::AbstractDatabase, s
     internal_parallel_prepare_append!(idx, startID + n)
     minbatch = getminbatch(n)
 
-    @BATCHES minbatch for i in 1:n
+    @BATCHES minbatch scheduler=ctx.scheduler for i in 1:n
         objID = i + startID
         idx.sizes[objID] = internal_push_object!(idx, ctx, objID, db[i], tol)
     end
 
     if idx isa BinaryInvertedFile
-        @BATCHES minbatch for i in 1:length(idx.adj)
+        @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
             N = neighbors(idx.adj, i)
             N === nothing && continue
             sort!(N)
         end
     elseif idx isa WeightedInvertedFile
-        @BATCHES minbatch for i in 1:length(idx.adj)
+        @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
             N = neighbors(idx.adj, i)
             N === nothing && continue
             sort!(N, by=p -> p.id)

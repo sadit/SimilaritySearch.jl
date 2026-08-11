@@ -14,6 +14,7 @@ export SearchGraphContext
         logbase_callback=1.5,
         starting_callback=256,
         batchid=1,
+        scheduler::Symbol=get_batch_scheduler(),
         beams=nothing
     ) -> SearchGraphContext
 
@@ -50,6 +51,12 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   meaningful on the root context (always `1`) -- per-batch copies tagging the running
   `@batchid()` are minted internally via `@set ctx.batchid = @batchid()`, once per batch, not
   passed here directly.
+- `scheduler`: the [`@BATCHES`](@ref) scheduler used by every `@BATCHES` call driven by this
+  context (passed through as `scheduler=ctx.scheduler`). Defaults to whatever
+  [`get_batch_scheduler`](@ref) currently returns, captured once at construction time (later
+  calls to [`set_batch_scheduler!`](@ref) do not retroactively change an already-built
+  context). Pass `scheduler=:sequential` to force every `@BATCHES` call driven by this
+  context to run unthreaded, regardless of `Threads.nthreads()`.
 - `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
   `nothing` builds a fresh one sized by `maxbatches`).
 
@@ -90,6 +97,7 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
     vstates::VSType
     maxbatches::Int32
     batchid::Int32
+    scheduler::Symbol
     costdists::Vector{Int}
     costblocks::Vector{Int}
 end
@@ -107,6 +115,7 @@ function SearchGraphContext(
     logbase_callback=1.5,
     starting_callback=256,
     batchid::Integer=1,
+    scheduler::Symbol=get_batch_scheduler(),
     beam_ids=nothing,
     beam_dists=nothing,
     costdists=nothing,
@@ -124,7 +133,7 @@ function SearchGraphContext(
         convert(Int32, starting_callback),
         convert(Int32, parallel_block),
         beam_ids, beam_dists, vstates,
-        convert(Int32, maxbatches), convert(Int32, batchid),
+        convert(Int32, maxbatches), convert(Int32, batchid), scheduler,
         costdists, costblocks)
 end
 
@@ -142,6 +151,7 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     vstates=ctx.vstates,
     maxbatches=ctx.maxbatches,
     batchid=ctx.batchid,
+    scheduler=ctx.scheduler,
     costdists=ctx.costdists,
     costblocks=ctx.costblocks
 ) where {KnnType,VSType}
@@ -150,7 +160,7 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,
-        beam_ids, beam_dists, vstates, maxbatches, batchid,
+        beam_ids, beam_dists, vstates, maxbatches, batchid, scheduler,
         costdists, costblocks)
 end
 

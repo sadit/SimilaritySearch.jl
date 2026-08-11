@@ -30,12 +30,42 @@ db = MatrixDatabase(X)
 
 R = fft(Dist.L2(), db, 6; verbose=false)
 R.centers   # 6 identifiers into db -- roughly every 4th point around the circle
-R.dmax      # the separation radius achieved (the smallest distance among the 6 centers)
+R.ε         # the separation radius achieved (the smallest distance among the 6 centers)
 ```
 
 `R.nn[i]` gives, for every point (not just the selected centers), which selected center
 it ended up closest to -- so `fft` doubles as a quick way to partition a dataset around
 `k` spread-out seeds.
+
+Every batch-oriented `@BATCHES` call `fft` makes internally accepts a `scheduler` keyword
+(`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely),
+defaulting to whatever [`get_batch_scheduler`](@ref) currently returns:
+
+```julia
+R = fft(Dist.L2(), db, 6; verbose=false, scheduler=:sequential)
+```
+
+### Other ways to pick centers: `dnet`, `randsel`, `multirandsel`
+
+[`dnet`](@ref), [`randsel`](@ref), and [`multirandsel`](@ref) are drop-in alternatives to
+`fft` -- same `centers`/`nn`/`dists`/`costdists`/`costblocks` shape, same `scheduler`
+keyword, so code written against one of them works against the others with no other
+changes:
+
+- `randsel` just samples `k` centers uniformly at random -- the cheapest option, no
+  separation guarantee at all.
+- `dnet` groups the dataset into density-based neighborhoods and picks one representative
+  per group -- faster than `fft` on large datasets, but (like `randsel`) has no meaningful
+  minimum-separation quantity to report, so neither returns an `ε` field.
+- `multirandsel` is a randomized middle ground: each step samples a batch of candidates
+  and keeps the one farthest (by total distance) from every center chosen so far. Like
+  `fft`, the centers it produces come with a real separation guarantee, so it also returns
+  `ε` -- the smallest distance among the selected centers.
+
+```julia
+R = multirandsel(Dist.L2(), db, 6)
+R.ε   # same meaning as fft's R.ε above
+```
 
 ## `allknn`: every object's own nearest neighbors, all at once
 
@@ -51,20 +81,21 @@ dist = Dist.L2()
 
 E = ExhaustiveSearch(dist, X)
 ectx = GenericContext()
-gold = allknn(E, ectx, 8)      # exact, O(n²) work -- fine at this scale
+gold_ids, gold_dists = allknn(E, ectx, 8)      # exact, O(n²) work -- fine at this scale
 
 G = SearchGraph(dist, X)
 ctx = SearchGraphContext()
 index!(G, ctx)
 optimize_index!(G, ctx, MinRecall(0.9))
-approx = allknn(G, ctx, 8)      # approximate, much cheaper on large datasets
+approx_ids, approx_dists = allknn(G, ctx, 8)   # approximate, much cheaper on large datasets
 
-macrorecall(gold, approx)       # how close approx's neighbor sets are to gold's
+macrorecall(gold_ids, approx_ids)              # how close approx's neighbor sets are to gold's
 ```
 
-Both `gold` and `approx` are `(8, 2000)` matrices of `IdDist` -- column `i` holds object
-`i`'s own 8 nearest neighbors (note: an object is its own nearest neighbor at distance
-`0`, and `allknn` keeps that self-reference rather than filtering it out).
+Both `gold_ids`/`approx_ids` and `gold_dists`/`approx_dists` are `(8, 2000)` matrices --
+column `i` holds object `i`'s own 8 nearest neighbors (note: an object is its own nearest
+neighbor at distance `0`, and `allknn` keeps that self-reference rather than filtering it
+out).
 
 ## `closestpair`: the single closest pair in the whole dataset
 
@@ -112,9 +143,9 @@ construction, but it's also directly usable on any k-NN matrix you already have 
 around:
 
 ```julia
-knns = allknn(E, ectx, 16)                       # a generous k
-hsp_matrix, hsp_knns = hsp_queries(dist, X, X, knns)
-length.(hsp_knns)                                 # typically well under 16 per object
+ids, dists = allknn(E, ectx, 16)                       # a generous k
+hsp_ids, hsp_dists, hsp = hsp_queries(dist, X, X, ids, dists)
+length.(hsp)                                            # typically well under 16 per object
 ```
 
 Next: [the parallelism model](parallelism.md) -- what `-t` actually buys you, and

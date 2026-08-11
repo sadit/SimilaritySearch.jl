@@ -9,7 +9,7 @@ using Test, SimilaritySearch, LinearAlgebra
     res = fft(dist, MatrixDatabase(X), k)
     @test k == length(res.centers)
     @test Set(res.centers) == Set(res.nn)
-    @test all(res.dmax .>= res.dists)
+    @test all(res.ε .>= res.dists)
 end
 
 

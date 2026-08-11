@@ -34,7 +34,8 @@ end
 
 """
     hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
-                knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32}) -> (ids, dists, hsp)
+                knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32};
+                scheduler::Symbol=get_batch_scheduler()) -> (ids, dists, hsp)
 
 Computes the Half-Space Proximal (HSP) neighborhood of each query in `Q` by filtering its candidate
 neighbors (given by `knns_ids`/`knns_dists`, e.g., as produced by `searchbatch`) so that only proximal,
@@ -46,6 +47,11 @@ non-redundant neighbors are kept.
 - `Q`: the set of queries (its `i`-th element corresponds to the `i`-th column)
 - `knns_ids`: a `(k, n)` matrix of `UInt32` identifiers (e.g., as produced by `searchbatch`)
 - `knns_dists`: a `(k, n)` matrix of `Float32` distances, parallel to `knns_ids`
+
+# Keyword Arguments
+- `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-query HSP filtering
+  (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
+  Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns
 A tuple `(hsp_ids, hsp_dists, hsp)` where:
@@ -69,7 +75,8 @@ length.(hsp)  # size of each query's HSP neighborhood
 ```
 """
 function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
-                     knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32})
+                     knns_ids::AbstractMatrix{UInt32}, knns_dists::AbstractMatrix{Float32};
+                     scheduler::Symbol=get_batch_scheduler())
     k, n = size(knns_ids)
     @assert size(knns_dists) == (k, n)
     hsp_ids   = zeros(UInt32,  k, n)
@@ -78,7 +85,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
     hsp = [knnqueue(KnnSorted, view(hsp_ids, :, i), view(hsp_dists, :, i)) for i in 1:n]
     minbatch = getminbatch(n)
 
-    @BATCHES minbatch for i in 1:n
+    @BATCHES minbatch scheduler=scheduler for i in 1:n
         q = Q[i]
         for j in 1:k
             pid  = knns_ids[j, i]

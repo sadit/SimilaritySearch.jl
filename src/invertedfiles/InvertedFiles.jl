@@ -20,6 +20,7 @@ struct InvertedFileContext{A,B,C,D} <: AbstractContext
     parallel_block::Int
     maxbatches::Int
     batchid::Int
+    scheduler::Symbol
     costdists::Vector{Int}
     costblocks::Vector{Int}
     positions::A
@@ -34,6 +35,7 @@ function InvertedFileContext(;
         maxbatches::Integer = 8Threads.nthreads(),
         parallel_block = maxbatches,
         batchid::Integer = 1,
+        scheduler::Symbol = get_batch_scheduler(),
         costdists::Vector{Int} = zeros(Int, maxbatches),
         costblocks::Vector{Int} = zeros(Int, maxbatches),
         positions = [Vector{UInt32}(undef, 32) for _ in 1:maxbatches],
@@ -43,7 +45,7 @@ function InvertedFileContext(;
         knns = zeros(IdWeight, 64, maxbatches)
     )
 
-    InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid),
+    InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
                          costdists, costblocks, positions, cont_u32, cont_iw, cont_iiw, knns)
 end
 

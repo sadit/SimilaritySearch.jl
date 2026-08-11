@@ -113,8 +113,8 @@ end
 Global selector (a `Ref{Symbol}`, seeded at package load time from the
 `SIMSEARCH_BATCH_SCHEDULER` environment variable, default `:static`) for the
 `Threads.@threads` scheduler kind used by [`@BATCHES`](@ref) when a call site does not
-specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy` (the latter
-only valid on Julia >= 1.11). Read/write it via
+specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy`,
+`:sequential` (`:greedy` only valid on Julia >= 1.11). Read/write it via
 [`get_batch_scheduler`](@ref)/[`set_batch_scheduler!`](@ref) rather than directly, since
 the latter validates its argument.
 """
@@ -144,6 +144,11 @@ call site does not give its own `scheduler=` override. Must be one of:
   next batch of work as they finish; best for very uneven per-batch cost. **Requires
   Julia >= 1.11** (raises `ArgumentError` on older versions, at the point this is set, not
   merely when a `@BATCHES` call later tries to use it).
+- `:sequential`: disables threading entirely. Every `@BATCHES` call site that does not give
+  its own `scheduler=` override runs its whole range as a single batch, in the caller's own
+  task -- exactly the existing small-`n`/single-thread fast path, just forced regardless of
+  `Threads.nthreads()` or how `range` compares to `minbatch`. [`@nbatches()`](@ref) is `1`
+  and [`@batchid()`](@ref) is `1` for the entire call.
 
 !!! warning
     `:default`/`:greedy` use migratable `Task`s: `Threads.threadid()` can change *during*
@@ -159,8 +164,8 @@ call site does not give its own `scheduler=` override. Must be one of:
 See also [`get_batch_scheduler`](@ref).
 """
 function set_batch_scheduler!(sched::Symbol)
-    sched === :default || sched === :static || sched === :greedy ||
-        throw(ArgumentError("invalid @BATCHES scheduler `:$sched`; expected :default, :static, or :greedy"))
+    sched === :default || sched === :static || sched === :greedy || sched === :sequential ||
+        throw(ArgumentError("invalid @BATCHES scheduler `:$sched`; expected :default, :static, :greedy, or :sequential"))
     sched === :greedy && VERSION < v"1.11" &&
         throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11 (native Threads.@threads :greedy does not exist before that)"))
     SCHEDULER[] = sched
@@ -170,14 +175,14 @@ end
     get_batch_scheduler() -> Symbol
 
 Returns the current global scheduler used by [`@BATCHES`](@ref) when a call site does not
-specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy`. See
-[`set_batch_scheduler!`](@ref) for what each means and how to change it.
+specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy`,
+`:sequential`. See [`set_batch_scheduler!`](@ref) for what each means and how to change it.
 """
 get_batch_scheduler() = SCHEDULER[]
 
 function __init__()
     s = Symbol(get(ENV, "SIMSEARCH_BATCH_SCHEDULER", "static"))
-    if s === :static || (s === :default) || (s === :greedy && VERSION >= v"1.11")
+    if s === :static || s === :default || s === :sequential || (s === :greedy && VERSION >= v"1.11")
         SCHEDULER[] = s
     else
         @warn "unrecognized or unsupported SIMSEARCH_BATCH_SCHEDULER=$(repr(String(s))); falling back to :static" maxlog=1
@@ -233,6 +238,18 @@ function _batches_dispatch(f::F, n::Int, sched::Symbol) where {F}
     end
 end
 
+# Runtime counterpart of the eager, macro-expansion-time validation `_batches_parse_args`
+# performs on a literal `scheduler=:sym` -- used for a `scheduler=<expr>` call site (a
+# variable, `ctx.scheduler`, a function call, ...) whose value can only be known once the
+# expression is actually evaluated.
+function _batches_validate_scheduler(sched::Symbol)
+    (sched === :default || sched === :static || sched === :greedy || sched === :sequential) ||
+        throw(ArgumentError("@BATCHES: `scheduler` must be one of :default, :static, :greedy, :sequential; got `:$sched` (resolved at run time)"))
+    sched === :greedy && VERSION < v"1.11" &&
+        throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11"))
+    sched
+end
+
 # --- macro argument parsing (no MacroTools needed) ----------------------------------
 
 function _batches_parse_args(args)
@@ -249,12 +266,25 @@ function _batches_parse_args(args)
             throw(ArgumentError("@BATCHES: expected `key=value`, got `$kw`"))
         key, val = kw.args
         if key === :scheduler
-            sym = val isa QuoteNode ? val.value : val
-            (sym isa Symbol && (sym === :default || sym === :static || sym === :greedy)) ||
-                throw(ArgumentError("@BATCHES: `scheduler` must be one of :default, :static, :greedy; got `$val`"))
-            sym === :greedy && VERSION < v"1.11" &&
-                throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11"))
-            scheduler = sym
+            if val isa QuoteNode && val.value isa Symbol
+                # literal, e.g. `scheduler=:static` -- validate eagerly and keep it known at
+                # macro-expansion time (lets `dispatch`/`sequential_expr` below specialize
+                # without any runtime branch). Kept wrapped in its `QuoteNode` so it stays
+                # distinguishable from the "runtime expression" case just below -- a bare
+                # variable name (`scheduler=myvar`) is *also* a plain `Symbol` at the AST
+                # level, but never a `QuoteNode`.
+                sym = val.value
+                (sym === :default || sym === :static || sym === :greedy || sym === :sequential) ||
+                    throw(ArgumentError("@BATCHES: `scheduler` must be one of :default, :static, :greedy, :sequential; got `$val`"))
+                sym === :greedy && VERSION < v"1.11" &&
+                    throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11"))
+                scheduler = val
+            else
+                # arbitrary expression (a variable, `ctx.scheduler`, a function call, ...) --
+                # cannot be validated until it is evaluated, so it is escaped and checked once
+                # at run time via `_batches_validate_scheduler` instead.
+                scheduler = val
+            end
         elseif key === :per
             throw(ArgumentError("@BATCHES: `per` is not a recognized keyword (per=thread/core was a Polyester-only concept; @BATCHES no longer uses Polyester at all)"))
         else
@@ -411,7 +441,15 @@ be individually omitted).
   positional argument. Use [`getminbatch`](@ref) to compute a reasonable value (aims for
   ~8 batches per thread) instead of hand-picking one.
 - `scheduler`: overrides the global [`get_batch_scheduler`](@ref)/
-  [`set_batch_scheduler!`](@ref) selection for this call site only.
+  [`set_batch_scheduler!`](@ref) selection for this call site only. One of `:default`,
+  `:static`, `:greedy`, or `:sequential` -- `scheduler=:sequential` forces this call site to
+  run its whole `range` as a single, unthreaded batch (`@nbatches()` is `1`, `@batchid()` is
+  `1`), regardless of `Threads.nthreads()` or how `range` compares to `minbatch`; see
+  [`set_batch_scheduler!`](@ref). May be given either as a literal (`scheduler=:static`,
+  validated immediately, at macro-expansion time) or as an arbitrary runtime expression --
+  e.g. `scheduler=ctx.scheduler` for a context-typed caller that stores its own scheduler
+  choice (see [`GenericContext`](@ref)/[`SearchGraphContext`](@ref)) -- which is evaluated
+  and validated once, right before this call's batches start.
 
 !!! warning
     **`:static` is the global default scheduler; switching to `:default`/`:greedy` is
@@ -522,21 +560,56 @@ macro BATCHES(args...)
     begin_code = beginblock === nothing ? nothing : esc(beginblock)
     end_code = endblock === nothing ? nothing : esc(endblock)
 
-    dispatch = if scheduler === :greedy
+    # `scheduler`, from `_batches_parse_args`, is one of:
+    #   - `nothing`             : no override -- use the mutable global `SCHEDULER[]`
+    #   - `QuoteNode(sym)`      : a literal (`scheduler=:static`), already validated, known
+    #                             at macro-expansion time
+    #   - anything else         : a runtime expression (`scheduler=ctx.scheduler`, a
+    #                             variable, a call, ...), escaped and validated once via
+    #                             `_batches_validate_scheduler` when this call runs
+    scheduler_sym = scheduler isa QuoteNode ? scheduler.value : nothing
+    scheduler_is_runtime = scheduler !== nothing && !(scheduler isa QuoteNode)
+
+    dispatch = if scheduler_sym === :greedy
         :(_batches_run_greedy(__batch_f, $(esc(:__batch_nbatches))))
-    elseif scheduler === :static
+    elseif scheduler_sym === :static
         :(_batches_run_static(__batch_f, $(esc(:__batch_nbatches))))
-    elseif scheduler === :default
+    elseif scheduler_sym === :default
         :(_batches_run_default(__batch_f, $(esc(:__batch_nbatches))))
+    elseif scheduler_sym === :sequential
+        nothing  # never reached -- __batch_sequential forces __batch_fastpath below
+    elseif scheduler_is_runtime
+        :(_batches_dispatch(__batch_f, $(esc(:__batch_nbatches)), __batch_scheduler_runtime))
     else
         :(_batches_dispatch(__batch_f, $(esc(:__batch_nbatches)), SCHEDULER[]))
     end
 
+    # Whether this call site is forced to skip threading entirely, i.e. run as a single
+    # batch regardless of `Threads.nthreads()`/`range` vs `minbatch`. Known at macro-
+    # expansion time when `scheduler=:sequential` is given directly; otherwise (no override,
+    # or a runtime expression) it can only change at run time, so it is re-checked there.
+    sequential_expr = if scheduler_sym === :sequential
+        true
+    elseif scheduler_is_runtime
+        :(__batch_scheduler_runtime === :sequential)
+    elseif scheduler === nothing
+        :(SCHEDULER[] === :sequential)
+    else
+        false
+    end
+
+    # Evaluates a runtime `scheduler=<expr>` exactly once (before any batch starts) and
+    # validates it; absent for the literal/no-override cases, which need no such binding.
+    runtime_sched_code = scheduler_is_runtime ?
+        :(__batch_scheduler_runtime = _batches_validate_scheduler($(esc(scheduler)))) : nothing
+
     quote
+        $(runtime_sched_code)
         __batch_range = $(esc(range))
         __batch_n = length(__batch_range)
         __batch_minbatch = max(1, Int($(esc(minbatch_expr))))
-        __batch_fastpath = Threads.nthreads() == 1 || __batch_n <= __batch_minbatch
+        __batch_sequential = $sequential_expr
+        __batch_fastpath = __batch_sequential || Threads.nthreads() == 1 || __batch_n <= __batch_minbatch
         __batch_parts = __batch_fastpath ? nothing : collect(Iterators.partition(__batch_range, __batch_minbatch))
         $(esc(:__batch_nbatches)) = __batch_fastpath ? 1 : length(__batch_parts)
 

@@ -158,10 +158,42 @@ as `2 * @batchid(-1)`, an error. `@batchid()` cannot be misparsed that way.
 
 `@BATCHES` dispatches batches via `Threads.@threads`, under a scheduler that defaults to
 `:static` (one task per thread, never migrates) and can be overridden globally with
-[`set_batch_scheduler!`](@ref) or per call with a `scheduler=` keyword. If your batch body
-captures a shared handle (e.g. a `SearchGraphContext`) and re-derives per-batch state from
-it several calls deep, read the [`@BATCHES`](@ref) docstring's tagged-handle hazard warning
-before writing that pattern yourself -- it's a real bug this package's own code hit once.
+[`set_batch_scheduler!`](@ref) or per call with a `scheduler=` keyword. Besides `:static`,
+`:default`, and `:greedy` (Julia >= 1.11 only), there's `:sequential`: it disables
+threading entirely, running the whole `range` as a single batch in the caller's own task,
+regardless of `Threads.nthreads()` -- useful for isolating a suspected race (does the bug
+still happen with threading off?) or benchmarking the pure serial cost of a batch
+operation:
+
+```julia
+@BATCHES getminbatch(n) scheduler=:sequential for i in 1:n
+    out[i] = i^2
+end
+```
+
+If your batch body captures a shared handle (e.g. a `SearchGraphContext`) and re-derives
+per-batch state from it several calls deep, read the [`@BATCHES`](@ref) docstring's
+tagged-handle hazard warning before writing that pattern yourself -- it's a real bug this
+package's own code hit once.
+
+### Every context carries its own scheduler
+
+[`GenericContext`](@ref), [`SearchGraphContext`](@ref), and
+`InvertedFiles.InvertedFileContext` each accept a `scheduler` keyword at construction
+(defaulting to [`get_batch_scheduler`](@ref)), and every `@BATCHES` call this package makes
+*through* that context (`searchbatch!`, `allknn`, `index!`, `closestpair`, `neardup`, ...)
+uses `ctx.scheduler` automatically. So instead of overriding `scheduler=` at every call
+site, set it once where the context is built:
+
+```julia
+ctx = SearchGraphContext(; scheduler=:sequential)   # every @BATCHES call through ctx is now serial
+index!(G, ctx)
+knns = searchbatch(G, ctx, Q, 8)
+```
+
+A context's `scheduler` is captured once at construction time -- a later
+[`set_batch_scheduler!`](@ref) call changes the *global* default for new contexts, not
+one already built.
 
 ## Don't nest two parallel index types
 

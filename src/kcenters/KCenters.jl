@@ -20,8 +20,12 @@ import ..SimilaritySearch:
     searchbatch!,
     getminbatch,
     @BATCHES,
+    @BEGIN,
     @BEGINBATCH,
     @LOOP,
+    @ENDBATCH,
+    @END,
+    @nbatches,
     @batchid
 
 include("fft.jl")

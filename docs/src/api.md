@@ -46,10 +46,32 @@ neardup
 hsp_queries
 rerank!
 fft
+dnet
+randsel
+multirandsel
 distsample
 distsample_ut
 recallscore
 macrorecall
+```
+
+## Parallel batching (`@BATCHES`)
+The primitive every batch operation above (`searchbatch`, `allknn`, `closestpair`,
+`neardup`, `index!`, the k-centers algorithms, ...) is built on; see the
+[parallelism tutorial](@ref "Parallelism: what to expect, what not to do") for a guided
+introduction, including the `:sequential` scheduler and how contexts carry their own
+`scheduler`.
+```@docs
+@BATCHES
+@BEGIN
+@BEGINBATCH
+@LOOP
+@ENDBATCH
+@END
+@batchid
+@nbatches
+set_batch_scheduler!
+get_batch_scheduler
 ```
 
 ## Indexing elements

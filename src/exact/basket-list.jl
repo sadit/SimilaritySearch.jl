@@ -25,7 +25,7 @@ function BasketList(dist::PreMetric, db::AbstractDatabase, k::Int)
     end
 
     C = SimilaritySearch.fft(dist, db, k)
-    # (; centers, nn, dists=nndists, dmax)
+    # (; centers, nn, dists=nndists, ε)
     codes = Dict{UInt32,UInt32}()
 
     for nn in C.nn

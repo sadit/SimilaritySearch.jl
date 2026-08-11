@@ -67,14 +67,16 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     k = maxlength(res)
     minbatch = getminbatch(ctx, n)
 
-    # NOTE: forced to scheduler=:default (not the global :static default) because this
-    # per-query search is itself commonly invoked from *within* an outer @BATCHES-
+    # NOTE: forced to :default (never :static/:greedy, regardless of ctx.scheduler) because
+    # this per-query search is itself commonly invoked from *within* an outer @BATCHES-
     # parallelized per-query loop (e.g. searchbatch!/allknn/closestpair when `pex` is the
     # given index) -- native `:static` errors ("cannot be used concurrently or nested") in
     # that situation. This loop body has no Threads.threadid()-indexed state at all (each
     # batch only ever touches its own @batchid()-indexed column), so :default's migratable
-    # tasks are safe here regardless of the global scheduler.
-    @BATCHES minbatch scheduler=:default begin
+    # tasks are safe here regardless of the global scheduler. `ctx.scheduler === :sequential`
+    # is still honored (falls through to @BATCHES's own single-batch fast path), since that
+    # is an explicit request to disable threading entirely, not a scheduler *kind* choice.
+    @BATCHES minbatch scheduler=(ctx.scheduler === :sequential ? :sequential : :default) begin
     @BEGIN
         # one private, lock-free top-k buffer per batch; @nbatches() is bounded (~8 * nthreads(),
         # via getminbatch), never by n, so this never grows with the database size

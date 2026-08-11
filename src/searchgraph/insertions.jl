@@ -52,7 +52,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         # qcache width is sized from ctx.maxbatches (see index!), derived from actual buffer size
         minbatch = getminbatch(ep - sp + 1; maxbatches=size(qcache_ids, 2) ÷ 2)
 
-        @BATCHES minbatch begin
+        @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
             bctx = @set ctx.batchid = @batchid()
             tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
@@ -69,7 +69,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         LOG(ctx.logger, :add!, index, ctx, sp, ep)
         # connecting neighbors
-        connect_reverse_links!(index.adj, sp, ep)
+        connect_reverse_links!(index.adj, sp, ep; scheduler=ctx.scheduler)
         index.len[] = ep
 
         # apply callbacks
