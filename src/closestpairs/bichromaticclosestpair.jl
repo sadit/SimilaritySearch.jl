@@ -85,22 +85,23 @@ function bichromatic_closestpair(idxA::T, ctx::AbstractContext, B::AbstractDatab
 end
 
 """
-    bichromatic_search_hint(idxA, ctx, B, i, res, samedata::Bool)
+    bichromatic_search!(idxA, ctx, B, i, res, samedata::Bool) -> res
 
-Queries `idxA` (via `ctx`) with the `i`-th element of `B`, reusing `res` as the output buffer.
-`samedata` controls whether a match with the very same identifier `i` is dropped -- needed when
-`idxA` indexes `B` itself (see [`bichromatic_closestpair`](@ref)).
+Queries `idxA` (via `ctx`) with the `i`-th element of `B`, reusing `res` as the output buffer, and
+returns `res` itself (sorted ascending by distance). `samedata` controls whether a match with the
+very same identifier `i` is dropped -- needed when `idxA` indexes `B` itself (see
+[`bichromatic_closestpair`](@ref)).
 """
-function bichromatic_search_hint(idxA::AbstractSearchIndex, ctx::AbstractContext, B::AbstractDatabase, i::Integer, res, samedata::Bool)
+function bichromatic_search!(idxA::AbstractSearchIndex, ctx::AbstractContext, B::AbstractDatabase, i::Integer, res, samedata::Bool)
     res = search(idxA, ctx, B[i], res)
     if samedata && argmin(res) == i
         pop_min!(res)
     end
 
-    nearest(res)
+    res
 end
 
-function bichromatic_search_hint(idxA::SearchGraph, ctx::SearchGraphContext, B::AbstractDatabase, i::Integer, res, samedata::Bool)
+function bichromatic_search!(idxA::SearchGraph, ctx::SearchGraphContext, B::AbstractDatabase, i::Integer, res, samedata::Bool)
     vstate = getvstate(length(idxA), ctx)
     if samedata
         # i is a valid vertex of idxA's own graph here (idxA indexes B) -- mark it visited so
@@ -117,6 +118,14 @@ function bichromatic_search_hint(idxA::SearchGraph, ctx::SearchGraphContext, B::
         pop_min!(res)
     end
 
-    nearest(res)
+    res
 end
+
+"""
+    bichromatic_search_hint(idxA, ctx, B, i, res, samedata::Bool)
+
+The nearest match of [`bichromatic_search!`](@ref), i.e. `nearest(bichromatic_search!(...))`.
+"""
+bichromatic_search_hint(idxA::AbstractSearchIndex, ctx::AbstractContext, B::AbstractDatabase, i::Integer, res, samedata::Bool) =
+    nearest(bichromatic_search!(idxA, ctx, B, i, res, samedata))
 

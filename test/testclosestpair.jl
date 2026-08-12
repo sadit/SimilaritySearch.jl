@@ -102,3 +102,77 @@ end
         @test d1 > 0
     end
 end
+
+@testset "bichromatic_kclosestpairs (k >= 1)" begin
+    dist = SimilaritySearch.Dist.SqL2()
+    dim, k = 2, 5
+    A = MatrixDatabase(rand(Float32, dim, 60))
+    B = MatrixDatabase(rand(Float32, dim, 80))
+
+    function bruteforce_topk(A, B, k; excludeself=false)
+        all = Tuple{Int32,Int32,Float32}[]
+        for i in eachindex(A), j in eachindex(B)
+            (excludeself && i == j) && continue
+            d = SimilaritySearch.Dist.evaluate(dist, A[i], B[j])
+            push!(all, (Int32(i), Int32(j), Float32(d)))
+        end
+
+        sort!(all; by=last)
+        all[1:min(k, length(all))]
+    end
+
+    gpairs = bruteforce_topk(A, B, k)
+
+    @testset "exact index over A, raw database B" begin
+        idxA = ExhaustiveSearch(dist, A)
+        ctx = GenericContext()
+        pairs = bichromatic_kclosestpairs(idxA, ctx, B; k)
+        @test length(pairs) == k
+        @test issorted(pairs; by=last)
+        @test pairs == gpairs
+    end
+
+    @testset "k=1 matches bichromatic_closestpair" begin
+        idxA = ExhaustiveSearch(dist, A)
+        ctx = GenericContext()
+        single = bichromatic_closestpair(idxA, ctx, B)
+        pairs = bichromatic_kclosestpairs(idxA, ctx, B; k=1)
+        @test length(pairs) == 1
+        @test pairs[1] == single
+    end
+
+    @testset "dataset wrapper (exact)" begin
+        pairs = bichromatic_kclosestpairs(dist, A, B; k)
+        @test pairs == gpairs
+    end
+
+    @testset "closestpairs(idx, ctx) excludes self-matches" begin
+        idx = ExhaustiveSearch(dist, A)
+        ctx = GenericContext()
+        pairs = closestpairs(idx, ctx; k)
+        gself = bruteforce_topk(A, A, k; excludeself=true)
+        # distance is symmetric, so (i, j) and (j, i) are exact ties -- compare unordered
+        # pairs (canonicalized as (min, max)) instead of exact (i, j) tuple identity/order.
+        canon(p) = (min(p[1], p[2]), max(p[1], p[2]), p[3])
+        @test sort!(canon.(pairs)) == sort!(canon.(gself))
+        @test all(i != j for (i, j, _) in pairs)
+    end
+
+    @testset "SearchGraph fast path when idxA indexes B itself" begin
+        idxA = SearchGraph(dist, A)
+        ctx = SearchGraphContext()
+        index!(idxA, ctx)
+        pairs = bichromatic_kclosestpairs(idxA, ctx, A; k)
+        @test length(pairs) == k
+        @test issorted(pairs; by=last)
+        @test all(i != j for (i, j, _) in pairs)
+    end
+
+    @testset "fewer than k eligible pairs" begin
+        tiny = MatrixDatabase(rand(Float32, dim, 3))
+        idx = ExhaustiveSearch(dist, tiny)
+        ctx = GenericContext()
+        pairs = closestpairs(idx, ctx; k=100)  # only 3*2=6 ordered self-excluded pairs exist
+        @test length(pairs) == 6
+    end
+end

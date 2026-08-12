@@ -29,12 +29,15 @@ The operation of computing all knns in the index is computed as follows:
 allknn
 ```
 
-## Computing closest pair
-The operation of finding the closest pair of elements in the indexed dataset, and its bichromatic
-counterpart (the closest pair between two indexed datasets).
+## Computing closest pair(s)
+The operation of finding the closest pair of elements in the indexed dataset, its bichromatic
+counterpart (the closest pair between an indexed dataset and another dataset), and their `k`-pairs
+generalizations.
 ```@docs
 closestpair
 bichromatic_closestpair
+closestpairs
+bichromatic_kclosestpairs
 ```
 
 ## Remove near duplicates

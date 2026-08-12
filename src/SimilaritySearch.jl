@@ -14,7 +14,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     KCenters, fft, dnet, randsel, multirandsel,
-    ClosestPairs, closestpair, bichromatic_closestpair
+    ClosestPairs, closestpair, bichromatic_closestpair, closestpairs, bichromatic_kclosestpairs
 
 """
     abstract type AbstractContext end
