@@ -47,10 +47,11 @@ end
 
     gi, gj, gd = bruteforce(A, B)
 
-    @testset "two disjoint exact indices" begin
-        idxA, idxB = ExhaustiveSearch(dist, A), ExhaustiveSearch(dist, B)
+    @testset "exact index over A, raw database B" begin
+        idxA = ExhaustiveSearch(dist, A)
         ctx = GenericContext()
-        i, j, d = bichromatic_closestpair(idxA, idxB, ctx)
+        @test database(idxA) !== B  # disjoint datasets -> samedata defaults to false
+        i, j, d = bichromatic_closestpair(idxA, ctx, B)
         @test (i, j) == (gi, gj)
         @test d ≈ gd atol=1e-5
     end
@@ -61,35 +62,43 @@ end
         @test d ≈ gd atol=1e-5
     end
 
-    @testset "same index passed twice matches closestpair" begin
+    @testset "dataset wrapper (approximate, SearchGraph)" begin
+        i, j, d = bichromatic_closestpair(dist, A, B; recall=0.9)
+        @test d >= gd  # approximate: never better than the true minimum, may coincide or be worse
+    end
+
+    @testset "closestpair(idx, ctx) matches bichromatic_closestpair(idx, ctx, database(idx))" begin
         idx = ExhaustiveSearch(dist, A)
         ctx = GenericContext()
         i1, j1, d1 = closestpair(idx, ctx)
-        i2, j2, d2 = bichromatic_closestpair(idx, idx, ctx)
+        i2, j2, d2 = bichromatic_closestpair(idx, ctx, database(idx))
         @test (i1, j1, d1) == (i2, j2, d2)
     end
 
-    @testset "distinct indices over the same database exclude self-matches" begin
-        # two separately-built SearchGraphs over the same (by-reference) database A:
-        # ExhaustiveSearch is an immutable, field-equal struct in this case, so two
-        # separate ExhaustiveSearch(dist, A) calls would actually be `===` to each other
-        # and wouldn't exercise this branch -- SearchGraph's mutable internal adjacency
-        # makes idxA and idxB genuinely distinct objects here.
+    @testset "SearchGraph fast path when idxA indexes B itself (samedata auto-detected)" begin
         idxA = SearchGraph(dist, A)
-        idxB = SearchGraph(dist, A)  # same underlying database object, distinct index
         ctx = SearchGraphContext()
-        index!(idxA, ctx); index!(idxB, ctx)
-        @test database(idxA) === database(idxB)
-        @test idxA !== idxB
-        i, j, d = bichromatic_closestpair(idxA, idxB, ctx)
+        index!(idxA, ctx)
+        @test database(idxA) === A
+        i, j, d = bichromatic_closestpair(idxA, ctx, A)
         @test i != j
         @test d > 0
     end
 
-    @testset "mismatched index types are rejected" begin
+    @testset "explicit samedata override" begin
+        # A2 has the same values as A but is a distinct object: without an override, every
+        # element has a 0-distance "twin" in A2, which is the legitimate answer for two
+        # datasets that just happen to coincide -- samedata=true forces self-exclusion instead.
+        A2 = MatrixDatabase(copy(A.matrix))
         idxA = ExhaustiveSearch(dist, A)
-        idxB = SearchGraph(dist, A)
         ctx = GenericContext()
-        @test_throws MethodError bichromatic_closestpair(idxA, idxB, ctx)
+        @test database(idxA) !== A2
+
+        i0, j0, d0 = bichromatic_closestpair(idxA, ctx, A2)
+        @test d0 == 0
+
+        i1, j1, d1 = bichromatic_closestpair(idxA, ctx, A2; samedata=true)
+        @test i1 != j1
+        @test d1 > 0
     end
 end

@@ -3,15 +3,14 @@
 """
     bichromatic_closestpair(dist::PreMetric, A::AbstractDatabase, B::AbstractDatabase; min_k::Int=8, recall::Real=1.0) -> (i, j, dist)
 
-Convenience wrapper for [`bichromatic_closestpair`](@ref) that builds and indexes `A` and `B` itself,
-mirroring [`neardup`](@ref)'s convenience-wrapper pattern: an `ExhaustiveSearch` (exact) when
-`recall == 1.0` (the default), or otherwise a `SearchGraph` per dataset tuned to approach the given
-`recall` via `OptimizeParameters(MinRecall(recall))`. Both `A` and `B` get the same index type and
-share a single context, as [`bichromatic_closestpair`](@ref) requires.
+Convenience wrapper for [`bichromatic_closestpair`](@ref) that builds and indexes `A` itself (`B` is
+queried directly, unindexed, as [`bichromatic_closestpair`](@ref) does), mirroring [`neardup`](@ref)'s
+convenience-wrapper pattern: an `ExhaustiveSearch` (exact) when `recall == 1.0` (the default), or
+otherwise a `SearchGraph` tuned to approach the given `recall` via `OptimizeParameters(MinRecall(recall))`.
 
 # Arguments
 - `dist`: the distance function shared by `A` and `B`
-- `A`, `B`: the two datasets
+- `A`, `B`: the two datasets (`A` gets indexed, `B` is queried directly)
 
 # Keyword Arguments
 - `min_k`: see [`bichromatic_closestpair`](@ref)
@@ -31,14 +30,13 @@ i, j, d = bichromatic_closestpair(dist, A, B)
 """
 function bichromatic_closestpair(dist::PreMetric, A::AbstractDatabase, B::AbstractDatabase; min_k::Int=8, recall::Real=1.0)
     if recall < 1.0
-        idxA, idxB = SearchGraph(dist, A), SearchGraph(dist, B)
+        idxA = SearchGraph(dist, A)
         ctx = SearchGraphContext(; hyperparameters_callback=OptimizeParameters(MinRecall(recall)))
         index!(idxA, ctx)
-        index!(idxB, ctx)
     else
-        idxA, idxB = ExhaustiveSearch(dist, A), ExhaustiveSearch(dist, B)
+        idxA = ExhaustiveSearch(dist, A)
         ctx = GenericContext()
     end
 
-    bichromatic_closestpair(idxA, idxB, ctx; min_k)
+    bichromatic_closestpair(idxA, ctx, B; min_k)
 end
