@@ -14,7 +14,8 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     KCenters, fft, dnet, randsel, multirandsel,
-    ClosestPairs, closestpair, bichromatic_closestpair, closestpairs, bichromatic_kclosestpairs
+    Bichromatic, closestpair, bichromatic_closestpair, closestpairs, bichromatic_kclosestpairs,
+    bichromatic_metricjoin
 
 """
     abstract type AbstractContext end
@@ -270,8 +271,8 @@ include("deprecated.jl")
 
 include("allknn.jl")
 include("neardup.jl")
-include("closestpairs/ClosestPairs.jl")
-using .ClosestPairs
+include("bichromatic/Bichromatic.jl")
+using .Bichromatic
 include("hsp.jl")
 include("rerank.jl")
 

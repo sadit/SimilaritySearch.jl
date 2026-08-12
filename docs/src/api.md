@@ -29,15 +29,17 @@ The operation of computing all knns in the index is computed as follows:
 allknn
 ```
 
-## Computing closest pair(s)
+## Computing closest pair(s), and the bichromatic metric join (`Bichromatic` submodule)
 The operation of finding the closest pair of elements in the indexed dataset, its bichromatic
-counterpart (the closest pair between an indexed dataset and another dataset), and their `k`-pairs
-generalizations.
+counterpart (the closest pair between an indexed dataset and another dataset), their `k`-pairs
+generalizations, and a metric join between two datasets when neither the match count per element nor
+a join radius is known ahead of time.
 ```@docs
 closestpair
 bichromatic_closestpair
 closestpairs
 bichromatic_kclosestpairs
+bichromatic_metricjoin
 ```
 
 ## Remove near duplicates

@@ -176,3 +176,77 @@ end
         @test length(pairs) == 6
     end
 end
+
+@testset "bichromatic_metricjoin" begin
+    using Statistics: quantile
+
+    dist = SimilaritySearch.Dist.SqL2()
+    dim = 2
+    A = MatrixDatabase(rand(Float32, dim, 200))
+    # B >> A so rank=1 voting comfortably fills most groups past the default mingroup=8 --
+    # keeps the "matches the documented algorithm" comparisons below deterministic (the
+    # only randomness in bichromatic_metricjoin is the last-resort fallback, only reached
+    # when literally every group is under mingroup, which this size ratio avoids).
+    B = MatrixDatabase(rand(Float32, dim, 3000))
+    idxA = ExhaustiveSearch(dist, A)
+    ctx = GenericContext()
+
+    # a reference implementation of the documented algorithm, computed independently from
+    # the same searchbatch matrices, to check bichromatic_metricjoin's output matches its
+    # own documented contract exactly (there is no independent "ground truth" for a
+    # heuristic threshold, so this is what's actually checkable).
+    function reference_join(idxA, ctx, B; k, rank=1, q=0.9, mingroup=8)
+        m, n = length(idxA), length(B)
+        ids, dists = searchbatch(idxA, ctx, B, k)
+        groups = [Float32[] for _ in 1:m]
+        for j in 1:n, r in 1:min(rank, k)
+            a = ids[r, j]
+            a == 0 && continue
+            push!(groups[a], dists[r, j])
+        end
+
+        pool = reduce(vcat, (g for g in groups if length(g) >= mingroup); init=Float32[])
+        @assert !isempty(pool)  # true for this test's data/params; keeps the reference simple
+        fallback = quantile(pool, q)
+
+        threshold = [length(g) >= mingroup ? quantile(g, q) : fallback for g in groups]
+        pairs = Tuple{Int32,Int32,Float32}[]
+        for j in 1:n, r in 1:k
+            a = ids[r, j]
+            a == 0 && continue
+            d = dists[r, j]
+            d <= threshold[a] && push!(pairs, (Int32(a), Int32(j), d))
+        end
+
+        pairs
+    end
+
+    @testset "matches the documented algorithm" begin
+        pairs = bichromatic_metricjoin(idxA, ctx, B; k=16)
+        ref = reference_join(idxA, ctx, B; k=16)
+        @test sort(pairs) == sort(ref)
+    end
+
+    @testset "matches with non-default rank, q, mingroup" begin
+        pairs = bichromatic_metricjoin(idxA, ctx, B; k=16, rank=3, q=0.75, mingroup=5)
+        ref = reference_join(idxA, ctx, B; k=16, rank=3, q=0.75, mingroup=5)
+        @test sort(pairs) == sort(ref)
+    end
+
+    @testset "self-consistency and basic invariants" begin
+        k = 16
+        pairs = bichromatic_metricjoin(idxA, ctx, B; k)
+        ids, dists = searchbatch(idxA, ctx, B, k)
+        @test all(1 <= a <= length(A) for (a, _, _) in pairs)
+        @test all(1 <= b <= length(B) for (_, b, _) in pairs)
+        # every returned distance must actually be one of b's own searchbatch candidates
+        @test all((a, d) in zip(view(ids, :, b), view(dists, :, b)) for (a, b, d) in pairs)
+        @test !isempty(pairs)  # A and B overlap the same [0,1]^2 square: some matches must survive
+    end
+
+    @testset "last-resort fallback (every group below mingroup)" begin
+        # mingroup way above any possible group size forces the random-cross-sample fallback
+        pairs = bichromatic_metricjoin(idxA, ctx, B; k=16, mingroup=10^6)
+        @test pairs isa Vector{Tuple{Int32,Int32,Float32}}
+    end
+end
