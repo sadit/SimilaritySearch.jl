@@ -20,6 +20,7 @@ makedocs(;
             "tutorial/distances.md",
             "tutorial/searchgraph.md",
             "tutorial/operations.md",
+            "tutorial/bichromatic.md",
             "tutorial/parallelism.md",
             "tutorial/persistence.md",
             "tutorial/logging.md",

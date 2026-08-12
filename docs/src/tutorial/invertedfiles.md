@@ -199,3 +199,5 @@ list2 = [1, 2, 3, 4, 5]
 # SVS intersection
 common = svs([list1, list2])
 ```
+
+Next: [Quantization and Bit Sketches](quantization_and_bitsketches.md).

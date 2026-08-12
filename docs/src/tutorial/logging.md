@@ -124,3 +124,5 @@ construction proceeded, or writing forward links to disk as they're computed to 
 memory on a very large build (with a final reconciliation pass once construction
 finishes) -- not a way to get the complete, final adjacency without ever reading the
 finished graph.
+
+Next: [Inverted files and posting list intersections](invertedfiles.md).

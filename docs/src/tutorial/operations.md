@@ -108,7 +108,9 @@ i, j, d = closestpair(E, ectx)   # (id, id, distance) of the closest pair in X
 
 Passing a `SearchGraph` instead of an `ExhaustiveSearch` uses the graph structure to
 avoid most pairwise comparisons -- much faster on large, continuous datasets, with the
-same navigability caveat as regular search.
+same navigability caveat as regular search. `closestpair` is actually a special case of a
+more general operation between *two* datasets -- see
+[bichromatic closest pairs and joins](bichromatic.md) next.
 
 ## `neardup`: collapsing near-duplicates
 
@@ -148,5 +150,5 @@ hsp_ids, hsp_dists, hsp = hsp_queries(dist, X, X, ids, dists)
 length.(hsp)                                            # typically well under 16 per object
 ```
 
-Next: [the parallelism model](parallelism.md) -- what `-t` actually buys you, and
-concrete anti-patterns to avoid.
+Next: [bichromatic closest pairs and joins](bichromatic.md) -- `closestpair`'s
+generalization to two distinct datasets.

@@ -3,7 +3,9 @@
 """
     struct PostingList
 
-A paired list of identifiers and weights
+A single posting list: the (sorted) identifiers of every object containing token
+`tokenID`, plain ids with no associated weight (`InvertedFile` never needs one -- see
+[`identiterator`](@ref)).
 """
 struct PostingList{ListType<:AbstractVector}
     list::ListType
