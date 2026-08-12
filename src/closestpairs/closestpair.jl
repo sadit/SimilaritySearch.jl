@@ -35,7 +35,7 @@ i, j, d = closestpair(G, ctx)
 ```
 """
 function closestpair(idx::AbstractSearchIndex, ctx::AbstractContext; min_k::Int=8)
-    bichromatic_closestpair(idx, ctx, idx, ctx; min_k)
+    bichromatic_closestpair(idx, idx, ctx; min_k)
 end
 
 function search_hint(idx::AbstractSearchIndex, ctx::AbstractContext, i::Integer, res)

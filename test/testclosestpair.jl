@@ -49,8 +49,8 @@ end
 
     @testset "two disjoint exact indices" begin
         idxA, idxB = ExhaustiveSearch(dist, A), ExhaustiveSearch(dist, B)
-        ctxA, ctxB = GenericContext(), GenericContext()
-        i, j, d = bichromatic_closestpair(idxA, ctxA, idxB, ctxB)
+        ctx = GenericContext()
+        i, j, d = bichromatic_closestpair(idxA, idxB, ctx)
         @test (i, j) == (gi, gj)
         @test d ≈ gd atol=1e-5
     end
@@ -65,7 +65,7 @@ end
         idx = ExhaustiveSearch(dist, A)
         ctx = GenericContext()
         i1, j1, d1 = closestpair(idx, ctx)
-        i2, j2, d2 = bichromatic_closestpair(idx, ctx, idx, ctx)
+        i2, j2, d2 = bichromatic_closestpair(idx, idx, ctx)
         @test (i1, j1, d1) == (i2, j2, d2)
     end
 
@@ -77,12 +77,19 @@ end
         # makes idxA and idxB genuinely distinct objects here.
         idxA = SearchGraph(dist, A)
         idxB = SearchGraph(dist, A)  # same underlying database object, distinct index
-        ctxA, ctxB = SearchGraphContext(), SearchGraphContext()
-        index!(idxA, ctxA); index!(idxB, ctxB)
+        ctx = SearchGraphContext()
+        index!(idxA, ctx); index!(idxB, ctx)
         @test database(idxA) === database(idxB)
         @test idxA !== idxB
-        i, j, d = bichromatic_closestpair(idxA, ctxA, idxB, ctxB)
+        i, j, d = bichromatic_closestpair(idxA, idxB, ctx)
         @test i != j
         @test d > 0
+    end
+
+    @testset "mismatched index types are rejected" begin
+        idxA = ExhaustiveSearch(dist, A)
+        idxB = SearchGraph(dist, A)
+        ctx = GenericContext()
+        @test_throws MethodError bichromatic_closestpair(idxA, idxB, ctx)
     end
 end
