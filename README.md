@@ -12,6 +12,7 @@ The package provides the following indexes:
 - `ParallelExhaustiveSearch`: A brute force search index where each query is solved using all available threads.
 - `ExhaustiveSearch`: A brute force search index, each query is solved using a single thread.
 - `SearchGraph`: An approximate search index with parallel construction.
+- `InvertedFiles.InvertedFile`: An inverted-index structure for sparse vectors, Maximum Inner Product Search (MIPS), and set search (Jaccard, Dice, Intersection, CosineSet, RogersTanimoto, and any other distance via a direct-evaluate fallback).
 
 The main set of functions are:
 
@@ -19,9 +20,11 @@ The main set of functions are:
 - `searchbatch`: Solves a set of queries.
 - `allknn`: Computes the $k$ nearest neighbors for all elements in an index.
 - `neardup`: Removes near-duplicates from a metric dataset.
-- `closestpair`: Computes the closest pair in a metric dataset.
+- `closestpair` / `closestpairs`: Computes the closest pair (or the $k$ closest pairs) in a metric dataset.
+- `bichromatic_closestpair` / `bichromatic_kclosestpairs` / `bichromatic_metricjoin`: The same closest-pair family, but **between two different datasets** (e.g., "for every object in `B`, what's its closest match in `A`?"), plus a metric join when neither a fixed radius nor a match count per element is known ahead of time.
+- `fft` / `dnet` / `randsel` / `multirandsel`: Pick a diverse, well-separated, or representative subset of a dataset (the `KCenters` submodule).
 
-The precise definitions of these functions and the complete set of functions and structures can be found in the [documentation](https://sadit.github.io/SimilaritySearch.jl/dev).
+The precise definitions of these functions and the complete set of functions and structures can be found in the [documentation](https://sadit.github.io/SimilaritySearch.jl/dev), which also includes a from-scratch [tutorial series](https://sadit.github.io/SimilaritySearch.jl/dev/tutorial/) covering databases, distances, `SearchGraph`, these whole-dataset operations, parallelism, persistence, logging, inverted files, and quantization/bit sketches.
 
 # Similarity search _ecosystem_ in Julia
 Currently, there exists several packages dedicated to nearest neighbor search, for instance we have [`NearestNeighbors.jl`](https://github.com/KristofferC/NearestNeighbors.jl), [`RegionTrees.jl`](https://github.com/rdeits/RegionTrees.jl), and [`JuliaNeighbors`](https://github.com/JuliaNeighbors) implement search structures like [kd-trees](https://en.wikipedia.org/wiki/K-d_tree), [ball trees](https://en.wikipedia.org/wiki/Ball_tree), [quadtrees](https://en.wikipedia.org/wiki/Quadtree), [octrees](https://en.wikipedia.org/wiki/Octree), [bk-trees](https://en.wikipedia.org/wiki/BK-tree), [vp-tree](https://en.wikipedia.org/wiki/Vantage-point_tree) and other multidimensional and metric structures. These structures work quite well for low dimensional data since they are designed to solve exact similarity queries.
@@ -143,3 +146,27 @@ Also in this series:
 Breaking changes:
 - Removes `StrideMatrixDatabase`; use `MatrixDatabase` instead (it already accepts any `AbstractMatrix`, including a user-provided `StrideArray`).
 - Removes the `StrideArraysCore` and `Polyester` dependencies (`Polyester` had already been unused internally since `@BATCHES` replaced it).
+
+## About v1.0 series
+
+New features:
+- `apps/simsearch`: a standalone CLI application (`build`/`search`/`evaluate`/`analyze` subcommands) for working with `SimilaritySearch.jl` indexes from the shell, installable as a [Julia app](https://pkgdocs.julialang.org/dev/apps/) via `pkg> app develop apps/simsearch`.
+- `Special.Spherical`: a spherical embedding (Neyshabur & Srebro) that turns Maximum Inner Product Search into ordinary nearest-neighbor search.
+- A from-scratch tutorial series under `docs/src/tutorial/` (databases, distances, `SearchGraph`, whole-dataset operations, parallelism, persistence, logging), linked from the [documentation](https://sadit.github.io/SimilaritySearch.jl/dev).
+
+Breaking changes:
+- Distance/block-evaluation counters moved off the `KnnHeap`/`KnnSorted` result objects and onto the context objects (`GenericContext`/`SearchGraphContext`), tracked per parallel batch. Read them with `distance_evaluations`/`block_evaluations` (mean per batch) or `distance_stats`/`block_stats` (min/mean/max per batch); `optimize_index!`'s internal cost function was simplified accordingly.
+
+## About v1.1 series
+
+New features:
+- `InvertedFiles`/`Intersections`: inverted-file index and posting-list intersection submodules, moved in from `TextSearch.jl` so sparse-vector, MIPS, and set search (Jaccard/Dice/Intersection/CosineSet/RogersTanimoto, or any other distance via a direct-evaluate fallback) are available directly from this package. Originally shipped as separate `BinaryInvertedFile`/`WeightedInvertedFile` types, later merged into a single `InvertedFile`.
+- `Bichromatic` submodule: `bichromatic_closestpair`/`bichromatic_kclosestpairs` (the closest pair(s) between two distinct datasets) and `bichromatic_metricjoin` (a metric join between two datasets when neither a fixed radius nor a match count per element is known ahead of time). `closestpair`/`closestpairs` are now defined as the same-dataset special case of these.
+- `KCenters` submodule: `fft` and `dnet` moved here, joined by two new prototype-selection algorithms, `randsel` (uniform random sampling) and `multirandsel` (randomized farthest-first, a middle ground between `randsel` and `fft`).
+- `@BATCHES` scheduler control: every context now carries a `scheduler` field (`:default`/`:static`/`:greedy`/`:sequential`), so parallel loops can be forced to run single-threaded (`:sequential`) without changing `Threads.nthreads()`.
+- A tutorial page for the `InvertedFiles`/`Bichromatic` submodules and for `ScalarQuant`/bit-sketch quantization; multi-version documentation deployment (`dev`/`stable`/`v#.#`).
+- CI now runs on Julia 1.12.
+
+Breaking changes:
+- `KnnHeap`/`KnnSorted` switched to a struct-of-arrays layout (parallel `ids::Vector{UInt32}`/`dists::Vector{Float32}`, instead of a single `Vector{IdDist}`); `searchbatch`/`searchbatch!`/`allknn` now return/fill an `(ids, dists)` tuple of matrices instead of a single `Matrix{IdDist}`.
+- The distance/block-evaluation counter fields were renamed to `costdists`/`costblocks`.
