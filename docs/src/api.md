@@ -30,9 +30,11 @@ allknn
 ```
 
 ## Computing closest pair
-The operation of finding the closest pair of elements in the indexed dataset.
+The operation of finding the closest pair of elements in the indexed dataset, and its bichromatic
+counterpart (the closest pair between two indexed datasets).
 ```@docs
 closestpair
+bichromatic_closestpair
 ```
 
 ## Remove near duplicates
