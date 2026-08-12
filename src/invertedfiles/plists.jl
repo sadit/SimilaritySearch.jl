@@ -8,7 +8,6 @@ A paired list of identifiers and weights
 struct PostingList{ListType<:AbstractVector}
     list::ListType
     tokenID::UInt32
-    weight::Float32  # useful for search time and saving global data
 end
 
 @inline Base.length(plist::PostingList) = length(plist.list)

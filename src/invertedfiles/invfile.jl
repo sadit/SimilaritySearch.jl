@@ -90,7 +90,7 @@ end
 getcontainer(adj::AdjList{UInt32}, ctx) = ctx.buffer[ctx.batchid]
 
 function getcontainer(adj::StaticAdjList, ctx)
-    Q = [PostingList(neighbors(adj, 1), zero(UInt32), 0.0f0)]
+    Q = [PostingList(neighbors(adj, 1), zero(UInt32))]
     empty!(Q)
     sizehint!(Q, 32)
     Q
@@ -103,34 +103,37 @@ function getpositions(k::Integer, ctx::InvertedFileContext)
     P
 end
 
+"""
+    pairiterator(obj)
+
+`(id, weight)` iterator for `obj`. `InvertedFile` itself no longer uses this internally (it only
+ever needs [`identiterator`](@ref) -- see there for why), but it remains available for downstream
+packages that build weighted posting-list-like structures on top of `AbstractAdjList`/`PostingList`
+outside of `InvertedFile` (e.g. `TextSearch.jl`'s `BM25InvertedFile`, which needs each object's actual
+per-token weights, not just its ids). Dense `Vector`s are not accepted directly — convert to a
+`SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to non-zero components is
+explicit in the caller's code.
+"""
+pairiterator(obj::SparseVector) = zip(obj.nzind, obj.nzval)
+pairiterator(obj::SparseVecView) = zip(obj.nzind, obj.nzval)
+pairiterator(obj::Set) = (convertid(u) for u in obj)
+pairiterator(obj::SortedIntSet) = (convertid(u) for u in obj)
+pairiterator(obj) = (convertid(u) for u in obj)
 
 """
-    sparseiterator(obj)
-
-`(id, weight)` iterator for `obj` for generic databases. Dense `Vector`s are not accepted directly —
-convert to a `SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to non-zero
-components is explicit in the caller's code.
-"""
-sparseiterator(obj::SparseVector) = zip(obj.nzind, obj.nzval)
-sparseiterator(obj::SparseVecView) = zip(obj.nzind, obj.nzval)
-sparseiterator(obj::Set) = (convertid(u) for u in obj)
-sparseiterator(obj::SortedIntSet) = (convertid(u) for u in obj)
-sparseiterator(obj) = (convertid(u) for u in obj)
-
-"""
-    sparseiterator(dist::PreMetric, obj)
+    pairiterator(dist::PreMetric, obj)
 
 Distance-aware `(id, weight)` iterator for `obj`. Defaults to the distance-agnostic
-[`sparseiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
+[`pairiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
 pair when the same native object type must be tokenized/weighted differently depending on which distance
 the enclosing index is built for (e.g. a different candidate-generation encoding for a sequence distance).
 """
-sparseiterator(::PreMetric, obj) = sparseiterator(obj)
+pairiterator(::PreMetric, obj) = pairiterator(obj)
 
 """
     convertid(u)
 
-Converts an element of a `sparseiterator` into an usable `(id, weight)` pair.
+Converts an element of a `pairiterator` into an usable `(id, weight)` pair.
 """
 convertid(u::Integer) = (u, 1)
 convertid(u::Tuple) = u # assert length(u) = 2
@@ -138,30 +141,65 @@ convertid(u::Vector) = u # assert length(u) = 2
 convertid(u::Pair) = u
 
 """
-    append_items!(idx, ctx, items; tol=1e-6)
+    identiterator(obj)
+
+Iterator over the plain integer ids in `obj` -- i.e. [`pairiterator(obj)`](@ref) with the weight
+component dropped, for callers that only need to know *which* ids are present (e.g. `InvertedFile`
+building/re-sorting/searching its posting lists, which never need a weight: the handful of distances
+with an exact fast path score from intersection size and set sizes alone, and any other distance is
+evaluated directly against the full objects kept in `db` -- see [`InvertedFile`](@ref)).
+"""
+identiterator(obj::SparseVector) = obj.nzind
+identiterator(obj::SparseVecView) = obj.nzind
+identiterator(obj::Set) = (convertident(u) for u in obj)
+identiterator(obj::SortedIntSet) = (convertident(u) for u in obj)
+identiterator(obj) = (convertident(u) for u in obj)
+
+"""
+    identiterator(dist::PreMetric, obj)
+
+Distance-aware id-only iterator for `obj`. Defaults to the distance-agnostic
+[`identiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
+pair when the same native object type must generate different *candidate ids* depending on which
+distance the enclosing index is built for (e.g. a shingle-based candidate encoding for a sequence
+distance) -- mirroring [`pairiterator(dist, obj)`](@ref pairiterator)'s override point, but for callers
+(like `InvertedFile` itself) that only ever need ids, never weights.
+"""
+identiterator(::PreMetric, obj) = identiterator(obj)
+
+"""
+    convertident(u)
+
+Converts an element of an [`identiterator`](@ref) fallback into a plain id, discarding any paired
+weight.
+"""
+convertident(u::Integer) = u
+convertident(u::Tuple) = u[1] # assert length(u) = 2
+convertident(u::Vector) = u[1] # assert length(u) = 2
+convertident(u::Pair) = u[1]
+
+"""
+    append_items!(idx, ctx, items)
 
 Appends all `items` elements into the index `idx`. It work in parallel using all available threads.
 
 # Arguments:
 - `idx`: The inverted index
 - `items`: The database of sparse objects, it can be only indices if each object is a list of integers or a set of integers,
-    `SparseVector`s, among other combinations (see [`sparseiterator`](@ref) for the exact set of
+    `SparseVector`s, among other combinations (see [`identiterator`](@ref) for the exact set of
     natively supported object types; dense vectors are not accepted directly — convert with
     `SparseArrays.sparse` first).
 - `n`: The number of items to insert (defaults to all)
-
-# Keyword arguments:
-- `tol`: controls what is a zero (i.e., weights < tol will be ignored).
 """
-function append_items!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, n=length(items); tol::Float64=1e-6)
+function append_items!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, n=length(items))
     startID = length(idx)
-    parallel_append!(idx, ctx, items, startID, n, tol)
+    _parallel_append!(idx, ctx, items, startID, n)
     LOG(ctx.logger, :append_items!, idx, ctx, startID, length(idx))
     idx
 end
 
 """
-    push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj; tol=1e-6)
+    push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj)
 
 Inserts a single element into the index. This operation is not thread-safe.
 
@@ -170,12 +208,10 @@ Inserts a single element into the index. This operation is not thread-safe.
 - `ctx`: the index's context
 - `obj`: The object to be indexed
 
-# Keyword arguments
-- `tol`: controls what is a zero (i.e., `weight < tol` will be ignored)
 """
-function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, objID=length(idx) + 1; tol=1e-6)
-    nz = internal_push_object!(idx, ctx, objID, obj, tol)
-    for (tokenID, _) in sparseiterator(idx.dist, obj)
+function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, objID=length(idx) + 1)
+    nz = internal_push_object!(idx, ctx, objID, obj)
+    for tokenID in identiterator(idx.dist, obj)
         N = neighbors(idx.adj, tokenID)
         N === nothing && continue
         sort_postinglist!(idx.adj, N)
@@ -186,19 +222,18 @@ function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, ob
     idx
 end
 
-function internal_push_object!(idx::AbstractInvertedFile, ctx::InvertedFileContext, objID::Integer, obj, tol::Float64)
+function internal_push_object!(idx::AbstractInvertedFile, ctx::InvertedFileContext, objID::Integer, obj)
     nz = 0
-    @inbounds for (tokenID, weight) in sparseiterator(idx.dist, obj)
-        weight < tol && continue
+    @inbounds for tokenID in identiterator(idx.dist, obj)
         tokenID == 0 && continue  # object 0 is a centinel
         nz += 1
-        internal_push!(idx, ctx, tokenID, objID, weight)
+        internal_push!(idx, ctx, tokenID, objID)
     end
 
     nz
 end
 
-internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, tokenID, objID, _) =
+internal_push!(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, tokenID, objID) =
     add!(idx.adj, tokenID, (objID,))
 
 """
@@ -210,13 +245,13 @@ a different concrete adjacency element type (e.g. a compressed encoding).
 """
 sort_postinglist!(::AbstractAdjList{UInt32}, N) = sort!(N)
 
-function parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, startID::Int, n::Int, tol::Float64)
+function _parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, startID::Int, n::Int)
     internal_parallel_prepare_append!(idx, startID + n)
     minbatch = getminbatch(n)
 
     @BATCHES minbatch scheduler=ctx.scheduler for i in 1:n
         objID = i + startID
-        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, items[i], tol)
+        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, items[i])
     end
 
     append_items!(idx.db, n == length(items) ? items : view(items, 1:n))
