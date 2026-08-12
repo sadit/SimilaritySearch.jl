@@ -104,50 +104,15 @@ function getpositions(k::Integer, ctx::InvertedFileContext)
 end
 
 """
-    pairiterator(obj)
-
-`(id, weight)` iterator for `obj`. `InvertedFile` itself no longer uses this internally (it only
-ever needs [`identiterator`](@ref) -- see there for why), but it remains available for downstream
-packages that build weighted posting-list-like structures on top of `AbstractAdjList`/`PostingList`
-outside of `InvertedFile` (e.g. `TextSearch.jl`'s `BM25InvertedFile`, which needs each object's actual
-per-token weights, not just its ids). Dense `Vector`s are not accepted directly — convert to a
-`SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to non-zero components is
-explicit in the caller's code.
-"""
-pairiterator(obj::SparseVector) = zip(obj.nzind, obj.nzval)
-pairiterator(obj::SparseVecView) = zip(obj.nzind, obj.nzval)
-pairiterator(obj::Set) = (convertid(u) for u in obj)
-pairiterator(obj::SortedIntSet) = (convertid(u) for u in obj)
-pairiterator(obj) = (convertid(u) for u in obj)
-
-"""
-    pairiterator(dist::PreMetric, obj)
-
-Distance-aware `(id, weight)` iterator for `obj`. Defaults to the distance-agnostic
-[`pairiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
-pair when the same native object type must be tokenized/weighted differently depending on which distance
-the enclosing index is built for (e.g. a different candidate-generation encoding for a sequence distance).
-"""
-pairiterator(::PreMetric, obj) = pairiterator(obj)
-
-"""
-    convertid(u)
-
-Converts an element of a `pairiterator` into an usable `(id, weight)` pair.
-"""
-convertid(u::Integer) = (u, 1)
-convertid(u::Tuple) = u # assert length(u) = 2
-convertid(u::Vector) = u # assert length(u) = 2
-convertid(u::Pair) = u
-
-"""
     identiterator(obj)
 
-Iterator over the plain integer ids in `obj` -- i.e. [`pairiterator(obj)`](@ref) with the weight
-component dropped, for callers that only need to know *which* ids are present (e.g. `InvertedFile`
-building/re-sorting/searching its posting lists, which never need a weight: the handful of distances
-with an exact fast path score from intersection size and set sizes alone, and any other distance is
-evaluated directly against the full objects kept in `db` -- see [`InvertedFile`](@ref)).
+Iterator over the plain integer ids in `obj`, for callers that only need to know *which* ids
+are present (e.g. `InvertedFile` building/re-sorting/searching its posting lists, which never
+need a weight: the handful of distances with an exact fast path score from intersection size
+and set sizes alone, and any other distance is evaluated directly against the full objects
+kept in `db` -- see [`InvertedFile`](@ref)). Dense `Vector`s are not accepted directly --
+convert to a `SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to
+non-zero components is explicit in the caller's code.
 """
 identiterator(obj::SparseVector) = obj.nzind
 identiterator(obj::SparseVecView) = obj.nzind
@@ -162,8 +127,7 @@ Distance-aware id-only iterator for `obj`. Defaults to the distance-agnostic
 [`identiterator(obj)`](@ref) dispatch tree above; overload this for a specific `(DistType, ObjType)`
 pair when the same native object type must generate different *candidate ids* depending on which
 distance the enclosing index is built for (e.g. a shingle-based candidate encoding for a sequence
-distance) -- mirroring [`pairiterator(dist, obj)`](@ref pairiterator)'s override point, but for callers
-(like `InvertedFile` itself) that only ever need ids, never weights.
+distance).
 """
 identiterator(::PreMetric, obj) = identiterator(obj)
 

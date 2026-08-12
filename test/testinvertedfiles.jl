@@ -187,22 +187,13 @@ end
         @test costs[2] <= costs[1]
     end
 
-    @testset "pairiterator(dist, obj) is overloadable per (DistType, ObjType)" begin
-        struct TaggedWeightDist <: Dist.SemiMetric end
-        SimilaritySearch.InvertedFiles.pairiterator(::TaggedWeightDist, obj::AbstractVector{<:Integer}) =
-            ((u, 7) for u in obj)
+    @testset "identiterator(dist, obj) is overloadable per (DistType, ObjType)" begin
+        struct TaggedIdDist <: Dist.SemiMetric end
+        SimilaritySearch.InvertedFiles.identiterator(::TaggedIdDist, obj::AbstractVector{<:Integer}) =
+            (u + 1000 for u in obj)
 
-        default_iter = collect(SimilaritySearch.InvertedFiles.pairiterator(db[1]))
-        tagged_iter = collect(SimilaritySearch.InvertedFiles.pairiterator(TaggedWeightDist(), db[1]))
-        @test all(w == 7 for (_, w) in tagged_iter)
-        @test any(w != 7 for (_, w) in default_iter)
-        @test [id for (id, _) in default_iter] == [id for (id, _) in tagged_iter]
-
-        # identiterator(dist, obj) and pairiterator(dist, obj) are independent override points --
-        # overloading one doesn't affect the other, so identiterator(TaggedWeightDist(), db[1])
-        # still falls through to the dist-agnostic default (unaffected by the pairiterator
-        # override above, which only changes weights, not ids, so the ids agree regardless).
-        @test collect(SimilaritySearch.InvertedFiles.identiterator(TaggedWeightDist(), db[1])) ==
-              collect(SimilaritySearch.InvertedFiles.identiterator(db[1]))
+        default_iter = collect(SimilaritySearch.InvertedFiles.identiterator(db[1]))
+        tagged_iter = collect(SimilaritySearch.InvertedFiles.identiterator(TaggedIdDist(), db[1]))
+        @test tagged_iter == default_iter .+ 1000
     end
 end
