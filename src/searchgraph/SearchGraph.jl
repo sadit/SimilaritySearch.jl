@@ -155,17 +155,23 @@ struct SearchGraph{DIST<:PreMetric,
     hints::HINTS
     algo::Ref{BeamSearch}
     len::Ref{Int64}
+    directcount::Vector{Int32}
 end
 
 """
 
-    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), directcount=Int32[])
 
 Creates a SearchGraph index structure with the given distance and dataset.
 This function only creates the skeleton struct and you need to call `index!` to index the given dataset or populate it with `append_items!`
+
+`directcount[i]` records how many of node `i`'s stored neighbors (`neighbors(adj, i)`) are
+direct (as opposed to reverse-inserted by [`connect_reverse_links!`](@ref)) -- see
+[`direct_neighbors`](@ref)/[`reverse_neighbors`](@ref) and
+[`remove_direct_links!`](@ref)/[`remove_reverse_links!`](@ref).
 """
-function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
-    SearchGraph(dist, db, adj, hints, algo, len)
+function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), directcount=Int32[])
+    SearchGraph(dist, db, adj, hints, algo, len, directcount)
 end
 
 

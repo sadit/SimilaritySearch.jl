@@ -45,6 +45,7 @@ end
 
 function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
     resize!(index.adj, n)
+    resize!(index.directcount, n)
 
     while sp <= n
         ep = min(n, sp + ctx.parallel_block - 1)  # sp:ep has at most ctx.parallel_block elements
@@ -64,6 +65,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             reuse!(neighbors_)
             find_neighborhood!(neighbors_, index, bctx, item, tmp, R)
             add!(index.adj, objID, IdView(neighbors_))
+            index.directcount[objID] = length(neighbors_)
         end
         end
 
@@ -151,6 +153,8 @@ Arguments:
     find_neighborhood!(neighbors_, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
     add!(index.adj, n, IdView(neighbors_))
+    n > length(index.directcount) && resize!(index.directcount, n)
+    index.directcount[n] = length(neighbors_)
     LOG(ctx.logger, :add!, index, ctx, n, n)
     if n > 1
         connect_reverse_links!(index.adj, n, neighbors(index.adj, n))

@@ -174,8 +174,10 @@ function index!(idx::SearchGraph, ::SearchGraphContext, ::Val{:knr},
     @show length(idx.hints)
 
     resize!(idx.adj, n)
+    resize!(idx.directcount, n)
     for i in 1:n
         add!(idx.adj, i, collect(adj_sets[i]))
+        idx.directcount[i] = length(adj_sets[i])
     end
 
     idx.len[] = n

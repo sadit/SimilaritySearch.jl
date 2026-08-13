@@ -64,6 +64,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     end
     end
 
+    directcount = Int32.(length.(direct))
     adj = AdjList(direct)
     @BATCHES getminbatch(ctx, length(direct)) scheduler=ctx.scheduler for nodeID in eachindex(direct)
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
@@ -71,7 +72,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         end
     end
 
-    G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)))
+    G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(g.algo[]), Ref(length(g)), directcount)
 
     execute_callbacks!(G, ctx, force=true)
 

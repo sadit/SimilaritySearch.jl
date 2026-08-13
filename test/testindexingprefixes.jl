@@ -31,6 +31,15 @@ using SimilaritySearch, Random, Test
         recall = macrorecall(gold_knns_ids, knns_ids)
         @info "knr (:fft + rebuild) recall: $recall"
         @test recall >= 0.7
+
+        @testset "directcount on a :knr-built graph (no reverse/direct distinction)" begin
+            # :knr never calls connect_reverse_links! -- every edge is "direct" by construction
+            @test all(graph.directcount[i] == neighbors_length(graph.adj, i) for i in eachindex(graph.adj))
+            # destructive -- must be last, nothing after this relies on `graph` staying intact
+            @test_logs (:warn, r"empty the entire graph") remove_direct_links!(graph)
+            @test all(iszero, graph.directcount)
+            @test all(iszero(neighbors_length(graph.adj, i)) for i in eachindex(graph.adj))
+        end
     end
 
     @testset "index! :knr with :random" begin
@@ -45,5 +54,6 @@ using SimilaritySearch, Random, Test
         recall = macrorecall(gold_knns_ids, knns_ids)
         @info "knr (:random + rebuild) recall: $recall"
         @test recall >= 0.7
+        @test all(graph.directcount[i] == neighbors_length(graph.adj, i) for i in eachindex(graph.adj))
     end
 end

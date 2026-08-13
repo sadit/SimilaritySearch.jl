@@ -1,6 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 export Neighborhood, IdentityNeighborhood, DistalSatNeighborhood, SatNeighborhood, KCentersNeighborhood
 export find_neighborhood!
+export direct_neighbors, reverse_neighbors, remove_direct_links!, remove_reverse_links!
 
 function neighborhoodsize(N::Neighborhood, n::Integer)::Int
     n == 0 ? N.minsize : ceil(Int, N.minsize + log(N.logbase, n))
@@ -86,6 +87,64 @@ function connect_reverse_links!(adj::AbstractAdjList, sp::Integer, ep::Integer; 
             #relID != nodeID
         end
     end
+end
+
+"""
+    direct_neighbors(g::SearchGraph, i) -> AbstractVector
+
+View of node `i`'s direct neighbors, i.e. `neighbors(g.adj, i)[1:g.directcount[i]]`. See
+[`reverse_neighbors`](@ref) for the complementary view, and
+[`remove_direct_links!`](@ref)/[`remove_reverse_links!`](@ref) to permanently strip one or the
+other.
+"""
+direct_neighbors(g::SearchGraph, i) = view(neighbors(g.adj, i), 1:g.directcount[i])
+
+"""
+    reverse_neighbors(g::SearchGraph, i) -> AbstractVector
+
+View of node `i`'s reverse-inserted neighbors, i.e. `neighbors(g.adj, i)[g.directcount[i]+1:end]`
+-- the ones added by [`connect_reverse_links!`](@ref) when some later-inserted node discovered
+`i` as one of its own direct neighbors. See [`direct_neighbors`](@ref) for the complementary
+view.
+"""
+reverse_neighbors(g::SearchGraph, i) = view(neighbors(g.adj, i), g.directcount[i]+1:neighbors_length(g.adj, i))
+
+"""
+    remove_reverse_links!(g::SearchGraph) -> g
+
+Strips every node's reverse-inserted neighbors (see [`reverse_neighbors`](@ref)), keeping only
+direct ones. Intended for testing/experimentation -- e.g. to check whether direct edges alone
+are sufficient for navigation. See [`remove_direct_links!`](@ref) for the companion operation.
+"""
+function remove_reverse_links!(g::SearchGraph)
+    for i in eachindex(g.adj)
+        resize!(neighbors(g.adj, i), g.directcount[i])
+    end
+    g
+end
+
+"""
+    remove_direct_links!(g::SearchGraph) -> g
+
+Strips every node's direct neighbors (see [`direct_neighbors`](@ref)), keeping only
+reverse-inserted ones. Intended for testing/experimentation -- e.g. to check whether reverse
+edges alone are sufficient for navigation. Nodes that never received a reverse edge become
+neighborless (empty). If *no* node anywhere has any reverse-inserted neighbors (e.g. a graph
+built via `:knr` static indexing, which never distinguishes direct/reverse, or a graph on which
+[`connect_reverse_links!`](@ref) simply never ran), this would empty the entire graph -- a
+warning is emitted in that case rather than silently proceeding. See
+[`remove_reverse_links!`](@ref) for the companion operation.
+"""
+function remove_direct_links!(g::SearchGraph)
+    if all(g.directcount[i] == neighbors_length(g.adj, i) for i in eachindex(g.adj))
+        @warn "remove_direct_links!: no node has any reverse-inserted neighbors (e.g. a :knr-built graph, or connect_reverse_links! never ran) -- this will empty the entire graph"
+    end
+
+    for i in eachindex(g.adj)
+        deleteat!(neighbors(g.adj, i), 1:g.directcount[i])
+        g.directcount[i] = 0
+    end
+    g
 end
 
 """

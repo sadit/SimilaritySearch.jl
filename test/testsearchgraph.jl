@@ -191,3 +191,74 @@ end
 
 end
 
+@testset "direct/reverse neighbor bookkeeping (directcount)" begin
+    dist = Dist.SqL2()
+    n = 300
+    db = MatrixDatabase(rand(Float32, 4, n))
+    ctx = SearchGraphContext()
+
+    @testset "directcount matches direct/reverse split" begin
+        graph = SearchGraph(dist, db)
+        index!(graph, ctx)
+
+        for i in eachindex(graph.adj)
+            full = neighbors(graph.adj, i)
+            d = direct_neighbors(graph, i)
+            r = reverse_neighbors(graph, i)
+            @test length(d) == graph.directcount[i]
+            @test length(d) + length(r) == neighbors_length(graph.adj, i) == length(full)
+            @test collect(d) == full[1:graph.directcount[i]]
+            @test collect(r) == full[graph.directcount[i]+1:end]
+        end
+
+        # on a graph this size, at least one node should have received a reverse edge
+        @test any(graph.directcount[i] < neighbors_length(graph.adj, i) for i in eachindex(graph.adj))
+    end
+
+    @testset "remove_reverse_links! keeps only direct neighbors" begin
+        graph = SearchGraph(dist, db)
+        index!(graph, ctx)
+        origdirect = copy(graph.directcount)
+
+        remove_reverse_links!(graph)
+        for i in eachindex(graph.adj)
+            @test neighbors_length(graph.adj, i) == origdirect[i]
+            @test graph.directcount[i] == origdirect[i]
+        end
+
+        # sanity: search still runs on the pruned graph (not a recall assertion)
+        res = knnqueue(ctx, 5)
+        search(graph, ctx, db[1], res)
+        @test length(res) > 0
+    end
+
+    @testset "remove_direct_links! keeps only reverse neighbors" begin
+        graph = SearchGraph(dist, db)
+        index!(graph, ctx)
+        reversecounts = [neighbors_length(graph.adj, i) - graph.directcount[i] for i in eachindex(graph.adj)]
+
+        remove_direct_links!(graph)
+        for i in eachindex(graph.adj)
+            @test neighbors_length(graph.adj, i) == reversecounts[i]
+            @test graph.directcount[i] == 0
+        end
+    end
+
+    @testset "remove_direct_links! warns when no node has any reverse edges" begin
+        graph = SearchGraph(dist, MatrixDatabase(rand(Float32, 4, 1)))
+        index!(graph, ctx)  # a single node ends up with zero neighbors of any kind
+        @test_logs (:warn, r"empty the entire graph") remove_direct_links!(graph)
+    end
+
+    @testset "rebuild produces a correctly-populated directcount" begin
+        graph = SearchGraph(dist, db)
+        index!(graph, ctx)
+        graph = rebuild(graph, ctx)
+
+        for i in eachindex(graph.adj)
+            @test graph.directcount[i] <= neighbors_length(graph.adj, i)
+        end
+        @test any(graph.directcount[i] < neighbors_length(graph.adj, i) for i in eachindex(graph.adj))
+    end
+end
+
