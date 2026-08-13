@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-#export Hausdorff, Chamfer
+#export Hausdorff, DirectedHausdorff, Chamfer
 
 """
     Hausdorff(dist::PreMetric)
@@ -26,8 +26,8 @@ function _exhaustive_nndist(dist::PreMetric, u::T, V) where T
     min_
 end
 
-function _hausdorff1(dist::PreMetric, u, v)
-    s = 0.0
+function _hausdorff1(dist::PreMetric, u, v)::Float32
+    s = 0f0
     @inbounds for i in eachindex(u)
         s = max(s, _exhaustive_nndist(dist, u[i], v))
     end
@@ -49,6 +49,43 @@ function evaluate(m::Hausdorff, u, v)
         max(_hausdorff1(m.dist, u, v), _hausdorff1(m.dist, v, u))
     end
 end
+
+"""
+    DirectedHausdorff(dist::PreMetric)
+
+The directed (one-sided) Hausdorff distance from a cloud of points `u` to a cloud `v`: how far
+you'd have to look, starting from the point of `u` that is *worst* served by `v`, to find its
+nearest neighbor in `v`. Unlike [`Hausdorff`](@ref) (its symmetrized, two-sided counterpart),
+this is generally **not** symmetric: `evaluate(d, u, v) != evaluate(d, v, u)` in general, since
+swapping which cloud is "covered by" the other measures a different quantity.
+
+```math
+DirectedHausdorff(U, V) = \\max_{u \\in U} nndist(u, V)
+```
+
+where ``nndist(u, V)`` computes the distance of ``u`` to its nearest neighbor in ``V`` using the
+`dist` metric.
+
+# Examples
+
+```julia
+d = Dist.Cloud.DirectedHausdorff(Dist.L2())
+evaluate(d, U, V)  # how far U strays from V
+evaluate(d, V, U)  # how far V strays from U -- not the same value in general
+```
+"""
+struct DirectedHausdorff{D<:PreMetric} <: PreMetric
+    dist::D
+end
+
+"""
+    evaluate(m::DirectedHausdorff, u, v)
+
+Computes the directed Hausdorff distance from cloud `u` to cloud `v` (see
+[`DirectedHausdorff`](@ref) for details). `u` and `v` are iterables where each object can be
+measured with the internal distance `dist`.
+"""
+evaluate(m::DirectedHausdorff, u, v) = _hausdorff1(m.dist, u, v)
 
 
 """

@@ -153,6 +153,7 @@ Dist.Seqs.LCS
 Accessed via `Dist.Cloud`.
 ```@docs
 Dist.Cloud.Hausdorff
+Dist.Cloud.DirectedHausdorff
 Dist.Cloud.Chamfer
 Dist.Cloud.EMD
 ```

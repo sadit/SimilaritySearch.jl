@@ -204,4 +204,35 @@ using SimilaritySearch, Test, LinearAlgebra
         @test Dist.evaluate(Dist.Bits.Hamming(), b3, b3) == 0.0f0
         @test Dist.evaluate(Dist.Bits.Hamming(), b3, b4) isa Float32
     end
+
+    @testset "Cloud Distances" begin
+        # Two point clouds: U = {(0,0), (10,10)}, V = {(1,0), (0,1)}
+        U = [Float32[0.0, 0.0], Float32[10.0, 10.0]]
+        V = [Float32[1.0, 0.0], Float32[0.0, 1.0]]
+
+        dh = Dist.Cloud.DirectedHausdorff(Dist.L2())
+        h = Dist.Cloud.Hausdorff(Dist.L2())
+
+        for d in (dh, h)
+            val_uv = Dist.evaluate(d, U, V)
+            @test val_uv isa Float32
+            @test val_uv >= 0f0
+        end
+
+        # nndist((0,0), V) = 1 (both V points are 1 away); nndist((10,10), V) = sqrt(9²+10²) = sqrt(181)
+        # DirectedHausdorff(U,V) = max(1, sqrt(181)) = sqrt(181)
+        @test isapprox(Dist.evaluate(dh, U, V), sqrt(181.0f0); atol=1e-4)
+        # nndist((1,0), U) = 1; nndist((0,1), U) = 1 → DirectedHausdorff(V,U) = 1
+        @test Dist.evaluate(dh, V, U) == 1.0f0
+        # asymmetric by construction: this is exactly what "directed" means
+        @test Dist.evaluate(dh, U, V) != Dist.evaluate(dh, V, U)
+
+        # symmetric Hausdorff is the max of both directions -- here dominated by DirectedHausdorff(U,V)
+        @test isapprox(Dist.evaluate(h, U, V), sqrt(181.0f0); atol=1e-4)
+        @test isapprox(Dist.evaluate(h, U, V), Dist.evaluate(h, V, U); atol=1e-5)
+
+        # self-distance is 0
+        @test Dist.evaluate(dh, U, U) == 0.0f0
+        @test Dist.evaluate(h, U, U) == 0.0f0
+    end
 end
