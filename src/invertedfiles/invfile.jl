@@ -87,7 +87,7 @@ function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     Q
 end
 
-getcontainer(adj::AdjList{UInt32}, ctx) = ctx.buffer[ctx.batchid]
+getcontainer(adj::AbstractAdjList, ctx) = ctx.buffer[ctx.batchid]
 
 function getcontainer(adj::StaticAdjList, ctx)
     Q = [PostingList(neighbors(adj, 1), zero(UInt32))]
@@ -106,7 +106,7 @@ end
 """
     identiterator(obj)
 
-Iterator over the plain integer ids in `obj`, for callers that only need to know *which* ids
+Iterator over the plain ids/keys in `obj`, for callers that only need to know *which* ids/keys
 are present (e.g. `InvertedFile` building/re-sorting/searching its posting lists, which never
 need a weight: the handful of distances with an exact fast path score from intersection size
 and set sizes alone, and any other distance is evaluated directly against the full objects
@@ -134,13 +134,32 @@ identiterator(::PreMetric, obj) = identiterator(obj)
 """
     convertident(u)
 
-Converts an element of an [`identiterator`](@ref) fallback into a plain id, discarding any paired
-weight.
+Converts an element of an [`identiterator`](@ref) fallback into a plain key/id, discarding any paired
+weight if present as a `Pair`.
 """
-convertident(u::Integer) = u
-convertident(u::Tuple) = u[1] # assert length(u) = 2
-convertident(u::Vector) = u[1] # assert length(u) = 2
-convertident(u::Pair) = u[1]
+convertident(u::Pair) = u.first
+convertident(u) = u
+
+"""
+    const DictInvertedFile{DistType, KeyType, DbType} = InvertedFile{DistType, AdjDict{KeyType, UInt32}, DbType}
+
+A dictionary-backed inverted file mapping posting list keys of type `KeyType` (e.g., `String`,
+`Vector{UInt8}`, `NTuple`, `Int`) to document identifiers (`UInt32`). Empty or non-existent
+posting lists are never stored in memory or disk, enabling use over arbitrary or massive key spaces.
+
+# Constructors
+- `DictInvertedFile(::Type{KeyType}, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0)`
+- `DictInvertedFile(dist::PreMetric=Dist.Sets.Jaccard(); KeyType::Type=Any, db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0)`
+"""
+const DictInvertedFile{DistType, KeyType, DbType} = InvertedFile{DistType, AdjDict{KeyType, UInt32}, DbType}
+
+function DictInvertedFile(::Type{KeyType}, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0) where KeyType
+    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db)
+end
+
+function DictInvertedFile(dist::PreMetric=Dist.Sets.Jaccard(); KeyType::Type=Any, db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0)
+    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db)
+end
 
 """
     append_items!(idx, ctx, items)
@@ -189,7 +208,7 @@ end
 function internal_push_object!(idx::AbstractInvertedFile, ctx::InvertedFileContext, objID::Integer, obj)
     nz = 0
     @inbounds for tokenID in identiterator(idx.dist, obj)
-        tokenID == 0 && continue  # object 0 is a centinel
+        (tokenID isa Number && tokenID == 0) && continue  # object 0 is a sentinel
         nz += 1
         internal_push!(idx, ctx, tokenID, objID)
     end
@@ -220,8 +239,9 @@ function _parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, 
 
     append_items!(idx.db, n == length(items) ? items : view(items, 1:n))
 
-    @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(idx.adj)
-        N = neighbors(idx.adj, i)
+    keys_vec = collect(eachindex(idx.adj))
+    @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(keys_vec)
+        N = neighbors(idx.adj, keys_vec[i])
         N === nothing && continue
         sort_postinglist!(idx.adj, N)
     end

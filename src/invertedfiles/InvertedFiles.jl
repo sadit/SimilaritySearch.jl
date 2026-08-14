@@ -12,7 +12,7 @@ using Distances: PreMetric
 
 using Base.Threads: SpinLock
 
-export InvertedFileContext, getcontext
+export InvertedFileContext, getcontext, DictInvertedFile
 include("sortedintset.jl")
 include("plists.jl")
 
@@ -37,7 +37,8 @@ function InvertedFileContext(;
         costdists::Vector{Int} = zeros(Int, maxbatches),
         costblocks::Vector{Int} = zeros(Int, maxbatches),
         positions = [Vector{UInt32}(undef, 32) for _ in 1:maxbatches],
-        buffer = [Vector{PostingList{Vector{UInt32}}}(undef, 32) for _ in 1:maxbatches],
+        keytype::Type = Any,
+        buffer = [Vector{PostingList{Vector{UInt32}, keytype}}(undef, 32) for _ in 1:maxbatches],
     )
 
     InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
@@ -53,6 +54,7 @@ include("fastpath.jl")
 include("invfilesearch.jl")
 
 getcontext(invfile::AbstractInvertedFile; kwargs...) = InvertedFileContext(; kwargs...)
+getcontext(invfile::InvertedFile{<:Any, <:AdjDict{K}}; kwargs...) where K = InvertedFileContext(; keytype=K, kwargs...)
 getcontext(; kwargs...) = InvertedFileContext(; kwargs...)
 
 end

@@ -197,3 +197,77 @@ end
         @test tagged_iter == default_iter .+ 1000
     end
 end
+
+@testset "DictInvertedFile" begin
+    @testset "String keys" begin
+        words = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon"]
+        n = 100
+        db_raw = [Set(rand(words, rand(2:5))) for _ in 1:n]
+        db = VectorDatabase(db_raw)
+        
+        idx = DictInvertedFile(String, Dist.Sets.Jaccard())
+        ctx = getcontext(idx)
+        append_items!(idx, ctx, db)
+
+        @test length(idx) == n
+        # Verify unused keys are NOT stored in idx.adj (only present keys are in the dict)
+        active_keys = Set(Iterators.flatten(db_raw))
+        @test length(idx.adj) == length(active_keys)
+
+        # Search verification against ExhaustiveSearch
+        ex = ExhaustiveSearch(Dist.Sets.Jaccard(), db)
+        ectx = GenericContext()
+        k = 5
+        for i in 1:10
+            q = db_raw[i]
+            res_ex = search(ex, ectx, q, knnqueue(KnnSorted, k))
+            res_idx = search(idx, ctx, q, knnqueue(KnnSorted, k))
+            @test recallscore(res_ex, res_idx) == 1.0
+        end
+
+        # Test search with query containing unindexed keys
+        q_unknown = Set(["nonexistent1", "nonexistent2", words[1]])
+        res_unk = search(idx, ctx, q_unknown, knnqueue(KnnSorted, k))
+        @test length(res_unk) > 0
+    end
+
+    @testset "NTuple keys" begin
+        n = 50
+        tuple_pool = [(rand(UInt8), rand(UInt8)) for _ in 1:10]
+        db_raw = [Set(rand(tuple_pool, 3)) for _ in 1:n]
+        db = VectorDatabase(db_raw)
+
+        idx = DictInvertedFile(NTuple{2, UInt8}, Dist.Sets.Jaccard())
+        ctx = getcontext(idx)
+        append_items!(idx, ctx, db)
+
+        @test length(idx) == n
+        ex = ExhaustiveSearch(Dist.Sets.Jaccard(), db)
+        ectx = GenericContext()
+        res_ex = search(ex, ectx, db_raw[1], knnqueue(KnnSorted, 5))
+        res_idx = search(idx, ctx, db_raw[1], knnqueue(KnnSorted, 5))
+        @test recallscore(res_ex, res_idx) == 1.0
+    end
+
+    @testset "Huge sparse key space (Int keys)" begin
+        # Huge key range (e.g. up to 10,000,000) without preallocating 10 million lists
+        n = 100
+        pool = rand(1:10_000_000, 30) # small pool from a huge key space
+        db_raw = [sort!(unique(rand(pool, 5))) for _ in 1:n]
+        db = VectorDatabase(db_raw)
+
+        idx = DictInvertedFile(Int, Dist.Sets.Jaccard())
+        ctx = getcontext(idx)
+        append_items!(idx, ctx, db)
+
+        @test length(idx) == n
+        # Total unique keys stored should be <= length(pool), nowhere near 10_000_000
+        @test length(idx.adj) <= length(pool)
+
+        ex = ExhaustiveSearch(Dist.Sets.Jaccard(), db)
+        ectx = GenericContext()
+        res_ex = search(ex, ectx, db_raw[1], knnqueue(KnnSorted, 5))
+        res_idx = search(idx, ctx, db_raw[1], knnqueue(KnnSorted, 5))
+        @test recallscore(res_ex, res_idx) == 1.0
+    end
+end

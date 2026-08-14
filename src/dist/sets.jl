@@ -45,6 +45,22 @@ function intersectionsize(a::Dict, b::Dict)
     end
 end
 
+function intersectionsize_(a::AbstractSet, b::AbstractSet)
+    i = 0
+    for k in a
+        k in b && (i += 1)
+    end
+    i
+end
+
+function intersectionsize(a::AbstractSet, b::AbstractSet)
+    if length(a) < length(b)
+        intersectionsize_(a, b)
+    else
+        intersectionsize_(b, a)
+    end
+end
+
 """
     unionsize(a, b, isize)
 

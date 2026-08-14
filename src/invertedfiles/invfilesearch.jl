@@ -11,11 +11,11 @@ function select_posting_lists(idx::AbstractInvertedFile, ctx::InvertedFileContex
 	Q = getcontainer(idx, ctx)
 
 	@inbounds for tokenID in identiterator(idx.dist, q)
-		tokenID == 0 && continue
+		(tokenID isa Number && tokenID == 0) && continue
 		N = neighbors(idx.adj, tokenID)
 		N === nothing && continue
 		if length(N) > 0
-			L = PostingList(N, convert(UInt32, tokenID))
+			L = PostingList(N, tokenID)
 			push!(Q, L)
 		end
 	end

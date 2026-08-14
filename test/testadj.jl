@@ -43,4 +43,23 @@ using SimilaritySearch:
 
         @test collect(A) == sort(collect(C), by=first)
     end
+
+    let C = AdjDict(String, UInt32)
+        add!(C, "alpha", UInt32[1, 5, 10])
+        add!(C, "beta", UInt32[2, 3])
+        @test length(C) == 2
+        @test neighbors(C, "alpha") == UInt32[1, 5, 10]
+        @test neighbors(C, "beta") == UInt32[2, 3]
+        @test neighbors(C, "gamma") === nothing
+    end
+
+    let C = AdjDict(NTuple{4, UInt8}, UInt32)
+        k1 = (0x01, 0x02, 0x03, 0x04)
+        k2 = (0x0a, 0x0b, 0x0c, 0x0d)
+        add!(C, k1, UInt32[42])
+        add!(C, k2, UInt32[7, 9])
+        @test length(C) == 2
+        @test neighbors(C, k1) == UInt32[42]
+        @test neighbors(C, k2) == UInt32[7, 9]
+    end
 end

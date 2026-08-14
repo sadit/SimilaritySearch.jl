@@ -7,10 +7,12 @@ A single posting list: the (sorted) identifiers of every object containing token
 `tokenID`, plain ids with no associated weight (`InvertedFile` never needs one -- see
 [`identiterator`](@ref)).
 """
-struct PostingList{ListType<:AbstractVector}
+struct PostingList{ListType<:AbstractVector, KeyType}
     list::ListType
-    tokenID::UInt32
+    tokenID::KeyType
 end
+
+Base.convert(::Type{PostingList{L, K}}, p::PostingList) where {L, K} = PostingList{L, K}(p.list, p.tokenID)
 
 @inline Base.length(plist::PostingList) = length(plist.list)
 

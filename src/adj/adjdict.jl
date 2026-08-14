@@ -21,63 +21,60 @@ add!(adj, 1, Int32[2, 3])
 neighbors(adj, 1)  # => Int32[2, 3]
 ```
 """
-struct AdjDict{T} <: AbstractAdjList{T}
-    end_point::Dict{T,Vector{T}} # ending point of the i-th edge
+struct AdjDict{K,T} <: AbstractAdjList{T}
+    end_point::Dict{K,Vector{T}} # ending point of the i-th edge
     glock::Threads.ReentrantLock # global locks
 end
 
-Base.eltype(::AdjDict{T}) where T = Pair{T,Vector{T}}
+Base.eltype(::AdjDict{K,T}) where {K,T} = Pair{K,Vector{T}}
 Base.eachindex(adj::AdjDict) = keys(adj.end_point)
 
-function Base.iterate(adj::AdjDict{T}, state=nothing) where T
+function Base.iterate(adj::AdjDict, state=nothing)
     S = state === nothing ? iterate(adj.end_point) : iterate(adj.end_point, state)
     S === nothing && return nothing
     S
 end
 
 """
-    AdjDict(L::Dict{T,Vector{T}}) where T
+    AdjDict(L::Dict{K,Vector{T}}) where {K,T}
 
-Wraps an existing dictionary `L` of neighbor lists as an `AdjDict{T}` (no copy is made).
+Wraps an existing dictionary `L` of neighbor lists as an `AdjDict{K,T}` (no copy is made).
 """
-function AdjDict(L::Dict{T,Vector{T}}) where T
-    AdjDict{T}(L, Threads.ReentrantLock())
+function AdjDict(L::Dict{K,Vector{T}}) where {K,T}
+    AdjDict{K,T}(L, Threads.ReentrantLock())
 end
 
 """
     AdjDict(L::Vector{Vector{T}}) where T
 
-Creates an `AdjDict{T}` from a dense vector of neighbor lists `L`, keyed by their (1-based)
+Creates an `AdjDict{Int,T}` from a dense vector of neighbor lists `L`, keyed by their (1-based)
 position in `L`.
 """
 function AdjDict(L::Vector{Vector{T}}) where T
-    AdjDict{T}(Dict(pairs(L)), Threads.ReentrantLock())
+    AdjDict{Int,T}(Dict(pairs(L)), Threads.ReentrantLock())
 end
 
 """
-    AdjDict(::Type{T}, n::Int) where T -> AdjDict{T}
+    AdjDict(::Type{T}, n::Integer=0) where T -> AdjDict{T,T}
 
-Creates an empty `AdjDict{T}`, with its internal dictionary sized with `sizehint!(_, n)` as a
-capacity hint for `n` nodes.
-
-# Examples
-```julia
-adj = AdjDict(Int32, 100)  # hint capacity for ~100 nodes
-add!(adj, 42, Int32[7])    # ids need not be contiguous
-```
+Creates an empty `AdjDict{T,T}`, with key type `T` and value type `T`.
 """
-function AdjDict(::Type{T}, n::Int) where T
-    L = Dict{T,Vector{T}}()
-    sizehint!(L, n)
+AdjDict(::Type{T}, n::Integer=0) where T = AdjDict(T, T, n)
+
+"""
+    AdjDict(::Type{K}, ::Type{T}, n::Integer) where {K,T} -> AdjDict{K,T}
+    AdjDict(::Type{K}, ::Type{T}; n::Integer=0) where {K,T} -> AdjDict{K,T}
+
+Creates an empty `AdjDict{K,T}`, with key type `K` and value type `T`, sizing its internal dictionary
+with `sizehint!(_, n)` as a capacity hint for `n` keys.
+"""
+function AdjDict(::Type{K}, ::Type{T}, n::Integer) where {K,T}
+    L = Dict{K,Vector{T}}()
+    n > 0 && sizehint!(L, n)
     AdjDict(L)
 end
 
-"""
-    AdjDict(::Type{T}; n::Int=0) where T -> AdjDict{T}
-
-Keyword-argument variant of `AdjDict(::Type{T}, n::Int)`.
-"""
-AdjDict(::Type{T}; n::Int=0) where T = AdjDict(T, n::Int)
+AdjDict(::Type{K}, ::Type{T}; n::Integer=0) where {K,T} = AdjDict(K, T, n)
 
 """
     Base.resize!(adj::AdjDict, n) -> Nothing
@@ -132,21 +129,13 @@ Base.@propagate_inbounds @inline function neighbors_length(adj::AdjDict, i)
 end
 
 """
-    add!(adj::AdjDict{T}, n, N) where T -> AdjDict
+    add!(adj::AdjDict{K,T}, n, N) where {K,T} -> AdjDict
 
-Adds the neighbors in `N` (an iterable of ids convertible to `T`) to node `n`'s neighbor list. If
-node `n` already has an entry, `N` is appended to it; otherwise a new list is created from `N`.
+Adds the neighbors in `N` (an iterable of ids convertible to `T`) to key `n`'s neighbor list. If
+key `n` already has an entry, `N` is appended to it; otherwise a new list is created from `N`.
 Thread-safe via `adj.glock`.
-
-# Examples
-```julia
-adj = AdjDict(Int32, 0)
-add!(adj, 1, Int32[2])
-add!(adj, 1, Int32[3])   # appends to node 1's existing list
-neighbors(adj, 1)        # => Int32[2, 3]
-```
 """
-Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, n, N) where T
+Base.@propagate_inbounds @inline function add!(adj::AdjDict{K,T}, n, N) where {K,T}
     lock(adj.glock) do
         L = get(adj.end_point, n, nothing)
         if L === nothing
@@ -160,19 +149,12 @@ Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, n, N) where T
 end
 
 """
-    add!(adj::AdjDict{T}, iter) where T -> AdjDict
+    add!(adj::AdjDict{K,T}, iter) where {K,T} -> AdjDict
 
-Bulk version of `add!`: `iter` yields `(n, N)` pairs, each adding neighbor set `N` to node `n`.
+Bulk version of `add!`: `iter` yields `(n, N)` pairs, each adding neighbor set `N` to key `n`.
 Thread-safe via `adj.glock`.
-
-# Examples
-```julia
-adj = AdjDict(Int32, 0)
-add!(adj, [(1, Int32[2, 3]), (5, Int32[1])])
-neighbors(adj, 5)  # => Int32[1]
-```
 """
-Base.@propagate_inbounds @inline function add!(adj::AdjDict{T}, iter) where T
+Base.@propagate_inbounds @inline function add!(adj::AdjDict{K,T}, iter) where {K,T}
     lock(adj.glock) do
         for (n, N) in iter
             L = get(adj.end_point, n, nothing)
