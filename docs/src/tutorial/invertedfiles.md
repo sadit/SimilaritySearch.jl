@@ -10,9 +10,14 @@ Inverted indexes store posting lists mapping component dimensions (or set elemen
 
 ## `InvertedFiles` Overview
 
-There is a single index type and a single constructor: [`InvertedFiles.InvertedFile(vocsize, dist)`](@ref)
-— plain token/set-membership posting lists (`AdjType`'s element type is always `UInt32`). The
-distance `dist` alone decides how candidates get scored:
+`SimilaritySearch.InvertedFiles` provides inverted index data structures for set search, sparse vectors, and MIPS workloads. An `InvertedFile` can be backed by two different adjacency storage representations:
+
+1. **Array backend (`InvertedFiles.InvertedFile(vocsize, dist)`)**:
+   Uses an array of posting lists (`AdjList(UInt32)`). Tokens/keys are represented as integer identifiers in `1:vocsize`. This is fast and cache-friendly when the vocabulary is known and bounded in advance.
+2. **Dictionary backend ([`InvertedFiles.DictInvertedFile(KeyType, dist)`](@ref))**:
+   Uses a dictionary (`AdjDict{KeyType, UInt32}`) mapping arbitrary key types (such as `String`, `NTuple`, or sparse integer identifiers from vast universes) directly to posting lists. Empty or non-existent posting lists are never pre-allocated or stored in memory, making it ideal for dynamic, open-ended, or high-cardinality key spaces without having to map tokens to a contiguous `1:vocsize` range.
+
+The distance `dist` alone decides how candidates get scored:
 
 1. For a handful of distances (the five set metrics: `Dist.Sets.Jaccard()`, `Dist.Sets.Dice()`,
    `Dist.Sets.Intersection()`, `Dist.Sets.CosineSet()`, `Dist.Sets.RogersTanimoto(σ)`), the score
@@ -27,8 +32,8 @@ distance `dist` alone decides how candidates get scored:
    `t`-threshold parameter of `search` (see below) doubles as this path's cost knob: raise it above
    the default `1` to reduce how many real `evaluate` calls happen per query.
 
-`InvertedFile` always supports the standard `SimilaritySearch` interface (`append_items!`,
-`push_item!`, `search`, `searchbatch`), and always keeps a copy of every indexed object in
+Both index backends support the standard `SimilaritySearch` interface (`append_items!`,
+`push_item!`, `search`, `searchbatch`), and always keep a copy of every indexed object in
 `database(idx)`.
 
 ---
@@ -158,14 +163,52 @@ end
 # Bread           => 0.4557
 ```
 
-`MargheritaPizza` was the clear AND/Jaccard/RogersTanimoto winner, but under NormCosine `Omelette` (which weights egg and cheese heavily, matching the query's emphasis on egg/cheese/flour in *proportion*, not just presence) comes out ahead — same question, a genuinely different notion of "closest" depending on whether presence or proportion is what matters, echoing the same point [A gallery of distances](distances.md) makes about `Jaccard` vs. `Levenshtein`.
+### Arbitrary key types with `DictInvertedFile`
 
-### Why three index instances?
+In the examples above, ingredient names were mapped to integer token IDs (`1:vocsize`) to fit the dense `InvertedFile(vocsize, dist)` array backend. If you prefer to index arbitrary keys directly (such as `String`, tuples, or sparse IDs across huge key spaces) without managing an explicit integer vocabulary mapping or preallocating unused posting lists, use [`InvertedFiles.DictInvertedFile`](@ref):
 
-`IJ`, `IR`, and `W` are all `InvertedFile` — built with the same constructor, differing only in the
-`dist` passed at construction time. An index is tied to one distance for its lifetime, so answering
-the same question under a different notion of "closest" means building a separate instance, not
-reconfiguring an existing one.
+```julia
+# Recipes represented directly as sets of Strings:
+recipes = Dict(
+    "Pancakes"        => Set(["flour", "sugar", "egg", "milk"]),
+    "Bread"           => Set(["flour", "salt", "yeast"]),
+    "MargheritaPizza" => Set(["flour", "tomato", "cheese", "basil"]),
+    "Omelette"        => Set(["egg", "butter", "milk", "cheese"]),
+    "ChickenRice"     => Set(["chicken", "rice", "salt"]),
+    "Cheesecake"      => Set(["sugar", "egg", "butter", "cheese"]),
+)
+
+names = collect(keys(recipes))
+db_strings = VectorDatabase([recipes[n] for n in names])
+
+# Create a dictionary-backed inverted index mapping String -> posting list
+IDict = DictInvertedFile(String, Dist.Sets.Jaccard())
+ctx_dict = getcontext(IDict)
+append_items!(IDict, ctx_dict, db_strings)
+
+q_str = Set(["flour", "cheese"])
+res = knnqueue(ctx_dict, 6)
+search(IDict, ctx_dict, q_str, res; t=1)
+
+for it in viewitems(res)
+    println(names[it.id], " => ", it.dist)
+end
+# MargheritaPizza => 0.5
+# Bread           => 0.75
+# Pancakes        => 0.8
+# Cheesecake      => 0.8
+# Omelette        => 0.8
+```
+
+Key features of the `DictInvertedFile` backend:
+- **No vocabulary mapping needed**: Objects can contain raw keys of type `KeyType` (e.g. `String`, `NTuple{2, UInt8}`, `Int`).
+- **Memory efficiency for sparse universes**: Only keys that actually appear in indexed documents create posting lists (`length(IDict.adj)` equals the number of distinct keys observed, rather than allocating a table for the entire universe).
+- **Graceful handling of unknown query tokens**: Queries can contain tokens not present in the index without error; non-existent keys are simply skipped during candidate generation.
+- **Context setup via `getcontext`**: Calling `getcontext(IDict)` automatically sizes and types the search context's internal posting list buffers to match `KeyType`.
+
+### Why separate index instances?
+
+`IJ`, `IR`, `W`, and `IDict` are all `InvertedFile` instances. `IJ`, `IR`, and `W` use the dense `AdjList(UInt32)` backend, while `IDict` uses the dictionary-backed `AdjDict{String, UInt32}` backend (`DictInvertedFile`). An index is tied to its distance function and adjacency storage for its lifetime, so answering the same question under a different notion of "closest" or a different storage backend means building a separate instance, not reconfiguring an existing one.
 
 ---
 

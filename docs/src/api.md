@@ -378,6 +378,7 @@ Inverted file index data structures and context for sparse vectors, MIPS, and se
 ```@docs
 InvertedFiles.AbstractInvertedFile
 InvertedFiles.InvertedFile
+InvertedFiles.DictInvertedFile
 InvertedFiles.InvertedFileContext
 InvertedFiles.getcontext
 InvertedFiles.search_invfile
