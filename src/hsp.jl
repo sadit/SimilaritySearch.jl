@@ -3,7 +3,7 @@
 export hsp_queries
 
 iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
-iterate_hsp_(h::AbstractKnn) = IdView(h)
+iterate_hsp_(h::AbstractKnnQueue) = IdView(h)
 
 function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
     @inbounds point = db[point_id]
@@ -100,7 +100,7 @@ function hsp_queries(dist, X::AbstractDatabase, Q::AbstractDatabase,
     hsp_ids, hsp_dists, hsp
 end
 
-function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, center, neighborhood; neardup::Float32=1.0f-4, neardupcaptureprob::Float32=0.5f0)
+function hsp_proximal_neighborhood_filter!(hsp::AbstractKnnQueue, dist::PreMetric, db, center, neighborhood; neardup::Float32=1.0f-4, neardupcaptureprob::Float32=0.5f0)
     push_item!(hsp, neighborhood[1])
     prob = 1.0f0 # ignore near duplicates with some prob
     for i in 2:length(neighborhood)
@@ -118,7 +118,7 @@ function hsp_proximal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db
     hsp
 end
 
-function hsp_distal_neighborhood_filter!(hsp::AbstractKnn, dist::PreMetric, db, center, neighborhood)
+function hsp_distal_neighborhood_filter!(hsp::AbstractKnnQueue, dist::PreMetric, db, center, neighborhood)
     push_item!(hsp, last(neighborhood))
 
     # prob = 1f0

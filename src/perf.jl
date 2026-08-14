@@ -7,7 +7,7 @@ export recallscore, macrorecall
 
 Computes the recall score of a single result set `res` against its gold standard `gold`, i.e., the
 fraction of the identifiers in `gold` that also appear in `res`. Both `gold` and `res` can be a `Set`,
-an `AbstractVector{IdDist}`, an `AbstractVector{<:Integer}`, or an `AbstractKnn` object.
+an `AbstractVector{IdDist}`, an `AbstractVector{<:Integer}`, or an `AbstractKnnQueue` object.
 
 # Arguments
 - `gold`: the gold standard (exact) result set
@@ -34,7 +34,7 @@ end
 
 idset(a::Set) = a
 idset(a::AbstractVector{<:Integer}) = Set{UInt32}(a)
-idset(res::AbstractKnn) = Set{UInt32}(IdView(res))
+idset(res::AbstractKnnQueue) = Set{UInt32}(IdView(res))
 
 """
     macrorecall(goldI::AbstractMatrix, resI::AbstractMatrix, k::Integer=size(goldI, 1)) -> Float64
@@ -82,7 +82,7 @@ end
     macrorecall(goldlist::AbstractVector, reslist::AbstractVector) -> Float64
 
 Computes the macro recall score, i.e., the average of the per-query [`recallscore`](@ref), using vectors
-of per-query result sets (each element can be a `Set`, an `AbstractKnn` object, or a vector of identifiers)
+of per-query result sets (each element can be a `Set`, an `AbstractKnnQueue` object, or a vector of identifiers)
 instead of matrices.
 
 # Arguments

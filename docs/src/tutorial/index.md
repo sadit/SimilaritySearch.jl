@@ -31,22 +31,24 @@ Pages, in the order we recommend reading them:
    with discrete/combinatorial distances**.
 4. [SearchGraph, in depth](searchgraph.md) -- the approximate index: how it works, when
    to reach for it, and (again, because it matters) when *not* to.
-5. [Beyond search: fft, allknn, closestpair, neardup](operations.md) -- other things you
+5. [Radius queries: `RadiusSorted`, `RadiusHeap`](radius_search.md) -- "every point within
+   distance `r`", instead of a fixed `k`, on both `ExhaustiveSearch` and `SearchGraph`.
+6. [Beyond search: fft, allknn, closestpair, neardup](operations.md) -- other things you
    can do with an index besides answering k-NN queries.
-6. [Two datasets, one distance: bichromatic closest pairs and joins](bichromatic.md) --
+7. [Two datasets, one distance: bichromatic closest pairs and joins](bichromatic.md) --
    `closestpair`'s generalization to two distinct datasets, its `k`-pairs version, and a
    metric join between them.
-7. [Parallelism: what to expect, what not to do](parallelism.md) -- the `@BATCHES`-based
+8. [Parallelism: what to expect, what not to do](parallelism.md) -- the `@BATCHES`-based
    threading model, its context objects, and concrete anti-patterns to avoid.
-8. [Saving and loading indexes with JLD2](persistence.md) -- indexes are plain structs;
+9. [Saving and loading indexes with JLD2](persistence.md) -- indexes are plain structs;
    here's the DIY save/load pattern now that this package doesn't ship its own.
-9. [Logs, and capturing neighbors as they're built](logging.md) -- the logging system,
+10. [Logs, and capturing neighbors as they're built](logging.md) -- the logging system,
    custom loggers, and how (and how not) to use them to capture a `SearchGraph`'s
    neighbor lists incrementally during construction.
-10. [Inverted files and posting list intersections](invertedfiles.md) -- the `InvertedFile`
+11. [Inverted files and posting list intersections](invertedfiles.md) -- the `InvertedFile`
    index for sparse vector, MIPS, and set search, and posting list intersection algorithms
    (`Intersections`).
-11. [Quantization and Bit Sketches](quantization_and_bitsketches.md) -- techniques for compressing vectors into 
+12. [Quantization and Bit Sketches](quantization_and_bitsketches.md) -- techniques for compressing vectors into 
    smaller memory footprints and accelerating search using `ScalarQuant` and `bitsketch` with `ExhaustiveSearch`.
 
 ## Installation

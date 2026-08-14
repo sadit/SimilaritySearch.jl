@@ -1,5 +1,5 @@
 """
-    KnnHeap{IDS<:AbstractVector{UInt32}, DSTS<:AbstractVector{Float32}} <: AbstractKnn
+    KnnHeap{IDS<:AbstractVector{UInt32}, DSTS<:AbstractVector{Float32}} <: AbstractKnnQueue
 
 A k-NN result container backed by a binary max-heap (ordered by [`DistOrder`](@ref)).
 The root of the heap always holds the current farthest item, so once the container is
@@ -27,7 +27,7 @@ viewitems(res)   # view of the active items
 ```
 """
 mutable struct KnnHeap{IDS<:AbstractVector{UInt32},
-                       DSTS<:AbstractVector{Float32}} <: AbstractKnn
+                       DSTS<:AbstractVector{Float32}} <: AbstractKnnQueue
     ids::IDS
     dists::DSTS
     min_id::UInt32

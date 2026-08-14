@@ -76,3 +76,27 @@ end
     queries = rand(db, 20)
     test_seq(db, queries, Dist.Bits.Hamming(), ksearch)
 end
+
+@testset "RadiusSorted/RadiusHeap via ExhaustiveSearch" begin
+    dist = Dist.SqL2()
+    n, m = 200, 10
+    db = MatrixDatabase(rand(Float32, 4, n))
+    queries = MatrixDatabase(rand(Float32, 4, m))
+    idx = ExhaustiveSearch(dist, db)
+    ctx = GenericContext()
+
+    alldists = [Dist.evaluate(dist, queries[j], db[i]) for i in 1:n, j in 1:m]
+    sorted_dists = sort(vec(alldists))
+    radius = sorted_dists[cld(length(sorted_dists), 5)]  # ~20th percentile, no Statistics dep needed
+
+    for QueueType in (RadiusSorted, RadiusHeap)
+        knns = [QueueType(radius) for _ in 1:m]
+        searchbatch!(idx, ctx, queries, knns)
+
+        for j in 1:m
+            gold = Set(i for i in 1:n if alldists[i, j] <= radius)
+            got = Set(x.id for x in viewitems(knns[j]))
+            @test got == gold
+        end
+    end
+end

@@ -74,14 +74,14 @@ struct ParetoRadius <: ErrorFunction end
 function setconfig! end
 
 """
-    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
 
 Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)` methods
 (e.g. `src/searchgraph/optbs.jl`): runs `conf` against every query in `queries`, in parallel,
 mirroring [`searchbatch!`](@ref). Internal function used by [`create_error_function`](@ref).
 """
 function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
-                    queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+                    queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
     m = length(queries)
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin

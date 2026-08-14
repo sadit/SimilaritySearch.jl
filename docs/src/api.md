@@ -230,11 +230,22 @@ AdjDict
 StaticAdjList
 ```
 
-## k-NN result containers
+## k-NN and radius-bounded result containers (`PQueue` submodule)
+Result containers accumulate `(id, dist)` pairs found during a search. They live under
+`AbstractMetricQueue`, with two sibling families: count-bounded (`AbstractKnnQueue`: `KnnHeap`,
+`KnnSorted`, keep the `k` closest items) and radius-bounded (`AbstractRadiusQueue`:
+`RadiusSorted`, `RadiusHeap`, keep every item within a fixed distance threshold, however many
+that turns out to be -- see the [`searchbatch!`](@ref) form that accepts a vector of these).
+Although they're implemented in the `PQueue` submodule, every name below is re-exported
+unqualified from `SimilaritySearch`, exactly as before this reorganization.
 ```@docs
-AbstractKnn
+AbstractMetricQueue
+AbstractKnnQueue
+AbstractRadiusQueue
 KnnHeap
 KnnSorted
+RadiusSorted
+RadiusHeap
 knnqueue
 nearest
 frontier
@@ -254,6 +265,10 @@ IdIntDist
 IdOrder
 DistOrder
 RevDistOrder
+IdView
+DistView
+IdDistView
+knn_matrices
 ```
 
 ## Scalar quantization (`ScalarQuant` submodule)

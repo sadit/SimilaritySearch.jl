@@ -70,6 +70,11 @@ object, `SearchGraph` looks at only a small fraction of the dataset per query by
 the proximity graph -- much faster on large datasets, at the cost of not being
 guaranteed to find the *exact* nearest neighbors.
 
+Every query above asks for a *fixed* number of neighbors (`k`). If what you actually want
+is "every point within distance `r`, however many that turns out to be" instead, see
+[the next page](radius_search.md) on [`RadiusSorted`](@ref)/[`RadiusHeap`](@ref) --
+radius-bounded result containers that work with both `ExhaustiveSearch` and `SearchGraph`.
+
 ## How much accuracy are you losing? `optimize_index!`
 
 "Approximate" is a knob, not a fixed cost. [`optimize_index!`](@ref) tunes the graph's
@@ -142,5 +147,4 @@ sequence decoding), just over a proximity graph instead of a sequence of tokens.
 chosen for queries that don't provide their own -- the default (`RandomHints`) is a
 reasonable choice for most datasets.
 
-Next: [other things you can do with an index besides `search`](operations.md) --
-`fft`, `allknn`, `closestpair`, `neardup`.
+Next: [radius queries with `RadiusSorted`/`RadiusHeap`](radius_search.md).

@@ -145,11 +145,11 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
 end
 
 """
-    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
+    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnnQueue)
 
 Runs a single query `q` search using the candidate configuration `bs` (with `maxvisits` doubled with respect to `index`'s current algorithm). Internal function, used while evaluating candidate configurations during optimization.
 """
-function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
+function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnnQueue)
     @reset bs.maxvisits = 2 * index.algo[].maxvisits
     vstate = getvstate(length(index), ctx)
     search(bs, index, ctx, q, res, index.hints, vstate)

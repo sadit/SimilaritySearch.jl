@@ -1,7 +1,7 @@
 using SparseArrays
 
 """
-    sparse(res::AbstractKnn, n::Integer)
+    sparse(res::AbstractKnnQueue, n::Integer)
 
 Converts a k-NN queue into a `SparseVector` of length `n`. 
 The `(id, distance)` pairs are extracted and sorted by `id` to satisfy the `SparseVector` constraints.
@@ -12,7 +12,7 @@ The `(id, distance)` pairs are extracted and sorted by `id` to satisfy the `Spar
     @inbounds X[2][i], X[2][j] = X[2][j], X[2][i]
 end
 
-function SparseArrays.sparse(res::AbstractKnn, n::Integer)
+function SparseArrays.sparse(res::AbstractKnnQueue, n::Integer)
     len = length(res)
     nzind = Vector{Int}(undef, len)
     nzval = Vector{Float32}(undef, len)
@@ -89,12 +89,12 @@ end
 @inline _lt_val(X, i, j) = @inbounds X[2][i] < X[2][j]
 
 """
-    knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnn}
+    knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnnQueue}
 
 Creates a k-NN queue from a `SparseVector` by pushing all non-zero entries.
 The queue will automatically reorder the elements by distance.
 """
-function knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnn}
+function knnqueue(::Type{T}, vec::SparseVector) where {T<:AbstractKnnQueue}
     k = nnz(vec)
     res = knnqueue(T, k)
     for i in 1:k

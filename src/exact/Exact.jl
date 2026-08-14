@@ -5,7 +5,7 @@ module Exact
 using ..SimilaritySearch
 
 using ..SimilaritySearch:
-    AbstractContext, AbstractDatabase, AbstractKnn, AbstractSearchIndex,
+    AbstractContext, AbstractDatabase, AbstractKnnQueue, AbstractSearchIndex,
     GenericContext, PreMetric, SemiMetric, Metric, AbstractDatabase, VectorDatabase,
     add_distance_evaluations!,
     IdDist, LOG

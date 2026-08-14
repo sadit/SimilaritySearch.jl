@@ -2,7 +2,7 @@
 export SearchGraphContext
 
 """
-    SearchGraphContext(KnnType::Type{<:AbstractKnn}=KnnSorted,
+    SearchGraphContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted,
         vstates=nothing;
         logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
         verbose=false,
@@ -103,7 +103,7 @@ struct SearchGraphContext{KnnType,VSType} <: AbstractContext
 end
 
 function SearchGraphContext(
-    KnnType::Type{<:AbstractKnn}=KnnSorted,
+    KnnType::Type{<:AbstractKnnQueue}=KnnSorted,
     vstates=nothing;
     logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     verbose=false,
@@ -190,13 +190,13 @@ Returns whether `ctx` is configured to emit verbose output.
 verbose(ctx::SearchGraphContext) = ctx.verbose
 
 """
-    knnqueue(ctx::SearchGraphContext{KnnType}, arg) -> AbstractKnn
+    knnqueue(ctx::SearchGraphContext{KnnType}, arg) -> AbstractKnnQueue
 
 Creates a knn priority queue of type `KnnType` (the type parameter stored in `ctx`), using `arg`
 to initialize it (either an integer `k` or a preallocated vector), see [`knnqueue`](@ref).
 """
-knnqueue(::SearchGraphContext{KnnType}, ids, dists) where {KnnType<:AbstractKnn} = knnqueue(KnnType, ids, dists)
-knnqueue(::SearchGraphContext{KnnType}, k::Int) where {KnnType<:AbstractKnn} = knnqueue(KnnType, k)
+knnqueue(::SearchGraphContext{KnnType}, ids, dists) where {KnnType<:AbstractKnnQueue} = knnqueue(KnnType, ids, dists)
+knnqueue(::SearchGraphContext{KnnType}, k::Int) where {KnnType<:AbstractKnnQueue} = knnqueue(KnnType, k)
 
 """
     getvstate(len::Integer, ctx::SearchGraphContext)
@@ -211,7 +211,7 @@ per-batch context tagged via `@set ctx.batchid = @batchid()`, see [`@batchid()`]
 end
 
 """
-    getbeam(nsize::Integer, ctx::SearchGraphContext) -> AbstractKnn
+    getbeam(nsize::Integer, ctx::SearchGraphContext) -> AbstractKnnQueue
 
 Retrieves `ctx`'s preallocated beam slot (indexed by `ctx.batchid`; a `KnnSorted` queue
 backed by `ctx.beam_ids`/`ctx.beam_dists`, truncated to at most `nsize` elements) used

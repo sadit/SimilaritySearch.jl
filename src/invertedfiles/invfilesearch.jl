@@ -24,11 +24,11 @@ function select_posting_lists(idx::AbstractInvertedFile, ctx::InvertedFileContex
 end
 
 """
-	search(idx::AbstractInvertedFile, ctx::InvertedFileContext, q, res::AbstractKnn; t=1)
+	search(idx::AbstractInvertedFile, ctx::InvertedFileContext, q, res::AbstractKnnQueue; t=1)
 
 Searches `q` in `idx` using the cosine dissimilarity, it computes the full operation on `idx`. `res` specify the query
 """
-function search(idx::AbstractInvertedFile, ctx::InvertedFileContext, q, res::AbstractKnn; t=1)
+function search(idx::AbstractInvertedFile, ctx::InvertedFileContext, q, res::AbstractKnnQueue; t=1)
     Q = select_posting_lists(idx, ctx, q)
     n = length(Q)
     n == 0 && return res
@@ -38,7 +38,7 @@ end
 
 # ── Generic fallback (no closed-form fast path) ─────────────────────────────
 
-struct FallbackInvFileOutput{InvFileType<:InvertedFile,QType,Knn<:AbstractKnn}
+struct FallbackInvFileOutput{InvFileType<:InvertedFile,QType,Knn<:AbstractKnnQueue}
     idx::InvFileType
     q::QType
     res::Knn
@@ -52,7 +52,7 @@ end
 
 # ── Set/token adjacency (AdjType eltype == UInt32) ──────────────────────────
 
-struct SetInvFileOutput{InvFileType<:InvertedFile,Knn<:AbstractKnn}
+struct SetInvFileOutput{InvFileType<:InvertedFile,Knn<:AbstractKnnQueue}
     idx::InvFileType
     res::Knn
     n::Int
@@ -65,7 +65,7 @@ function Intersections.onmatch!(output::SetInvFileOutput, L, P, isize::Int)
 end
 
 """
-  search_invfile(idx::InvertedFile, ctx::InvertedFileContext, q, Q, res::AbstractKnn, t)
+  search_invfile(idx::InvertedFile, ctx::InvertedFileContext, q, Q, res::AbstractKnnQueue, t)
 
 Find candidates for solving query `Q` using `idx`. It calls `callback` on each candidate `(objID, dist)`
 
@@ -77,7 +77,7 @@ Find candidates for solving query `Q` using `idx`. It calls `callback` on each c
 - `t`: threshold (t=1 union, t > 1 solves the t-threshold problem); for distances without an exact
   fast path, `t` also bounds how many real `evaluate` calls happen per query — raise it to reduce cost.
 """
-function search_invfile(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, q, Q::Vector{PostType}, res::AbstractKnn, t) where {PostType<:PostingList}
+function search_invfile(idx::InvertedFile{<:Any,<:AbstractAdjList{UInt32}}, ctx::InvertedFileContext, q, Q::Vector{PostType}, res::AbstractKnnQueue, t) where {PostType<:PostingList}
     n = length(Q)
     P = getpositions(n, ctx)
     cost = if has_exact_fastpath(idx.dist)

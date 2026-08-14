@@ -15,7 +15,11 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     KCenters, fft, dnet, randsel, multirandsel,
     Bichromatic, closestpair, bichromatic_closestpair, closestpairs, bichromatic_kclosestpairs,
-    bichromatic_metricjoin
+    bichromatic_metricjoin,
+    PQueue, AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue,
+    KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue,
+    covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, pop_min!, nearest, frontier,
+    DistView, IdView, IdDistView, knn_matrices
 
 """
     abstract type AbstractContext end
@@ -30,6 +34,8 @@ function search end
 function push_item! end
 function append_items! end
 function index! end
+function reuse! end
+function knnqueue end
 
 """
     getminbatch(n::Int, nt::Int=Threads.nthreads();
@@ -118,6 +124,7 @@ include("proj/Projections.jl")
 
 include("log.jl")
 include("pqueue/pqueue.jl")
+using .PQueue
 
 @inline Base.length(searchctx::AbstractSearchIndex) = length(database(searchctx))
 @inline Base.eachindex(searchctx::AbstractSearchIndex) = 1:length(searchctx)
@@ -147,7 +154,7 @@ Gets the distance function used in the index
 @inline distance(searchctx::AbstractSearchIndex) = searchctx.dist
 
 """
-    GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted;
+    GenericContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted;
         verbose::Bool=true, logger=InformativeLog(),
         maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
         scheduler::Symbol=get_batch_scheduler()) -> GenericContext
@@ -161,7 +168,7 @@ scratch caches.
 - `logger`: how to handle and log events.
 - `maxbatches`: hard cap on the batch count used by [`getminbatch`](@ref) for operations
   driven by this context (e.g. [`searchbatch!`](@ref), [`allknn`](@ref),
-  [`closestpair`](@ref), [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnn))).
+  [`closestpair`](@ref), [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnnQueue))).
   Defaults to `8 * Threads.nthreads()`, matching [`getminbatch`](@ref)'s own default
   `blocks_per_thread`.
 - `batchid`: the batch slot this context is tagged with; not meaningful on the root
@@ -188,7 +195,7 @@ struct GenericContext{KnnType} <: AbstractContext
     costblocks::Vector{Int}
 end
 
-GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
+GenericContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
     maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1, scheduler::Symbol=get_batch_scheduler(),
     costdists=zeros(Int, maxbatches), costblocks=zeros(Int, maxbatches)) =
     GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
@@ -198,7 +205,7 @@ GenericContext(KnnType::Type{<:AbstractKnn}=KnnSorted; verbose::Bool=true, logge
 # override makes `@set ctx.batchid = ...`/`@set ctx.maxbatches = ...` work.
 Accessors.ConstructionBase.constructorof(::Type{<:GenericContext{K}}) where {K} = (args...) -> GenericContext{K}(args...)
 
-knnqueue(::GenericContext{KnnType}, args...) where {KnnType<:AbstractKnn} = knnqueue(KnnType, args...)
+knnqueue(::GenericContext{KnnType}, args...) where {KnnType<:AbstractKnnQueue} = knnqueue(KnnType, args...)
 verbose(ctx::GenericContext) = ctx.verbose
 
 # A slot counts toward these stats if it's nonzero -- a real search always performs >= 1
@@ -334,7 +341,41 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     ids, dists
 end
 
-function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractKnn})
+"""
+    searchbatch!(index, ctx, Q, knns::AbstractVector{<:AbstractMetricQueue}) -> knns
+
+In-place batch search using caller-provided, per-query result containers instead of
+pre-sized `(k, length(Q))` matrices. Unlike the matrix-based `searchbatch!` above, `knns`
+need not hold a uniform, fixed-size container per query: each `knns[i]` can be any
+[`AbstractMetricQueue`](@ref) -- a fixed-`k` [`KnnSorted`](@ref)/[`KnnHeap`](@ref), or a
+growable, radius-thresholded [`RadiusSorted`](@ref)/[`RadiusHeap`](@ref) -- and they need not
+even share the same concrete type. This is the only entry point radius-bounded containers are
+meant to be driven through; they are not wired into the `(ids, dists)` matrix form (which
+requires a uniform `k`) or into `GenericContext`/`SearchGraphContext`'s automatic
+`knnqueue(ctx, k)` construction (which has no notion of a radius).
+
+Does **not** call [`reuse!`](@ref) on the elements of `knns` -- pass already-fresh containers.
+
+# Arguments
+- `index`: The search structure
+- `ctx`: Context of the search algorithm
+- `Q`: The set of queries
+- `knns`: One result container per query, `length(knns) == length(Q)`
+
+# Examples
+
+```julia
+# radius-bounded search: every point within 0.3 of each query, however many that is
+knns = [RadiusSorted(0.3f0) for _ in 1:length(Q)]
+searchbatch!(index, ctx, Q, knns)
+for (q, res) in zip(Q, knns)
+    for p in viewitems(res)
+        println(p.id, " ", p.dist)
+    end
+end
+```
+"""
+function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractVector{<:AbstractMetricQueue})
     m = length(Q)
     m > 0 || throw(ArgumentError("empty set of queries"))
     m == length(knns) || throw(ArgumentError("the number of queries is different from the given output containers"))

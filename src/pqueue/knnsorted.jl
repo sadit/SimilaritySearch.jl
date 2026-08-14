@@ -1,5 +1,5 @@
 """
-    KnnSorted{IDS<:AbstractVector{UInt32}, DSTS<:AbstractVector{Float32}} <: AbstractKnn
+    KnnSorted{IDS<:AbstractVector{UInt32}, DSTS<:AbstractVector{Float32}} <: AbstractKnnQueue
 
 A k-NN result container that keeps its active items always sorted by distance (ascending,
 [`DistOrder`](@ref)), using a bounded binary-search + block-shift on each push. It trades
@@ -29,7 +29,7 @@ viewitems(res)   # lazy view of the active items, sorted by distance
 ```
 """
 mutable struct KnnSorted{IDS<:AbstractVector{UInt32},
-                         DSTS<:AbstractVector{Float32}} <: AbstractKnn
+                         DSTS<:AbstractVector{Float32}} <: AbstractKnnQueue
     ids::IDS
     dists::DSTS
     sp::Int32

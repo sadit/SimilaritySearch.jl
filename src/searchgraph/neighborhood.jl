@@ -7,22 +7,22 @@ function neighborhoodsize(N::Neighborhood, n::Integer)::Int
 end
 
 """
-    find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnn, blockrange; hints=index.hints)
+    find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnnQueue, blockrange; hints=index.hints)
 
 Searches for `item`'s neighborhood in the index, i.e., if `item` were in the index, which items should be its neighbors (internal function).
 
 # Arguments
-- `out`: `AbstractKnn` object where the resulting (filtered) neighborhood is stored.
+- `out`: `AbstractKnnQueue` object where the resulting (filtered) neighborhood is stored.
 - `index`: The search index.
 - `ctx`: context, neighborhood, and cache objects to be used.
 - `item`: The item to be inserted.
-- `tmp`: `AbstractKnn` object used as scratch space for the raw (unfiltered) search results.
+- `tmp`: `AbstractKnnQueue` object used as scratch space for the raw (unfiltered) search results.
 - `blockrange`: Extra block range for parallel insertions, defaults to an empty range.
 
 # Keyword Arguments
 - `hints`: Search hints
 """
-function find_neighborhood!(out::AbstractKnn, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnn, blockrange; hints=index.hints)
+function find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnnQueue, blockrange; hints=index.hints)
     n = length(index)
    
     if n > 0

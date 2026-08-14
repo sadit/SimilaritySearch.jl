@@ -9,8 +9,8 @@ makedocs(;
         prettyurls=get(ENV, "CI", nothing) == "true",
         canonical="https://sadit.github.io/SimilaritySearch.jl",
         assets=String[],
-        size_threshold=400_000,
-        size_threshold_warn=250_000,
+        size_threshold=450_000,
+        size_threshold_warn=300_000,
     ),
     pages=[
         "Home" => "index.md",
@@ -19,6 +19,7 @@ makedocs(;
             "tutorial/databases.md",
             "tutorial/distances.md",
             "tutorial/searchgraph.md",
+            "tutorial/radius_search.md",
             "tutorial/operations.md",
             "tutorial/bichromatic.md",
             "tutorial/parallelism.md",

@@ -53,7 +53,7 @@ function index!(seq::ExhaustiveSearch, ctx::AbstractContext)
 end
 
 """
-    search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractKnn) -> res
+    search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractMetricQueue) -> res
 
 Solves query `q` by sequentially evaluating the distance between `q` and every item of the indexed
 database, pushing each candidate into `res`.
@@ -64,7 +64,7 @@ database, pushing each candidate into `res`.
 - `q`: the query to solve
 - `res`: the result set that receives the candidates
 """
-@inline function search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractKnn)
+@inline function search(seq::ExhaustiveSearch, ctx::AbstractContext, q, res::AbstractMetricQueue)
     dist = distance(seq)
     db = database(seq)
     n = length(db)

@@ -86,11 +86,11 @@ function rerank!(dist::PreMetric, db::AbstractDatabase, queries::AbstractDatabas
 end
 
 """
-    rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractKnn) -> res
+    rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractKnnQueue) -> res
 
-Re-scores and re-sorts, in place, an `AbstractKnn` result object `res` for query `q` using `dist`.
+Re-scores and re-sorts, in place, an `AbstractKnnQueue` result object `res` for query `q` using `dist`.
 """
-function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractKnn)
+function rerank!(dist::PreMetric, db::AbstractDatabase, q, res::AbstractKnnQueue)
     ids_v   = view(res.ids,   res.sp:res.ep)
     dists_v = view(res.dists, res.sp:res.ep)
     rerank!(dist, db, q, ids_v, dists_v)

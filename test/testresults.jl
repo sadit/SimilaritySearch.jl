@@ -84,6 +84,63 @@ end
     end
 end
 
+canonical_sort(v) = sort(v, by=x -> (x.dist, x.id))  # tie-break by id: neither heapsort nor Base's default sort! is stable
+
+@testset "RadiusSorted" begin
+    for radius in Float32[0.1, 0.3, 0.6]
+        R = RadiusSorted(radius)
+        gold = IdDist[]
+
+        for i in Int32(1):Int32(10^3)
+            p = rand(Float32)
+            item = IdDist(i, p)
+            accepted = push_item!(R, i => p)
+            @test accepted == (p <= radius)
+            p <= radius && push!(gold, item)
+            @test canonical_sort(collect(viewitems(R))) == canonical_sort(gold)
+        end
+
+        @test length(R) == length(gold)
+        @test maximum(R) == radius
+        @test covradius(R) == radius
+        @test maxlength(R) == typemax(Int32)
+        if !isempty(gold)
+            g = canonical_sort(gold)
+            @test nearest(R) == first(g) && frontier(R) == last(g)
+        end
+
+        reuse!(R, 0.1f0)
+        @test length(R) == 0 && R.radius == 0.1f0 && isempty(R.ids)
+    end
+end
+
+@testset "RadiusHeap" begin
+    for radius in Float32[0.1, 0.3, 0.6]
+        R = RadiusHeap(radius)
+        gold = IdDist[]
+
+        for i in Int32(1):Int32(10^3)
+            p = rand(Float32)
+            item = IdDist(i, p)
+            accepted = push_item!(R, i, p)
+            @test accepted == (p <= radius)
+            p <= radius && push!(gold, item)
+        end
+
+        g = canonical_sort(gold)
+        @test canonical_sort(collect(viewitems(R))) == g
+        @test length(R) == length(gold)
+        @test maximum(R) == radius
+        @test covradius(R) == radius
+        if !isempty(g)
+            @test nearest(R) == first(g) && frontier(R) == last(g)
+        end
+
+        reuse!(R, 0.1f0)
+        @test length(R) == 0 && R.radius == 0.1f0 && isempty(R.ids)
+    end
+end
+
 @testset "XKnn pop ops" begin
     for k in [7, 12, 31]
         R = knnqueue(KnnSorted, k)

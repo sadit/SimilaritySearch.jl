@@ -60,7 +60,7 @@ function BasketList(dist::PreMetric, db::AbstractDatabase, k::Int)
 end
 
 # search for an item in baskets using metric properties to discard baskets that cannot contain it
-function search(bl::BasketList, ctx::AbstractContext, query, res::AbstractKnn)
+function search(bl::BasketList, ctx::AbstractContext, query, res::AbstractKnnQueue)
     DIST = distance(bl)
     cost = 0
     k = maxlength(res)

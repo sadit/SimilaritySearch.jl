@@ -190,7 +190,7 @@ include("neighborhood.jl")
 include("hints.jl")
 
 """
-    search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn) -> AbstractKnn
+    search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractMetricQueue) -> AbstractMetricQueue
 
 Solves the specified query `res` for the query object `q` using the `SearchGraph` index `index`.
 It dispatches the work to the local search algorithm stored in `index.algo` (e.g., [`BeamSearch`](@ref)),
@@ -207,7 +207,7 @@ res = knnqueue(ctx, 8)     # k=8 nearest neighbors
 search(G, ctx, q, res)
 ```
 """
-function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnn)
+function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractMetricQueue)
     vstate = getvstate(length(index), ctx)
     search(index.algo[], index, ctx, q, res, index.hints, vstate)
 end

@@ -12,7 +12,7 @@ export ParallelExhaustiveSearch
 A brute-force exact index, like [`ExhaustiveSearch`](@ref), but that solves each query by evaluating `dist`
 against every element of `db` in parallel (across `Threads.nthreads()` tasks). Each batch of the underlying
 [`@BATCHES`](@ref) call accumulates its own private, lock-free top-k buffer (indexed by `@batchid()`), merged
-into the final result once all batches join -- see [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnn))
+into the final result once all batches join -- see [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnnQueue))
 for details. Useful as a gold-standard baseline for small-to-medium datasets where parallelizing a single
 query is beneficial.
 
@@ -35,7 +35,7 @@ end
 
 """
 
-    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn) -> res
+    search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnnQueue) -> res
 
 Solves queries evaluating `dist` in parallel for the query and all elements in the dataset.
 
@@ -61,7 +61,7 @@ trade-offs of capping it (fewer batches can leave threads idle and worsens load-
 - `q`: the query to solve
 - `res`: the result set that receives the candidates
 """
-function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnn)
+function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::AbstractKnnQueue)
     dist = distance(pex)
     n = length(pex)
     k = maxlength(res)

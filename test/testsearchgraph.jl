@@ -191,3 +191,33 @@ end
 
 end
 
+@testset "RadiusSorted/RadiusHeap via searchbatch! with SearchGraph" begin
+    # n is kept < 64 so `search(bs::BeamSearch, index::SearchGraph, ...)` takes its
+    # brute-force branch (every item is evaluated unconditionally), guaranteeing an exact
+    # match against a brute-force radius scan -- this isolates RadiusSorted/RadiusHeap's own
+    # push_item! admission logic from BeamSearch's approximate neighborhood exploration.
+    dim, n, m = 4, 50, 5
+    dist = Dist.SqL2()
+    db = MatrixDatabase(rand(Float32, dim, n))
+    queries = MatrixDatabase(rand(Float32, dim, m))
+
+    graph = SearchGraph(dist, db)
+    ctx = SearchGraphContext(neighborhood=Neighborhood(filter=SatNeighborhood()), verbose=false)
+    index!(graph, ctx)
+
+    alldists = [Dist.evaluate(dist, queries[j], db[i]) for i in 1:n, j in 1:m]
+    radius = Float32(quantile(vec(alldists), 0.3))
+
+    for QueueType in (RadiusSorted, RadiusHeap)
+        knns = [QueueType(radius) for _ in 1:m]
+        searchbatch!(graph, ctx, queries, knns)
+
+        for j in 1:m
+            gold = sort(IdDist[IdDist(i, alldists[i, j]) for i in 1:n if alldists[i, j] <= radius], by=x -> x.dist)
+            got = collect(viewitems(knns[j]))
+            @test length(got) == length(gold)
+            @test Set(x.id for x in got) == Set(x.id for x in gold)
+            @test all(x.dist <= radius for x in got)
+        end
+    end
+end
