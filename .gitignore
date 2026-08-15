@@ -6,3 +6,9 @@ docs/build/
 Manifest.toml
 /.quarto/
 **/*.quarto_ipynb
+.DS_Store
+.vscode/
+benchmarks/*.txt
+test_heap.jl
+generate_report.py
+joss/
