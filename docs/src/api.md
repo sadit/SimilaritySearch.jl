@@ -332,8 +332,8 @@ Projections.transform!
 
 ## Hadamard projection (`Projections.HadamardProjection`)
 
-A dimensionality-reduction projection computed with the fast Walsh-Hadamard transform
-(via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht`) instead of a dense
+A projection computed with the fast Walsh-Hadamard transform
+(via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht_natural!`) instead of a dense
 random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!` generic functions
 documented above for `RandomProjections`.
 

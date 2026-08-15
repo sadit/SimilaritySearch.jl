@@ -1,5 +1,5 @@
 
-using Hadamard: fwht
+using Hadamard: fwht_natural!
 
 export HadamardProjection, indim, outdim, transform, transform!
 
@@ -10,20 +10,19 @@ export HadamardProjection, indim, outdim, transform, transform!
 Wraps a fast Walsh-Hadamard transform (FWHT), used as an orthogonal change of basis (via
 [`transform`](@ref)/[`transform!`](@ref)), analogous in purpose to
 [`RandomProjections`](@ref) but computed with the ``O(n \\log n)`` FWHT (via
-`Hadamard.fwht`) instead of a dense matrix-vector product, and requiring no random
+`Hadamard.fwht_natural!`) instead of a dense matrix-vector product, and requiring no random
 matrix to be generated or stored.
 
 Unlike [`RandomProjections`](@ref), `HadamardProjection` does **not** reduce
 dimensionality: `transform` always returns as many coordinates as it received
-(`outdim(hp) == indim(hp)`), since `fwht` computes a full, exact (up to normalization),
-orthogonal transform of its input, in the sequency ordering (i.e., ordered by number of
-sign changes, roughly analogous to increasing frequency in a Fourier transform). The
+(`outdim(hp) == indim(hp)`), since `fwht_natural!` computes a full, exact (up to normalization),
+orthogonal transform of its input, in natural Hadamard ordering. The
 two-argument constructor exists only to make `outdim` explicit at call sites that already
 pass one to other projection types (e.g. [`RandomProjections`](@ref)); it requires
 `outdim == indim` and raises `ArgumentError` otherwise.
 
 # Arguments
-- `indim`: the dimension of the input vectors; must be a power of two (`fwht`
+- `indim`: the dimension of the input vectors; must be a power of two (`fwht_natural!`
   requirement), otherwise an `ArgumentError` is thrown
 - `outdim`: if given, must equal `indim` (otherwise an `ArgumentError` is thrown), since
   this projection does not support dimensionality reduction/truncation
@@ -87,7 +86,10 @@ function transform!(hp::HadamardProjection, out::AbstractVector, v::AbstractVect
     length(v) == indim(hp) || throw(DimensionMismatch("HadamardProjection.transform!: length(v)=$(length(v)) must equal indim(hp)=$(indim(hp))"))
     length(out) == indim(hp) || throw(DimensionMismatch("HadamardProjection.transform!: length(out)=$(length(out)) must equal indim(hp)=$(indim(hp))"))
 
-    copyto!(out, fwht(v))
+    if out !== v
+        copyto!(out, v)
+    end
+    fwht_natural!(out)
 end
 
 """
