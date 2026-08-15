@@ -7,7 +7,7 @@ import ..SimilaritySearch: push_item!, reuse!, knnqueue
 
 export AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue
 export KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue, IdDist
-export push_item!, covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, pop_min!, nearest, frontier
+export push_item!, covradius, maxlength, reuse!, sortitems!, pop_max!, pop_min!, nearest, frontier
 export DistView, IdView, IdDistView
 export knn_matrices
 # heap.jl's primitives and sort_last_item! are not part of the top-level SimilaritySearch export
@@ -24,7 +24,7 @@ Abstract base type for all metric result containers. Its two direct subtypes are
 [`AbstractKnnQueue`](@ref) (count-bounded: keeps the `k` closest items) and
 [`AbstractRadiusQueue`](@ref) (radius-bounded: keeps every item within a fixed distance
 threshold, however many that turns out to be). Both share the same underlying
-`push_item!`/`nearest`/`frontier`/`viewitems` interface; only how "closest"/"kept" is bounded
+`push_item!`/`nearest`/`frontier`/`IdDistView` interface; only how "closest"/"kept" is bounded
 differs.
 """
 abstract type AbstractMetricQueue end
@@ -35,7 +35,7 @@ abstract type AbstractMetricQueue end
 Abstract base type for k-nearest-neighbor result containers. Concrete subtypes
 ([`KnnHeap`](@ref) and [`KnnSorted`](@ref)) accumulate `(id, dist)` pairs found during a
 search and keep only the `k` closest ones. They share a common interface built around
-[`push_item!`](@ref), [`nearest`](@ref), [`frontier`](@ref), [`viewitems`](@ref),
+[`push_item!`](@ref), [`nearest`](@ref), [`frontier`](@ref), [`IdDistView`](@ref),
 [`covradius`](@ref), and [`reuse!`](@ref); use [`knnqueue`](@ref) to construct one. See
 [`AbstractRadiusQueue`](@ref) for the radius-bounded sibling family.
 """
@@ -67,7 +67,7 @@ include("knnsorted.jl")
 include("radiussorted.jl")
 include("radiusheap.jl")
 
-@inline Base.iterate(res::AbstractMetricQueue, state=1) = iterate(viewitems(res), state)
+@inline Base.iterate(res::AbstractMetricQueue, state=1) = iterate(IdDistView(res), state)
 
 """
     covradius(res::AbstractKnnQueue)::Float32
@@ -180,12 +180,12 @@ end
 # ── IdDistView ────────────────────────────────────────────────────────────────
 
 """
-    IdDistView{IDS, DSTS}
+    IdDistView(res::AbstractMetricQueue)
+    IdDistView(ids, dists)
+    IdDistView(ids, dists, sp, ep)
 
-A lazy, zero-copy view over a range of a pair of parallel `ids`/`dists` arrays that
-presents them as a sequence of [`IdDist`](@ref) pairs. Used by [`viewitems`](@ref) on
-`KnnSorted` and `KnnHeap` to provide the `AbstractVector{IdDist}`-like interface without
-allocating.
+A lazy, zero-copy view over a range of parallel `ids`/`dists` arrays or a metric result queue
+that presents elements as a sequence of [`IdDist`](@ref) pairs without allocating.
 """
 struct IdDistView{IDS, DSTS} <: AbstractVector{IdDist}
     ids::IDS
@@ -210,6 +210,14 @@ end
 function Base.iterate(v::IdDistView, state::Int=1)
     state > length(v) ? nothing : (v[state], state + 1)
 end
+
+IdDistView(ids::AbstractVector, dists::AbstractVector) =
+    IdDistView(ids, dists, 1, min(length(ids), length(dists)))
+
+IdDistView(res::KnnSorted) = IdDistView(res.ids, res.dists, Int(res.sp), Int(res.ep))
+IdDistView(res::KnnHeap)   = IdDistView(res.ids, res.dists, 1, Int(res.len))
+IdDistView(res::RadiusSorted) = IdDistView(res.ids, res.dists, 1, length(res.ids))
+IdDistView(res::RadiusHeap)   = sortitems!(res)
 
 # ── knnqueue constructors ─────────────────────────────────────────────────────
 

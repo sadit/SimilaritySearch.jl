@@ -171,10 +171,10 @@ end
             res = search(IF, ctx_t, q, knnqueue(KnnSorted, k); t)
             @test length(res) > 0
 
-            for it in viewitems(res)
+            for it in IdDistView(res)
                 @test evaluate(dist, database(IF)[it.id], q) ≈ it.dist
             end
-            dists = [it.dist for it in viewitems(res)]
+            dists = [it.dist for it in IdDistView(res)]
             @test issorted(dists)
             # every onmatch! call pays exactly one real `evaluate()` call, so at least one per
             # surviving item, but possibly more (candidates evaluated then evicted from `res`)

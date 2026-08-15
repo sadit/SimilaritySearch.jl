@@ -60,7 +60,7 @@ index!(G, ctx)                # builds the graph: inserts every element of X
 
 res = knnqueue(ctx, 5)
 search(G, ctx, X[1], res)
-for p in viewitems(res)
+for p in IdDistView(res)
     println(p.id, " ", p.dist)
 end
 ```

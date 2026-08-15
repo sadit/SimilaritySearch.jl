@@ -249,7 +249,6 @@ RadiusHeap
 knnqueue
 nearest
 frontier
-viewitems
 covradius
 reuse!
 sortitems!

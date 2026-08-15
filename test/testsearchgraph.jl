@@ -214,7 +214,7 @@ end
 
         for j in 1:m
             gold = sort(IdDist[IdDist(i, alldists[i, j]) for i in 1:n if alldists[i, j] <= radius], by=x -> x.dist)
-            got = collect(viewitems(knns[j]))
+            got = collect(IdDistView(knns[j]))
             @test length(got) == length(gold)
             @test Set(x.id for x in got) == Set(x.id for x in gold)
             @test all(x.dist <= radius for x in got)

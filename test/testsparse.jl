@@ -25,7 +25,7 @@ using SimilaritySearch
     @test length(res_back) == 3
     
     # After conversion back, it should be sorted by distance
-    items = collect(viewitems(res_back))
+    items = collect(IdDistView(res_back))
     @test items[1].id == 3
     @test items[1].dist ≈ 0.1f0
     @test items[2].id == 10

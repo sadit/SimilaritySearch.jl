@@ -22,7 +22,7 @@ res = RadiusSorted(0.3f0)
 push_item!(res, 1, 0.1f0)
 push_item!(res, 2, 0.5f0)  # rejected, dist > radius
 nearest(res)     # closest item
-viewitems(res)   # lazy view of the active items, sorted by distance
+IdDistView(res)  # lazy view of the active items, sorted by distance
 ```
 """
 mutable struct RadiusSorted <: AbstractRadiusQueue
@@ -58,11 +58,8 @@ end
 "Farthest item ([`IdDist`](@ref)) currently stored in `res`."
 @inline frontier(res::RadiusSorted) = @inbounds IdDist(res.ids[end], res.dists[end])
 
-"Lazy zero-copy view of the active items of `res`, sorted by distance (ascending)."
-@inline viewitems(res::RadiusSorted) = IdDistView(res.ids, res.dists, 1, length(res.ids))
-
-"For `RadiusSorted` items are always sorted; returns the `viewitems` view immediately."
-@inline sortitems!(res::RadiusSorted) = viewitems(res)
+"For `RadiusSorted` items are always sorted; returns the `IdDistView` view immediately."
+@inline sortitems!(res::RadiusSorted) = IdDistView(res)
 
 """
     reuse!(res::RadiusSorted, radius::Real=res.radius)

@@ -33,7 +33,7 @@ end
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
             if i % 10 == 0
-                @test sort!(collect(viewitems(R)), by=x -> x.dist) == gold
+                @test sort!(collect(IdDistView(R)), by=x -> x.dist) == gold
             end
             push!(gold, IdDist(i, p))
             sort!(gold, by=x -> x.dist)
@@ -41,7 +41,7 @@ end
 
             push_item!(R, i => p)
             if i % 10 == 0
-                @test sort!(collect(viewitems(R)), by=x -> x.dist) == gold
+                @test sort!(collect(IdDistView(R)), by=x -> x.dist) == gold
                 @test minimum(x -> x.dist, gold) == minimum(R)
                 @test maximum(x -> x.dist, gold) == maximum(R)
                 @test argmin(x -> x.dist, gold).id == argmin(R) || minimum(x -> x.dist, gold) == minimum(R)
@@ -61,19 +61,19 @@ end
 
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
-            @assert collect(viewitems(R)) == gold
+            @assert collect(IdDistView(R)) == gold
             push!(gold, IdDist(i, p))
             sort!(gold, by=x -> x.dist)
             length(gold) > k && pop!(gold)
             push_item!(R, i => p)
-            @assert collect(viewitems(R)) == gold
+            @assert collect(IdDistView(R)) == gold
 
             if i % 10 == 0
                 @test minimum(x -> x.dist, gold) == minimum(R)
                 @test maximum(x -> x.dist, gold) == maximum(R)
                 @test argmin(x -> x.dist, gold).id == argmin(R) || minimum(x -> x.dist, gold) == minimum(R)
                 @test argmax(x -> x.dist, gold).id == argmax(R) || maximum(x -> x.dist, gold) == maximum(R)
-                @test issorted(viewitems(R), SimilaritySearch.DistOrder)
+                @test issorted(IdDistView(R), SimilaritySearch.DistOrder)
             end
         end
 
@@ -97,7 +97,7 @@ canonical_sort(v) = sort(v, by=x -> (x.dist, x.id))  # tie-break by id: neither 
             accepted = push_item!(R, i => p)
             @test accepted == (p <= radius)
             p <= radius && push!(gold, item)
-            @test canonical_sort(collect(viewitems(R))) == canonical_sort(gold)
+            @test canonical_sort(collect(IdDistView(R))) == canonical_sort(gold)
         end
 
         @test length(R) == length(gold)
@@ -128,7 +128,7 @@ end
         end
 
         g = canonical_sort(gold)
-        @test canonical_sort(collect(viewitems(R))) == g
+        @test canonical_sort(collect(IdDistView(R))) == g
         @test length(R) == length(gold)
         @test maximum(R) == radius
         @test covradius(R) == radius
@@ -148,13 +148,13 @@ end
 
         for i in Int32(1):Int32(10^3)
             p = rand(Float32)
-            @assert collect(viewitems(R)) == gold
+            @assert collect(IdDistView(R)) == gold
             push!(gold, IdDist(i, p))
             sort!(gold, by=x -> x.dist)
             length(gold) > k && pop!(gold)
 
             push_item!(R, i => p)
-            @assert collect(viewitems(R)) == gold
+            @assert collect(IdDistView(R)) == gold
 
             if i % 10 == 7
                 p = pop_min!(R)
@@ -166,7 +166,7 @@ end
             if i % 10 == 0
                 @test minimum(x -> x.dist, gold) == minimum(R)
                 @test maximum(x -> x.dist, gold) == maximum(R)
-                @test issorted(viewitems(R), SimilaritySearch.DistOrder)
+                @test issorted(IdDistView(R), SimilaritySearch.DistOrder)
             end
         end
 

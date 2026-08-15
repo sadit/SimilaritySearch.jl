@@ -111,7 +111,7 @@ ctx = GenericContext()
 res = knnqueue(ctx, 5)                 # a reusable result buffer for k=5
 search(idx, ctx, factors(1000), res)   # which numbers "look like" 1000 = 2³·5³?
 
-for p in viewitems(res)  # (id, dist) pairs, in storage order
+for p in IdDistView(res)  # (id, dist) pairs, in storage order
     println(p.id, " => ", factors(p.id), "  dist=", p.dist)
 end
 ```

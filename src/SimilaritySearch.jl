@@ -18,7 +18,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     bichromatic_metricjoin,
     PQueue, AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue,
     KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue,
-    covradius, maxlength, reuse!, viewitems, sortitems!, pop_max!, pop_min!, nearest, frontier,
+    covradius, maxlength, reuse!, sortitems!, pop_max!, pop_min!, nearest, frontier,
     DistView, IdView, IdDistView, knn_matrices
 
 """
@@ -369,7 +369,7 @@ Does **not** call [`reuse!`](@ref) on the elements of `knns` -- pass already-fre
 knns = [RadiusSorted(0.3f0) for _ in 1:length(Q)]
 searchbatch!(index, ctx, Q, knns)
 for (q, res) in zip(Q, knns)
-    for p in viewitems(res)
+    for p in IdDistView(res)
         println(p.id, " ", p.dist)
     end
 end

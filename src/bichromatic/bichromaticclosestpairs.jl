@@ -92,7 +92,7 @@ candidate is no worse than `topk`'s current worst entry and `topk` is already fu
 sorted means every remaining candidate is at least as bad.
 """
 function insert_topk_candidates!(topk::Vector{Tuple{Int32,Int32,Float32}}, k::Int, res, objID::Integer)
-    for p in viewitems(res)
+    for p in IdDistView(res)
         length(topk) >= k && p.dist >= last(topk[end]) && break
         insert_topk!(topk, k, (Int32(p.id), Int32(objID), p.dist))
     end

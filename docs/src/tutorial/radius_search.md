@@ -54,7 +54,7 @@ ectx = GenericContext()
 res = RadiusSorted(0.05f0)          # radius chosen arbitrarily for this example
 search(E, ectx, X[1], res)
 println(length(res), " neighbors within radius 0.05")
-for p in viewitems(res)
+for p in IdDistView(res)
     println(p.id, " ", p.dist)
 end
 ```
@@ -102,9 +102,9 @@ Both accept the same `(id, dist)` pairs under the same radius rule; they differ 
 they keep that data:
 
 - [`RadiusSorted`](@ref) keeps its items sorted by distance after every single push (bounded
-  binary-search insertion), so [`viewitems`](@ref) is always ready with no extra work.
+  binary-search insertion), so [`IdDistView`](@ref) is always ready with no extra work.
 - [`RadiusHeap`](@ref) just appends on every push (`O(1)`) and only sorts lazily -- once, the
-  first time you read it back (via [`viewitems`](@ref), [`nearest`](@ref), etc.) -- trading
+  first time you read it back (via [`IdDistView`](@ref), [`nearest`](@ref), etc.) -- trading
   that one deferred sort for a cheaper build-up.
 
 Reach for `RadiusHeap` when you expect a query to accumulate many matches and don't need

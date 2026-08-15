@@ -25,7 +25,7 @@ res = knnqueue(KnnSorted, 3)  # k = 3
 push_item!(res, 1, 0.5f0)
 push_item!(res, 2, 0.1f0)
 nearest(res)     # closest item
-viewitems(res)   # lazy view of the active items, sorted by distance
+IdDistView(res)  # lazy view of the active items, sorted by distance
 ```
 """
 mutable struct KnnSorted{IDS<:AbstractVector{UInt32},
@@ -126,20 +126,11 @@ that would be evicted next when a closer candidate is pushed.
 @inline frontier(res::KnnSorted) = @inbounds IdDist(res.ids[res.ep], res.dists[res.ep])
 
 """
-    viewitems(res::KnnSorted)
-
-Returns a lazy zero-copy view of the active items of `res` as an `IdDistView` wrapper,
-sorted by distance (ascending). Indexing returns `IdDist` pairs; iterating yields them in
-order.
-"""
-@inline viewitems(res::KnnSorted) = IdDistView(res.ids, res.dists, Int(res.sp), Int(res.ep))
-
-"""
     sortitems!(res::KnnSorted)
 
-For `KnnSorted` items are always sorted; returns the `viewitems` view immediately.
+For `KnnSorted` items are always sorted; returns the `IdDistView` view immediately.
 """
-@inline sortitems!(res::KnnSorted) = viewitems(res)
+@inline sortitems!(res::KnnSorted) = IdDistView(res)
 
 """
     push_item!(res::KnnSorted, p::IdDist)

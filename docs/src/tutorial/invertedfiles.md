@@ -75,7 +75,7 @@ append_items!(IJ, ctx, sets)
 
 res = knnqueue(ctx, 6)
 search(IJ, ctx, q, res; t=length(q))
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
 # MargheritaPizza => 0.5
@@ -90,7 +90,7 @@ Only `MargheritaPizza` contains *both* flour and cheese, so the AND query return
 ```julia
 res = knnqueue(ctx, 6)
 search(IJ, ctx, q, res; t=1)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
 # MargheritaPizza => 0.5
@@ -116,7 +116,7 @@ append_items!(IR, ctx, sets)
 
 res = knnqueue(ctx, 6)
 search(IR, ctx, q, res; t=1)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
 # MargheritaPizza => 0.2857143
@@ -153,7 +153,7 @@ append_items!(W, ctx, weights)
 qw = l2normalize([id("flour"),id("egg"),id("cheese")], [1.0,1.0,1.0], vocsize)
 res = knnqueue(ctx, 6)
 search(W, ctx, qw, res)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
 # Omelette        => 0.2546
@@ -190,7 +190,7 @@ q_str = Set(["flour", "cheese"])
 res = knnqueue(ctx_dict, 6)
 search(IDict, ctx_dict, q_str, res; t=1)
 
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
 # MargheritaPizza => 0.5

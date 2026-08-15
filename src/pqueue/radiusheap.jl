@@ -57,7 +57,7 @@ end
     sortitems!(res::RadiusHeap)
 
 Sorts `res`'s items by distance (ascending) if they aren't already known to be sorted, and
-returns the resulting [`viewitems`](@ref) view.
+returns the resulting `IdDistView` view.
 """
 function sortitems!(res::RadiusHeap)
     if !res.sorted
@@ -71,9 +71,6 @@ function sortitems!(res::RadiusHeap)
     end
     IdDistView(res.ids, res.dists, 1, length(res.ids))
 end
-
-"Lazy zero-copy view of the active items of `res`, sorted by distance (ascending)."
-@inline viewitems(res::RadiusHeap) = sortitems!(res)
 
 "Closest item ([`IdDist`](@ref)) currently stored in `res`, sorting `res` first if needed."
 @inline function nearest(res::RadiusHeap)

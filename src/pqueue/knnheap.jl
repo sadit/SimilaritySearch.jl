@@ -23,7 +23,7 @@ res = knnqueue(KnnHeap, 3)  # k = 3
 push_item!(res, 1, 0.5f0)
 push_item!(res, 2, 0.1f0)
 nearest(res)     # IdDist with the smallest distance seen so far
-viewitems(res)   # view of the active items
+IdDistView(res)  # view of the active items
 ```
 """
 mutable struct KnnHeap{IDS<:AbstractVector{UInt32},
@@ -85,24 +85,15 @@ Returns the closest item ([`IdDist`](@ref)) seen so far in `res`.
 @inline nearest(res::KnnHeap) = IdDist(res.min_id, res.min_dist)
 
 """
-    viewitems(res::KnnHeap)
-
-Returns a zero-copy view of the active items of `res` as an `IdDistView` wrapper
-(in heap order, not sorted by distance). Use [`sortitems!`](@ref) if a distance-sorted
-view is needed instead.
-"""
-@inline viewitems(res::KnnHeap) = IdDistView(res.ids, res.dists, 1, Int(res.len))
-
-"""
     sortitems!(res::KnnHeap)
 
-Sort items and returns a view of the active items; this operation destroys the internal
+Sort items and returns an `IdDistView` of the active items; this operation destroys the internal
 heap structure. It is possible to restore the heap structure without calling `heapify!`
 by applying `reverse!` on the returned view.
 """
 function sortitems!(res::KnnHeap)
     heapsort!(_lt_dist, _swap_ids_dists, (res.ids, res.dists), Int(res.len))
-    viewitems(res)
+    IdDistView(res)
 end
 
 """

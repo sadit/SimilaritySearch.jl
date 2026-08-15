@@ -55,8 +55,8 @@ julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load 
   sequences, sets, "hacks" like `DistanceWithIdentifiers`).
 - `db/` — database containers (`MatrixDatabase`, `VectorDatabase`, `SubDatabase`) wrapping
   the actual point storage.
-- `pqueue/` — k-NN result containers (`KnnSorted`, `KnnHeap`), both `AbstractKnn`
-  subtypes sharing one interface (`push_item!`, `nearest`, `frontier`, `viewitems`,
+- `pqueue/` — k-NN result containers (`KnnSorted`, `KnnHeap`), both `AbstractKnnQueue`
+  subtypes sharing one interface (`push_item!`, `nearest`, `frontier`, `IdDistView`,
   `reuse!`, `maxlength`). Construct via `knnqueue(KnnSorted, k_or_vec)`, never the raw
   struct constructor.
 - `exact/` — `ExhaustiveSearch` (sequential) and `ParallelExhaustiveSearch` (parallel,

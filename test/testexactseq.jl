@@ -95,7 +95,7 @@ end
 
         for j in 1:m
             gold = Set(i for i in 1:n if alldists[i, j] <= radius)
-            got = Set(x.id for x in viewitems(knns[j]))
+            got = Set(x.id for x in IdDistView(knns[j]))
             @test got == gold
         end
     end
