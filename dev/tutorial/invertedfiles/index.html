@@ -23,12 +23,12 @@ append_items!(IJ, ctx, sets)
 
 res = knnqueue(ctx, 6)
 search(IJ, ctx, q, res; t=length(q))
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], &quot; =&gt; &quot;, it.dist)
 end
 # MargheritaPizza =&gt; 0.5</code></pre><p>Only <code>MargheritaPizza</code> contains <em>both</em> flour and cheese, so the AND query returns exactly one match.</p><h3 id="OR-query"><a class="docs-heading-anchor" href="#OR-query">OR query</a><a id="OR-query-1"></a><a class="docs-heading-anchor-permalink" href="#OR-query" title="Permalink"></a></h3><p><code>t=1</code> is a union: any query token matching is enough.</p><pre><code class="language-julia hljs">res = knnqueue(ctx, 6)
 search(IJ, ctx, q, res; t=1)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], &quot; =&gt; &quot;, it.dist)
 end
 # MargheritaPizza =&gt; 0.5
@@ -40,7 +40,7 @@ append_items!(IR, ctx, sets)
 
 res = knnqueue(ctx, 6)
 search(IR, ctx, q, res; t=1)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], &quot; =&gt; &quot;, it.dist)
 end
 # MargheritaPizza =&gt; 0.2857143
@@ -67,7 +67,7 @@ append_items!(W, ctx, weights)
 qw = l2normalize([id(&quot;flour&quot;),id(&quot;egg&quot;),id(&quot;cheese&quot;)], [1.0,1.0,1.0], vocsize)
 res = knnqueue(ctx, 6)
 search(W, ctx, qw, res)
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], &quot; =&gt; &quot;, it.dist)
 end
 # Omelette        =&gt; 0.2546
@@ -96,7 +96,7 @@ q_str = Set([&quot;flour&quot;, &quot;cheese&quot;])
 res = knnqueue(ctx_dict, 6)
 search(IDict, ctx_dict, q_str, res; t=1)
 
-for it in viewitems(res)
+for it in IdDistView(res)
     println(names[it.id], &quot; =&gt; &quot;, it.dist)
 end
 # MargheritaPizza =&gt; 0.5
@@ -109,4 +109,4 @@ list1 = [1, 3, 5, 7, 9]
 list2 = [1, 2, 3, 4, 5]
 
 # SVS intersection
-common = svs([list1, list2])</code></pre><p>Next: <a href="../quantization_and_bitsketches/">Quantization and Bit Sketches</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../logging/">« Logs, and capturing neighbors as they&#39;re built</a><a class="docs-footer-nextpage" href="../quantization_and_bitsketches/">Quantization and Bit Sketches »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 14 August 2026 23:17">Friday 14 August 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+common = svs([list1, list2])</code></pre><p>Next: <a href="../quantization_and_bitsketches/">Quantization and Bit Sketches</a>.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../logging/">« Logs, and capturing neighbors as they&#39;re built</a><a class="docs-footer-nextpage" href="../quantization_and_bitsketches/">Quantization and Bit Sketches »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 15 August 2026 01:43">Saturday 15 August 2026</span>. Using Julia version 1.10.11.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
