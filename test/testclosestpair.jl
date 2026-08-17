@@ -3,10 +3,12 @@
 using Test, SimilaritySearch, LinearAlgebra, Random
 Random.seed!(0)
 
+@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
+
 @testset "closestpair" begin
     dist = SimilaritySearch.Dist.Cosine()
     dim, mindist = 2, 1e-4
-    db = MatrixDatabase(rand(Float32, dim, 1000))
+    db = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 200 : 1000))
     G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     tG = @elapsed index!(G, ctx)
@@ -182,12 +184,13 @@ end
 
     dist = SimilaritySearch.Dist.SqL2()
     dim = 2
-    A = MatrixDatabase(rand(Float32, dim, 200))
     # B >> A so rank=1 voting comfortably fills most groups past the default mingroup=8 --
     # keeps the "matches the documented algorithm" comparisons below deterministic (the
     # only randomness in bichromatic_metricjoin is the last-resort fallback, only reached
-    # when literally every group is under mingroup, which this size ratio avoids).
-    B = MatrixDatabase(rand(Float32, dim, 3000))
+    # when literally every group is under mingroup, which this size ratio avoids). Keep the
+    # ~1:15 ratio under FAST_TESTS too.
+    A = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 60 : 200))
+    B = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 900 : 3000))
     idxA = ExhaustiveSearch(dist, A)
     ctx = GenericContext()
 
@@ -248,5 +251,28 @@ end
         # mingroup way above any possible group size forces the random-cross-sample fallback
         pairs = bichromatic_metricjoin(idxA, ctx, B; k=16, mingroup=10^6)
         @test pairs isa Vector{Tuple{Int32,Int32,Float32}}
+    end
+
+    @testset "mingroup <= 0 does not crash on empty groups" begin
+        # A >> Bsmall guarantees most a's get zero rank=1 voters -- genuinely empty groups,
+        # not just under-mingroup ones (regression test for the empty-group quantile crash)
+        Bsmall = MatrixDatabase(rand(Float32, dim, 5))
+        for mg in (0, -3)
+            pairs = bichromatic_metricjoin(idxA, ctx, Bsmall; k=8, mingroup=mg)
+            @test pairs isa Vector{Tuple{Int32,Int32,Float32}}
+        end
+    end
+
+    @testset "self-join excludes self-matches" begin
+        # with the default rank=1, an unexcluded self-join would make every group a trivial
+        # (own, own, 0.0) singleton and collapse every threshold to the fallback -- this both
+        # checks samedata is auto-detected and that it actually changes the outcome.
+        idx = ExhaustiveSearch(dist, A)
+        ctx2 = GenericContext()
+        pairs = bichromatic_metricjoin(idx, ctx2, database(idx); k=8)
+        @test all(a != b for (a, b, _) in pairs)
+
+        forced = bichromatic_metricjoin(idx, ctx2, database(idx); k=8, samedata=false)
+        @test any(a == b for (a, b, _) in forced)  # every self-match is trivially a valid rank-1 hit
     end
 end

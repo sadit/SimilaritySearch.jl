@@ -2,13 +2,18 @@ using SimilaritySearch, Random, StatsBase, Statistics
 using Test
 #using AllocCheck
 
+@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
+
 #
 # This file contains a set of tests for SearchGraph over databases of vectors (of Float32)
 #
 
 function prepare_benchmark(Database;
     ksearch::Int=8,
-    n::Int=2_000,
+    # kept comfortably above SearchGraphContext's default starting_callback=256 (and its
+    # first logbase_callback=1.5 checkpoint at 384) so the hints callback still fires more
+    # than once -- smaller n hit an unrelated empty-hints edge case in matrixhints.
+    n::Int=(FAST_TESTS ? 800 : 2_000),
     m::Int=30,
     dim::Int=4)
 

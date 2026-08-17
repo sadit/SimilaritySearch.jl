@@ -4,8 +4,10 @@ using SimilaritySearch
 using Test, Random
 Random.seed!(0)
 
+@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
+
 @testset "SpatialAccessTree" begin
-    n, m, k, dim, minleaf, dist = 10^4, 10^2, 10, 4, 4, Dist.L2()
+    n, m, k, dim, minleaf, dist = (FAST_TESTS ? 10^3 : 10^4), 10^2, 10, 4, 4, Dist.L2()
     db = MatrixDatabase(rand(Float32, dim, n))
     warmqueries = MatrixDatabase(rand(Float32, dim, 2))
     queries = MatrixDatabase(rand(Float32, dim, m))
@@ -14,13 +16,17 @@ Random.seed!(0)
     Igold, _ = searchbatch(seq, ctx, warmqueries, k)
     Igold, _ = searchbatch(seq, ctx, queries, k)
 
-    for e in [
+    combos = [
         (ipart=SatInitialPartition(), sortsat=ProximalSortSat(), recall=0.9),
         (ipart=SatInitialPartition(), sortsat=DistalSortSat(), recall=0.9),
         (ipart=SatInitialPartition(), sortsat=RandomSortSat(), recall=0.9),
         (ipart=RandomInitialPartition(nparts=64, shuffle=false), sortsat=RandomSortSat(), recall=0.9),
         (ipart=RandomInitialPartition(nparts=64, shuffle=true), sortsat=RandomSortSat(), recall=0.9),
     ]
+    # FAST_TESTS keeps one combo per initial-partition kind (still exercises every code
+    # path) instead of all 5 -- the 3 SatInitialPartition/sortsat combos mostly differ in
+    # element order, not in which functions run.
+    for e in (FAST_TESTS ? combos[[1, 4, 5]] : combos)
         sortsat, ipart = e.sortsat, e.ipart
         sat = Sat(db; dist)
         index!(sat, ctx, ipart; sortsat, minleaf)
