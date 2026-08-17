@@ -19,7 +19,11 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     PQueue, AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue,
     KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue,
     covradius, maxlength, reuse!, sortitems!, pop_max!, pop_min!, nearest, frontier,
-    DistView, IdView, IdDistView, knn_matrices
+    DistView, IdView, IdDistView, knn_matrices,
+    SpatialAccessTree, Sat, SatInitialPartition, RandomInitialPartition,
+    RandomSortSat, ProximalSortSat, DistalSortSat,
+    satpermutation, satpermutation!, permutesat,
+    SatContext, BeamSearchSat, PruningSat, BeamSearchMultiSat, PrunParSat, BeamSearchParSat
 
 """
     abstract type AbstractContext end
@@ -277,6 +281,8 @@ include("permindex.jl")
 include("deprecated.jl")
 
 include("allknn.jl")
+include("SpatialAccessTree/SpatialAccessTree.jl")
+using .SpatialAccessTree
 include("neardup.jl")
 include("bichromatic/Bichromatic.jl")
 using .Bichromatic
