@@ -80,10 +80,11 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     @BEGIN
         # one private, lock-free top-k buffer per batch; @nbatches() is bounded (~8 * nthreads(),
         # via getminbatch), never by n, so this never grows with the database size
-        R = zeros(IdDist, k, @nbatches())
+        R_ids = zeros(UInt32, k, @nbatches())
+        R_dists = zeros(Float32, k, @nbatches())
         used = zeros(Int32, @nbatches())
     @BEGINBATCH
-        r = knnqueue(KnnSorted, view(R, :, @batchid()))
+        r = knnqueue(KnnSorted, view(R_ids, :, @batchid()), view(R_dists, :, @batchid()))
     @LOOP for i in 1:n
         d = Dist.evaluate(dist, database(pex, i), q)
         push_item!(r, i, d)
@@ -92,7 +93,7 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
         used[@batchid()] = length(r)
     @END
         for b in 1:@nbatches(), j in 1:used[b]
-            push_item!(res, R[j, b])
+            push_item!(res, R_ids[j, b], R_dists[j, b])
         end
     end
 
