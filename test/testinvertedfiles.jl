@@ -275,3 +275,52 @@ end
         @test recallscore(res_ex, res_idx) == 1.0
     end
 end
+
+@testset "InvertedFile/DictInvertedFile decoupled index!" begin
+    vocsize = 128
+    n = FAST_TESTS ? 200 : 1_000
+    m = 20
+    len = 10
+    k = 10
+    dist = Dist.Sets.Jaccard()
+    db_raw = [sort!(unique(rand(1:vocsize, len))) for i in 1:n]
+    db = VectorDatabase(db_raw)
+    queries = VectorDatabase([sort!(unique(rand(1:vocsize, len))) for i in 1:m])
+    ectx = GenericContext()
+
+    make_idx() = InvertedFile(vocsize, dist)
+    make_dict_idx() = DictInvertedFile(Int, dist)
+
+    for factory in (make_idx, make_dict_idx)
+        ctx = getcontext(factory())
+
+        I_fused = factory()
+        append_items!(I_fused, ctx, db)
+        @test length(I_fused) == n
+
+        # grow db directly, bypassing the index-level append_items!, then catch up with index!
+        I_deferred = factory()
+        append_items!(database(I_deferred), db)
+        @test length(I_deferred) == 0
+        @test length(database(I_deferred)) == n
+        index!(I_deferred, ctx)
+        @test length(I_deferred) == n == length(database(I_deferred))
+
+        knns_fused, _ = searchbatch(I_fused, ctx, queries, k)
+        knns_deferred, _ = searchbatch(I_deferred, ctx, queries, k)
+        @test knns_fused == knns_deferred
+
+        # no-op index!: nothing new appended, must not error or change state
+        index!(I_deferred, ctx)
+        @test length(I_deferred) == n
+        knns_deferred2, _ = searchbatch(I_deferred, ctx, queries, k)
+        @test knns_deferred == knns_deferred2
+
+        # push_item! directly on db also outgrows the index until index! catches up
+        push_item!(database(I_deferred), sort!(unique(rand(1:vocsize, len))))
+        @test length(I_deferred) == n
+        @test length(database(I_deferred)) == n + 1
+        index!(I_deferred, ctx)
+        @test length(I_deferred) == n + 1
+    end
+end

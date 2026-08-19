@@ -103,20 +103,21 @@ end
 
 function push_item!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u)
     push_item!(pex.db, u)
-    LOG(ctx.logger, :push_item!, pex, ctx, length(pex), length(pex))
+    LOG(ctx.logger, :add!, pex, ctx, length(pex), length(pex))
     pex
 end
 
 function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
-    sp = length(pex)
+    sp = length(pex) + 1
     append_items!(pex.db, u)
     ep = length(pex)
-    LOG(ctx.logger, :append_items!, pex, ctx, sp, ep)
+    ep >= sp && LOG(ctx.logger, :add!, pex, ctx, sp, ep)
     pex
 end
 
 function index!(pex::ParallelExhaustiveSearch, ctx::GenericContext)
-    # do nothing
-    LOG(ctx.logger, :index!, pex, ctx, length(pex), length(pex))
+    # a no-op: `db` already *is* the index, there is no separate structure to build.
+    # `:info` (not `:add!`) since nothing structural happened -- see the `AbstractLog` contract.
+    LOG(ctx.logger, :info, pex, ctx, length(pex), length(pex))
     pex
 end

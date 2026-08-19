@@ -12,6 +12,39 @@ of `AbstractContext`) and is passed to [`LOG`](@ref) by index operations (`push_
 Concrete subtypes must implement:
 
     LOG(log::MyLog, event::Symbol, index::AbstractSearchIndex, ctx::AbstractContext, sp::Integer, ep::Integer)
+
+# The `event` contract
+
+`event` names *what happened*, not which Julia function was called -- it must not simply mirror the
+name of the calling method (`:push_item!`, `:append_items!`, `:index!`, ...). It is one of a small,
+curated set of event kinds:
+
+- `:add!` -- a **structural** event: one or more objects were added to the index, and `sp:ep` is the
+  exact, contiguous range of ids affected by this call. Every current index type (`SearchGraph`,
+  `ExhaustiveSearch`/`ParallelExhaustiveSearch`, `InvertedFile`/`DictInvertedFile`, `BM25InvertedFile`,
+  `Sat`) emits this same event for "objects were added," regardless of whether the call arrived via a
+  single-item `push_item!` or a batch `append_items!`/`index!` -- one canonical name for one canonical
+  kind of mutation, not one name per entry point.
+- `:info` -- a **non-structural**, purely informative ping: nothing about the index actually changed
+  (e.g. `index!` on a brute-force index where `db` already *is* the index, so there is nothing to
+  build). A consumer that only cares about real mutations should ignore `:info` events entirely.
+
+**Exactly-once**: when one mutating function calls another mutating function internally (e.g. an
+`append_items!` that delegates its actual work to `index!`), only the function that performs/owns the
+mutation may call `LOG` for that range -- a caller that purely delegates must stay silent, never log
+the same range again under a different (or the same) event name. See `SimilaritySearch.InvertedFiles`'s
+`append_items!`/`index!` (or `SearchGraph`'s, in `searchgraph/insertions.jl`) for the reference pattern:
+the outer function delegates without logging, and the inner function it calls is the sole emitter.
+
+**Why this precision matters**: every current index type is append-only (ids are assigned
+monotonically and are never removed or modified), so a correctly-behaving stream of `:add!` events --
+exactly one per logical batch, with an accurate, gap-free `sp:ep` -- is on its own sufficient for a
+consumer to reconstruct or checkpoint which ids are durably indexed at any point in time. This is what
+makes the mechanism usable as a write-ahead log for incremental or crash-recoverable indexing: a
+consumer can replay the `:add!` stream instead of re-deriving state from the index itself. Duplicate
+events, an event misnamed as if it were a different action, or an inaccurate `sp:ep` silently break
+that invariant even though nothing looks wrong in `InformativeLog`'s printed output -- it never
+validates `event`/`sp`/`ep`, it only prints them (see [`LOG(::InformativeLog, ...)`](@ref)).
 """
 abstract type AbstractLog end
 

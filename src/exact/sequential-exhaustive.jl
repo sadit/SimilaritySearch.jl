@@ -33,22 +33,23 @@ Base.copy(seq::ExhaustiveSearch; dist=seq.dist, db=seq.db) = ExhaustiveSearch(di
 function push_item!(seq::ExhaustiveSearch, ctx::GenericContext, u)
     push_item!(seq.db, u)
     n = length(seq)
-    LOG(ctx.logger, :push_item!, seq, ctx, n, n)
+    LOG(ctx.logger, :add!, seq, ctx, n, n)
     seq
 end
 
 function append_items!(seq::ExhaustiveSearch, ctx::GenericContext, u::AbstractDatabase)
-    sp = length(seq)
+    sp = length(seq) + 1
     append_items!(seq.db, u)
     ep = length(seq)
-    LOG(ctx.logger, :append_items!, seq, ctx, sp, ep)
+    ep >= sp && LOG(ctx.logger, :add!, seq, ctx, sp, ep)
     seq
 end
 
 function index!(seq::ExhaustiveSearch, ctx::AbstractContext)
-    # do nothing
+    # a no-op: `db` already *is* the index, there is no separate structure to build.
+    # `:info` (not `:add!`) since nothing structural happened -- see the `AbstractLog` contract.
     n = length(seq)
-    LOG(ctx.logger, :index!, seq, ctx, n, n)
+    LOG(ctx.logger, :info, seq, ctx, n, n)
     seq
 end
 

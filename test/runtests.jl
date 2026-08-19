@@ -28,6 +28,7 @@ end
 include("testdistances.jl")
 include("testdb.jl")
 include("testmmapdb.jl")
+include("testlog.jl")
 include("testresults.jl")
 include("testsparse.jl")
 include("testscalarquant.jl")

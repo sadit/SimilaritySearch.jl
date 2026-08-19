@@ -30,12 +30,26 @@ keeps output readable instead of flooding `stderr` from every parallel batch.
 ## `LOG` and its event names
 
 Internally, these functions call [`LOG`](@ref)`(ctx.logger, event, index, ctx, sp, ep)`,
-where `event` is a `Symbol` naming what just happened and `sp:ep` is the range of
-positions affected. The event names actually used in this package: `:push_item!`,
-`:append_items!`, `:index!` (any index), and `:add!` (`SearchGraph` insertion
-specifically, both the sequential and parallel construction paths). [`rebuild`](@ref)
-does **not** go through `LOG` at all -- it reports progress via a
-`ProgressMeter.Progress` object instead (its own `progress` keyword).
+where `event` is a `Symbol` naming *what happened* -- not which Julia function was
+called -- and `sp:ep` is the exact, contiguous range of ids affected. Every index type
+(`SearchGraph`, `ExhaustiveSearch`/`ParallelExhaustiveSearch`,
+`InvertedFile`/`DictInvertedFile`, `BM25InvertedFile`, `Sat`) emits the same two event
+kinds, regardless of which function (`push_item!`, `append_items!`, or `index!`) was the
+entry point:
+
+- `:add!` -- a structural event: one or more objects were added to the index.
+- `:info` -- a non-structural, purely informative ping (e.g. `index!` on a brute-force
+  index, where `db` already *is* the index and there is nothing to build).
+
+Crucially, `LOG` fires **exactly once** per logical batch: when one mutating function
+delegates its work to another (e.g. `append_items!` growing `db` and then calling
+`index!` to do the actual indexing), only the function that performs the mutation logs --
+the delegating wrapper stays silent, so the same batch is never reported twice under two
+different event names. See [`AbstractLog`](@ref)'s docstring for the full contract and why
+it matters (in short: it's what makes the `:add!` stream usable as a write-ahead log for
+incremental/crash-recoverable indexing). [`rebuild`](@ref) does **not** go through `LOG`
+at all -- it reports progress via a `ProgressMeter.Progress` object instead (its own
+`progress` keyword).
 
 ## Writing your own logger
 

@@ -13,9 +13,12 @@ abstract type AbstractInvertedFile <: AbstractSearchIndex end
 """
     length(idx::AbstractInvertedFile)
 
-Number of indexed elements
+Number of indexed elements (i.e., objects with postings already built). This can be less than
+`length(database(idx))` if `db` was grown (e.g. via `push_item!(database(idx), obj)` or
+`append_items!(database(idx), items)` directly) without a following [`index!`](@ref) call to
+catch up -- mirrors `SearchGraph`'s `length`/`len` contract.
 """
-Base.length(idx::AbstractInvertedFile) = length(idx.sizes)
+Base.length(idx::AbstractInvertedFile) = idx.len[]
 
 """
     struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:AbstractDatabase} <: AbstractInvertedFile
@@ -30,8 +33,12 @@ always keeps the original indexed object in `db`.
 
 - `dist`: distance function used at search time (e.g. `Dist.Sets.Jaccard()`, `Dist.NormCosine()`).
 - `adj`: posting lists (non-zero id-elements, in rows).
-- `sizes`: number of non-zero values in each element (non-zero values in columns).
-- `db`: the original indexed objects, one per identifier; always populated by `push_item!`/`append_items!`.
+- `sizes`: number of non-zero values in each element (non-zero values in columns); resized/populated
+  only up to `len[]`.
+- `db`: the original indexed objects, one per identifier; always populated by `push_item!`/`append_items!`,
+  but may hold more objects than have actually been indexed -- see `len`.
+- `len`: number of objects already indexed (postings built); may be less than `length(database(idx))`
+  if `db` was grown directly without a following [`index!`](@ref) call to catch up.
 
 For a handful of distances (the set metrics in `Dist.Sets`, see
 [`InvertedFiles.has_exact_fastpath`](@ref)) the score computed while merging posting lists is already
@@ -45,6 +52,7 @@ struct InvertedFile{DistType<:PreMetric, AdjType<:AbstractAdjList, DbType<:Abstr
     adj::AdjType
     sizes::Vector{UInt32}
     db::DbType
+    len::Ref{Int64}
 end
 
 function Base.show(io::IO, invfile::InvertedFile; prefix="", indent="\t")
@@ -75,10 +83,12 @@ fallback).
 # Keyword arguments
 - `db`: the database that will receive a copy of every indexed object (must support `push_item!`/`append_items!`
   for incremental construction, e.g. a `VectorDatabase`); defaults to an empty, untyped `VectorDatabase`.
+  If `db` is passed already non-empty, call [`index!`](@ref) once before searching to build postings
+  for its contents.
 """
 function InvertedFile(vocsize::Integer, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]))
     vocsize > 0 || throw(ArgumentError("voc must not be empty"))
-    InvertedFile(dist, resize!(AdjList(UInt32), vocsize), UInt32[], db)
+    InvertedFile(dist, resize!(AdjList(UInt32), vocsize), UInt32[], db, Ref(Int64(0)))
 end
 
 function getcontainer(idx::AbstractInvertedFile, ctx::InvertedFileContext)
@@ -154,17 +164,20 @@ posting lists are never stored in memory or disk, enabling use over arbitrary or
 const DictInvertedFile{DistType, KeyType, DbType} = InvertedFile{DistType, AdjDict{KeyType, UInt32}, DbType}
 
 function DictInvertedFile(::Type{KeyType}, dist::PreMetric=Dist.Sets.Jaccard(); db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0) where KeyType
-    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db)
+    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db, Ref(Int64(0)))
 end
 
 function DictInvertedFile(dist::PreMetric=Dist.Sets.Jaccard(); KeyType::Type=Any, db::AbstractDatabase=VectorDatabase(Any[]), hint_size::Integer=0)
-    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db)
+    InvertedFile(dist, AdjDict(KeyType, UInt32; n=hint_size), UInt32[], db, Ref(Int64(0)))
 end
 
 """
     append_items!(idx, ctx, items)
 
 Appends all `items` elements into the index `idx`. It work in parallel using all available threads.
+Grows `database(idx)` then delegates the actual indexing work to [`index!`](@ref), which is the sole
+emitter of the `:add!` log event for this batch -- this function itself does not log, per the
+exactly-once contract documented on [`AbstractLog`](@ref).
 
 # Arguments:
 - `idx`: The inverted index
@@ -175,9 +188,8 @@ Appends all `items` elements into the index `idx`. It work in parallel using all
 - `n`: The number of items to insert (defaults to all)
 """
 function append_items!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, n=length(items))
-    startID = length(idx)
-    _parallel_append!(idx, ctx, items, startID, n)
-    LOG(ctx.logger, :append_items!, idx, ctx, startID, length(idx))
+    append_items!(idx.db, n == length(items) ? items : view(items, 1:n))
+    index!(idx, ctx)
     idx
 end
 
@@ -201,7 +213,8 @@ function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, ob
     end
     push!(idx.sizes, nz)
     push_item!(idx.db, obj)
-    LOG(ctx.logger, :push_item!, idx, ctx, objID, objID)
+    idx.len[] += 1
+    LOG(ctx.logger, :add!, idx, ctx, objID, objID)
     idx
 end
 
@@ -228,16 +241,43 @@ a different concrete adjacency element type (e.g. a compressed encoding).
 """
 sort_postinglist!(::AbstractAdjList{UInt32}, N) = sort!(N)
 
-function _parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, items::AbstractDatabase, startID::Int, n::Int)
-    internal_parallel_prepare_append!(idx, startID + n)
-    minbatch = getminbatch(n)
+"""
+    index!(idx::AbstractInvertedFile, ctx::InvertedFileContext)
 
-    @BATCHES minbatch scheduler=ctx.scheduler for i in 1:n
-        objID = i + startID
-        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, items[i])
+Builds postings for every object already present in `database(idx)` but not yet indexed, i.e.
+the block `database(idx)[length(idx)+1 : length(database(idx))]`. It is a no-op (nothing is
+logged) if `db` has not grown past `length(idx)`. Mirrors `SearchGraph`'s `index!`: grow
+`database(idx)` first (e.g. `push_item!(database(idx), obj)` / `append_items!(database(idx),
+items)`), then call `index!(idx, ctx)` to catch up. `push_item!`/`append_items!` on `idx` itself
+already call this internally, so it only needs to be called explicitly when `db` was grown
+directly. This is the sole emitter of the `:add!` log event for the batch it indexes -- see the
+exactly-once contract documented on [`AbstractLog`](@ref).
+"""
+function index!(idx::AbstractInvertedFile, ctx::InvertedFileContext)
+    sp = idx.len[] + 1
+    n = length(database(idx))
+    if sp <= n
+        _index_block!(idx, ctx, sp, n)
+        idx.len[] = n
+        LOG(ctx.logger, :add!, idx, ctx, sp, n)
     end
+    idx
+end
 
-    append_items!(idx.db, n == length(items) ? items : view(items, 1:n))
+"""
+    _index_block!(idx::AbstractInvertedFile, ctx::InvertedFileContext, sp::Int, n::Int)
+
+Per-type hook for [`index!`](@ref): builds postings and any bookkeeping (e.g. `sizes`/`doclens`)
+for `database(idx)[sp:n]`, resizing bookkeeping vectors as needed. The caller (`index!`) updates
+`idx.len[]` afterward.
+"""
+function _index_block!(idx::InvertedFile, ctx::InvertedFileContext, sp::Int, n::Int)
+    resize!(idx.sizes, n)
+    minbatch = getminbatch(n - sp + 1)
+
+    @BATCHES minbatch scheduler=ctx.scheduler for objID in sp:n
+        idx.sizes[objID] = internal_push_object!(idx, ctx, objID, idx.db[objID])
+    end
 
     keys_vec = collect(eachindex(idx.adj))
     @BATCHES minbatch scheduler=ctx.scheduler for i in 1:length(keys_vec)
@@ -247,8 +287,4 @@ function _parallel_append!(idx::AbstractInvertedFile, ctx::InvertedFileContext, 
     end
 
     idx
-end
-
-function internal_parallel_prepare_append!(idx::AbstractInvertedFile, new_size::Integer)
-    resize!(idx.sizes, new_size)
 end
