@@ -71,6 +71,10 @@ abstraction is what lets `SearchGraph`/`ExhaustiveSearch`/`fft`/`allknn`/... be 
   without the reallocate-and-copy-everything cost a single growing `Matrix` would incur.
   Use this over `VectorDatabase` when your objects genuinely are fixed-size numeric
   vectors and you still need incremental growth.
+- [`MMapMatrixDatabase`](@ref) -- like `BlockMatrixDatabase`, but backed by a
+  memory-mapped file on disk instead of RAM blocks, for datasets that don't fit
+  comfortably in memory or that must survive process restarts. It is opt-in: you pass a
+  file path explicitly, so it never replaces the RAM-backed defaults by accident.
 - [`SubDatabase`](@ref) -- a zero-copy *view* over a subset of another database (what
   `db[indices]`/`view(db, indices)`/`rand(db, k)` return). No copying happens; it just
   remaps indices into the original database.
@@ -91,6 +95,7 @@ not based on habit:
 |-----------------------------------------------------|------------------------|
 | Fixed-size numeric vectors, static                   | [`MatrixDatabase`](@ref) (wraps `Matrix`, or any `AbstractMatrix`, including sparse) |
 | Fixed-size numeric vectors, needs to grow             | [`BlockMatrixDatabase`](@ref) |
+| Fixed-size numeric vectors, needs to grow, doesn't fit in RAM | [`MMapMatrixDatabase`](@ref) |
 | Variable-length or non-numeric objects (sets, strings, sequences), static or growable | [`VectorDatabase`](@ref) |
 | A subset/sample of an existing database               | [`SubDatabase`](@ref) (returned automatically by indexing/`rand`) |
 

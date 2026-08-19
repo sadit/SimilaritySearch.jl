@@ -13,6 +13,7 @@ representations will look as vectors and matrices).
 The basic implementations are:
 - `MatrixDatabase`: A wrapper for object-vectors stored in a `Matrix`, columns are the objects. It is static.
 - `DynamicMatrixDatabase`: A dynamic representation for vectors that allows adding new vectors.
+- `MMapMatrixDatabase`: Like `BlockMatrixDatabase` but backed by a memory-mapped file on disk instead of RAM.
 - `VectorDatabase`: A wrapper for vector-like structures. It can contain any kind of objects.
 - `SubDatabase`: A sample of a given database
 
@@ -43,10 +44,11 @@ function show(io::IO, db::AbstractDatabase; prefix="", indent="  ")
 end
 
 include("matrixdatabase.jl")
+include("mmapmatrixdatabase.jl")
 include("vectordatabase.jl")
 include("subdatabase.jl")
 
-export AbstractDatabase, MatrixDatabase, BlockMatrixDatabase, VectorDatabase, SubDatabase
+export AbstractDatabase, MatrixDatabase, BlockMatrixDatabase, MMapMatrixDatabase, VectorDatabase, SubDatabase
 
 """
     view(db::AbstractDatabase, map)

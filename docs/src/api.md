@@ -217,6 +217,7 @@ execute_callbacks!
 AbstractDatabase
 MatrixDatabase
 BlockMatrixDatabase
+MMapMatrixDatabase
 VectorDatabase
 SubDatabase
 ```
