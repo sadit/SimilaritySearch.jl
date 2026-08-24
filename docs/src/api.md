@@ -90,14 +90,20 @@ rebuild
 ```
 
 ## Logging
-Insertion-related functions (`push_item!`, `append_items!`, `index!`) report their
-progress through `ctx.logger` instead of depending on any particular logging backend;
-see the [logging tutorial](@ref "Logs, and capturing neighbors as they're built") for a
-worked example of writing a custom one.
+A context carries two logging slots: `ctx.reporters`, where progress messages go to be
+read, and `ctx.observers`, what reacts to a structural change so that something durable
+happens. `reporters=[]` silences a context completely without disturbing observation. See
+the [logging tutorial](@ref "Reporting, observing, and capturing neighbors as they're built")
+for worked examples of both.
 ```@docs
 AbstractLog
-LogList
+AbstractReporter
+AbstractObserver
+INFORM
+@inform
 InformativeLog
+OBSERVE
+CallbackLog
 LOG
 ```
 

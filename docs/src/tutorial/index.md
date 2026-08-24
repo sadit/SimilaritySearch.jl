@@ -42,9 +42,9 @@ Pages, in the order we recommend reading them:
    threading model, its context objects, and concrete anti-patterns to avoid.
 9. [Saving and loading indexes with JLD2](persistence.md) -- indexes are plain structs;
    here's the DIY save/load pattern now that this package doesn't ship its own.
-10. [Logs, and capturing neighbors as they're built](logging.md) -- the logging system,
-   custom loggers, and how (and how not) to use them to capture a `SearchGraph`'s
-   neighbor lists incrementally during construction.
+10. [Reporting, observing, and capturing neighbors as they're built](logging.md) -- the two
+   logging channels, how to silence one without disabling the other, and how (and how not)
+   to use observation to capture a `SearchGraph`'s neighbor lists during construction.
 11. [Inverted files and posting list intersections](invertedfiles.md) -- the `InvertedFile`
    index for sparse vector, MIPS, and set search, and posting list intersection algorithms
    (`Intersections`).

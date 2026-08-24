@@ -92,6 +92,14 @@ julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load 
 - `parallel.jl` — the `@BATCHES` macro (see below). **Read this file's docstrings before
   touching any parallel loop** — it documents real hygiene pitfalls, not just API.
   `include`d early in `SimilaritySearch.jl`, right after the module opens.
+- `log.jl` — the two logging channels. A context holds `reporters` (receive `INFORM`/
+  `@inform`, render progress for reading) and `observers` (receive `OBSERVE`, react to a
+  structural `:add!` so something durable happens). `reporters=[]` silences a context
+  completely; observers are untouched by that. Two rules that are easy to break: **never
+  call `OBSERVE` or `INFORM` inside a `@BATCHES` block** (the backends carry no lock, on
+  purpose — every mutating entry point is serial by design), and an observer belongs to one
+  index while a reporter is meant to be shared. See
+  `design-notes/2026-08-24-splitting-the-log-into-reporters-and-observers.md`.
 - `dist/` (`Dist` submodule) — distance functions (`L2`, `SqL2`, `Cosine`, `Angle`,
   sequences, sets, "hacks" like `DistanceWithIdentifiers`).
 - `db/` — database containers (`MatrixDatabase`, `VectorDatabase`, `SubDatabase`) wrapping

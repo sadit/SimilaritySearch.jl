@@ -147,4 +147,4 @@ This mostly matters for long-lived saved indexes across major version upgrades o
 `SimilaritySearch` itself -- not a concern for the everyday "save now, load in the next
 session" use case above.
 
-Next: [logs, and capturing neighbors as they're built](logging.md).
+Next: [reporting, observing, and capturing neighbors as they're built](logging.md).
