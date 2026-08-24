@@ -287,7 +287,6 @@ include("opt.jl")
 include("searchgraph/SearchGraph.jl")
 include("invertedfiles/InvertedFiles.jl")
 include("permindex.jl")
-include("deprecated.jl")
 
 include("allknn.jl")
 include("SpatialAccessTree/SpatialAccessTree.jl")

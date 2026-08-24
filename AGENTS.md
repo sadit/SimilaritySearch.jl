@@ -135,8 +135,8 @@ julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load 
   keyword form exists; a couple of docstrings document keyword forms that were never
   actually implemented.
 - Build a context with `GenericContext()` / `SearchGraphContext()` directly — there is no
-  working `getcontext(index)` despite it being referenced in some docstrings/deprecated.jl
-  shims; don't rely on it existing.
+  working `getcontext(index)` for a general index despite a few docstrings referring to
+  one; don't rely on it existing.
 - Distance functions live under `Dist` (e.g. `SimilaritySearch.Dist.SqL2()`), not at
   top level.
 - `IdDist(id, dist)` is the fundamental `(identifier, distance)` pair type; `IdView`/
