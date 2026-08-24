@@ -378,13 +378,11 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCe
     end
     
     A = fft(distance(index), D, k; verbose=verbose(ctx), reporters=ctx.reporters)
-    M = Dict(c => i for (i, c) in enumerate(A.centers))
-    #@show M
-    #@show A.nn
-    # @show A unique(A.nn) D.map
-    count = zeros(Int, length(M))
-    for nn in A.nn
-        count[M[nn]] += 1
+    # `assign` is already a position into `centers`, so counting members per center is a
+    # direct histogram -- this used to build a Dict inverting `centers` first
+    count = zeros(Int, length(A.centers))
+    for a in A.assign
+        count[a] += 1
     end
     x = quantile(count, opt.qdiscard)
     C = A.centers[count.>=x]

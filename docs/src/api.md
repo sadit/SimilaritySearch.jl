@@ -56,6 +56,7 @@ fft
 dnet
 randsel
 multirandsel
+CenterSelection
 distsample
 distsample_ut
 recallscore

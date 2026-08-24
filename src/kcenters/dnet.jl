@@ -6,8 +6,13 @@ export dnet
 """
     dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
 
-Selects `numcenters` points far from each other based on density nets. It behaves similarly to `fft`,
-returning a similar named tuple so they are interchangeable.
+Selects points far from each other based on density nets, returning the same
+[`CenterSelection`](@ref) every other selector here returns, so they are interchangeable.
+
+`numcenters` is a **target, not a guarantee**: the algorithm carves the database into balls of
+`length(X) ÷ numcenters` objects and keeps going until nothing is left, so the count it returns
+is approximate and usually slightly larger (asking for 8 over 300 objects returns 9). Use
+[`fft`](@ref), [`randsel`](@ref) or [`multirandsel`](@ref) when the count has to be exact.
 
 # Arguments
 - `dist`: distance function
@@ -24,27 +29,19 @@ returning a similar named tuple so they are interchangeable.
   threading entirely). Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns
-A named tuple with the following fields:
-- `centers`: the list of the selected centers (identifiers into ``X``)
-- `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
-- `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
-- `costdists`: total number of distance evaluations performed by this call
-- `costblocks`: always `0` for `dnet`
-
-Note: unlike `fft`/`multirandsel`, `dnet`'s selection isn't a greedy farthest-point traversal,
-so there's no well-defined minimum-separation-among-centers quantity to report here -- no
-`dmax` field is returned.
+A [`CenterSelection`](@ref). Unlike `fft`/`multirandsel`, `dnet` is not a greedy
+farthest-point traversal, so its `separation` is not free: it is measured afterwards, over the
+centers actually selected, and the `k(k-1)/2` evaluations that takes are counted into
+`costdists` like any other.
 """
 function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
     N = length(X)
+    N == 0 && return empty_selection()
+    numcenters >= 1 || throw(ArgumentError("dnet needs numcenters >= 1, got $numcenters"))
+
     centers = UInt32[]
     sizehint!(centers, numcenters)
-    nndists = Vector{Float32}(undef, N)
-    fill!(nndists, typemax(Float32))
-    nn = zeros(UInt32, N)
     costdists = 0
-
-    N == 0 && return (; centers, nn, dists=nndists, costdists=0, costblocks=0)
 
     k = N ÷ numcenters
     k == 0 && (k = 1)
@@ -62,14 +59,9 @@ function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbos
         
         c = S.map[n]
         push!(centers, c)
+        pos = length(centers)
 
-        for item in res
-            orig_id = S.map[item.id]
-            nn[orig_id] = c
-            nndists[orig_id] = item.dist
-        end
-
-        verbose && @inform reporters "dnet> selected-center: $(length(centers)), id: $c, dmax: $(maximum(res))"
+        verbose && @inform reporters "dnet> center $pos, id: $c, ball-radius: $(maximum(res))"
         
         m = n - length(res)
         empty!(rlist)
@@ -99,5 +91,22 @@ function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbos
     end
     
     costdists = distance_evaluations(ctx)
-    (; centers, nn, dists=nndists, costdists, costblocks=0)
+
+    # the balls above absorb objects as they are carved, so an object can end up in a ball
+    # whose center is farther away than a center chosen in a later round -- for 40% of the
+    # objects, measured. A final exact pass makes `assign` mean here what it means in every
+    # other selector, the nearest center, for another `length(X) * k` evaluations: the same
+    # order the carving itself already spent
+    C = SubDatabase(X, centers)
+    nearestidx = ExhaustiveSearch(dist, C)
+    nearestctx = GenericContext(; scheduler)
+    ids, dists = zeros(UInt32, 1, N), zeros(Float32, 1, N)
+    searchbatch!(nearestidx, nearestctx, X, ids, dists)
+    assign = vec(ids)
+    assigndist = vec(dists)
+    costdists += distance_evaluations(nearestctx)
+
+    separation, seppairs = center_separation(dist, X, centers; scheduler)
+    CenterSelection(centers, assign, assigndist, maximum(assigndist), separation,
+                    costdists + seppairs, 0)
 end

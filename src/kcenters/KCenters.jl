@@ -32,12 +32,13 @@ import ..SimilaritySearch:
     @nbatches,
     @batchid
 
+include("selection.jl")
 include("fft.jl")
 include("dnet.jl")
 include("rand.jl")
 include("multirand.jl")
 
 # We export these so that when the parent module uses this submodule, it can re-export them
-export fft, dnet, randsel, multirandsel
+export fft, dnet, randsel, multirandsel, CenterSelection
 
 end

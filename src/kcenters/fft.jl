@@ -26,13 +26,14 @@ If `start=0` then a random starting point is selected, otherwise a valid object 
 
 # Returns
 
-A named tuple with the following fields:
-- `centers`: the list of the selected centers (identifiers into ``X``)
-- `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
-- `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
-- `ε`: the smallest distance among the (`k`) selected centers, i.e., the separation achieved by the traversal
-- `costdists`: total number of distance evaluations performed by this call (`k * length(X)`), counted locally (no `ctx` involved)
-- `costblocks`: always `0` for `fft` (no block-evaluation concept applies here)
+A [`CenterSelection`](@ref), the same type every other selector in `KCenters` returns.
+`k` is clamped to `length(X)`: asking for more centers than there are objects used to return
+the same object several times.
+
+Both radii are exact and free here. The traversal picks each new center at the distance that
+separates it from everything selected so far, and that distance decreases monotonically, so
+the last one is the `separation`; what remains afterwards, the distance from the farthest
+object to its nearest center, is the `covering`.
 
 Based on `enet.jl` from `KCenters.jl`
 
@@ -46,45 +47,53 @@ using SimilaritySearch
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 4, 10^3))
 R = fft(dist, X, 16)
-R.centers      # 16 well-separated identifiers into X
-R.nn           # nearest selected center for each object of X
-R.dists        # distance to the nearest selected center
-R.ε            # separation radius achieved by the traversal
-R.costdists    # distance evaluations performed by this call
+R.centers               # 16 well-separated identifiers into X
+R.assign                # position in R.centers of each object's nearest center
+R.centers[R.assign[7]]  # ... as an identifier into X
+R.assigndist            # distance to that center
+R.covering, R.separation
+R.costdists             # distance evaluations performed by this call
 ```
 """
 function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
     N = length(X)
+    N == 0 && return empty_selection()
+    k >= 1 || throw(ArgumentError("fft needs k >= 1, got $k"))
+    k = min(k, N)
+
     centers = UInt32[]
     sizehint!(centers, k)
-    εlist = Float32[]
-    sizehint!(εlist, k)
-    nndists = Vector{Float32}(undef, N)
-    fill!(nndists, typemax(Float32))
-    nn = zeros(UInt32, N)
+    nndists = fill(typemax(Float32), N)
+    assign = zeros(UInt32, N)
     imax::Int = start == 0 ? rand(1:N) : start
     ε::Float32 = typemax(Float32)
-    N == 0 && return (; centers, nn, dists=nndists, ε, costdists=0, costblocks=0)
+    separation::Float32 = typemax(Float32)
     costdists = 0
     minbatch = getminbatch(N)
 
     @inbounds for _ in 1:k
-        push!(εlist, ε)
+        # `ε` is how far this new center is from everything selected so far, and it only
+        # ever shrinks -- so the value carried into the last round is the smallest gap
+        # between any two of the centers this call ends up returning
+        separation = ε
         push!(centers, imax)
-        verbose && @inform reporters "fft> farthest point $(length(centers)), ε: $ε, imax: $imax, n: $(length(X))"
+        pos = UInt32(length(centers))
+        verbose && @inform reporters "fft> farthest point $pos, ε: $ε, imax: $imax, n: $N"
 
         pivot = X[imax]
         @BATCHES minbatch scheduler=scheduler for i in 1:N
             d = evaluate(dist, X[i], pivot)
             if d < nndists[i]
                 nndists[i] = d
-                nn[i] = imax
+                assign[i] = pos
             end
         end
         costdists += N
 
+        # and whatever is farthest from the selection now is what the selection fails to
+        # cover -- the covering radius, which is also the next center were one requested
         ε, imax = findmax(nndists)
     end
 
-    (; centers, nn, dists=nndists, ε, costdists=costdists, costblocks=0)
+    CenterSelection(centers, assign, nndists, ε, separation, costdists, 0)
 end

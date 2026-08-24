@@ -29,13 +29,21 @@ end
 db = MatrixDatabase(X)
 
 R = fft(Dist.L2(), db, 6; verbose=false)
-R.centers   # 6 identifiers into db -- roughly every 4th point around the circle
-R.ε         # the separation radius achieved (the smallest distance among the 6 centers)
+R.centers      # 6 identifiers into db -- roughly every 4th point around the circle
+R.separation   # the smallest distance between two of those 6 centers
+R.covering     # the largest distance from any point of db to its nearest center
 ```
 
-`R.nn[i]` gives, for every point (not just the selected centers), which selected center
-it ended up closest to -- so `fft` doubles as a quick way to partition a dataset around
-`k` spread-out seeds.
+`R.assign[i]` gives, for every point (not just the selected centers), which center it ended
+up closest to -- so `fft` doubles as a quick way to partition a dataset around `k`
+spread-out seeds. It is a **position** in `R.centers`, from `1` to `6` here, so
+`R.centers[R.assign[i]]` is the center's own identifier into `db` and `R.assigndist[i]` is
+how far point `i` is from it.
+
+`covering` and `separation` are different numbers, and `fft` guarantees `covering <=
+separation`: no point is farther from the selection than any two centers are from each
+other. They used to share the name `ε`, which meant the covering radius here and the
+separation in `multirandsel`.
 
 Every batch-oriented `@BATCHES` call `fft` makes internally accepts a `scheduler` keyword
 (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely),
@@ -48,23 +56,21 @@ R = fft(Dist.L2(), db, 6; verbose=false, scheduler=:sequential)
 ### Other ways to pick centers: `dnet`, `randsel`, `multirandsel`
 
 [`dnet`](@ref), [`randsel`](@ref), and [`multirandsel`](@ref) are drop-in alternatives to
-`fft` -- same `centers`/`nn`/`dists`/`costdists`/`costblocks` shape, same `scheduler`
-keyword, so code written against one of them works against the others with no other
-changes:
+`fft`: all four return the same [`CenterSelection`](@ref), so code written against one works
+against the others unchanged, and all four report both radii.
 
 - `randsel` just samples `k` centers uniformly at random -- the cheapest option, no
-  separation guarantee at all.
+  separation guarantee at all. Its `separation` is measured rather than guaranteed, and it
+  is what tells you how bad a given random draw turned out.
 - `dnet` groups the dataset into density-based neighborhoods and picks one representative
-  per group -- faster than `fft` on large datasets, but (like `randsel`) has no meaningful
-  minimum-separation quantity to report, so neither returns an `ε` field.
+  per group -- faster than `fft` on large datasets. Its `numcenters` is a target rather than
+  a promise: it usually returns a few more than asked.
 - `multirandsel` is a randomized middle ground: each step samples a batch of candidates
-  and keeps the one farthest (by total distance) from every center chosen so far. Like
-  `fft`, the centers it produces come with a real separation guarantee, so it also returns
-  `ε` -- the smallest distance among the selected centers.
+  and keeps the one farthest (by total distance) from every center chosen so far.
 
 ```julia
 R = multirandsel(Dist.L2(), db, 6)
-R.ε   # same meaning as fft's R.ε above
+R.separation   # the same quantity fft reports under the same name
 ```
 
 ## `allknn`: every object's own nearest neighbors, all at once

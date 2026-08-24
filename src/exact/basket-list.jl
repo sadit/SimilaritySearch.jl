@@ -25,33 +25,24 @@ function BasketList(dist::PreMetric, db::AbstractDatabase, k::Int)
     end
 
     C = SimilaritySearch.fft(dist, db, k)
-    # (; centers, nn, dists=nndists, ε)
-    codes = Dict{UInt32,UInt32}()
+    # one basket per center; `C.assign[objID]` is already the basket's index, so no dictionary
+    # inverting `C.centers` is needed to find it
+    baskets_ids = [UInt32[] for _ in eachindex(C.centers)]
+    baskets_dists = [Float32[] for _ in eachindex(C.centers)]
 
-    for nn in C.nn
-        basketID = get(codes, nn, zero(UInt32))
-        if basketID === zero(UInt32)
-            codes[nn] = length(codes) + 1
-        end
-    end
-
-    baskets_ids = [UInt32[] for _ in 1:length(codes)]
-    baskets_dists = [Float32[] for _ in 1:length(codes)]
-
-    for (objID, (nn, d)) in enumerate(zip(C.nn, C.dists))
-        basketID = codes[nn] # get the basket id for this center
+    for (objID, (basketID, d)) in enumerate(zip(C.assign, C.assigndist))
+        c_id = C.centers[basketID]
         L_ids = baskets_ids[basketID]
         L_dists = baskets_dists[basketID]
         if length(L_ids) == 0
-            push!(L_ids, nn) # the header contains the center's object ID and the covering radius
+            push!(L_ids, c_id) # the header contains the center's object ID and the covering radius
             push!(L_dists, d)
         end
 
         push!(L_ids, objID) # the 2nd to the end stores the oject ID and its distance to the center (dco)
         push!(L_dists, d)
-        
+
         if L_dists[1] < d # updates the covering radius if needed (at header)
-            L_ids[1] = nn
             L_dists[1] = d
         end
     end

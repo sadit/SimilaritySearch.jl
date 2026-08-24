@@ -2,13 +2,17 @@
 
 export multirandsel
 
+# `log2(0)` is `-Inf` and `log2(1)` is `0`; neither survives `ceil(Int, ...)` as a block size,
+# and a keyword's default is evaluated before the body that would have caught an empty database
+_default_m(n::Integer) = n <= 2 ? 1 : ceil(Int, log2(n))
+
 """
-    multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=ceil(Int, log2(length(X))), start::Int=0, scheduler::Symbol=get_batch_scheduler())
+    multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=_default_m(length(X)), start::Int=0, scheduler::Symbol=get_batch_scheduler())
 
 Selects `k` centers iteratively. Starts with a random point (or `start` if `start > 0`). In each step, it selects `m` random
 candidates from `X` and adds the one with the largest total distance to all currently selected centers (i.e. farthest from
-all of them at once). Once `k` centers are selected, it computes the exact same properties as `fft` or `randsel` for the
-entire database.
+all of them at once). Once `k` centers are selected, it computes for the entire database the same properties
+[`fft`](@ref) and [`randsel`](@ref) do, returning the same [`CenterSelection`](@ref).
 
 # Arguments
 - `dist`: distance function
@@ -16,7 +20,8 @@ entire database.
 - `k`: number of centers to be computed
 
 # Keyword Arguments
-- `m`: number of candidates to evaluate per step (default is `ceil(Int, log2(length(X)))`);
+- `m`: number of candidates to evaluate per step (default is `ceil(Int, log2(length(X)))`, and
+  `1` for a database of two objects or fewer, where that formula gives `0` or `-Inf`);
   internally capped so at least `k - 1` rounds are always possible
 - `start`: index of the first center. If 0, a random center is chosen.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-step candidate evaluation
@@ -25,23 +30,16 @@ entire database.
   Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns
-A named tuple with the following fields:
-- `centers`: the list of the selected centers (identifiers into ``X``)
-- `nn`: the id of the nearest selected center of each object (in ``X`` order, identifiers between 1 and `length(X)`)
-- `dists`: the distance from each object in the database to its nearest center (in ``X`` order)
-- `ε`: the smallest distance among the `k` selected centers, i.e., the separation achieved
-  (`typemax(Float32)` if fewer than 2 centers were selected)
-- `costdists`: total number of distance evaluations performed by this call
-- `costblocks`: always `0` for `multirandsel`
+A [`CenterSelection`](@ref). Its `separation` costs nothing extra: each round already
+evaluates every candidate against every selected center, so the winner's distances to all of
+them are sitting in the matrix that chose it.
 """
-function multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=ceil(Int, log2(length(X))), start::Int=0, scheduler::Symbol=get_batch_scheduler())
+function multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=_default_m(length(X)), start::Int=0, scheduler::Symbol=get_batch_scheduler())
     N = length(X)
     costdists = 0
 
-    if N == 0
-        return (; centers=UInt32[], nn=UInt32[], dists=Float32[], ε=typemax(Float32), costdists=0, costblocks=0)
-    end
-
+    N == 0 && return empty_selection()
+    k >= 1 || throw(ArgumentError("multirandsel needs k >= 1, got $k"))
     k = min(N, k)
 
     # a single shuffle of 1:N drives both the first center and every later round's block of
@@ -59,7 +57,7 @@ function multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=
     end
     centers = UInt32[first_center]
     sizehint!(centers, k)
-    ε = typemax(Float32)  # no pair of centers exists yet
+    separation = typemax(Float32)  # no pair of centers exists yet
 
     # bound `m` so partitioning the remaining `perm` always yields at least `k - 1` blocks --
     # one center is picked per block, and the pool is never reshuffled/topped up, so a
@@ -101,16 +99,16 @@ function multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=
             best_cand = block[bi]
 
             # the new center's distances to every previously selected center are already
-            # sitting in D's `bi` column -- folding their minimum into a running `ε`
-            # gives the exact minimum pairwise distance among all final centers (matching
-            # `fft`'s `ε` convention), at zero extra distance evaluations
-            ε = min(ε, minimum(view(D, :, bi)))
+            # sitting in D's `bi` column -- folding their minimum into a running minimum
+            # gives the exact smallest distance between any two final centers, at zero extra
+            # distance evaluations
+            separation = min(separation, minimum(view(D, :, bi)))
 
             push!(centers, best_cand)
         end
     end
 
-    nn = zeros(UInt32, N)
+    assign = zeros(UInt32, N)
     nndists = fill(typemax(Float32), N)
     
     # Create a subdatabase with the selected centers
@@ -122,15 +120,16 @@ function multirandsel(dist::SemiMetric, X::AbstractDatabase, k::Integer; m::Int=
     knns = [knnqueue(KnnSorted, 1) for _ in 1:N]
     searchbatch!(idx, ctx, X, knns)
     
+    # `item.id` is already a position into `centers`, which is what `assign` holds
     for i in 1:N
         if length(knns[i]) > 0
             item = first(knns[i])
-            nn[i] = centers[item.id]
+            assign[i] = item.id
             nndists[i] = item.dist
         end
     end
-    
+
     costdists += distance_evaluations(ctx)
-    
-    (; centers, nn, dists=nndists, ε, costdists, costblocks=0)
+
+    CenterSelection(centers, assign, nndists, maximum(nndists), separation, costdists, 0)
 end
