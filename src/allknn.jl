@@ -15,7 +15,13 @@ nearest neighbor, so the user is responsible for removing these self references 
 - `k`: the number of neighbors to retrieve for each object indexed by `index`
 
 # Keyword Arguments
-- `sort`: ensures that each result set is presented in ascending order by distance
+- `sort`: ensures that each result set is presented in ascending order by distance. **Ties are
+  not ordered deterministically**: the sort compares distances only (`_lt_dist`) and is a
+  heapsort, so among neighbors at exactly equal distance the order comes from the heap's internal
+  arrangement, which depends on the order the search happened to visit them -- nondeterministic
+  under a parallel search. Two runs over the same data can return the same neighbors in a
+  different order. A caller that needs a reproducible artifact must impose its own tie-break
+  (e.g. sort each column by `(distance, id)`); see the note at `_lt_dist` in `pqueue/pqueue.jl`
 - `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
 
 # Returns
@@ -60,7 +66,13 @@ computed results.
 - `dists`: an output `(k, n)` matrix of `Float32`, parallel to `ids`
 
 # Keyword Arguments
-- `sort`: ensures that each result set is presented in ascending order by distance
+- `sort`: ensures that each result set is presented in ascending order by distance. **Ties are
+  not ordered deterministically**: the sort compares distances only (`_lt_dist`) and is a
+  heapsort, so among neighbors at exactly equal distance the order comes from the heap's internal
+  arrangement, which depends on the order the search happened to visit them -- nondeterministic
+  under a parallel search. Two runs over the same data can return the same neighbors in a
+  different order. A caller that needs a reproducible artifact must impose its own tie-break
+  (e.g. sort each column by `(distance, id)`); see the note at `_lt_dist` in `pqueue/pqueue.jl`
 - `progress`: a `ProgressMeter.Progress` object used to report the progress of the computation, or `nothing` to disable it
 """
 function allknn!(g::AbstractSearchIndex, ctx::AbstractContext,

@@ -55,6 +55,22 @@ capacity-based constructor since "k" has no meaning here.
 """
 abstract type AbstractRadiusQueue <: AbstractMetricQueue end
 
+# Compares distances only, deliberately, and that has a consequence worth knowing: **the order
+# among items at exactly equal distance is nondeterministic.** This predicate both maintains the
+# heaps (`heapfix_up!`/`heapfix_down!`, so it also decides which of two equidistant items gets
+# evicted) and drives `sortitems!` (a heapsort, which is not stable), so a tie resolves according
+# to the order the search visited candidates -- which a parallel search does not fix.
+#
+# Observed downstream: an all-vs-all k-NN over the same token embeddings returned
+# ["rica","manzana","pera"] one run and ["rica","pera","manzana"] the next, with identical
+# distances, making an artifact built on it non-reproducible.
+#
+# Breaking ties by id here would fix that, and was considered and not done for two reasons worth
+# recording rather than rediscovering: this predicate is in the hottest loop of the package (every
+# k-NN push goes through it), and because it also governs eviction, adding a tie-break changes
+# *which* equidistant neighbor survives, not merely how the survivors are ordered -- a behavior
+# change, not a presentation one. A caller that needs reproducibility can sort its own output by
+# `(distance, id)`, which costs nothing on the hot path.
 @inline _lt_dist(X, i, j) = @inbounds X[2][i] < X[2][j]
 @inline function _swap_ids_dists(X, i, j)
     @inbounds X[1][i], X[1][j] = X[1][j], X[1][i]
