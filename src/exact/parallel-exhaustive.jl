@@ -103,7 +103,8 @@ end
 
 function push_item!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u)
     push_item!(pex.db, u)
-    LOG(ctx.logger, :add!, pex, ctx, length(pex), length(pex))
+    OBSERVE(ctx, :add!, pex, length(pex), length(pex))
+    @inform ctx "add! sp=$(length(pex)) ep=$(length(pex))" index=pex
     pex
 end
 
@@ -111,13 +112,16 @@ function append_items!(pex::ParallelExhaustiveSearch, ctx::GenericContext, u::Ab
     sp = length(pex) + 1
     append_items!(pex.db, u)
     ep = length(pex)
-    ep >= sp && LOG(ctx.logger, :add!, pex, ctx, sp, ep)
+    if ep >= sp
+        OBSERVE(ctx, :add!, pex, sp, ep)
+        @inform ctx "add! sp=$sp ep=$ep" index=pex
+    end
     pex
 end
 
 function index!(pex::ParallelExhaustiveSearch, ctx::GenericContext)
-    # a no-op: `db` already *is* the index, there is no separate structure to build.
-    # `:info` (not `:add!`) since nothing structural happened -- see the `AbstractLog` contract.
-    LOG(ctx.logger, :info, pex, ctx, length(pex), length(pex))
+    # a no-op: `db` already *is* the index, there is no separate structure to build. Nothing
+    # structural happened, so this is a message and not an event -- see `OBSERVE`'s contract.
+    @inform ctx "index! is a no-op on $(typeof(pex)): db already is the index" index=pex
     pex
 end

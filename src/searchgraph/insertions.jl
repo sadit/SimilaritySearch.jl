@@ -67,7 +67,8 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         end
         end
 
-        LOG(ctx.logger, :add!, index, ctx, sp, ep)
+        OBSERVE(ctx, :add!, index, sp, ep)
+        @inform ctx "add! sp=$sp ep=$ep $(index.algo[]) n.size-quantiles=$(quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0))"
         # connecting neighbors
         connect_reverse_links!(index.adj, sp, ep; scheduler=ctx.scheduler)
         index.len[] = ep
@@ -151,7 +152,8 @@ Arguments:
     find_neighborhood!(neighbors_, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
     add!(index.adj, n, IdView(neighbors_))
-    LOG(ctx.logger, :add!, index, ctx, n, n)
+    OBSERVE(ctx, :add!, index, n, n)
+    @inform ctx "add! sp=$n ep=$n $(index.algo[])"
     if n > 1
         connect_reverse_links!(index.adj, n, neighbors(index.adj, n))
         execute_callbacks!(index, ctx)

@@ -4,8 +4,8 @@ export SearchGraphContext
 """
     SearchGraphContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted,
         vstates=nothing;
-        logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
         verbose=false,
+        reporters=InformativeLog(dt=2.0), observers=nothing,
         neighborhood=Neighborhood(filter=SatNeighborhood()),
         hints_callback=RandomHints(; logbase=1.1),
         hyperparameters_callback=OptimizeParameters(),
@@ -36,8 +36,15 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   a fresh one sized by `maxbatches`).
 
 # Keyword Arguments
-- `logger`: how to handle and log events, mostly for insertions for now.
-- `verbose`: controls the number of output messages.
+- `verbose`: whether the chatty, per-iteration messages (optimization progress, hint selection)
+  are produced at all. It is a *level*, not an output switch -- the switch is `reporters`.
+- `reporters`: where progress messages go, see [`AbstractReporter`](@ref). Accepts one reporter, a
+  vector of them, or `nothing`. **Pass `reporters=[]` to silence this context completely**: with no
+  destination, a message is not even built. Defaults to a fresh [`InformativeLog`](@ref) with
+  `dt=2.0`.
+- `observers`: what reacts to structural events, see [`AbstractObserver`](@ref). Same shapes.
+  Defaults to none -- the library never installs an observer of its own. Silencing the reporters
+  leaves the observers untouched, which is the point of them being separate slots.
 - `neighborhood`: specifies how neighborhoods are computed, see [`Neighborhood`](@ref) for more info.
 - `hints_callback`: a callback to compute hints, please check `hints.jl` for more info.
 - `hyperparameters_callback`: a callback to compute search hyperparameters, see [`OptimizeParameters`](@ref) for more info.
@@ -78,13 +85,15 @@ can call other metric indexes that can use these shared resources (globally defi
 using SimilaritySearch
 
 ctx = SearchGraphContext()                          # default configuration
-ctx = SearchGraphContext(; verbose=true)             # verbose logging
+ctx = SearchGraphContext(; verbose=true)             # per-iteration optimization detail too
+ctx = SearchGraphContext(; reporters=[])             # silent
 ctx2 = SearchGraphContext(ctx; parallel_block=64)    # copy overriding one keyword
 ctx3 = SearchGraphContext(; maxbatches=4Threads.nthreads())  # smaller batch-cache cap
 ```
 """
 struct SearchGraphContext{KnnType,VSType} <: AbstractContext
-    logger::AbstractLog
+    reporters::Vector{AbstractReporter}
+    observers::Vector{AbstractObserver}
     verbose::Bool
     neighborhood::Neighborhood
     hints_callback::Union{Nothing,Callback}
@@ -105,8 +114,9 @@ end
 function SearchGraphContext(
     KnnType::Type{<:AbstractKnnQueue}=KnnSorted,
     vstates=nothing;
-    logger=LogList(AbstractLog[InformativeLog(dt=2.0)]),
     verbose=false,
+    reporters=InformativeLog(dt=2.0),
+    observers=nothing,
     neighborhood=Neighborhood(filter=SatNeighborhood()),
     hints_callback=RandomHints(; logbase=1.1),
     hyperparameters_callback=OptimizeParameters(MinRecall(0.97)),
@@ -127,7 +137,8 @@ function SearchGraphContext(
     costdists   === nothing && (costdists   = zeros(Int, maxbatches))
     costblocks    === nothing && (costblocks    = zeros(Int, maxbatches))
 
-    SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
+    SearchGraphContext{KnnType,typeof(vstates)}(reporterlist(reporters), observerlist(observers),
+        verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
         convert(Int32, starting_callback),
@@ -138,7 +149,8 @@ function SearchGraphContext(
 end
 
 function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
-    logger=ctx.logger,
+    reporters=ctx.reporters,
+    observers=ctx.observers,
     verbose=ctx.verbose,
     neighborhood=ctx.neighborhood,
     hints_callback=ctx.hints_callback,
@@ -156,7 +168,8 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     costblocks=ctx.costblocks
 ) where {KnnType,VSType}
 
-    SearchGraphContext{KnnType,typeof(vstates)}(logger, verbose, neighborhood,
+    SearchGraphContext{KnnType,typeof(vstates)}(reporterlist(reporters), observerlist(observers),
+        verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
         parallel_block,

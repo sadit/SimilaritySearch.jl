@@ -3,7 +3,7 @@
 export neardup
 
 """
-    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, filterblocks=true, verbose=true)
+    neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; k::Int=8, blocksize::Int=256, filterblocks=true)
     neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
 
 Find near duplicates in database `X` using the empty index `idx`. The algorithm iteratively tries to index elements in `X`,
@@ -11,7 +11,7 @@ and items that are nearer than `ϵ` to some already indexed element are not inse
 
 The two-argument `dist`-based method is a convenience wrapper that builds and manages its own index internally:
 it uses an `ExhaustiveSearch` (exact) when `recall == 1.0`, or otherwise a `SearchGraph` (approximate) tuned to
-approach the given `recall` via `OptimizeParametes(MinRecall(recall))`.
+approach the given `recall` via `OptimizeParameters(MinRecall(recall))`.
 
 The function returns a named tuple `(idx, map, nn, dist, costdists, costblocks, centers)` where:
 - `idx`: the index of the non duplicated elements
@@ -34,8 +34,11 @@ The function returns a named tuple `(idx, map, nn, dist, costdists, costblocks, 
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
 - `blocksize`: the number of items processed at a time
 - `filterblocks`: if true then it filters neardups inside blocks (see `blocksize` parameter), otherwise, it supposes that blocks are free of neardups (e.g., randomized order).
-- `verbose`: controls the verbosity of the function
 - `recall`: (only for the `dist`-based method) target recall used to decide between an exact (`recall=1.0`) or approximate index
+
+The `ctx`-based method reports through `ctx`: `verbose(ctx)` decides whether its progress messages
+are produced, `ctx.reporters` where they go. The `dist`-based wrapper takes `verbose`, `reporters`
+and `observers` directly, since it builds the context itself.
 
 # Notes
 - The index `idx` must support incremental construction
@@ -66,16 +69,17 @@ D.costdists, D.costblocks  # cost of this call
 D2 = neardup(dist, X, ϵ)
 ```
 """
-function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0, kwargs...)
+function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0,
+        verbose::Bool=false, reporters=InformativeLog(), observers=nothing, kwargs...)
     dist_ = SimilaritySearch.Dist.Hacks.DistanceWithIdentifiers(dist, X)
     X_ = VectorDatabase(Int32[])
     if recall < 1.0
         idx = SearchGraph(dist_, X_)
-        hyperparameters_callback = OptimizeParametes(MinRecall(recall))
-        ctx = SearchGraphContext(; hyperparameters_callback)
+        hyperparameters_callback = OptimizeParameters(MinRecall(recall))
+        ctx = SearchGraphContext(; hyperparameters_callback, verbose, reporters, observers)
     else
         idx = ExhaustiveSearch(dist_, X_)
-        ctx = GenericContext()
+        ctx = GenericContext(; verbose, reporters, observers)
     end
 
     R = neardup_(idx, ctx, VectorDatabase(UnitRange{Int32}(1, length(X))), ϵ; kwargs...)
@@ -89,7 +93,7 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
 end
 
 function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
-    k::Int=8, blocksize::Int=256, filterblocks=true, verbose::Bool=true)
+    k::Int=8, blocksize::Int=256, filterblocks=true)
 
     ϵ = convert(Float32, ϵ)
     n = length(X)
@@ -108,9 +112,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
 
     for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
-            if verbose
-                @info "neardup> starting: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
-            end
+            verbose(ctx) && @inform ctx "neardup> starting: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ"
             neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; filterblocks)
         else
             empty!(imap)
@@ -128,9 +130,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
                 searchbatch!(idx, ctx, X[range], knns_ids, knns_dists; sorted=true)
                 knns_ids_view, knns_dists_view = knns_ids, knns_dists
             end
-            if verbose
-                @info "neardup> range: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
-            end
+            verbose(ctx) && @inform ctx "neardup> range: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ"
 
             for (i, j) in enumerate(range) # collecting non-discarded near duplicated objects
                 pid  = knns_ids_view[1, i]
@@ -149,9 +149,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
         end
     end
     
-    if verbose
-        @info "neardup> finished current elements: $(length(idx)), n: $n, ϵ: $ϵ, timestamp: $(Dates.now())"
-    end
+    verbose(ctx) && @inform ctx "neardup> finished current elements: $(length(idx)), n: $n, ϵ: $ϵ"
 
     costdists = distance_evaluations(ctx, dist_snapshot)
     costblocks = block_evaluations(ctx, blk_snapshot)

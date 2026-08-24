@@ -177,7 +177,7 @@ end
 Appends all `items` elements into the index `idx`. It work in parallel using all available threads.
 Grows `database(idx)` then delegates the actual indexing work to [`index!`](@ref), which is the sole
 emitter of the `:add!` log event for this batch -- this function itself does not log, per the
-exactly-once contract documented on [`AbstractLog`](@ref).
+exactly-once contract documented on [`OBSERVE`](@ref).
 
 # Arguments:
 - `idx`: The inverted index
@@ -214,7 +214,8 @@ function push_item!(idx::AbstractInvertedFile, ctx::InvertedFileContext, obj, ob
     push!(idx.sizes, nz)
     push_item!(idx.db, obj)
     idx.len[] += 1
-    LOG(ctx.logger, :add!, idx, ctx, objID, objID)
+    OBSERVE(ctx, :add!, idx, objID, objID)
+    @inform ctx "add! sp=$objID ep=$objID" index=idx
     idx
 end
 
@@ -251,7 +252,7 @@ logged) if `db` has not grown past `length(idx)`. Mirrors `SearchGraph`'s `index
 items)`), then call `index!(idx, ctx)` to catch up. `push_item!`/`append_items!` on `idx` itself
 already call this internally, so it only needs to be called explicitly when `db` was grown
 directly. This is the sole emitter of the `:add!` log event for the batch it indexes -- see the
-exactly-once contract documented on [`AbstractLog`](@ref).
+exactly-once contract documented on [`OBSERVE`](@ref).
 """
 function index!(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     sp = idx.len[] + 1
@@ -259,7 +260,8 @@ function index!(idx::AbstractInvertedFile, ctx::InvertedFileContext)
     if sp <= n
         _index_block!(idx, ctx, sp, n)
         idx.len[] = n
-        LOG(ctx.logger, :add!, idx, ctx, sp, n)
+        OBSERVE(ctx, :add!, idx, sp, n)
+        @inform ctx "add! sp=$sp ep=$n" index=idx
     end
     idx
 end

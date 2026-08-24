@@ -143,7 +143,8 @@ function index!(
     end
     end
 
-    LOG(ctx.logger, :add!, sat, ctx, 1, length(sat))
+    OBSERVE(ctx, :add!, sat, 1, length(sat))
+    @inform ctx "add! sp=1 ep=$(length(sat))" index=sat
     sat
 end
 
@@ -184,7 +185,8 @@ function index!(
         cov[p] = max(cov[p], abs(cov[c]))
     end
 
-    LOG(ctx.logger, :add!, sat, ctx, 1, length(sat))
+    OBSERVE(ctx, :add!, sat, 1, length(sat))
+    @inform ctx "add! sp=1 ep=$(length(sat))" index=sat
     sat
 end
 

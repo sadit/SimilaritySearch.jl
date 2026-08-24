@@ -167,7 +167,7 @@ struct KCentersNeighborhood <: NeighborhoodFilter end
     S = SubDatabase(database(G), IdView(res))
     k = ceil(Int, log2(length(res)))
     k = min(16, k)
-    C = fft(distance(G), S, k; threads=false, verbose=false, scheduler=:sequential)
+    C = fft(distance(G), S, k; verbose=false, scheduler=:sequential)
     for i in C.centers
         push_item!(output, res[i])
     end

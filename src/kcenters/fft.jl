@@ -3,7 +3,7 @@
 export fft
 
 """
-    fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
+    fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
 
 Selects `k` items that are far from each other based on the Farthest First Traversal (FFT) algorithm; this is
 useful to obtain a diverse, representative subset of `X` (e.g., as candidate centers for clustering).
@@ -16,7 +16,10 @@ If `start=0` then a random starting point is selected, otherwise a valid object 
 
 # Keyword Arguments
 - `start`: the identifier of the first center; `0` means a random starting point is selected
-- `verbose`: controls the verbosity of the function
+- `verbose`: whether the per-center progress message is produced at all
+- `reporters`: where that message goes, see [`AbstractReporter`](@ref). `fft` takes no context, so a
+  caller that has one should pass `reporters=ctx.reporters` for its silencing to reach here; pass
+  `reporters=[]` to silence it directly.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-pivot distance update
   (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
   Defaults to [`get_batch_scheduler`](@ref).
@@ -50,7 +53,7 @@ R.ε            # separation radius achieved by the traversal
 R.costdists    # distance evaluations performed by this call
 ```
 """
-function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
+function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
     N = length(X)
     centers = UInt32[]
     sizehint!(centers, k)
@@ -68,7 +71,7 @@ function fft(dist::SemiMetric, X::AbstractDatabase, k::Integer; start::Int=0, ve
     @inbounds for _ in 1:k
         push!(εlist, ε)
         push!(centers, imax)
-        verbose && println(stderr, "computing farthest point $(length(centers)), ε: $ε, imax: $imax, n: $(length(X))")
+        verbose && @inform reporters "fft> farthest point $(length(centers)), ε: $ε, imax: $imax, n: $(length(X))"
 
         pivot = X[imax]
         @BATCHES minbatch scheduler=scheduler for i in 1:N

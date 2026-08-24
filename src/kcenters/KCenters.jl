@@ -8,6 +8,10 @@ using Random: shuffle!, shuffle
 
 # explicitly import internal/unexported names used by the algorithms
 import ..SimilaritySearch:
+    AbstractReporter,
+    InformativeLog,
+    INFORM,
+    @inform,
     AbstractDatabase,
     GenericContext,
     ExhaustiveSearch,

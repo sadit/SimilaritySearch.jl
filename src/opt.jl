@@ -139,8 +139,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         end
 
         if recall < 0.3
-            @warn "OPT low recal> recall: $recall, #objects: $(length(index)), #queries: $(length(queries))"
-            @show cov
+            @warn "OPT low recall> recall: $recall, #objects: $(length(index)), #queries: $(length(queries)), cov: $cov"
             #=for (g, r) in zip(gold, R)
                 @show g, r
             end=#
@@ -157,7 +156,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         end
 
         visited = distance_stats(ctx, before)
-        verbose(ctx) && println(stderr, "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited")
+        verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited"
         (; visited, radius, recall, searchtime, conf)
     end
 end
@@ -237,11 +236,11 @@ function optimize_index!(
 
     db = database(index)
     if queries === nothing
-        verbose(ctx) && @info "using $numqueries random queries from the dataset"
+        verbose(ctx) && @inform ctx "using $numqueries random queries from the dataset"
         sample = rand(rng, 1:length(index), numqueries) |> unique
         queries = SubDatabase(db, sample)
     else
-        verbose(ctx) && @info "using $(length(queries)) given as hyperparameter"
+        verbose(ctx) && @inform ctx "using $(length(queries)) given as hyperparameter"
     end
 
     knns_ids = zeros(UInt32, ksearch, length(queries))
@@ -305,11 +304,11 @@ function optimize_index!(
     bestlist = search_models(getperformance, space, initialpopulation, params; inspect_population, sort_by_best, convergence, parallel=:none)
 
     if length(bestlist) == 0
-        verbose(ctx) && println(stderr, "== WARN optimization failure; unable to find usable configurations")
+        verbose(ctx) && @inform ctx "== WARN optimization failure; unable to find usable configurations"
     else
         config, perf = bestlist[1]
         # @assert perf.recall > 0
-        verbose(ctx) && println(stderr, "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))")
+        verbose(ctx) && @inform ctx "== finished opt. $(typeof(index)): search-params: $(params), opt-config: $config, perf: $perf, kind=$(kind), length=$(length(index))"
         setconfig!(config, index, perf)
     end
 

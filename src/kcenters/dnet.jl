@@ -4,7 +4,7 @@ import Random: shuffle!
 export dnet
 
 """
-    dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
+    dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
 
 Selects `numcenters` points far from each other based on density nets. It behaves similarly to `fft`,
 returning a similar named tuple so they are interchangeable.
@@ -15,7 +15,10 @@ returning a similar named tuple so they are interchangeable.
 - `numcenters`: number of centers to be computed
 
 # Keyword Arguments
-- `verbose`: controls the verbosity of the function
+- `verbose`: whether the per-center progress message is produced at all
+- `reporters`: where that message goes, see [`AbstractReporter`](@ref). `dnet` takes no context, so a
+  caller that has one should pass `reporters=ctx.reporters` for its silencing to reach here; pass
+  `reporters=[]` to silence it directly.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler stored in the internal `GenericContext`
   used for this call (`:default`, `:static`, `:greedy`, or `:sequential` to disable
   threading entirely). Defaults to [`get_batch_scheduler`](@ref).
@@ -32,7 +35,7 @@ Note: unlike `fft`/`multirandsel`, `dnet`'s selection isn't a greedy farthest-po
 so there's no well-defined minimum-separation-among-centers quantity to report here -- no
 `dmax` field is returned.
 """
-function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, scheduler::Symbol=get_batch_scheduler())
+function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbose::Bool=true, reporters=InformativeLog(), scheduler::Symbol=get_batch_scheduler())
     N = length(X)
     centers = UInt32[]
     sizehint!(centers, numcenters)
@@ -66,7 +69,7 @@ function dnet(dist::SemiMetric, X::AbstractDatabase, numcenters::Integer; verbos
             nndists[orig_id] = item.dist
         end
 
-        verbose && println(stderr, "dnet -- selected-center: $(length(centers)), id: $c, dmax: $(maximum(res))")
+        verbose && @inform reporters "dnet> selected-center: $(length(centers)), id: $c, dmax: $(maximum(res))"
         
         m = n - length(res)
         empty!(rlist)

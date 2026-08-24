@@ -3,7 +3,7 @@
 module Bichromatic
 
 using ..SimilaritySearch
-using ..SimilaritySearch: getvstate, visit!, neighbors, evaluate
+using ..SimilaritySearch: getvstate, visit!, neighbors, evaluate, InformativeLog
 using Distances: PreMetric
 using Accessors
 using Statistics: quantile

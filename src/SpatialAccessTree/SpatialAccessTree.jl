@@ -8,7 +8,7 @@ using ..SimilaritySearch:
     AbstractKnnQueue, AbstractMetricQueue, GenericContext,
     PermutedSearchIndex, SubDatabase, MatrixDatabase,
     KnnSorted, IdDist, add_distance_evaluations!, add_block_evaluations!, getminbatch,
-    BeamSearch, BeamSearchSpace, AbstractLog, InformativeLog, get_batch_scheduler,
+    BeamSearch, BeamSearchSpace, AbstractLog, AbstractReporter, AbstractObserver, InformativeLog, reporterlist, observerlist, OBSERVE, INFORM, @inform, get_batch_scheduler,
     push_item!, pop_min!, covradius, maxlength, reuse!,
     check_visited_and_visit!, visit!,
     @BATCHES, @BEGIN, @BEGINBATCH, @LOOP, @ENDBATCH, @END, @batchid, @nbatches

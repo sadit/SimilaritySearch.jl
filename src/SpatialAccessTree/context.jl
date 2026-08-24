@@ -21,7 +21,8 @@ every `@BATCHES`-driven search is race-free regardless of scheduler:
 """
 struct SatContext{KnnType} <: AbstractContext
     verbose::Bool
-    logger::AbstractLog
+    reporters::Vector{AbstractReporter}
+    observers::Vector{AbstractObserver}
     beam_ids::Matrix{UInt32}
     beam_dists::Matrix{Float32}
     queues::Vector{Vector{UInt32}}
@@ -35,7 +36,8 @@ end
 
 function SatContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted;
     verbose::Bool=false,
-    logger=InformativeLog(),
+    reporters=InformativeLog(),
+    observers=nothing,
     maxbeam::Integer=64,
     maxbatches::Integer=8Threads.nthreads(),
     batchid::Integer=1,
@@ -54,18 +56,20 @@ function SatContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted;
     costdists  === nothing && (costdists  = zeros(Int, maxbatches))
     costblocks === nothing && (costblocks = zeros(Int, maxbatches))
 
-    SatContext{KnnType}(verbose, logger, beam_ids, beam_dists, queues, vstates,
+    SatContext{KnnType}(verbose, reporterlist(reporters), observerlist(observers),
+        beam_ids, beam_dists, queues, vstates,
         convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
 end
 
 function SatContext(ctx::SatContext{KnnType};
-    verbose=ctx.verbose, logger=ctx.logger,
+    verbose=ctx.verbose, reporters=ctx.reporters, observers=ctx.observers,
     beam_ids=ctx.beam_ids, beam_dists=ctx.beam_dists,
     queues=ctx.queues, vstates=ctx.vstates,
     maxbatches=ctx.maxbatches, batchid=ctx.batchid,
     scheduler=ctx.scheduler, costdists=ctx.costdists, costblocks=ctx.costblocks
 ) where {KnnType}
-    SatContext{KnnType}(verbose, logger, beam_ids, beam_dists, queues, vstates,
+    SatContext{KnnType}(verbose, reporterlist(reporters), observerlist(observers),
+        beam_ids, beam_dists, queues, vstates,
         convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
 end
 

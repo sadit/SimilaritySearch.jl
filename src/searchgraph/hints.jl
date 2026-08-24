@@ -296,21 +296,24 @@ EpsilonHints(; quantile=0.01, epsilon=0.0f0, minepsilon=1e-5, samplesize=sqrt, m
 
 `SearchGraph`'s callback for selecting near-duplicate-free hints, see [`EpsilonHints`](@ref).
 """
-function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints)
+function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::EpsilonHints;
+        reporters=ctx.reporters,
+        observers=AbstractObserver[])   # deliberately not ctx.observers: `E` below is a scratch
+                                        # index, its :add! events are about other ids entirely
     n = length(index)
     m = min(n, ceil(Int, opt.samplesize(n)))
     s = rand(1:n, m) |> unique! |> sort!
 
     sample = VectorDatabase(s)
     out = VectorDatabase(Int32[])
-    dist = DistanceWithIdentifiers(distance(index), database(index))
+    dist = Dist.Hacks.DistanceWithIdentifiers(distance(index), database(index))
     E = ExhaustiveSearch(dist, out)
     ϵ = opt.quantile <= 0.0 ? opt.epsilon : let
         D = distsample(dist, sample; samplesize=m)
         max(opt.minepsilon, quantile(D, opt.quantile))
     end
 
-    neardup(E, GenericContext(), sample, ϵ)
+    neardup(E, GenericContext(; verbose=verbose(ctx), reporters, observers), sample, ϵ)
     v = out.vecs # internals of VectorDatabase
     max_ = ceil(Int, opt.maxsize(n))
     if length(v) > max_
@@ -374,7 +377,7 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCe
         SubDatabase(database(index), s)
     end
     
-    A = fft(distance(index), D, k; ctx.verbose)
+    A = fft(distance(index), D, k; verbose=verbose(ctx), reporters=ctx.reporters)
     M = Dict(c => i for (i, c) in enumerate(A.centers))
     #@show M
     #@show A.nn
@@ -386,7 +389,7 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::KCe
     x = quantile(count, opt.qdiscard)
     C = A.centers[count.>=x]
 
-    verbose(ctx) && @info "KCentersHints: n=$n, m=$m, k=$k, numcenters=$(length(A.centers)), C=$(length(C))"
+    verbose(ctx) && @inform ctx "KCentersHints: n=$n, m=$m, k=$k, numcenters=$(length(A.centers)), C=$(length(C))"
     resize!(index.hints, length(C))
     index.hints .= D.map[C]
 end

@@ -159,7 +159,7 @@ Gets the distance function used in the index
 
 """
     GenericContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted;
-        verbose::Bool=true, logger=InformativeLog(),
+        verbose::Bool=false, reporters=InformativeLog(), observers=nothing,
         maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1,
         scheduler::Symbol=get_batch_scheduler()) -> GenericContext
 
@@ -168,8 +168,14 @@ Lightweight [`AbstractContext`](@ref) implementation used by exact indexes
 scratch caches.
 
 # Keyword Arguments
-- `verbose`: controls the number of output messages.
-- `logger`: how to handle and log events.
+- `verbose`: whether the chatty, per-iteration messages (optimization progress, hint selection)
+  are produced at all. It is a *level*, not an output switch -- the switch is `reporters`.
+- `reporters`: where progress messages go, see [`AbstractReporter`](@ref). Accepts one reporter, a
+  vector of them, or `nothing`. **Pass `reporters=[]` to silence this context completely**: with no
+  destination, a message is not even built. Defaults to a fresh [`InformativeLog`](@ref).
+- `observers`: what reacts to structural events, see [`AbstractObserver`](@ref). Same shapes.
+  Defaults to none -- the library never installs an observer of its own. Silencing the reporters
+  leaves the observers untouched, which is the point of them being separate slots.
 - `maxbatches`: hard cap on the batch count used by [`getminbatch`](@ref) for operations
   driven by this context (e.g. [`searchbatch!`](@ref), [`allknn`](@ref),
   [`closestpair`](@ref), [`search`](@ref search(::ParallelExhaustiveSearch, ::GenericContext, ::Any, ::AbstractKnnQueue))).
@@ -191,7 +197,8 @@ scratch caches.
 """
 struct GenericContext{KnnType} <: AbstractContext
     verbose::Bool
-    logger
+    reporters::Vector{AbstractReporter}
+    observers::Vector{AbstractObserver}
     maxbatches::Int32
     batchid::Int32
     scheduler::Symbol
@@ -199,10 +206,12 @@ struct GenericContext{KnnType} <: AbstractContext
     costblocks::Vector{Int}
 end
 
-GenericContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted; verbose::Bool=true, logger=InformativeLog(),
+GenericContext(KnnType::Type{<:AbstractKnnQueue}=KnnSorted; verbose::Bool=false,
+    reporters=InformativeLog(), observers=nothing,
     maxbatches::Integer=8Threads.nthreads(), batchid::Integer=1, scheduler::Symbol=get_batch_scheduler(),
     costdists=zeros(Int, maxbatches), costblocks=zeros(Int, maxbatches)) =
-    GenericContext{KnnType}(verbose, logger, convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
+    GenericContext{KnnType}(verbose, reporterlist(reporters), observerlist(observers),
+        convert(Int32, maxbatches), convert(Int32, batchid), scheduler, costdists, costblocks)
 
 # GenericContext has a phantom type parameter (KnnType, not derivable from any field), so
 # ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it -- this

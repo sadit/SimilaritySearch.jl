@@ -6,7 +6,9 @@ import ..SimilaritySearch:
     search, index!, append_items!, push_item!, database, distance, knnqueue,
     add_block_evaluations!, add_distance_evaluations!
 using ..SimilaritySearch
-using ..SimilaritySearch: Dist, AbstractContext, getminbatch, @BATCHES, AbstractLog, InformativeLog, AbstractDatabase, KnnSorted, IdDist, AbstractSearchIndex, KnnHeap, Accessors
+using ..SimilaritySearch: Dist, AbstractContext, getminbatch, @BATCHES, AbstractLog, AbstractReporter, AbstractObserver,
+    InformativeLog, reporterlist, observerlist, verbose, OBSERVE, INFORM, @inform,
+    AbstractDatabase, KnnSorted, IdDist, AbstractSearchIndex, KnnHeap, Accessors
 using ..Special.Sparse: SparseVecView
 using Distances: PreMetric
 
@@ -17,7 +19,9 @@ include("sortedintset.jl")
 include("plists.jl")
 
 struct InvertedFileContext{A,B} <: AbstractContext
-    logger::AbstractLog
+    verbose::Bool
+    reporters::Vector{AbstractReporter}
+    observers::Vector{AbstractObserver}
     parallel_block::Int
     maxbatches::Int
     batchid::Int
@@ -29,7 +33,9 @@ struct InvertedFileContext{A,B} <: AbstractContext
 end
 
 function InvertedFileContext(;
-        logger = InformativeLog(dt=1.0),
+        verbose::Bool = false,
+        reporters = InformativeLog(dt=1.0),
+        observers = nothing,
         maxbatches::Integer = 8Threads.nthreads(),
         parallel_block = maxbatches,
         batchid::Integer = 1,
@@ -41,11 +47,14 @@ function InvertedFileContext(;
         buffer = [Vector{PostingList{Vector{UInt32}, keytype}}(undef, 32) for _ in 1:maxbatches],
     )
 
-    InvertedFileContext(logger, parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
+    InvertedFileContext(verbose, reporterlist(reporters), observerlist(observers),
+                         parallel_block, convert(Int, maxbatches), convert(Int, batchid), scheduler,
                          costdists, costblocks, positions, buffer)
 end
 
 Accessors.ConstructionBase.constructorof(::Type{<:InvertedFileContext{A,B}}) where {A,B} = (args...) -> InvertedFileContext{A,B}(args...)
+
+SimilaritySearch.verbose(ctx::InvertedFileContext) = ctx.verbose
 
 knnqueue(::InvertedFileContext, args...) = knnqueue(KnnSorted, args...)
 

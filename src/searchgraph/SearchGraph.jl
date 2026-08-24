@@ -212,7 +212,6 @@ function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractMet
     search(index.algo[], index, ctx, q, res, index.hints, vstate)
 end
 
-include("log.jl")
 include("callbacks.jl")
 include("rebuild.jl")
 include("staticindexing.jl")
