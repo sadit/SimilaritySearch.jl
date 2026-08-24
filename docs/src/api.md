@@ -42,21 +42,26 @@ bichromatic_kclosestpairs
 bichromatic_metricjoin
 ```
 
-## Remove near duplicates
-Finds and removes near duplicate items in a metric dataset
+## Selection: picking a subset that stands for the whole dataset
+Two dual shapes. The fixed-count selectors are told how many centers to pick and the radius
+they achieve falls out; `neardup` is told the radius and the count falls out. All of them
+report `centers`/`assign`/`assigndist` under the same names -- see [`AbstractSelection`](@ref).
 ```@docs
+Selection
+AbstractSelection
+fft
+dnet
+randsel
+multirandsel
+CenterSelection
 neardup
+NearDupSelection
 ```
 
 ## Other high level algorithms
 ```@docs
 hsp_queries
 rerank!
-fft
-dnet
-randsel
-multirandsel
-CenterSelection
 distsample
 distsample_ut
 recallscore

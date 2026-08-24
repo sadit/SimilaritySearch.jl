@@ -123,8 +123,13 @@ julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load 
   (`SQgu4`/`SQgu8`) scalar quantization, each its own nested submodule.
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
   `HadamardProjection`, and `bitsketch` (SimHash-style binary sketches).
-- `allknn.jl`, `closestpair.jl`, `neardup.jl`, `hsp.jl`, `rerank.jl`, `fft.jl`, `opt.jl` —
-  higher-level algorithms built on top of the index interface.
+- `selection/` (`Selection` submodule) — algorithms that pick a subset standing for the whole
+  dataset, in two dual shapes: fixed-count (`fft`, `dnet`, `randsel`, `multirandsel`, returning
+  a `CenterSelection`) and fixed-radius (`neardup`, returning a `NearDupSelection`). Both name
+  the shared fields the same way (`centers`, `assign`, `assigndist`); `assign` holds a
+  **position into `centers`**, never an identifier into the database.
+- `allknn.jl`, `closestpair.jl`, `hsp.jl`, `rerank.jl`, `opt.jl` — higher-level algorithms built
+  on top of the index interface.
 
 ## Conventions worth knowing before writing code
 

@@ -131,10 +131,25 @@ earlier object instead of being kept itself. The simplest way to call it is the
 two-argument form, which manages its own (empty, exact) index internally:
 
 ```julia
-D = neardup(dist, X, 0.1)   # ϵ = 0.1
-length(D.centers)            # how many distinct (non-duplicate) objects survived
-D.map                        # D.centers, indexed 1:length(D.centers)
-D.nn                         # for every object in X, the surviving object that "covers" it
+D = neardup(dist, X, 0.1)     # ϵ = 0.1
+length(D.centers)             # how many distinct objects survived -- the output, not the input
+D.centers[D.assign[7]]        # which survivor covers object 7
+D.assigndist[7]               # how far object 7 sits from it, always <= D.epsilon
+D.covering                    # the radius the net actually needed
+D.idx                         # the index over the survivors, ready to be reused
+```
+
+`neardup` is the radius-driven half of the selection family: you fix `ϵ` and the number of
+survivors is whatever the data gives, where [`fft`](@ref) and friends fix the count and let
+the radius fall out. Both report `centers`, `assign` and `assigndist` with the same meanings,
+so the two are read the same way.
+
+To pick `ϵ` from the data rather than by hand, sample the distance distribution first:
+
+```julia
+using Statistics
+ϵ = quantile(distsample(dist, X; samplesize=2^10), 0.01)
+D = neardup(dist, X, ϵ)
 ```
 
 If you already have an index you want `neardup` to fill (e.g. a `SearchGraph`, to use

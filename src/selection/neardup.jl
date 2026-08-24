@@ -13,22 +13,29 @@ The two-argument `dist`-based method is a convenience wrapper that builds and ma
 it uses an `ExhaustiveSearch` (exact) when `recall == 1.0`, or otherwise a `SearchGraph` (approximate) tuned to
 approach the given `recall` via `OptimizeParameters(MinRecall(recall))`.
 
-The function returns a named tuple `(idx, map, nn, dist, costdists, costblocks, centers)` where:
-- `idx`: the index of the non duplicated elements
-- `map`: a mapping from `1:length(idx)` to its positions in `X`
-- `nn`: an array where each element in ``x \\in X`` points to its covering element (previously indexed element `u` such that ``d(u, x_i) \\leq ϵ``)
-- `dist`: an array of distance values to each covering element (corresponds to each element in `nn`)
-- `costdists`: [`distance_evaluations`](@ref) for this call (`ctx` diffed against a snapshot taken before the call)
-- `costblocks`: [`block_evaluations`](@ref) for this call, same diffing
-- `centers`: the identifiers of `X` that survived as non-duplicates (i.e., the ``ϵ``-net); sorted for the
-  `idx`-based method, in construction order for the `dist`-based convenience method
+Returns a [`NearDupSelection`](@ref): the surviving objects as `centers`, which of them covers
+each object of `X` as `assign`, and the index built over them as `idx`.
+
+This is the radius-driven half of [`Selection`](@ref): you fix `ϵ` and the number of survivors is
+whatever the data gives. The fixed-count selectors ([`fft`](@ref), [`dnet`](@ref),
+[`randsel`](@ref), [`multirandsel`](@ref)) are the dual -- you fix the count and the radius falls
+out -- and they report the same `centers`/`assign`/`assigndist` under the same names.
 
 # Arguments
 - `idx`: An empty index (e.g., a `SearchGraph` or an `ExhaustiveSearch`) -- only for the `idx`-based method
 - `ctx`: the index's context (caches, hyperparameters, logger, etc) -- only for the `idx`-based method
 - `dist`: the distance function to use -- only for the `dist`-based method
 - `X`: The input dataset
-- `ϵ`: Real value to cut, if negative, then ϵ will be computed using the quantile value at 'abs(ϵ)' in a small sample of nearest neighbor distances; the quantile method should be used only for applications that need some vague approximations to `ϵ`
+- `ϵ`: the radius below which two objects count as duplicates of each other. It must not be
+  negative -- every distance would exceed it, so nothing would ever be collapsed -- and a negative
+  value is rejected rather than silently returning every object as its own center. `ϵ = 0` is
+  meaningful: it collapses exact duplicates only. To pick one from the data rather than by hand,
+  sample the distance distribution first with [`distsample`](@ref) and take a low quantile of it:
+
+  ```julia
+  ϵ = quantile(distsample(dist, X; samplesize=2^10), 0.01)
+  D = neardup(dist, X, ϵ)
+  ```
 
 # Keyword Arguments
 - `k`: The number of nearest neighbors to retrieve (some algorithms benefit from retrieving larger `k` values)
@@ -47,7 +54,7 @@ and `observers` directly, since it builds the context itself.
    - `distance(idx::AbstractSearchIndex)`
    - `length(idx::AbstractSearchIndex)`
    - `append_items!(idx::AbstractSearchIndex, ctx, items::AbstractDatabase)`
-- You can access the set of elements being 'ϵ-non duplicates (the ``ϵ-net``) using `database(idx)` or where `nn[i] == i`
+- The ``ϵ``-net itself is `centers`; `database(idx)` holds the same objects, in the same order
 
 # Examples
 
@@ -62,8 +69,11 @@ X = MatrixDatabase(rand(Float32, 4, 10^3))
 G = SearchGraph(dist, VectorDatabase(Vector{Float32}[]))
 ctx = SearchGraphContext()
 D = neardup(G, ctx, X, ϵ; blocksize=256)
-D.map, D.nn, D.dist, D.centers
-D.costdists, D.costblocks  # cost of this call
+D.centers                     # the ϵ-net: which objects of X survived
+D.centers[D.assign[7]]        # which of them covers object 7
+D.assigndist[7]               # how far object 7 sits from it (<= ϵ)
+D.covering, D.epsilon         # the radius actually needed, and the one asked for
+D.costdists, D.costblocks     # cost of this call
 
 # convenience wrapper (builds its own exact index since recall=1.0)
 D2 = neardup(dist, X, ϵ)
@@ -82,30 +92,29 @@ function neardup(dist::PreMetric, X::AbstractDatabase, ϵ::Real; recall=1.0,
         ctx = GenericContext(; verbose, reporters, observers)
     end
 
-    R = neardup_(idx, ctx, VectorDatabase(UnitRange{Int32}(1, length(X))), ϵ; kwargs...)
-    (; R..., centers=X_.vecs)
+    neardup(idx, ctx, VectorDatabase(UnitRange{Int32}(1, length(X))), ϵ; kwargs...)
 end
 
-function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real; kwargs...)
-    R = neardup_(idx, ctx, X, ϵ; kwargs...)
-    centers = sort!(unique(R.nn))
-    (; R..., centers)
-end
-
-function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
+function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, ϵ::Real;
     k::Int=8, blocksize::Int=256, filterblocks=true)
 
+    ϵ >= 0 || throw(ArgumentError("neardup needs a non-negative ϵ, got $ϵ; see its docstring for how to estimate one with distsample"))
     ϵ = convert(Float32, ϵ)
     n = length(X)
+    n == 0 && return NearDupSelection(idx, UInt32[], UInt32[], Float32[], 0f0, ϵ, 0, 0)
+
     blocksize = min(blocksize, n)
     knns_ids   = Matrix{UInt32}(undef, k, blocksize)
     knns_dists = Matrix{Float32}(undef, k, blocksize)
 
-    L = zeros(Int32, n)
+    # `L[i]` is the position in `M` of the center covering object `i`, never the center's own
+    # identifier -- see `AbstractSelection`
+    L = zeros(UInt32, n)
     D = zeros(Float32, n)
     M = UInt32[]
     imap = UInt32[]
     tmp = UInt32[]
+    tmppos = UInt32[]
 
     dist_snapshot = copy(ctx.costdists)
     blk_snapshot = copy(ctx.costblocks)
@@ -113,7 +122,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     for range in Iterators.partition(1:n, blocksize)
         if length(idx) == 0
             verbose(ctx) && @inform ctx "neardup> starting: $(range), current elements: $(length(idx)), n: $n, ϵ: $ϵ"
-            neardup_block!(idx, ctx, X, range, tmp, L, D, M, ϵ; filterblocks)
+            neardup_block!(idx, ctx, X, range, tmp, tmppos, L, D, M, ϵ; filterblocks)
         else
             empty!(imap)
             if size(knns_ids, 2) != length(range)
@@ -138,13 +147,15 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
                 if pdist > ϵ
                     push!(imap, j)
                 else
+                    # `pid` is a position into `idx`, which is built in `M`'s order, so it is
+                    # already the position into `centers` that `assign` wants
                     D[j] = pdist
-                    L[j] = M[pid]
+                    L[j] = pid
                 end
             end
 
             if length(imap) > 0
-                neardup_block!(idx, ctx, X, imap, tmp, L, D, M, ϵ; filterblocks)
+                neardup_block!(idx, ctx, X, imap, tmp, tmppos, L, D, M, ϵ; filterblocks)
             end
         end
     end
@@ -154,7 +165,7 @@ function neardup_(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDat
     costdists = distance_evaluations(ctx, dist_snapshot)
     costblocks = block_evaluations(ctx, blk_snapshot)
 
-    (idx=idx, map=M, nn=L, dist=D, costdists=costdists, costblocks=costblocks)
+    NearDupSelection(idx, M, L, D, maximum(D), ϵ, costdists, costblocks)
 end
 
 
@@ -167,18 +178,19 @@ end
 - `X` input database- `L` nearest neighbors of the input database to non-near dups
 - `imap` list of items to test and insert
 - `tmp` a temporary buffer to save imap elements
-- `L` nearest neighbors ids of the input database to non-near dups
+- `tmppos` parallel to `tmp`: the position in `M` of each of its entries
+- `L` for each object of the input database, the position in `M` of the center covering it
 - `D` nearest neighbors distances of the input database to non-near dups
 - `M` maps of `idx` to the input database
 - `ϵ` radius to consider objects as near dups
 - `filterblocks` if true it performs neardup in blocks
 """
-function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, imap, tmp, L, D, M, ϵ; filterblocks::Bool)
+function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractDatabase, imap, tmp, tmppos, L, D, M, ϵ; filterblocks::Bool)
     if !filterblocks
         append_items!(idx, ctx, X[imap])
         for i in imap
             push!(M, i)
-            L[i] = i
+            L[i] = length(M)   # a center is covered by itself, at its own position
             D[i] = 0.0f0
         end
 
@@ -186,11 +198,13 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
     end
 
     empty!(tmp)
+    empty!(tmppos)
     n = length(imap)
     i = first(imap)
     push!(tmp, i)
     push!(M, i)
-    L[i] = i
+    push!(tmppos, length(M))
+    L[i] = length(M)
     D[i] = 0.0f0
 
     dist = distance(idx)
@@ -210,11 +224,12 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
                 b_min_j = zero(Int32)
                 b_min_d = typemax(Float32)
             @LOOP for jj in firstindex(tmp):lastindex(tmp)
-                j = tmp[jj]
-                d = evaluate(dist, u, X[j])
+                # the winner is reported as its index into `tmp`, not as the object's own
+                # identifier: `tmppos` turns it into the position in `M` that `L` records
+                d = evaluate(dist, u, X[tmp[jj]])
                 if d < b_min_d
                     b_min_d = d
-                    b_min_j = j
+                    b_min_j = jj
                 end
             end
             @ENDBATCH
@@ -233,10 +248,11 @@ function neardup_block!(idx::AbstractSearchIndex, ctx::AbstractContext, X::Abstr
             if nn.dist > ϵ
                 push!(tmp, i)
                 push!(M, i)
-                L[i] = i
+                push!(tmppos, length(M))
+                L[i] = length(M)
                 D[i] = 0.0f0
             else
-                L[i] = nn.id
+                L[i] = tmppos[nn.id]
                 D[i] = nn.dist
             end
         end

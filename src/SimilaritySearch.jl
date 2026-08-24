@@ -13,7 +13,8 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     SearchResult, push_item!, append_items!, getminbatch,
     IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
-    KCenters, fft, dnet, randsel, multirandsel,
+    Selection, fft, dnet, randsel, multirandsel, neardup,
+    AbstractSelection, CenterSelection, NearDupSelection,
     Bichromatic, closestpair, bichromatic_closestpair, closestpairs, bichromatic_kclosestpairs,
     bichromatic_metricjoin,
     PQueue, AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue,
@@ -270,8 +271,8 @@ include("perf.jl")
 include("exact/Exact.jl")
 
 using SimilaritySearch.Exact
-include("kcenters/KCenters.jl")
-using .KCenters
+include("selection/Selection.jl")
+using .Selection
 
 using SimilaritySearch.Exact
 
@@ -291,7 +292,6 @@ include("permindex.jl")
 include("allknn.jl")
 include("SpatialAccessTree/SpatialAccessTree.jl")
 using .SpatialAccessTree
-include("neardup.jl")
 include("bichromatic/Bichromatic.jl")
 using .Bichromatic
 include("hsp.jl")
