@@ -62,9 +62,14 @@ against the others unchanged, and all four report both radii.
 - `randsel` just samples `k` centers uniformly at random -- the cheapest option, no
   separation guarantee at all. Its `separation` is measured rather than guaranteed, and it
   is what tells you how bad a given random draw turned out.
-- `dnet` groups the dataset into density-based neighborhoods and picks one representative
-  per group -- faster than `fft` on large datasets. Its `numcenters` is a target rather than
-  a promise: it usually returns a few more than asked.
+- `dnet` carves the dataset into balls of `length(X) ÷ numcenters` objects and keeps one
+  representative per ball -- faster than `fft` on large datasets. Two things to know: its
+  `numcenters` is a target rather than the count (it returns `cld(length(X), length(X) ÷
+  numcenters)` centers, one more than asked whenever that does not divide evenly), and it is
+  the one selector whose `assign` is **not** the nearest center but the center whose ball
+  absorbed the object. That is the structure the carving actually computed; a center picked in
+  a later round can be closer, for around 40% of the objects. Its `covering` is therefore an
+  upper bound on the covering radius rather than the radius itself.
 - `multirandsel` is a randomized middle ground: each step samples a batch of candidates
   and keeps the one farthest (by total distance) from every center chosen so far.
 

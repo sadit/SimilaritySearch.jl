@@ -15,11 +15,15 @@ interchangeable at the call site.
 - `assign::Vector{UInt32}` -- one entry per object of `X`, in `X` order. `assign[i]` is the
   **position in `centers`** (a value in `1:length(centers)`) of the center object `i` was
   assigned to, *not* its identifier in `X`. The identifier is one indexing away:
-  `centers[assign[i]]`.
+  `centers[assign[i]]`. For [`fft`](@ref), [`randsel`](@ref) and [`multirandsel`](@ref) that
+  center is the **nearest** one; [`dnet`](@ref) is the documented exception -- see below.
 - `assigndist::Vector{Float32}` -- `assigndist[i]` is the distance from object `i` to the
-  center it was assigned to, in `X` order.
-- `covering::Float32` -- the largest `assigndist`, i.e. the radius that the selected centers
-  need in order to cover every object of `X`. Smaller is a better cover.
+  center it was assigned to, in `X` order. Always consistent with `assign`: it is the distance
+  to the center `assign[i]` names, whether or not that center is the nearest.
+- `covering::Float32` -- the largest `assigndist`: the radius the selected centers need in
+  order to reach every object of `X` *under this assignment*. Smaller is a better cover. For
+  the three nearest-center selectors this is the covering radius exactly; for `dnet` it is an
+  upper bound on it, since a nearest-center assignment could only be tighter.
 - `separation::Float32` -- the smallest distance between two selected centers. Larger is a
   more spread-out selection. `typemax(Float32)` when fewer than two centers exist, since
   there is then no pair to measure.
@@ -33,6 +37,19 @@ position is not recoverable from the identifier without building a dictionary. B
 of this result inside the library used to receive identifiers and immediately rebuild that
 dictionary; producers computed the position and threw it away. The data now stops making the
 round trip.
+
+# `dnet` assigns to the center that took the object, not the nearest one
+
+[`dnet`](@ref) carves balls out of a shrinking pool, so an object leaves with the ball that
+absorbed it -- and a center chosen in a later round can turn out to be closer. It is not a
+small effect: on 120 random points in 4 dimensions with `k=10`, 40% of the objects had a
+nearer center than the one they are assigned to.
+
+This is kept deliberately. The assignment *is* the ball structure `dnet` computed, and
+recovering it costs nothing; turning it into a nearest-center assignment would mean another
+`length(X) * k` distance evaluations for a quantity the caller can compute itself if that is
+what they wanted. So `assign` always answers "which center is this object filed under", and
+only the other three additionally promise "and it is the closest one".
 
 # `covering` and `separation` are different numbers
 

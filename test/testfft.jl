@@ -16,12 +16,14 @@ function pairdists(X, ids)
 end
 
 """
-    check_selection(R, X)
+    check_selection(R, X; nearest=true)
 
 Everything a `CenterSelection` promises, verified against `X` itself rather than against the
-algorithm that produced it.
+algorithm that produced it. `nearest=false` drops the one promise `dnet` deliberately does not
+make -- that the center an object is assigned to is the closest one -- while still requiring
+`assigndist` to agree with `assign`.
 """
-function check_selection(R::CenterSelection, X)
+function check_selection(R::CenterSelection, X; nearest::Bool=true)
     n, k = length(X), length(R.centers)
     @test allunique(R.centers)
     @test all(c -> 1 <= c <= n, R.centers)
@@ -31,12 +33,15 @@ function check_selection(R::CenterSelection, X)
     # `assign` indexes `centers`, not `X`
     @test all(a -> 1 <= a <= k, R.assign)
 
-    # every object really is at `assigndist` from the center `assign` names, and no other
-    # center is closer -- this is what makes the assignment an assignment
+    # every object really is at `assigndist` from the center `assign` names -- and, where the
+    # selector promises it, no other center is closer
     D = [SimilaritySearch.evaluate(DIST, X[i], X[c]) for i in 1:n, c in R.centers]
     for i in 1:n
         @test R.assigndist[i] ≈ D[i, R.assign[i]]
-        @test R.assigndist[i] ≈ minimum(view(D, i, :))
+        nearest && @test R.assigndist[i] ≈ minimum(view(D, i, :))
+        # even without the nearest promise, an assignment can never claim to be closer than
+        # the closest center actually is
+        @test R.assigndist[i] >= minimum(view(D, i, :)) - 1f-6
     end
 
     @test R.covering ≈ maximum(R.assigndist)
@@ -68,10 +73,31 @@ end
 
     @testset "dnet" begin
         R = dnet(DIST, X, k; verbose=false)
-        check_selection(R, X)
-        # `numcenters` is a target, not a promise -- pinned loosely on purpose, so that a
-        # change in how the balls are carved shows up here instead of surprising a caller
-        @test k <= length(R.centers) <= 2k
+        check_selection(R, X; nearest=false)
+
+        # the count is exact, just not `numcenters`: balls of `n ÷ k` objects, carved until
+        # nothing is left
+        @test length(R.centers) == cld(n, n ÷ k)
+
+        # and the documented exception is real, not theoretical: some object is filed under a
+        # center that is not its closest one
+        D = [SimilaritySearch.evaluate(DIST, X[i], X[c]) for i in 1:n, c in R.centers]
+        @test any(i -> R.assigndist[i] > minimum(view(D, i, :)) + 1f-6, 1:n)
+    end
+
+    @testset "dnet picks its centers without an identifier bias" begin
+        # the compaction used to sort the surviving pool, which walked large identifiers toward
+        # the end of it -- and the end is exactly where the next center is taken from. Over 20
+        # runs the mean selected identifier sat at 71% of the range instead of 50%
+        m = 600
+        Y = MatrixDatabase(rand(Float32, dim, m))
+        acc = Float64[]
+        for _ in 1:20
+            R = dnet(DIST, Y, 12; verbose=false)
+            push!(acc, sum(Int, R.centers) / length(R.centers))
+        end
+
+        @test 0.42m <= sum(acc) / length(acc) <= 0.58m
     end
 
     @testset "randsel" begin
