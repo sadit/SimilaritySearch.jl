@@ -4,75 +4,85 @@ CurrentModule = SimilaritySearch
 
 # Quantization and Bit Sketches
 
-In scenarios where memory constraints are a primary concern or where accelerated exact searches are required, `SimilaritySearch.jl` provides mechanisms to compress vectors into representations with a smaller memory footprint: **Scalar Quantization** and **Bit Sketches**. 
+In large-scale similarity search, storing millions of high-dimensional vectors in standard single-precision floating-point format (`Float32`) presents memory and bandwidth bottlenecks. `SimilaritySearch.jl` provides two vector compression and acceleration strategies:
 
-This section demonstrates how to apply these techniques to reduce the dataset size while performing nearest neighbor queries using `ExhaustiveSearch`.
+1. **Scalar Quantization ([`ScalarQuant`](@ref))**: Maps continuous floating-point coordinates to low-bit integer representations using column-wise affine scaling.
+2. **Bit Sketches ([`Projections.bitsketch`](@ref))**: Projects high-dimensional continuous vectors onto binary signatures via random hyperplane projections (SimHash / Locality Sensitive Hashing), enabling fast Hamming distance evaluations.
 
-## Scalar Quantization (SQu8)
+---
 
-Scalar quantization maps each coordinate of a vector to a lower-precision integer representation. The `ScalarQuant` module provides different bit-depths, including 8-bit (`SQu8`), 4-bit (`SQu4`), and 2-bit (`SQu2`). 
+## Scalar Quantization (`ScalarQuant`)
 
-Using 8-bit quantization (`SQu8`) reduces 32-bit `Float32` vectors by a factor of four, storing one `UInt8` per coordinate, along with the minimum value and scaling factor per column to allow approximate dequantization.
+Scalar quantization approximates each coordinate $x_i \in \mathbb{R}$ of a vector by mapping it to a discrete integer grid of $b$ bits:
 
-The following example illustrates how to quantize a dataset and execute a search:
+$$q_i = \text{round}\left( \frac{x_i - \min(X)}{\text{scale}} \right)$$
+
+The `ScalarQuant` module provides multiple bit-depth representations:
+- **`SQu8` (8-bit)**: Compresses `Float32` vectors by a factor of 4$\times$, storing each coordinate in a single `UInt8` alongside column-wise scale and offset parameters.
+- **`SQu4` (4-bit)**: Compresses by 8$\times$.
+- **`SQu2` (2-bit)**: Compresses by 16$\times$.
+
+### Example: Quantization and Search with `SQu8`
 
 ```julia
 using SimilaritySearch
 using SimilaritySearch.ScalarQuant
 
-# Generate synthetic data
+# 1. Generate synthetic continuous dataset
 dim = 32
 n = 10_000
 X = rand(Float32, dim, n)
 
-# Quantize the dataset to 8 bits per coordinate
+# 2. Quantize dataset to 8 bits per coordinate
 db_sq = ScalarQuant.SQu8.quantize(X)
 
-# Construct an exact exhaustive search index using SqL2 distance
+# 3. Construct an exact search index using Squared Euclidean distance
 dist = Dist.SqL2()
 idx = ExhaustiveSearch(dist, db_sq)
 ctx = GenericContext()
 
-# Search using raw Float32 queries
+# 4. Execute queries using unquantized Float32 vectors
 queries = rand(Float32, dim, 5)
 queries_db = MatrixDatabase(queries)
 
-# The distance function handles the evaluation between the SQu8Vec and Float32 query pair
+# The distance function evaluates asymmetric distances between quantized dataset vectors and Float32 queries
 knns = searchbatch(idx, ctx, queries_db, 10)
 ```
 
-Storing the dataset as `SQu8` reduces the overall memory requirements. This compression involves a trade-off, introducing a measured decrease in numerical precision during distance evaluations.
+Scalar quantization substantially reduces memory footprint while maintaining high fidelity in nearest-neighbor rankings through asymmetric distance computation.
 
-## Bit Sketches
+---
 
-For further reduction of the memory footprint and to accelerate searches, continuous vectors can be projected into binary signatures, referred to as Bit Sketches. A bit sketch applies a random projection matrix to the data and encodes the sign of the resulting projection into bits (stored as `UInt64`). 
+## Bit Sketches: Binary Random Projections
 
-Searching across bit sketches involves bitwise distances (such as the Hamming distance), which require fewer CPU cycles to compute compared to standard floating-point operations.
+Bit sketches map continuous vectors $x \in \mathbb{R}^d$ into compact binary signatures $b \in \{0, 1\}^m$ using random hyperplane projections:
 
-The following code demonstrates how to compute bit sketches and query them:
+$$b_i = \begin{cases} 1 & \text{if } \langle r_i, x \rangle \ge 0 \\ 0 & \text{if } \langle r_i, x \rangle < 0 \end{cases}$$
+
+where $R = [r_1, \dots, r_m]^T$ is a random projection matrix (e.g., drawn from a standard Gaussian distribution $\mathcal{N}(0, I)$).
+
+Binary signatures are packed into arrays of `UInt64` words. In this binary representation, angular similarity is approximated by the **Hamming distance**, which evaluates bitwise differences via hardware-accelerated bit-population count (`POPCNT`) instructions.
+
+### Example: Generating and Querying Bit Sketches
 
 ```julia
 using SimilaritySearch
 using SimilaritySearch.Projections: bitsketch
 
-# 1. Sketch the database
-# Apply a gaussian random projection to map the 32-dimensional vectors to 256 bits (four UInt64 words)
+# 1. Project dataset vectors into 256-bit sketches (4 × UInt64 words per vector)
 B, R = bitsketch(:gaussian, 256, X)
-
-# B is a Matrix{UInt64} of size (4, 10_000)
 db_bits = MatrixDatabase(B)
 
-# 2. Build the exact index using a binary distance metric
+# 2. Construct an exact search index using binary Hamming distance
 dist_bits = Dist.Bits.Hamming()
 idx_bits = ExhaustiveSearch(dist_bits, db_bits)
 
-# 3. Sketch the queries using the same rotation matrix R
-# Queries must be projected into the same binary space as the database
+# 3. Project query vectors using the same projection matrix R
 bq = bitsketch(R, queries)
 queries_bits_db = MatrixDatabase(bq)
 
-# 4. Search
+# 4. Execute batch search over the binary representations
 knns_bits = searchbatch(idx_bits, ctx, queries_bits_db, 10)
 ```
 
-In this pipeline, `bitsketch` performs the linear projection of the data with `R` and the packing of the resulting signs into `UInt64` arrays. This approach yields a compact representation and can accelerate the exhaustive search process by simplifying the distance calculations.
+Bit sketches provide a high-throughput, low-memory indexing option for high-dimensional embedding search, and can be used as a coarse-filtering stage prior to full-precision re-ranking.

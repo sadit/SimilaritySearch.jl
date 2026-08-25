@@ -4,43 +4,37 @@ CurrentModule = SimilaritySearch
 
 # Inverted Files and Posting List Intersections
 
-Inverted indexes store posting lists mapping component dimensions (or set elements/tokens) to document identifiers. They enable fast exact search over high-dimensional sparse data, set collections, and Maximum Inner Product Search (MIPS) workloads.
+An inverted index maps distinct feature components (such as vocabulary terms, set elements, or non-zero coordinate dimensions) to **posting lists** containing the identifiers of documents containing those components. Inverted files provide exact search capabilities for high-dimensional sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
 
-`SimilaritySearch.jl` exposes inverted indexes in the `InvertedFiles` submodule (`SimilaritySearch.InvertedFiles`) and lower-level posting list intersection algorithms in `Intersections` (`SimilaritySearch.Intersections`).
-
-## `InvertedFiles` Overview
-
-`SimilaritySearch.InvertedFiles` provides inverted index data structures for set search, sparse vectors, and MIPS workloads. An `InvertedFile` can be backed by two different adjacency storage representations:
-
-1. **Array backend (`InvertedFiles.InvertedFile(vocsize, dist)`)**:
-   Uses an array of posting lists (`AdjList(UInt32)`). Tokens/keys are represented as integer identifiers in `1:vocsize`. This is fast and cache-friendly when the vocabulary is known and bounded in advance.
-2. **Dictionary backend ([`InvertedFiles.DictInvertedFile(KeyType, dist)`](@ref))**:
-   Uses a dictionary (`AdjDict{KeyType, UInt32}`) mapping arbitrary key types (such as `String`, `NTuple`, or sparse integer identifiers from vast universes) directly to posting lists. Empty or non-existent posting lists are never pre-allocated or stored in memory, making it ideal for dynamic, open-ended, or high-cardinality key spaces without having to map tokens to a contiguous `1:vocsize` range.
-
-The distance `dist` alone decides how candidates get scored:
-
-1. For a handful of distances (the five set metrics: `Dist.Sets.Jaccard()`, `Dist.Sets.Dice()`,
-   `Dist.Sets.Intersection()`, `Dist.Sets.CosineSet()`, `Dist.Sets.RogersTanimoto(σ)`), the score
-   computed while merging posting lists is already the exact distance — no extra work needed.
-2. For any other distance — including `Dist.NormCosine()`, used below for sparse-vector search,
-   MIPS, and cosine similarity — `search` evaluates `dist` directly against the objects stored in
-   `database(idx)` for every merge candidate, so results stay exact. This is what lets `InvertedFile`
-   support distances with no posting-list-friendly closed form — e.g. a sequence-edit distance over
-   shared-token candidates — with no new indexing machinery: as long as your object type has an
-   [`identiterator`](@ref InvertedFiles.identiterator) method (see the last section), you can plug
-   in `evaluate(mydist, a, b)` and get a working, exact-per-candidate search out of the box. The
-   `t`-threshold parameter of `search` (see below) doubles as this path's cost knob: raise it above
-   the default `1` to reduce how many real `evaluate` calls happen per query.
-
-Both index backends support the standard `SimilaritySearch` interface (`append_items!`,
-`push_item!`, `search`, `searchbatch`), and always keep a copy of every indexed object in
-`database(idx)`.
+`SimilaritySearch.jl` implements inverted indexes in the `InvertedFiles` module (`SimilaritySearch.InvertedFiles`) and list intersection routines in the `Intersections` module (`SimilaritySearch.Intersections`).
 
 ---
 
-## Worked example: which recipe uses these ingredients?
+## Architectural Models of `InvertedFiles`
 
-We'll index a handful of recipes twice — once as plain ingredient *sets* (AND/OR/Jaccard/RogersTanimoto), once as ingredient *quantity* vectors (`Dist.NormCosine()`) — and answer the same kind of question five different ways.
+`SimilaritySearch.InvertedFiles` provides two primary storage backends for posting lists:
+
+1. **Array Backend ([`InvertedFiles.InvertedFile`](@ref))**:
+   - Stores posting lists in a contiguous array of type `AdjList(UInt32)`.
+   - Keys are represented as dense integer indices $k \in \{1, \dots, \text{vocsize}\}$.
+   - Provides high cache locality and minimal access overhead when the vocabulary is known and bounded.
+2. **Dictionary Backend ([`InvertedFiles.DictInvertedFile`](@ref))**:
+   - Stores posting lists in a hash map of type `AdjDict{KeyType, UInt32}`.
+   - Keys can be arbitrary Julia types (such as `String`, `NTuple`, or sparse non-contiguous integer IDs).
+   - Dynamically allocates posting lists only for tokens observed in the indexed documents, avoiding pre-allocation overhead in open or high-cardinality universes.
+
+### Candidate Evaluation and Distance Computation
+
+The search procedure processes candidates according to the specified distance metric:
+
+- **Exact Fast-Path Set Metrics**: For standard set metrics ([`Dist.Sets.Jaccard`](@ref Dist.Sets.Jaccard), [`Dist.Sets.Dice`](@ref Dist.Sets.Dice), [`Dist.Sets.Intersection`](@ref Dist.Sets.Intersection), [`Dist.Sets.CosineSet`](@ref Dist.Sets.CosineSet), and [`Dist.Sets.RogersTanimoto`](@ref Dist.Sets.RogersTanimoto)), the metric distance is computed analytically during the posting list intersection pass.
+- **Direct Candidate Evaluation**: For other metrics (such as [`Dist.NormCosine`](@ref Dist.NormCosine) for sparse vectors or arbitrary user metrics), posting lists identify candidate documents sharing non-zero coordinates, and `search` evaluates the metric directly against the candidate objects stored in `database(idx)`.
+
+---
+
+## Worked Example: Recipe Ingredient Indexing
+
+We illustrate inverted indexing using a dataset of recipe ingredient collections, demonstrating set queries, metric rankings, and weighted sparse vector search.
 
 ```julia
 using SimilaritySearch, SimilaritySearch.InvertedFiles
@@ -62,53 +56,42 @@ names = collect(keys(recipe_sets))
 sets = VectorDatabase([sort!(recipe_sets[n]) for n in names])
 
 ctx = InvertedFileContext()
-q = UInt32[id("flour"), id("cheese")]   # "what uses flour AND/OR cheese?"
+q = UInt32[id("flour"), id("cheese")]   # Query: items containing flour and/or cheese
 ```
 
-### AND query
+### Conjunction (AND) Query
 
-`t` is the posting-list merge threshold: `t = length(Q)` requires *every* query token to match (an intersection/AND), where `Q` is the number of distinct query tokens actually found in the vocabulary.
+The parameter `t` defines the minimum number of matching query tokens required for candidate retention. Setting $t = |Q|$ enforces a strict set intersection (logical AND):
 
 ```julia
 IJ = InvertedFile(vocsize, Dist.Sets.Jaccard())
 append_items!(IJ, ctx, sets)
 
 res = knnqueue(ctx, 6)
-search(IJ, ctx, q, res; t=length(q))
+search(IJ, ctx, q, res; t=length(q))  # t = 2 requires matches for both 'flour' and 'cheese'
+
 for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
-# MargheritaPizza => 0.5
+# Output: MargheritaPizza => 0.5
 ```
 
-Only `MargheritaPizza` contains *both* flour and cheese, so the AND query returns exactly one match.
+### Disjunction (OR) Query and Jaccard Ranking
 
-### OR query
-
-`t=1` is a union: any query token matching is enough.
+Setting $t = 1$ retrieves all documents containing at least one query component (logical OR), ranking candidates by Jaccard distance:
 
 ```julia
 res = knnqueue(ctx, 6)
 search(IJ, ctx, q, res; t=1)
+
 for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
-# MargheritaPizza => 0.5
-# Bread           => 0.75
-# Pancakes        => 0.8
-# Cheesecake      => 0.8
-# Omelette        => 0.8
 ```
 
-Every recipe sharing at least one of {flour, cheese} shows up, ranked by `IJ`'s distance (`Dist.Sets.Jaccard()` here) rather than filtered out — this is what the rest of the sections vary: same OR-style candidate generation, different distance for ranking.
+### Rogers-Tanimoto Ranking
 
-### Jaccard ranking
-
-The numbers above *are* the Jaccard ranking (`IJ`'s distance is `Dist.Sets.Jaccard()`) — this score is exact, computed purely from `|q ∩ item|` and the two set sizes, no `rerank!` involved: `Pancakes`/`Cheesecake`/`Omelette` tie exactly at `0.8` because Jaccard only sees that each shares exactly one of the two query ingredients out of four total, same as the prime-factor ties in [A gallery of distances](distances.md).
-
-### RogersTanimoto ranking
-
-`RogersTanimoto(σ)` additionally credits recipes that *agree on ingredients neither uses* — `σ` is the size of the full ingredient universe (`vocsize` here):
+[`Dist.Sets.RogersTanimoto`](@ref Dist.Sets.RogersTanimoto) incorporates mutual absences relative to the total vocabulary size $\sigma$:
 
 ```julia
 IR = InvertedFile(vocsize, Dist.Sets.RogersTanimoto(vocsize))
@@ -116,21 +99,17 @@ append_items!(IR, ctx, sets)
 
 res = knnqueue(ctx, 6)
 search(IR, ctx, q, res; t=1)
+
 for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
-# MargheritaPizza => 0.2857143
-# Bread           => 0.4
-# Pancakes        => 0.5
-# Cheesecake      => 0.5
-# Omelette        => 0.5
 ```
 
-Same ranking order as Jaccard here, but note the *gap* between the top two changes (`0.5`/`0.75` under Jaccard vs. `0.286`/`0.4` under RogersTanimoto) — with only 12 ingredients in the universe, shared absences carry real weight. Like the four set metrics above it, this is also an exact fast path: no extra evaluation against `database(idx)` needed.
+---
 
-### NormCosine ranking
+## Weighted Sparse Vector Search: `NormCosine`
 
-For a *quantity*-sensitive answer (not just "does it contain X"), index each recipe as an L2-normalized ingredient-quantity vector and build an `InvertedFile` with `Dist.NormCosine()`:
+To perform similarity search on weighted attributes (e.g., ingredient quantities or TF-IDF weights), represent objects as unit-normalized sparse vectors:
 
 ```julia
 using SparseArrays, LinearAlgebra
@@ -138,37 +117,34 @@ using SparseArrays, LinearAlgebra
 l2normalize(idx::Vector{<:Integer}, val::Vector{<:Real}, n) = normalize!(sparsevec(idx, Float32.(val), n))
 
 recipe_weights = Dict(
-    "Pancakes"        => l2normalize([id("flour"),id("sugar"),id("egg"),id("milk")], [3.0,1.0,2.0,2.0], vocsize),
-    "Bread"           => l2normalize([id("flour"),id("salt"),id("yeast")], [4.0,1.0,1.0], vocsize),
-    "MargheritaPizza" => l2normalize([id("flour"),id("tomato"),id("cheese"),id("basil")], [3.0,2.0,2.0,1.0], vocsize),
-    "Omelette"        => l2normalize([id("egg"),id("butter"),id("milk"),id("cheese")], [3.0,1.0,1.0,2.0], vocsize),
-    "ChickenRice"     => l2normalize([id("chicken"),id("rice"),id("salt")], [2.0,2.0,1.0], vocsize),
-    "Cheesecake"      => l2normalize([id("sugar"),id("egg"),id("butter"),id("cheese")], [2.0,2.0,1.0,3.0], vocsize),
+    "Pancakes"        => l2normalize([id("flour"), id("sugar"), id("egg"), id("milk")], [3.0, 1.0, 2.0, 2.0], vocsize),
+    "Bread"           => l2normalize([id("flour"), id("salt"), id("yeast")], [4.0, 1.0, 1.0], vocsize),
+    "MargheritaPizza" => l2normalize([id("flour"), id("tomato"), id("cheese"), id("basil")], [3.0, 2.0, 2.0, 1.0], vocsize),
+    "Omelette"        => l2normalize([id("egg"), id("butter"), id("milk"), id("cheese")], [3.0, 1.0, 1.0, 2.0], vocsize),
+    "ChickenRice"     => l2normalize([id("chicken"), id("rice"), id("salt")], [2.0, 2.0, 1.0], vocsize),
+    "Cheesecake"      => l2normalize([id("sugar"), id("egg"), id("butter"), id("cheese")], [2.0, 2.0, 1.0, 3.0], vocsize),
 )
 weights = VectorDatabase([recipe_weights[n] for n in names])
 
 W = InvertedFile(vocsize, Dist.NormCosine())
 append_items!(W, ctx, weights)
 
-qw = l2normalize([id("flour"),id("egg"),id("cheese")], [1.0,1.0,1.0], vocsize)
+qw = l2normalize([id("flour"), id("egg"), id("cheese")], [1.0, 1.0, 1.0], vocsize)
 res = knnqueue(ctx, 6)
 search(W, ctx, qw, res)
+
 for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
-# Omelette        => 0.2546
-# Pancakes        => 0.3196
-# Cheesecake      => 0.3196
-# MargheritaPizza => 0.3196
-# Bread           => 0.4557
 ```
 
-### Arbitrary key types with `DictInvertedFile`
+---
 
-In the examples above, ingredient names were mapped to integer token IDs (`1:vocsize`) to fit the dense `InvertedFile(vocsize, dist)` array backend. If you prefer to index arbitrary keys directly (such as `String`, tuples, or sparse IDs across huge key spaces) without managing an explicit integer vocabulary mapping or preallocating unused posting lists, use [`InvertedFiles.DictInvertedFile`](@ref):
+## Arbitrary Key Indexing with `DictInvertedFile`
+
+To index native types (such as `String`, tuples, or open vocabulary terms) directly without mapping them to a contiguous integer range, use [`DictInvertedFile`](@ref):
 
 ```julia
-# Recipes represented directly as sets of Strings:
 recipes = Dict(
     "Pancakes"        => Set(["flour", "sugar", "egg", "milk"]),
     "Bread"           => Set(["flour", "salt", "yeast"]),
@@ -181,7 +157,7 @@ recipes = Dict(
 names = collect(keys(recipes))
 db_strings = VectorDatabase([recipes[n] for n in names])
 
-# Create a dictionary-backed inverted index mapping String -> posting list
+# Instantiate a dictionary-backed inverted file
 IDict = DictInvertedFile(String, Dist.Sets.Jaccard())
 ctx_dict = getcontext(IDict)
 append_items!(IDict, ctx_dict, db_strings)
@@ -193,45 +169,30 @@ search(IDict, ctx_dict, q_str, res; t=1)
 for it in IdDistView(res)
     println(names[it.id], " => ", it.dist)
 end
-# MargheritaPizza => 0.5
-# Bread           => 0.75
-# Pancakes        => 0.8
-# Cheesecake      => 0.8
-# Omelette        => 0.8
 ```
-
-Key features of the `DictInvertedFile` backend:
-- **No vocabulary mapping needed**: Objects can contain raw keys of type `KeyType` (e.g. `String`, `NTuple{2, UInt8}`, `Int`).
-- **Memory efficiency for sparse universes**: Only keys that actually appear in indexed documents create posting lists (`length(IDict.adj)` equals the number of distinct keys observed, rather than allocating a table for the entire universe).
-- **Graceful handling of unknown query tokens**: Queries can contain tokens not present in the index without error; non-existent keys are simply skipped during candidate generation.
-- **Context setup via `getcontext`**: Calling `getcontext(IDict)` automatically sizes and types the search context's internal posting list buffers to match `KeyType`.
-
-### Why separate index instances?
-
-`IJ`, `IR`, `W`, and `IDict` are all `InvertedFile` instances. `IJ`, `IR`, and `W` use the dense `AdjList(UInt32)` backend, while `IDict` uses the dictionary-backed `AdjDict{String, UInt32}` backend (`DictInvertedFile`). An index is tied to its distance function and adjacency storage for its lifetime, so answering the same question under a different notion of "closest" or a different storage backend means building a separate instance, not reconfiguring an existing one.
 
 ---
 
-## Extending `InvertedFile` to new object types and distances
+## Extending `InvertedFile` via `identiterator`
 
-`database(idx)` always holds the original objects exactly as given — no canonical encoding is imposed, so a `db` can freely mix `Set`s, sorted `Vector`s, `Dict`s, sparse vectors, or any other type your distance's `evaluate` accepts. `InvertedFile` itself never needs a weight to build or query posting lists — the handful of distances with an exact fast path score from intersection/set sizes alone, and every other distance is evaluated directly against the full objects kept in `db` — so the piece that turns a native object into an id stream for building/querying posting lists is [`InvertedFiles.identiterator`](@ref); `SparseArrays.SparseVector` and this package's `Special.Sparse.SparseVecView` are both handled efficiently out of the box (iterating only the non-zero indices), which is what `Dist.NormCosine()`/`Cosine()`/`Angle()`/`NormAngle()` expect — those distances have no `evaluate` method for `Dict`. A plain dense `Vector` is *not* accepted by `identiterator` — convert it first (e.g. `SparseArrays.sparse(v)`) so the reduction to non-zero components is explicit in your own code rather than happening silently.
+When constructing posting lists, `InvertedFile` extracts feature identifiers from objects using [`InvertedFiles.identiterator`](@ref):
 
 ```julia
 identiterator(dist::PreMetric, obj)
 ```
 
-which defaults to the distance-agnostic `identiterator(obj)` dispatch already used above (covering `Set`, sorted integer vectors, `Dict`s, dense/sparse vectors). Overload it for a specific `(DistType, ObjType)` pair when the same native object type needs to generate different candidate ids depending on which distance the index is built for — for instance, a sequence distance (e.g. `Dist.Seqs.Levenshtein`) could plug in this way, generating candidates from shared tokens/shingles and letting the generic direct-evaluate fallback compute the true edit distance over the stored raw sequences. This package does not ship string/q-gram tokenization support out of the box — that's tracked as a follow-up in [`TextSearch.jl`](https://github.com/sadit/TextSearch.jl), which builds on `InvertedFile` for exactly that use case.
+By default, `identiterator` supports `Set`, sorted integer vectors, `Dict`, and `SparseVector`. To index custom object representations or extract specialized tokens for a particular distance function, define a method overload for `identiterator(dist::MyDistance, obj::MyType)`.
 
 ---
 
 ## Posting List Intersection Algorithms (`Intersections`)
 
-The `Intersections` submodule provides posting list intersection routines used internally by `InvertedFiles`:
+The `Intersections` module provides low-level algorithms for multi-list intersection and union operations:
 
-- `Intersections.svs` — Smallest-Vector-First intersection.
-- `Intersections.bk!` / `Intersections.bkt!` — Baeza-Yates / WAND-style candidate threshold algorithms.
-- `Intersections.umerge!` / `Intersections.imerge!` — Union and intersection merges across multiple posting lists.
-- `Intersections.xmerge!` — General threshold-based multi-way list merge (this is what the `t` keyword above ultimately dispatches to).
+- `Intersections.svs`: Smallest-Vector-First intersection.
+- `Intersections.bk!` / `Intersections.bkt!`: Adaptive threshold intersection (Baeza-Yates / WAND style).
+- `Intersections.umerge!` / `Intersections.imerge!`: Union and intersection algorithms across posting lists.
+- `Intersections.xmerge!`: Thresholded multi-way list merge ($t$-occurrence filter).
 
 ```julia
 using SimilaritySearch.Intersections
@@ -239,8 +200,9 @@ using SimilaritySearch.Intersections
 list1 = [1, 3, 5, 7, 9]
 list2 = [1, 2, 3, 4, 5]
 
-# SVS intersection
-common = svs([list1, list2])
+common = svs([list1, list2])  # Returns [1, 3, 5]
 ```
 
-Next: [Quantization and Bit Sketches](quantization_and_bitsketches.md).
+---
+
+In the next section, [Quantization and Bit Sketches](quantization_and_bitsketches.md), we explore vector compression and binary projection methods for high-throughput similarity search.

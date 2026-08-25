@@ -2,18 +2,23 @@
 CurrentModule = SimilaritySearch
 ```
 
-# Radius queries: `RadiusSorted`, `RadiusHeap`
+# Radius Queries: Range-Bounded Search
 
-Every example so far has asked for a *fixed* number of neighbors (`k`). Sometimes what you
-want instead is "every point within distance `r`, however many that turns out to be" -- a
-**radius query**. [`RadiusSorted`](@ref) and [`RadiusHeap`](@ref) are growable result
-containers for exactly that: unlike [`KnnSorted`](@ref)/[`KnnHeap`](@ref), they have no `k` at
-all -- they accept an `(id, dist)` pair iff `dist <= r`, so the number of neighbors returned is
-however many the data happens to contain within that radius.
+In similarity search, queries are broadly categorized into two formulations:
+1. **$k$-Nearest Neighbor ($k$-NN) Queries**: Find the $k$ closest elements to a query point $q$, where the search radius expands dynamically until $k$ items are found.
+2. **Radius (Range) Queries**: Find all elements within a fixed distance threshold $r$ of a query point $q$:
 
-This page reuses the prime-gap-windows dataset from [the previous page](searchgraph.md) --
-still a genuinely continuous space, which radius queries need just as much as `SearchGraph`
-does (see [the distances page](distances.md) for why):
+$$B_d(q, r) = \{ x \in X \mid d(q, x) \le r \}$$
+
+The result cardinality $|B_d(q, r)|$ is variable and depends on local point density.
+
+`SimilaritySearch.jl` implements radius queries through specialized result queues: [`RadiusSorted`](@ref) and [`RadiusHeap`](@ref).
+
+---
+
+## Dataset Setup
+
+We reuse the continuous prime-gap window dataset from the previous section:
 
 ```julia
 using SimilaritySearch, Distances
@@ -42,27 +47,31 @@ X = MatrixDatabase(prime_gap_windows(200_000, 5))
 dist = Dist.SqL2()
 ```
 
-## With `ExhaustiveSearch`
+---
 
-`RadiusSorted`/`RadiusHeap` work with any index whose `search` method is written generically
-over result containers -- including [`ExhaustiveSearch`](@ref), no special-casing needed:
+## Radius Queries with `ExhaustiveSearch`
+
+[`RadiusSorted`](@ref) and [`RadiusHeap`](@ref) are fully compatible with the generic `search` interface:
 
 ```julia
 E = ExhaustiveSearch(dist, X)
 ectx = GenericContext()
 
-res = RadiusSorted(0.05f0)          # radius chosen arbitrarily for this example
+# Retrieve all items within squared Euclidean distance r = 0.05
+res = RadiusSorted(0.05f0)
 search(E, ectx, X[1], res)
-println(length(res), " neighbors within radius 0.05")
+
+println("Found ", length(res), " elements within radius 0.05:")
 for p in IdDistView(res)
-    println(p.id, " ", p.dist)
+    println("ID: ", p.id, " | Distance: ", p.dist)
 end
 ```
 
-## With `SearchGraph`
+---
 
-Same container, same `search` call, now walking the approximate proximity graph instead of
-comparing against every point:
+## Radius Queries with `SearchGraph`
+
+Radius queries execute with identical syntax on graph-based indexes:
 
 ```julia
 G = SearchGraph(dist, X)
@@ -71,51 +80,39 @@ index!(G, ctx)
 
 res = RadiusSorted(0.05f0)
 search(G, ctx, X[1], res)
-println(length(res), " neighbors within radius 0.05")
+println("Found ", length(res), " elements within radius 0.05 using SearchGraph")
 ```
 
-Since `SearchGraph` is approximate, this may miss a few of the points `ExhaustiveSearch` would
-have found, or take a few extra exploration steps to reach far borderline ones -- the same
-recall/approximation trade-off ordinary k-NN search has, just applied to "how many points are
-within `r`" instead of "what are the k closest".
+On a `SearchGraph`, radius queries prune traversal when graph paths exceed the distance threshold $r$.
 
-## Batch radius queries: the vector form of `searchbatch!`
+---
 
-Radius containers don't fit the fixed-`k` matrix layout `searchbatch!`/`searchbatch` normally
-use (each query can return a different number of neighbors), so batch radius search goes
-through the form of [`searchbatch!`](@ref) that takes a `Vector` of already-built containers,
-one per query, instead:
+## Batch Radius Search
+
+Because each query may return a different number of results, batch radius queries cannot use a fixed-dimension rectangular matrix. Instead, batch execution is performed using the vector overload of [`searchbatch!`](@ref), which accepts a vector of independent result containers:
 
 ```julia
 Q = X[1:5]
-knns = [RadiusSorted(0.05f0) for _ in 1:length(Q)]   # one independent container per query
-searchbatch!(G, ctx, Q, knns)          # or searchbatch!(E, ectx, Q, knns) for ExhaustiveSearch
+knns = [RadiusSorted(0.05f0) for _ in 1:length(Q)]   # Pre-allocate one queue per query
+
+searchbatch!(G, ctx, Q, knns)  # Or searchbatch!(E, ectx, Q, knns) for ExhaustiveSearch
 
 for (i, res) in enumerate(knns)
-    println("query ", i, ": ", length(res), " neighbors within radius")
+    println("Query ", i, ": ", length(res), " elements found within radius")
 end
 ```
 
-## `RadiusSorted` vs `RadiusHeap`
+---
 
-Both accept the same `(id, dist)` pairs under the same radius rule; they differ only in how
-they keep that data:
+## Comparison: `RadiusSorted` vs. `RadiusHeap`
 
-- [`RadiusSorted`](@ref) keeps its items sorted by distance after every single push (bounded
-  binary-search insertion), so [`IdDistView`](@ref) is always ready with no extra work.
-- [`RadiusHeap`](@ref) just appends on every push (`O(1)`) and only sorts lazily -- once, the
-  first time you read it back (via [`IdDistView`](@ref), [`nearest`](@ref), etc.) -- trading
-  that one deferred sort for a cheaper build-up.
+Both data structures filter elements based on the condition $d(q, x) \le r$, but differ in their internal storage strategy:
 
-Reach for `RadiusHeap` when you expect a query to accumulate many matches and don't need
-sorted order until you're done searching; `RadiusSorted` otherwise.
+| Container | Insertion Complexity | Read Complexity | Recommended Use Case |
+| :--- | :--- | :--- | :--- |
+| [`RadiusSorted`](@ref) | $O(\log n)$ (Binary search insertion) | $O(1)$ (Already sorted) | Queries with small result sets where immediate sorted ordering is desired. |
+| [`RadiusHeap`](@ref) | $O(1)$ amortized (Append) | $O(m \log m)$ (Lazy sort upon inspection) | High-density queries expected to accumulate many matches within the radius. |
 
-!!! note "Scope"
-    Radius containers are only meant to be driven through `search` and the vector form of
-    `searchbatch!` shown above. They have no fixed `k`, so they don't fit
-    `GenericContext`/`SearchGraphContext`'s automatic `knnqueue(ctx, k)` construction, and
-    they aren't supported by `ParallelExhaustiveSearch`'s parallel batch path or by
-    `optimize_index!`'s recall calibration.
+---
 
-Next: [other things you can do with an index besides `search`](operations.md) -- `fft`,
-`allknn`, `closestpair`, `neardup`.
+In the next section, [Dataset Operations: Selection, All-kNN, and Closest Pairs](operations.md), we explore global dataset algorithms including selection methods, all-pairs $k$-NN, and near-duplicate removal.

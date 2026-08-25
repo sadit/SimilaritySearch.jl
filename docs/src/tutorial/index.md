@@ -4,85 +4,67 @@ CurrentModule = SimilaritySearch
 
 # Tutorial
 
-!!! note "Authorship"
-    Written by Eric S. Tellez with Claude (Anthropic). The prose was AI-drafted and
-    human-reviewed, but not yet line-edited end to end -- as is typical of current AI
-    models, some sentences here likely overstate things more confidently than warranted
-    (a claim presented as a firm rule where reality is more nuanced, a benefit stated more
-    emphatically than the evidence shown for it). Read matter-of-fact-sounding claims with
-    a bit of caution and check them against the code/`?docstring` when it matters; this
-    will get a proper editing pass over time.
+This tutorial introduces `SimilaritySearch.jl` systematically from foundational concepts to advanced indexing strategies. To ensure reproducibility and eliminate external dependencies, the examples throughout this guide use small, self-contained synthetic datasets that can be verified analytically.
 
-This tutorial builds up `SimilaritySearch.jl` from first principles, using small,
-self-contained synthetic datasets instead of large embedding collections (no downloads,
-nothing random-looking-but-meaningless -- every example dataset here has a concrete
-story you can check by hand). The running example across most pages is **numbers seen
-through different lenses**: as sets of prime factors, as sequences of prime factors, as
-divisibility bit patterns, and as prime-gap vectors. The same handful of integers keep
-reappearing so you can compare how differently each distance function treats them.
+Across several sections, we explore different mathematical representations of integers:
+- As sets of distinct prime factors (set metrics).
+- As factor sequences with multiplicity (sequence and edit distances).
+- As binary divisibility signatures (Hamming distances).
+- As prime-gap vectors (continuous geometric distances in $\mathbb{R}^d$).
 
-Pages, in the order we recommend reading them:
+This recurring theme demonstrates how different distance functions and data representations interact with search algorithms.
 
-1. **This page** -- installation and a five-minute quickstart.
-2. [Databases: why not just a `Matrix`?](databases.md) -- the `AbstractDatabase`
-   abstraction and why the library is built around it instead of raw arrays.
-3. [A gallery of distances](distances.md) -- worked synthetic examples for vector,
-   angular, set, sequence, and bit distances, and **why `SearchGraph` should not be used
-   with discrete/combinatorial distances**.
-4. [SearchGraph, in depth](searchgraph.md) -- the approximate index: how it works, when
-   to reach for it, and (again, because it matters) when *not* to.
-5. [Radius queries: `RadiusSorted`, `RadiusHeap`](radius_search.md) -- "every point within
-   distance `r`", instead of a fixed `k`, on both `ExhaustiveSearch` and `SearchGraph`.
-6. [Beyond search: fft, allknn, closestpair, neardup](operations.md) -- other things you
-   can do with an index besides answering k-NN queries.
-7. [Two datasets, one distance: bichromatic closest pairs and joins](bichromatic.md) --
-   `closestpair`'s generalization to two distinct datasets, its `k`-pairs version, and a
-   metric join between them.
-8. [Parallelism: what to expect, what not to do](parallelism.md) -- the `@BATCHES`-based
-   threading model, its context objects, and concrete anti-patterns to avoid.
-9. [Saving and loading indexes with JLD2](persistence.md) -- indexes are plain structs;
-   here's the DIY save/load pattern now that this package doesn't ship its own.
-10. [Reporting, observing, and capturing neighbors as they're built](logging.md) -- the two
-   logging channels, how to silence one without disabling the other, and how (and how not)
-   to use observation to capture a `SearchGraph`'s neighbor lists during construction.
-11. [Inverted files and posting list intersections](invertedfiles.md) -- the `InvertedFile`
-   index for sparse vector, MIPS, and set search, and posting list intersection algorithms
-   (`Intersections`).
-12. [Quantization and Bit Sketches](quantization_and_bitsketches.md) -- techniques for compressing vectors into 
-   smaller memory footprints and accelerating search using `ScalarQuant` and `bitsketch` with `ExhaustiveSearch`.
+## Tutorial Structure
+
+We recommend reading the tutorial in the following order:
+
+1. **[Tutorial Overview and Quickstart](index.md)** (this page) -- Installation and a basic working example.
+2. **[Databases: Data Abstraction with `AbstractDatabase`](databases.md)** -- The database abstraction layer and memory layout considerations.
+3. **[Distance Functions and Metric Spaces](distances.md)** -- Vector, set, sequence, and binary distances, with a theoretical discussion on graph navigability in continuous versus discrete spaces.
+4. **[SearchGraph: Approximate Proximity Graphs](searchgraph.md)** -- Construction, query execution, hyperparameter optimization (`optimize_index!`), and graph rebuilding.
+5. **[Radius Queries: Range-Bounded Search](radius_search.md)** -- Retrieving all elements within a fixed distance threshold using `RadiusSorted` and `RadiusHeap`.
+6. **[Dataset Operations: Selection, All-kNN, and Closest Pairs](operations.md)** -- Advanced algorithms including Farthest First Traversal (`fft`), all-pairs $k$-NN (`allknn`), closest pair search, and near-duplicate elimination (`neardup`).
+7. **[Bichromatic Operations and Metric Joins](bichromatic.md)** -- Closest pairs and metric joins between two distinct datasets ($A \times B$).
+8. **[Parallelism and Multithreading](parallelism.md)** -- The `@BATCHES` execution model, context thread safety, and concurrency best practices.
+9. **[Index Persistence and Serialization](persistence.md)** -- Serializing indexes with JLD2 and decoupling graph topology from dataset storage.
+10. **[Logging and Observation Channels](logging.md)** -- Informational reporting (`reporters`) versus structural event listening (`observers`) for incremental graph tracking.
+11. **[Inverted Files and Posting List Intersections](invertedfiles.md)** -- Inverted indexing (`InvertedFile`, `DictInvertedFile`) for sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
+12. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant` and `bitsketch`.
+
+---
 
 ## Installation
+
+Install `SimilaritySearch.jl` using the Julia package manager:
 
 ```julia
 ] add SimilaritySearch
 ```
 
-Everything in this tutorial only needs `SimilaritySearch` itself plus `Distances` (for
-the `evaluate` function used to call distance objects directly) -- no extra packages, no
-downloaded datasets.
+All examples in this tutorial require only `SimilaritySearch` and `Distances.jl` (which provides the generic `evaluate` interface for distance objects):
 
 ```julia
 using SimilaritySearch, Distances
 ```
 
-## Five-minute quickstart
+---
 
-Throughout the tutorial we lean on [`ExhaustiveSearch`](@ref) for almost every worked
-example: it is exact (no recall/approximation questions to worry about while you're
-learning the API) and, on the small datasets used here, essentially instant.
-[`SearchGraph`](@ref) gets its own dedicated page once the underlying concepts (databases,
-distances) are in place.
+## Quickstart: A Five-Minute Example
 
-Let's index a tiny, fully synthetic "space of numbers": we represent each integer by the
-*set* of its distinct prime factors, and compare integers by how much those sets overlap
-(a **Dice** distance -- two numbers are "close" if they share many small prime factors).
+In similarity search, an index organizes a dataset $X \subseteq \mathcal{U}$ under a distance function $d: \mathcal{U} \times \mathcal{U} \to \mathbb{R}_{\ge 0}$ to answer nearest-neighbor queries efficiently.
+
+For initial exploration, we use [`ExhaustiveSearch`](@ref). `ExhaustiveSearch` evaluates distances against every object sequentially, guaranteeing exact results with minimal setup overhead.
+
+In this example, we index integers $i \in \{1, \dots, 1000\}$. Each integer is represented by the **set of its distinct prime factors**, and we measure similarity using the **Dice distance**:
 
 ```julia
 using SimilaritySearch, Distances
 
 """
-Distinct prime factors of `n`, sorted -- e.g. `factors(60) == Int32[2, 3, 5]`
-(60 = 2²·3·5). `Dist.Sets` distances expect their inputs as sorted vectors like this one.
+    factors(n::Integer) -> Vector{Int32}
+
+Computes the sorted vector of distinct prime factors of `n`.
+For example, `factors(60) == Int32[2, 3, 5]` because 60 = 2² · 3 · 5.
 """
 function factors(n::Integer)
     f = Int32[]
@@ -98,41 +80,45 @@ function factors(n::Integer)
         d += 1
     end
     m > 1 && push!(f, m)
-    isempty(f) ? Int32[1] : f  # 1 has no prime factors; give it its own placeholder "factor"
+    isempty(f) ? Int32[1] : f  # Use 1 as a placeholder for n = 1
 end
 
+# 1. Prepare the dataset
 n = 1000
-X = VectorDatabase([factors(i) for i in 1:n])   # X[i] holds the prime factors of i
+X = VectorDatabase([factors(i) for i in 1:n])   # X[i] contains the prime factors of integer i
 dist = Dist.Sets.Dice()
 
+# 2. Instantiate the index and search context
 idx = ExhaustiveSearch(dist, X)
 ctx = GenericContext()
 
-res = knnqueue(ctx, 5)                 # a reusable result buffer for k=5
-search(idx, ctx, factors(1000), res)   # which numbers "look like" 1000 = 2³·5³?
+# 3. Execute a 5-nearest-neighbor query for the query integer 1000 (factors: {2, 5})
+res = knnqueue(ctx, 5)                 # Pre-allocated result buffer for k = 5
+search(idx, ctx, factors(1000), res)
 
-for p in IdDistView(res)  # (id, dist) pairs, in storage order
-    println(p.id, " => ", factors(p.id), "  dist=", p.dist)
+# 4. Inspect the results
+for p in IdDistView(res)
+    println("ID: ", p.id, " => Factors: ", factors(p.id), " | Distance: ", p.dist)
 end
 ```
 
-Running this prints five numbers whose *set* of prime factors overlaps heavily with
-`{2, 5}` (1000's factors) -- e.g. other numbers of the form `2^a · 5^b`. Note that a
-result's `dist == 0.0` doesn't mean "the same number", it means "the same set of
-distinct prime factors" -- e.g. 1000 and 500 both factor as `{2, 5}`, so they tie at
-distance 0 despite being different integers. That's expected: Dice/Jaccard-style set
-distances only see *which* primes divide a number, not how many times or what the
-number itself is.
+### Interpretation of Results
 
-To search many queries at once instead of one at a time, use [`searchbatch`](@ref):
+The query retrieves the five numbers whose prime factor sets have the highest overlap with $\{2, 5\}$ (the factors of $1000 = 2^3 \cdot 5^3$).
+
+Objects with distance `0.0` (such as $1000, 500 = 2^2 \cdot 5^3, 200 = 2^3 \cdot 5^2$) share the exact same set of distinct prime factors $\{2, 5\}$. Because the Dice distance operates purely on set membership, multiplicity is disregarded.
+
+### Batch Queries
+
+To process multiple query vectors simultaneously, use [`searchbatch`](@ref):
 
 ```julia
 queries = VectorDatabase([factors(i) for i in (7, 60, 97, 360, 999)])
-knns = searchbatch(idx, ctx, queries, 5)   # a (5, 5) matrix of IdDist
+knns = searchbatch(idx, ctx, queries, 5)   # Returns a (5, 5) Matrix of IdDist elements
 ```
 
-`knns[:, j]` holds the 5 nearest neighbors of `queries[j]`, sorted or not depending on
-the `sorted` keyword (see [`searchbatch`](@ref)).
+Here, `knns[:, j]` contains the 5 nearest neighbors for `queries[j]`.
 
-From here: [why does the library wrap `X` in a `VectorDatabase` instead of just using the
-`Vector` directly?](databases.md) -- next page.
+---
+
+In the next section, we explore [Databases: Data Abstraction with `AbstractDatabase`](databases.md) to understand why `SimilaritySearch.jl` defines a database interface rather than using raw arrays directly.

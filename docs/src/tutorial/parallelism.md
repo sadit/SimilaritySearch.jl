@@ -2,33 +2,34 @@
 CurrentModule = SimilaritySearch
 ```
 
-# Parallelism: what to expect, what not to do
+# Parallelism and Multithreading
 
-Every batch operation in this tutorial (`searchbatch`, `allknn`, `closestpair`,
-`neardup`, `index!`, ...) is already internally parallel, using this package's own
-`@BATCHES` macro on top of `Threads.@threads`. You never need to write your own
-threading code to get that parallelism -- and, as this page explains, writing your own
-threading code *around* these functions is where things go wrong.
+Batch operations in `SimilaritySearch.jl` (including `searchbatch`, `allknn`, `closestpair`, `neardup`, and `index!`) are parallelized internally using the package's `@BATCHES` multithreading macro built on top of Julia's native `Threads.@threads`.
 
-## You must start Julia with more than one thread
+---
+
+## Configuring Julia Threads
+
+Multithreading requires launching Julia with multiple execution threads:
 
 ```sh
-julia -t8 --project=.        # 8 threads
+julia -t auto --project=.   # Automatically use available CPU cores
+# or
+julia -t 8 --project=.      # Allocate 8 worker threads
 ```
 
-If you don't, `Threads.nthreads() == 1`, and every batch function above silently takes
-its serial fast path -- no error, no warning, it just runs on one thread. This is the
-single most common way to conclude "parallelism didn't help" when actually parallelism
-never ran at all:
+When `Threads.nthreads() == 1`, batch operations execute via a single-threaded path. Always verify thread availability during performance benchmarking:
 
 ```julia-repl
 julia> Threads.nthreads()
-1   # started as `julia --project=.`, not `julia -t8 --project=.`
+8
 ```
 
-Check `Threads.nthreads()` first whenever a benchmark looks slower than expected.
+---
 
-## The right way to parallelize: use the batch functions
+## Standard Parallel Execution: Batch APIs
+
+The primary and recommended method for executing parallel operations is through the high-level batch functions:
 
 ```julia
 using SimilaritySearch, Distances
@@ -36,191 +37,150 @@ using SimilaritySearch, Distances
 dist = Dist.L2()
 X = MatrixDatabase(rand(Float32, 4, 5000))
 Q = MatrixDatabase(rand(Float32, 4, 500))
+
 G = SearchGraph(dist, X)
 ctx = SearchGraphContext()
-index!(G, ctx)                       # parallel across the dataset, internally
 
-knns = searchbatch(G, ctx, Q, 8)     # parallel across the 500 queries, internally
+# Internally parallelized across dataset objects
+index!(G, ctx)
+
+# Internally parallelized across the 500 queries
+knns = searchbatch(G, ctx, Q, 8)
 ```
 
-That's it -- `searchbatch`/`allknn`/`index!`/etc. all split their work into batches and
-dispatch them across `Threads.nthreads()` tasks for you, correctly. This is the
-supported, safe way to parallelize a query workload.
+Functions such as `searchbatch`, `allknn`, and `index!` partition the workload into disjoint batches and schedule them across available threads.
 
-## What *not* to do: hand-rolled `Threads.@threads` over `search`
+---
 
-You may see code (including in older tutorials/demos for this package) that instead
-loops over queries by hand:
+## Thread Safety and Context Sharing
+
+A common anti-pattern involves wrapping individual `search` calls inside a manual `Threads.@threads` loop with a single shared context:
 
 ```julia
-# DON'T DO THIS
+# INCORRECT: Introduces data races across threads
 res = [knnqueue(ctx, 8) for _ in eachindex(Q)]
 Threads.@threads for i in eachindex(Q)
-    search(G, ctx, Q[i], res[i])   # every task shares the *same* ctx
+    search(G, ctx, Q[i], res[i])   # Multiple threads write to the same ctx scratch buffers
 end
 ```
 
-This *looks* reasonable -- each task gets its own query and its own result buffer -- but
-every task is passed the exact same `ctx` object. `SearchGraphContext` holds small
-internal scratch caches (visited-vertex state, beam buffers) that `search` reuses across
-calls for performance; `searchbatch`/`allknn` internally hand each parallel batch its own
-tagged copy of `ctx` so those caches never collide, but a raw `search(G, ctx, ...)` call
-has no way to know it's one of several concurrent calls sharing one `ctx` -- it always
-uses the same scratch slot. Multiple threads calling `search` on the same shared `ctx`
-concurrently means multiple threads writing to that same slot concurrently: a data race,
-silently producing wrong or inconsistent results (not a crash you can rely on seeing).
+### The Mechanism of the Data Race
 
-The fix is simply: don't hand-roll this loop. Use [`searchbatch`](@ref)/`searchbatch!`
-(shown above), which already does exactly this in a way that's actually safe. If you
-have a genuine reason to run many independent `search` calls concurrently outside of
-`searchbatch`, give each concurrent task its own context (`SearchGraphContext()` is cheap
-to create) rather than sharing one:
+To maximize query throughput, [`SearchGraphContext`](@ref) maintains pre-allocated, reusable scratch buffers:
+- Visited vertex states (`vstates`).
+- Beam traversal queues (`beams`).
+
+When `search` is called concurrently using a single shared `ctx` instance, multiple worker threads write simultaneously to the same internal buffer slots, causing silent state corruption.
+
+### Correct Approaches
+
+1. **Preferred**: Use [`searchbatch`](@ref) or [`searchbatch!`](@ref), which automatically assigns isolated scratch slots to each batch.
+2. **Manual Task Isolation**: If writing custom concurrent loops, assign an independent context instance to each concurrent task:
 
 ```julia
-# OK: each task has its own context, no sharing
+# CORRECT: Distinct context per concurrent task
 Threads.@threads for i in eachindex(Q)
     search(G, SearchGraphContext(), Q[i], res[i])
 end
 ```
 
-...though at that point you're just reimplementing what `searchbatch` already does for
-you, with none of its batching/memory-reuse benefits -- prefer `searchbatch` whenever
-your workload fits its shape (a batch of independent queries against one index).
+---
 
-## Writing custom parallel code: `@BATCHES`
+## Custom Parallel Loops with `@BATCHES`
 
-If your workload doesn't fit any of the built-in batch functions above, `@BATCHES` is the
-primitive they are all built on internally -- prefer it over hand-rolled `Threads.@threads`
-(see above) for any new parallel code written in this style.
+For parallel algorithms not covered by built-in batch functions, `SimilaritySearch.jl` exports the `@BATCHES` macro.
 
-The simple form splits `range` into consecutive chunks and runs each chunk as one task:
+### Simple Loop Form
 
-```julia-repl
-julia> using SimilaritySearch
-
-julia> n = 100_000; out = zeros(Int, n);
-
-julia> @BATCHES getminbatch(n) for i in 1:n
-           out[i] = i^2
-       end
-
-julia> out == [i^2 for i in 1:n]
-true
-```
-
-[`getminbatch`](@ref)`(n)` picks a reasonable chunk size (aiming for a handful of batches
-per thread) -- use it instead of hand-picking `minbatch`.
-
-When each batch needs its own scratch state (so concurrent batches never write to the
-same memory), `@BATCHES` accepts five optional sections instead of a bare loop:
-
-```julia-repl
-julia> function sumsq(n, minbatch)
-           local total
-           @BATCHES minbatch begin
-           @BEGIN
-               partial = zeros(Float64, @nbatches())      # one slot per batch
-           @BEGINBATCH
-               acc = 0.0                                  # this batch's running total
-           @LOOP for i in 1:n
-               acc += abs2(i)
-           end
-           @ENDBATCH
-               partial[@batchid()] = acc                  # race-free: batch ids are disjoint
-           @END
-               total = sum(partial)
-           end
-           total
-       end;
-
-julia> sumsq(1000, getminbatch(1000)) == sum(abs2, 1:1000)
-true
-```
-
-- `@BEGIN` runs once, before any batch starts -- typically to size a shared,
-  [`@nbatches()`](@ref)-sized array.
-- `@BEGINBATCH` runs once per batch, before that batch's `@LOOP` iterations.
-- `@LOOP for i in range ... end` is the only mandatory section: the per-element body.
-- `@ENDBATCH` runs once per batch, after that batch's `@LOOP` iterations.
-- `@END` runs once, after every batch has joined -- typically to reduce the now-populated
-  array from `@BEGIN` (`total = sum(partial)` above).
-
-[`@batchid()`](@ref) is each batch's fixed, 1-based index, stable for that batch's whole
-lifetime -- indexing a shared array by it (`partial[@batchid()]` above) is race-free by
-construction, since no two concurrently-running batches ever share one; prefer it over
-`Threads.threadid()`, which can alias or migrate mid-batch under some schedulers (below).
-
-Always write `@batchid()`/`@nbatches()` with the explicit, empty parentheses shown above,
-even though they take no arguments: it means exactly the same thing as the bare macro
-call, but a bare `@batchid` directly followed by a unary `-` parses as `@batchid` being
-*passed* `-1` as an argument, not as subtraction on its result -- `2 * @batchid - 1` parses
-as `2 * @batchid(-1)`, an error. `@batchid()` cannot be misparsed that way.
-
-`@BATCHES` dispatches batches via `Threads.@threads`, under a scheduler that defaults to
-`:static` (one task per thread, never migrates) and can be overridden globally with
-[`set_batch_scheduler!`](@ref) or per call with a `scheduler=` keyword. Besides `:static`,
-`:default`, and `:greedy` (Julia >= 1.11 only), there's `:sequential`: it disables
-threading entirely, running the whole `range` as a single batch in the caller's own task,
-regardless of `Threads.nthreads()` -- useful for isolating a suspected race (does the bug
-still happen with threading off?) or benchmarking the pure serial cost of a batch
-operation:
+The simple form splits a range into contiguous chunks:
 
 ```julia
-@BATCHES getminbatch(n) scheduler=:sequential for i in 1:n
+using SimilaritySearch
+
+n = 100_000
+out = zeros(Int, n)
+
+@BATCHES getminbatch(n) for i in 1:n
     out[i] = i^2
 end
 ```
 
-If your batch body captures a shared handle (e.g. a `SearchGraphContext`) and re-derives
-per-batch state from it several calls deep, read the [`@BATCHES`](@ref) docstring's
-tagged-handle hazard warning before writing that pattern yourself -- it's a real bug this
-package's own code hit once.
+[`getminbatch`](@ref)`(n)` computes an optimal batch size based on `Threads.nthreads()`.
 
-### Every context carries its own scheduler
+### Structured Batch Form with Scratch State
 
-[`GenericContext`](@ref), [`SearchGraphContext`](@ref), and
-`InvertedFiles.InvertedFileContext` each accept a `scheduler` keyword at construction
-(defaulting to [`get_batch_scheduler`](@ref)), and every `@BATCHES` call this package makes
-*through* that context (`searchbatch!`, `allknn`, `index!`, `closestpair`, `neardup`, ...)
-uses `ctx.scheduler` automatically. So instead of overriding `scheduler=` at every call
-site, set it once where the context is built:
+When each batch requires isolated intermediate state, use the structured sections:
 
 ```julia
-ctx = SearchGraphContext(; scheduler=:sequential)   # every @BATCHES call through ctx is now serial
+function sum_squares(n::Integer, minbatch::Integer)
+    local total
+    @BATCHES minbatch begin
+    @BEGIN
+        # Runs once before task dispatch; allocate per-batch reduction buffers
+        partial = zeros(Float64, @nbatches())
+    @BEGINBATCH
+        # Runs once per batch before processing elements
+        acc = 0.0
+    @LOOP for i in 1:n
+        acc += abs2(i)
+    @ENDBATCH
+        # Runs once per batch upon completion; write to disjoint slot
+        partial[@batchid()] = acc
+    @END
+        # Runs once after all batches join
+        total = sum(partial)
+    end
+    total
+end
+```
+
+### Safety Rule: Indexing with `@batchid()`, not `threadid()`
+
+- **Always index per-batch scratch buffers by `@batchid()`**, which returns a stable, disjoint integer in $\{1, \dots, \text{@nbatches()}\}$. This prevents race conditions under dynamic and work-stealing schedulers.
+- **Do not index by `Threads.threadid()`**, as tasks can migrate across threads or share thread IDs under non-static schedulers.
+- Always include parentheses (`@batchid()`, `@nbatches()`) to prevent macro parsing ambiguities with following arithmetic operators.
+
+---
+
+## Batch Schedulers
+
+`@BATCHES` supports multiple execution schedulers:
+- `:static`: Partitions iterations evenly across threads without task migration.
+- `:default`: Standard Julia task scheduler.
+- `:greedy`: Dynamic work-stealing scheduler (Julia $\ge$ 1.11).
+- `:sequential`: Disables multithreading, running iterations sequentially in the caller task. Useful for deterministic debugging and benchmarking.
+
+### Context-Level Scheduler Configuration
+
+[`GenericContext`](@ref) and [`SearchGraphContext`](@ref) store a `scheduler` field (defaulting to [`get_batch_scheduler`](@ref)). All internal batch operations routed through that context adopt its scheduler:
+
+```julia
+# Enforce serial execution across all operations using this context
+ctx = SearchGraphContext(; scheduler=:sequential)
 index!(G, ctx)
 knns = searchbatch(G, ctx, Q, 8)
 ```
 
-A context's `scheduler` is captured once at construction time -- a later
-[`set_batch_scheduler!`](@ref) call changes the *global* default for new contexts, not
-one already built.
+---
 
-## Don't nest two parallel index types
+## Avoiding Nested Parallel Index Types
 
-[`SimilaritySearch.Exact.ParallelExhaustiveSearch`](@ref) parallelizes *within* a single
-query (splitting the dataset comparisons for that one query across threads). If you then
-also run it through `searchbatch` (which parallelizes *across* queries), both layers
-compete for the same fixed pool of `Threads.nthreads()` threads at once, which typically
-makes things slower, not faster, rather than actually running "more" parallelism. Use
-either `ParallelExhaustiveSearch` alone (best when you have very few queries, or even
-just one, and want to parallelize that single query), or a plain `ExhaustiveSearch`
-through `searchbatch` (best when you have many queries and want to parallelize across
-them) -- not both together.
+[`SimilaritySearch.Exact.ParallelExhaustiveSearch`](@ref) parallelizes distance evaluations *within* a single query across threads.
 
-## Capping memory for very large datasets
+Do not combine `ParallelExhaustiveSearch` with `searchbatch` (which parallelizes *across* queries). Doing so causes nested task over-subscription and thread contention. Use:
+- `ParallelExhaustiveSearch` for executing individual queries when $|Q| \approx 1$.
+- `ExhaustiveSearch` with `searchbatch` when processing multiple queries simultaneously ($|Q| \gg 1$).
 
-Every parallel batch operation allocates a small amount of scratch memory per batch, not
-per thread and not per element -- the number of batches is chosen automatically (roughly
-proportional to `Threads.nthreads()`, not to dataset size), and stays modest regardless
-of how large your dataset is. If you ever do need to cap it further (e.g. a machine with
-many threads and a very large per-batch buffer), `SearchGraphContext`/`GenericContext`
-accept a `maxbatches` keyword:
+---
+
+## Bounding Memory with `maxbatches`
+
+Scratch buffer memory scales with the number of active batches. To enforce a strict ceiling on buffer allocation in high-core environments, set `maxbatches`:
 
 ```julia
-ctx = SearchGraphContext(; maxbatches=32)   # hard ceiling on internal batch count
+ctx = SearchGraphContext(; maxbatches=32)
 ```
 
-Lowering this can only reduce parallelism/increase batch size, never correctness --
-unlike the shared-context anti-pattern above, this knob is always safe to adjust.
+---
 
-Next: [saving and loading indexes with JLD2](persistence.md).
+In the next section, [Index Persistence and Serialization](persistence.md), we discuss saving and loading search indexes using JLD2.

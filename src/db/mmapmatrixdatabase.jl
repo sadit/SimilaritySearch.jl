@@ -54,9 +54,21 @@ The physical capacity of the file (in number of columns) is preallocated in doub
 `BlockMatrixDatabase`'s `2^NumBits` blocks -- and only grows (extending and remapping the file) when
 `push_item!`/`append_items!` need more room than is currently mapped; it is not remapped on every single
 insertion. The *logical* length `n` (i.e. `length(db)`) is independent from the physical capacity and is
-itself persisted in a small header at the start of the file, so it survives closing and reopening the
-database. `n` is only advanced on disk after the corresponding vector's bytes have actually been flushed
-(`Mmap.sync!`) and fsync'd -- so a crash mid-write never leaves `n` pointing at data that isn't durable.
+persisted in a small header at the start of the file, so it survives closing and reopening the database.
+
+# Durability is opt-in: call `flush`
+
+`push_item!`/`append_items!` update `n` in memory (so `length(db)` is correct right away within the
+same process) and write the new columns into the mapped data, but do **not** msync those bytes or
+persist/fsync the advanced `n` into the header -- that is exactly what [`flush`](@ref) does, and it
+is the caller's responsibility to call it whenever *it* considers durability to matter (once per
+batch, on a timer, before a deliberate checkpoint, ...), not something either mutating function does
+on your behalf. `close`/the finalizer call `flush` once as a last-resort safety net, but garbage
+collection timing is not a guarantee, so it is not a substitute for calling `flush` deliberately: a
+process that pushes/appends and then crashes or is killed before an explicit `flush` (or a clean
+`close`) loses everything added since the last `flush`. What `flush` still guarantees when you do
+call it: `n` only ever advances on disk after the corresponding bytes are themselves durable, so a
+crash *during* a `flush` never leaves the header pointing at data that isn't there.
 
 Please see [`AbstractDatabase`](@ref) for general usage.
 
@@ -64,6 +76,10 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 
 Concurrent `push_item!`/`append_items!` calls from multiple threads on the *same* database are **not**
 safe without external synchronization (e.g. a lock); they race on `n` and on the growth/remap logic.
+[`flush`](@ref) is in the same category and for the same reason -- it reads `db.n`/`db.data`, both of
+which a concurrent `push_item!`/`append_items!` mutates -- so calling it from a different thread than
+the one doing the writing, without synchronization, is exactly as unsafe as two writers would be; it is
+not a read-only operation just because it doesn't add an object.
 A concurrent grow/remap (triggered by a writer) racing against a reader's `getindex` is safe in the sense
 that it will not segfault -- the reader either sees the old, still-valid mapped array or the new one, since
 old mappings are only released once nothing references them -- but it is still recommended to avoid mixing
@@ -174,9 +190,26 @@ function MMapMatrixDatabase(path::AbstractString; read_only::Bool=false)
     db
 end
 
+"""
+    flush(db::MMapMatrixDatabase)
+
+Makes every object added so far durable: `msync`s the mapped data and persists/`fsync`s the
+current logical length `n` into the file's header. Neither [`push_item!`](@ref) nor
+[`append_items!`](@ref) do this on their own -- see the type docstring's "Durability" section.
+A no-op on a `read_only` database (nothing to persist, and the underlying file isn't open for
+writing in the first place).
+"""
+function Base.flush(db::MMapMatrixDatabase)
+    db.read_only && return db
+    Mmap.sync!(db.data)
+    _mmap_matrix_db_persist_n!(db.io, db.n)
+    db
+end
+
 function _mmap_matrix_db_finalize!(db::MMapMatrixDatabase)
     db.closed && return nothing
     db.closed = true
+    flush(db)
     close(db.io)
     nothing
 end
@@ -184,8 +217,8 @@ end
 """
     close(db::MMapMatrixDatabase)
 
-Unmaps and closes the underlying file. Idempotent -- calling it more than once (or letting the
-finalizer run afterwards) is safe.
+Flushes (see [`flush`](@ref)), then unmaps and closes the underlying file. Idempotent --
+calling it more than once (or letting the finalizer run afterwards) is safe.
 """
 Base.close(db::MMapMatrixDatabase) = _mmap_matrix_db_finalize!(db)
 
@@ -221,63 +254,37 @@ end
 """
     push_item!(db::MMapMatrixDatabase, v::AbstractVector)
 
-Appends `v` as a new object at the end of `db`, growing (extending and remapping) the underlying file
-when the current capacity is exceeded. The new bytes are flushed and fsync'd to disk *before* the logical
-length is advanced and persisted, so a crash right after this call either leaves `db` exactly as it was
-before, or with `v` fully durable -- never in between.
-
-!!! warning "Performance: never call this in a loop for a batch you already have in hand"
-    Every call does its own `Mmap.sync!` + `fsync` -- calling this once per item to insert a whole batch
-    is dramatically slower than one [`append_items!`](@ref) call for the same batch (which flushes/`fsync`s
-    once, no matter how many items), not just incrementally so: measured directly, 200,000 pushed
-    one-by-one via `push_item!` took ~12s, versus ~0.1s for the same 200,000 vectors via a single
-    `append_items!` call -- roughly a **1000x** difference, dominated entirely by `fsync` call count, not
-    data volume. Always prefer `append_items!` over a `push_item!` loop when the whole batch is available
-    up front.
+Appends `v` as a new object at the end of `db`, growing (extending and remapping) the underlying
+file when the current capacity is exceeded. `length(db)` reflects `v` immediately, but nothing is
+made durable by this call -- see the type docstring's "Durability" section, and call
+[`flush`](@ref) when that matters to you.
 """
 function push_item!(db::MMapMatrixDatabase{Dim,NumType}, v::AbstractVector) where {Dim,NumType}
     db.read_only && error("MMapMatrixDatabase: cannot push_item! on a read_only database")
     n = db.n + 1
     n > size(db.data, 2) && _mmap_matrix_db_grow!(db, n)
     @inbounds db.data[:, n] .= v
-    Mmap.sync!(db.data)
     db.n = n
-    _mmap_matrix_db_persist_n!(db.io, n)
     db
 end
 
 """
     append_items!(db::MMapMatrixDatabase, B)
 
-Appends every object in `B` (e.g., an iterator of vectors, such as `eachcol` of a matrix) to the end of
-`db`, growing the underlying file as needed. Unlike [`push_item!`](@ref), the whole batch is flushed and
-its new length persisted only once, at the end -- so a crash mid-batch loses the entire in-progress batch
-(never a partial one), leaving `db`'s durable length exactly as it was before the call.
-
-!!! note "Performance: batch size (call count) is what matters, not total item count"
-    Wall-clock cost here is dominated by the single `fsync` this call makes, not by how many items are in
-    `B` -- so *how many times a caller calls this function* (not the total vector count across all calls)
-    is what drives overall throughput when inserting incrementally in multiple calls. Measured directly,
-    writing 200,000 128-dim vectors as one project's dense store: one call for all 200,000 (1 fsync) took
-    ~0.10s; the same total split into calls of 1,000 (200 fsyncs) took ~0.14s; split into calls of 100
-    (2,000 fsyncs) took ~0.31s; split into calls of 10 (20,000 fsyncs) took ~2.1s. Prefer fewer, larger
-    calls over many small ones whenever the caller controls the batching.
+Appends every object in `B` (e.g., an iterator of vectors, such as `eachcol` of a matrix) to the end
+of `db`, growing the underlying file as needed. `length(db)` reflects every item of `B` immediately,
+but as with [`push_item!`](@ref), nothing is made durable by this call -- call [`flush`](@ref) when
+that matters to you.
 """
 function append_items!(db::MMapMatrixDatabase{Dim,NumType}, B) where {Dim,NumType}
     db.read_only && error("MMapMatrixDatabase: cannot append_items! on a read_only database")
-    n0 = db.n
-    n = n0
+    n = db.n
     for v in B
         n += 1
         n > size(db.data, 2) && _mmap_matrix_db_grow!(db, n)
         @inbounds db.data[:, n] .= v
     end
 
-    if n > n0
-        Mmap.sync!(db.data)
-        db.n = n
-        _mmap_matrix_db_persist_n!(db.io, n)
-    end
-
+    db.n = n
     db
 end

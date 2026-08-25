@@ -57,7 +57,33 @@ end
         @test_throws ErrorException push_item!(rdb, Float32[4, 5, 6])
         @test_throws ErrorException append_items!(rdb, [Float32[4, 5, 6]])
         @test_throws ErrorException (rdb[1] = Float32[9, 9, 9])
+        @test flush(rdb) === rdb   # a no-op, not an error (nothing to persist, and the file isn't open for writing)
         close(rdb)
+    end
+end
+
+@testset "MMapMatrixDatabase: push_item!/append_items! are not durable without flush" begin
+    mktempdir() do dir
+        path = joinpath(dir, "no_autoflush.mmapdb")
+        dim = 4
+        db = MMapMatrixDatabase(path, dim, Float32; capacity_bits=4)
+        append_items!(db, [Float32.(1:dim) .* i for i in 1:5])
+        @test length(db) == 5   # in-memory length reflects it immediately...
+
+        # ...but nothing was made durable: a second handle to the same file, opened without
+        # `db` ever having been flushed or closed, still sees the on-disk header as it was
+        # when the file was created (n=0).
+        db2 = MMapMatrixDatabase(path)
+        @test length(db2) == 0
+        close(db2)
+
+        # flush() (not close()) is what persists it, and does so without needing to stop
+        # using `db` for further writes.
+        flush(db)
+        db3 = MMapMatrixDatabase(path)
+        @test length(db3) == 5
+        close(db3)
+        close(db)
     end
 end
 
@@ -68,13 +94,14 @@ end
         db = MMapMatrixDatabase(path, dim, Float32; capacity_bits=4)  # capacity 16, enough headroom
         committed = [Float32.(1:dim) .* i for i in 1:5]
         append_items!(db, committed)
+        flush(db)   # durability is opt-in now -- this is what the old auto-flush-per-call used to do
         n_durable = length(db)
         @test n_durable == 5
 
         # Simulate a crash mid-append: write additional columns directly into the mapped
         # data, bypassing push_item!/append_items!, so neither Mmap.sync! nor the header's
         # `n` are ever updated for them -- exactly what a process kill between writing bytes
-        # and persisting the new length would leave behind.
+        # and the next `flush` would leave behind.
         raw = db.n
         for i in 1:7
             raw += 1
@@ -82,7 +109,7 @@ end
             db.data[:, raw] .= Float32.(1:dim) .* (100 + i)
         end
         # db.n and the on-disk header are deliberately left untouched (simulating the crash);
-        # we just abandon `db` without calling close/append_items! again.
+        # we just abandon `db` without calling flush/close again.
 
         db2 = MMapMatrixDatabase(path)
         @test length(db2) == n_durable

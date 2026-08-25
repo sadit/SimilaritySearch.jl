@@ -2,19 +2,17 @@
 CurrentModule = SimilaritySearch
 ```
 
-# Beyond search: `fft`, `allknn`, `closestpair`, `neardup`
+# Dataset Operations: Selection, All-kNN, and Closest Pairs
 
-An index isn't only good for "give me the k nearest neighbors of this one query." This
-page tours the other whole-dataset operations built on top of the same
-[`AbstractDatabase`](@ref)/distance interface, again mostly with [`ExhaustiveSearch`](@ref)
-since the data here is small.
+In addition to individual query search, `SimilaritySearch.jl` provides global metric operations over datasets. These algorithms operate generically on any [`AbstractDatabase`](@ref) and distance metric.
 
-## `fft`: picking a diverse, well-separated subset
+---
 
-[`fft`](@ref) (Farthest First Traversal) greedily selects `k` items that are as spread
-out from each other as possible -- useful for choosing cluster centers, a representative
-sample, or diverse candidates for anything downstream. A clean way to see it working: 24
-points evenly spaced around a circle, and ask for 6 well-separated ones:
+## Center Selection: Farthest First Traversal (`fft`)
+
+[`fft`](@ref) (Farthest First Traversal) selects a subset of $k$ representative centers $C = \{c_1, \dots, c_k\} \subseteq X$ such that the selected points are mutually well-separated in the metric space. This is widely used for prototype selection, hierarchical clustering, and spatial partitioning.
+
+Consider 24 points regularly spaced on the unit circle $S^1 \subset \mathbb{R}^2$, from which we extract $k = 6$ representative centers:
 
 ```julia
 using SimilaritySearch, Distances
@@ -29,122 +27,91 @@ end
 db = MatrixDatabase(X)
 
 R = fft(Dist.L2(), db, 6; verbose=false)
-R.centers      # 6 identifiers into db -- roughly every 4th point around the circle
-R.separation   # the smallest distance between two of those 6 centers
-R.covering     # the largest distance from any point of db to its nearest center
 ```
 
-`R.assign[i]` gives, for every point (not just the selected centers), which center it ended
-up closest to -- so `fft` doubles as a quick way to partition a dataset around `k`
-spread-out seeds. It is a **position** in `R.centers`, from `1` to `6` here, so
-`R.centers[R.assign[i]]` is the center's own identifier into `db` and `R.assigndist[i]` is
-how far point `i` is from it.
+### Properties of `CenterSelection`
 
-`covering` and `separation` are different numbers, and `fft` guarantees `covering <=
-separation`: no point is farther from the selection than any two centers are from each
-other. They used to share the name `ε`, which meant the covering radius here and the
-separation in `multirandsel`.
+The returned [`CenterSelection`](@ref) struct `R` contains:
+- `R.centers`: Vector of object identifiers in `db` selected as centers.
+- `R.assign[i]`: Position in `R.centers` corresponding to the closest center for object $i$.
+- `R.assigndist[i]`: Distance from object $i$ to its assigned center $R.centers[R.assign[i]]$.
+- `R.separation`: The minimum pairwise distance between any two chosen centers:
 
-Every batch-oriented `@BATCHES` call `fft` makes internally accepts a `scheduler` keyword
-(`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely),
-defaulting to whatever [`get_batch_scheduler`](@ref) currently returns:
+$$\text{separation} = \min_{i \ne j} d(c_i, c_j)$$
 
-```julia
-R = fft(Dist.L2(), db, 6; verbose=false, scheduler=:sequential)
-```
+- `R.covering`: The covering radius (maximum distance from any dataset element to its nearest center):
 
-### Other ways to pick centers: `dnet`, `randsel`, `multirandsel`
+$$\text{covering} = \max_{x \in X} \min_{c \in C} d(x, c)$$
 
-[`dnet`](@ref), [`randsel`](@ref), and [`multirandsel`](@ref) are drop-in alternatives to
-`fft`: all four return the same [`CenterSelection`](@ref), so code written against one works
-against the others unchanged, and all four report both radii.
+Farthest First Traversal guarantees that $\text{covering} \le \text{separation}$.
 
-- `randsel` just samples `k` centers uniformly at random -- the cheapest option, no
-  separation guarantee at all. Its `separation` is measured rather than guaranteed, and it
-  is what tells you how bad a given random draw turned out.
-- `dnet` carves the dataset into balls of `length(X) ÷ numcenters` objects and keeps one
-  representative per ball -- faster than `fft` on large datasets. Two things to know: its
-  `numcenters` is a target rather than the count (it returns `cld(length(X), length(X) ÷
-  numcenters)` centers, one more than asked whenever that does not divide evenly), and it is
-  the one selector whose `assign` is **not** the nearest center but the center whose ball
-  absorbed the object. That is the structure the carving actually computed; a center picked in
-  a later round can be closer, for around 40% of the objects. Its `covering` is therefore an
-  upper bound on the covering radius rather than the radius itself.
-- `multirandsel` is a randomized middle ground: each step samples a batch of candidates
-  and keeps the one farthest (by total distance) from every center chosen so far.
+### Selection Algorithms: `dnet`, `randsel`, and `multirandsel`
+
+The selection module provides alternative algorithms returning the same `CenterSelection` structure:
+
+- [`randsel`](@ref): Samples $k$ centers uniformly at random without separation guarantees.
+- [`dnet`](@ref): Partitions the dataset into clusters of size $\approx |X| / k$ and retains one representative per cluster. It is computationally efficient on large datasets. Note that `assign` records the absorbing cluster center rather than the globally nearest center.
+- [`multirandsel`](@ref): A randomized heuristic that samples candidate pools at each step, choosing the candidate maximizing the sum of distances to already selected centers:
 
 ```julia
 R = multirandsel(Dist.L2(), db, 6)
-R.separation   # the same quantity fft reports under the same name
 ```
 
-## `allknn`: every object's own nearest neighbors, all at once
+---
 
-[`allknn`](@ref) computes the k nearest neighbors of *every* object in a database against
-that same database (as opposed to `searchbatch`, which solves an externally given set of
-queries) -- one call instead of a loop over every element as its own query. This is the
-one operation on this page worth seeing with [`SearchGraph`](@ref) too, since comparing
-against an exact `allknn` is a natural way to check an approximate index's quality:
+## All-Pairs $k$-Nearest Neighbors: `allknn`
+
+[`allknn`](@ref) computes the $k$ nearest neighbors for every element $x_i \in X$ against the dataset $X$.
 
 ```julia
 X = MatrixDatabase(rand(Float32, 4, 2000))
 dist = Dist.L2()
 
+# Exact all-kNN baseline (O(n²))
 E = ExhaustiveSearch(dist, X)
 ectx = GenericContext()
-gold_ids, gold_dists = allknn(E, ectx, 8)      # exact, O(n²) work -- fine at this scale
+gold_ids, gold_dists = allknn(E, ectx, 8)
 
+# Approximate all-kNN via SearchGraph (O(n log n))
 G = SearchGraph(dist, X)
 ctx = SearchGraphContext()
 index!(G, ctx)
 optimize_index!(G, ctx, MinRecall(0.9))
-approx_ids, approx_dists = allknn(G, ctx, 8)   # approximate, much cheaper on large datasets
+approx_ids, approx_dists = allknn(G, ctx, 8)
 
-macrorecall(gold_ids, approx_ids)              # how close approx's neighbor sets are to gold's
+# Evaluate approximate all-kNN recall
+macrorecall(gold_ids, approx_ids)
 ```
 
-Both `gold_ids`/`approx_ids` and `gold_dists`/`approx_dists` are `(8, 2000)` matrices --
-column `i` holds object `i`'s own 8 nearest neighbors (note: an object is its own nearest
-neighbor at distance `0`, and `allknn` keeps that self-reference rather than filtering it
-out).
+The output matrices `gold_ids` and `gold_dists` have dimensions $(k, |X|)$, where column $i$ contains the $k$ nearest neighbors of object $i$.
 
-## `closestpair`: the single closest pair in the whole dataset
+---
 
-[`closestpair`](@ref) finds the two objects with the smallest distance between them,
-without checking every pair explicitly:
+## Closest Pair: `closestpair`
+
+[`closestpair`](@ref) finds the pair of distinct objects $(u, v) \in X \times X$ ($u \ne v$) with the minimum pairwise distance:
 
 ```julia
-i, j, d = closestpair(E, ectx)   # (id, id, distance) of the closest pair in X
+i, j, d = closestpair(E, ectx)  # Returns (id_u, id_v, distance)
 ```
 
-Passing a `SearchGraph` instead of an `ExhaustiveSearch` uses the graph structure to
-avoid most pairwise comparisons -- much faster on large, continuous datasets, with the
-same navigability caveat as regular search. `closestpair` is actually a special case of a
-more general operation between *two* datasets -- see
-[bichromatic closest pairs and joins](bichromatic.md) next.
+When evaluated with `SearchGraph`, `closestpair` leverages graph connectivity to locate close elements without evaluating all $O(n^2)$ pairs.
 
-## `neardup`: collapsing near-duplicates
+---
 
-[`neardup`](@ref) walks through a dataset and, for every object, checks whether it's
-within `ϵ` of something already kept -- if so, it's marked as a duplicate of that
-earlier object instead of being kept itself. The simplest way to call it is the
-two-argument form, which manages its own (empty, exact) index internally:
+## Near-Duplicate Elimination: `neardup`
+
+[`neardup`](@ref) computes an $\epsilon$-net over a dataset, clustering objects within distance $\epsilon$ of an earlier representative into a single duplicate group:
 
 ```julia
-D = neardup(dist, X, 0.1)     # ϵ = 0.1
-length(D.centers)             # how many distinct objects survived -- the output, not the input
-D.centers[D.assign[7]]        # which survivor covers object 7
-D.assigndist[7]               # how far object 7 sits from it, always <= D.epsilon
-D.covering                    # the radius the net actually needed
-D.idx                         # the index over the survivors, ready to be reused
+D = neardup(dist, X, 0.1)     # Distance threshold ϵ = 0.1
+
+length(D.centers)             # Number of retained distinct representatives
+D.centers[D.assign[7]]        # Center index covering object 7
+D.assigndist[7]               # Distance to covering center (always ≤ ϵ)
 ```
 
-`neardup` is the radius-driven half of the selection family: you fix `ϵ` and the number of
-survivors is whatever the data gives, where [`fft`](@ref) and friends fix the count and let
-the radius fall out. Both report `centers`, `assign` and `assigndist` with the same meanings,
-so the two are read the same way.
-
-To pick `ϵ` from the data rather than by hand, sample the distance distribution first:
+To automatically select $\epsilon$ from empirical data, sample the pairwise distance distribution using [`distsample`](@ref):
 
 ```julia
 using Statistics
@@ -152,29 +119,19 @@ using Statistics
 D = neardup(dist, X, ϵ)
 ```
 
-If you already have an index you want `neardup` to fill (e.g. a `SearchGraph`, to use
-approximate near-duplicate detection on a large dataset), pass it explicitly -- but it
-must start **empty**:
+---
+
+## Neighborhood Pruning: Half-Space Proximal (`hsp_queries`)
+
+[`hsp_queries`](@ref) refines an existing $k$-NN candidate set by applying the Half-Space Proximal (HSP) criterion. A candidate $v$ is pruned if there exists another candidate $u$ closer to the query such that $v$ falls in the half-space dominated by $u$:
 
 ```julia
-empty_idx = ExhaustiveSearch(dist, VectorDatabase(Vector{Float32}[]))
-D = neardup(empty_idx, ectx, X, 0.1)
-```
-
-## One more: `hsp_queries`
-
-[`hsp_queries`](@ref) re-filters an already-computed k-NN matrix using the Half-Space
-Proximal criterion -- a way to prune a neighborhood down to a smaller, more diverse set
-of "true" neighbors (removing ones that are essentially redundant with a closer
-neighbor). It's what `SearchGraph` uses internally to decide graph edges during
-construction, but it's also directly usable on any k-NN matrix you already have lying
-around:
-
-```julia
-ids, dists = allknn(E, ectx, 16)                       # a generous k
+ids, dists = allknn(E, ectx, 16)
 hsp_ids, hsp_dists, hsp = hsp_queries(dist, X, X, ids, dists)
-length.(hsp)                                            # typically well under 16 per object
 ```
 
-Next: [bichromatic closest pairs and joins](bichromatic.md) -- `closestpair`'s
-generalization to two distinct datasets.
+The HSP criterion reduces graph degree while preserving navigability, which is used internally during `SearchGraph` construction.
+
+---
+
+In the next section, [Bichromatic Operations and Metric Joins](bichromatic.md), we generalize closest pairs and similarity matching to pairs of distinct datasets.
