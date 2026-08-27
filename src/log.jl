@@ -272,11 +272,11 @@ mutable struct InformativeLog <: AbstractReporter
     io::Union{Nothing,IO}
     dt::Float64
     prompt::String
-    last::UInt64
+    last::Union{Nothing,UInt64}
 end
 
 InformativeLog(io::Union{Nothing,IO}=nothing; dt::Real=1.0, prompt::AbstractString="LOG") =
-    InformativeLog(io, convert(Float64, dt), String(prompt), zero(UInt64))
+    InformativeLog(io, convert(Float64, dt), String(prompt), nothing)
 
 """
     INFORM(log::InformativeLog, ctx, msg::Function, index, data)
@@ -287,7 +287,7 @@ previous printed line, in which case nothing happens and `msg` is never called. 
 """
 function INFORM(log::InformativeLog, ctx, msg::Function, index, data)
     now = time_ns()
-    log.dt > 0 && (now - log.last) < log.dt * 1e9 && return nothing
+    log.dt > 0 && log.last !== nothing && (now - log.last) < log.dt * 1e9 && return nothing
     log.last = now
 
     io = log.io === nothing ? stderr : log.io
