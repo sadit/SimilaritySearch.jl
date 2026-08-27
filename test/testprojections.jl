@@ -74,4 +74,64 @@ using Test, SimilaritySearch, SimilaritySearch.Projections, LinearAlgebra, Rando
         @test size(B_mat) == (cld(dim, 64), n)
         @test eltype(B_mat) == UInt64
     end
+
+    @testset "RandomHyperplanes" begin
+        db = MatrixDatabase(X)
+        npairs = 64
+        refs = SubDatabase(db, rand(1:n, 2npairs))
+        m = RandomHyperplanes(SimilaritySearch.Dist.L2(), refs, npairs)
+        @test outdim(m) == npairs
+
+        b_vec = bitsketch(m, v)
+        @test length(b_vec) == npairs ÷ 64
+        @test eltype(b_vec) == UInt64
+
+        B = bitsketch(m, db)
+        @test size(B.matrix) == (npairs ÷ 64, n)
+        @test eltype(B.matrix) == UInt64
+        @test all(bitsketch(m, db[i]) == B[i] for i in 1:n)
+
+        @test_throws ArgumentError RandomHyperplanes(SimilaritySearch.Dist.L2(), refs, npairs + 1) # not a factor of 64
+        @test_throws ArgumentError RandomHyperplanes(SimilaritySearch.Dist.L2(), refs, 2npairs) # refs too short
+    end
+
+    @testset "DistantHyperplanes" begin
+        db = MatrixDatabase(randn(Float32, dim, 2^12))
+        nbits = 64
+        m = DistantHyperplanes(SimilaritySearch.Dist.L2(), db, nbits; henc=2^9, verbose=false)
+        @test outdim(m) == nbits
+
+        b_vec = bitsketch(m, v)
+        @test length(b_vec) == nbits ÷ 64
+        @test eltype(b_vec) == UInt64
+
+        B = bitsketch(m, db)
+        @test size(B.matrix) == (nbits ÷ 64, length(db))
+        @test eltype(B.matrix) == UInt64
+        @test all(bitsketch(m, db[i]) == B[i] for i in 1:length(db))
+
+        @test_throws ArgumentError DistantHyperplanes(SimilaritySearch.Dist.L2(), db, nbits + 1; henc=2^9) # not a factor of 64
+    end
+
+    @testset "AnchoredDistantHyperplanes" begin
+        db = MatrixDatabase(randn(Float32, dim, 2^12))
+        nbits = 64
+
+        for (anchor, anchorpolicy) in ((nothing, :random), (nothing, :extremal), (1, :random), (db[3], :random))
+            m = AnchoredDistantHyperplanes(SimilaritySearch.Dist.L2(), db, nbits; anchor, anchorpolicy, henc=2^9, verbose=false)
+            @test outdim(m) == nbits
+
+            b_vec = bitsketch(m, v)
+            @test length(b_vec) == nbits ÷ 64
+            @test eltype(b_vec) == UInt64
+
+            B = bitsketch(m, db)
+            @test size(B.matrix) == (nbits ÷ 64, length(db))
+            @test eltype(B.matrix) == UInt64
+            @test all(bitsketch(m, db[i]) == B[i] for i in 1:length(db))
+        end
+
+        @test_throws ArgumentError AnchoredDistantHyperplanes(SimilaritySearch.Dist.L2(), db, nbits; henc=2^9, anchorpolicy=:bogus)
+        @test_throws ArgumentError AnchoredDistantHyperplanes(SimilaritySearch.Dist.L2(), db, nbits + 1; henc=2^9) # not a factor of 64
+    end
 end

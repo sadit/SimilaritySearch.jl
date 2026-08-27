@@ -123,7 +123,6 @@ include("iddist.jl")
 include("adj/Adj.jl")
 include("intersections/Intersections.jl")
 include("special/special.jl")
-include("proj/Projections.jl")
 
 #using .Adj
 
@@ -273,6 +272,8 @@ include("exact/Exact.jl")
 using SimilaritySearch.Exact
 include("selection/Selection.jl")
 using .Selection
+
+include("proj/Projections.jl")
 
 using SimilaritySearch.Exact
 

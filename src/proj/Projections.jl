@@ -4,6 +4,10 @@ using Random, LinearAlgebra, Distributions, StatsBase
 export RandomProjections, outdim, indim, transform, transform!
 using ...SimilaritySearch.Dist.CastF32: dot32
 using ...SimilaritySearch: @BATCHES
+using ...SimilaritySearch: AbstractDatabase, MatrixDatabase, SubDatabase, SemiMetric
+import ...SimilaritySearch: evaluate, distance
+using ...SimilaritySearch.Dist.Bits: Hamming
+using ...SimilaritySearch.Selection: fft
 
 """
     RandomProjections(map::M) where {M<:AbstractMatrix}
@@ -217,5 +221,8 @@ end
 
 include("hadamard.jl")
 include("bitsketches.jl")
+include("dh.jl")
+include("adh.jl")
+include("hbe.jl")
 
 end
