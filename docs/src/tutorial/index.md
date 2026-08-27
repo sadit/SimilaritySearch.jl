@@ -29,7 +29,7 @@ We recommend reading the tutorial in the following order:
 9. **[Index Persistence and Serialization](persistence.md)** -- Serializing indexes with JLD2 and decoupling graph topology from dataset storage.
 10. **[Logging and Observation Channels](logging.md)** -- Informational reporting (`reporters`) versus structural event listening (`observers`) for incremental graph tracking.
 11. **[Inverted Files and Posting List Intersections](invertedfiles.md)** -- Inverted indexing (`InvertedFile`, `DictInvertedFile`) for sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
-12. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant` and `bitsketch`.
+12. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant`, projection-based `bitsketch` (random, Hadamard, PCA), and hyperplane-based sketches for generic metric spaces.
 
 ---
 

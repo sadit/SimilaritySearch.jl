@@ -4,10 +4,11 @@ CurrentModule = SimilaritySearch
 
 # Quantization and Bit Sketches
 
-In large-scale similarity search, storing millions of high-dimensional vectors in standard single-precision floating-point format (`Float32`) presents memory and bandwidth bottlenecks. `SimilaritySearch.jl` provides two vector compression and acceleration strategies:
+In large-scale similarity search, storing millions of high-dimensional vectors in standard single-precision floating-point format (`Float32`) presents memory and bandwidth bottlenecks. `SimilaritySearch.jl` provides three compression and acceleration strategies:
 
 1. **Scalar Quantization ([`ScalarQuant`](@ref))**: Maps continuous floating-point coordinates to low-bit integer representations using column-wise affine scaling.
-2. **Bit Sketches ([`Projections.bitsketch`](@ref))**: Projects high-dimensional continuous vectors onto binary signatures via random hyperplane projections (SimHash / Locality Sensitive Hashing), enabling fast Hamming distance evaluations.
+2. **Projection-Based Bit Sketches ([`Projections.bitsketch`](@ref))**: Projects high-dimensional continuous vectors onto binary signatures via a random ([`Projections.RandomProjections`](@ref), [`Projections.HadamardProjection`](@ref)) or data-fitted ([`Projections.PCAProjection`](@ref)) rotation (SimHash / Locality Sensitive Hashing), enabling fast Hamming distance evaluations.
+3. **Hyperplane Bit Sketches ([`Projections.DistantHyperplanes`](@ref), [`Projections.RandomHyperplanes`](@ref))**: Encode objects of *any* metric space -- not just floating-point vectors -- by which side of a set of hyperplanes, defined directly through the space's own distance function, they fall on.
 
 ---
 
@@ -86,3 +87,74 @@ knns_bits = searchbatch(idx_bits, ctx, queries_bits_db, 10)
 ```
 
 Bit sketches provide a high-throughput, low-memory indexing option for high-dimensional embedding search, and can be used as a coarse-filtering stage prior to full-precision re-ranking.
+
+### PCA-Fitted Bit Sketches
+
+`bitsketch` works with any rotation that implements [`Projections.transform`](@ref), so the
+random matrix `R` above can be swapped for a rotation *fitted from data* --
+[`Projections.PCAProjection`](@ref) -- without touching the rest of the pipeline. Unlike
+`RandomProjections`/`HadamardProjection`, a `PCAProjection` depends on the sample it was
+fitted from, so the same object (not a freshly-built one) must be reused to sketch
+anything compared against an already-sketched dataset:
+
+```julia
+using SimilaritySearch.Projections: PCAProjection, bitsketch
+
+p = PCAProjection(X, 256)         # fit 256 principal directions from X
+B_pca = bitsketch(p, X)
+bq_pca = bitsketch(p, queries)    # same p, so sketches stay comparable to B_pca's columns
+```
+
+---
+
+## Hyperplane Bit Sketches for Generic Metric Spaces
+
+The bit sketches above all require the dataset to live in $\mathbb{R}^d$: they `transform`
+(rotate/project) raw coordinate vectors before packing signs into bits. When objects only
+support a distance function -- e.g. this tutorial's running prime-factor sets under the
+Dice distance (see the [Quickstart](index.md)) -- there is nothing to rotate.
+[`Projections.DistantHyperplanes`](@ref), [`Projections.AnchoredDistantHyperplanes`](@ref),
+and [`Projections.RandomHyperplanes`](@ref) sketch *any* `SemiMetric`/`AbstractDatabase`
+instead: an object $x$ is encoded by which side of a hyperplane -- a pair of anchor objects
+$(i, j)$ from the dataset -- it falls on:
+
+$$b = \begin{cases} 1 & \text{if } d(x, i) \le d(x, j) \\ 0 & \text{otherwise} \end{cases}$$
+
+- **[`DistantHyperplanes`](@ref Projections.DistantHyperplanes)** samples many candidate
+  anchor pairs, discards the uninformative ones (low entropy over a data sample), and keeps
+  a mutually diverse subset via [`fft`](@ref) -- diverse under a flip-invariant Hamming
+  distance, since swapping a pair's two anchors describes the exact same hyperplane.
+- **[`AnchoredDistantHyperplanes`](@ref Projections.AnchoredDistantHyperplanes)** is the
+  same idea, but orients every candidate pair by distance to a reference `anchor` object
+  (given explicitly, or picked automatically per an `anchorpolicy`) instead, so plain
+  Hamming distance is enough during selection.
+- **[`RandomHyperplanes`](@ref Projections.RandomHyperplanes)** skips the search entirely:
+  the caller supplies the anchor pairs directly (e.g. a plain random sample), trading
+  sketch quality for a much cheaper fit.
+
+All three expose the same [`distance`](@ref) (Hamming, over the packed sketch),
+[`Projections.outdim`](@ref), and [`Projections.bitsketch`](@ref) used above.
+
+### Example: Sketching Sets Under the Dice Distance
+
+Reusing the prime-factor dataset `X` and Dice `dist` from the [Quickstart](index.md):
+
+```julia
+using SimilaritySearch
+using SimilaritySearch.Projections: DistantHyperplanes, bitsketch
+
+# henc/hsel are shrunk from their defaults to fit this tutorial's small n = 1000
+m = DistantHyperplanes(dist, X, 64; henc=512, hsel=4096, verbose=false)
+B = bitsketch(m, X)                          # a (1, 1000) MatrixDatabase{Matrix{UInt64}}
+
+idx_bits = ExhaustiveSearch(distance(m), B)
+bq = bitsketch(m, factors(1000))
+res = knnqueue(ctx, 5)
+search(idx_bits, ctx, bq, res)
+
+[p.id for p in IdDistView(res)]   # 10, 20, 40, 50, 80 -- the exact-Dice result, from bit sketches alone
+```
+
+`AnchoredDistantHyperplanes` and `RandomHyperplanes` are drop-in replacements for `m` in the
+snippet above; only their construction differs (see their docstrings for the extra keyword
+arguments each one takes).

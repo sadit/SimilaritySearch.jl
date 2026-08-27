@@ -13,6 +13,7 @@ ExhaustiveSearch
 ParallelExhaustiveSearch
 SearchGraph
 PermutedSearchIndex
+distance
 ```
 
 ## Searching
@@ -341,17 +342,45 @@ Projections.outdim
 Projections.indim
 Projections.transform
 Projections.transform!
+Projections.bitsketch
 ```
 
 ## Hadamard projection (`Projections.HadamardProjection`)
 
 A projection computed with the fast Walsh-Hadamard transform
 (via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht_natural!`) instead of a dense
-random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!` generic functions
-documented above for `RandomProjections`.
+random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!`/`bitsketch` generic
+functions documented above for `RandomProjections`.
 
 ```@docs
 Projections.HadamardProjection
+```
+
+## PCA projection (`Projections.PCAProjection`)
+
+A projection fitted from data, via [MultivariateStats.jl](https://github.com/JuliaStats/MultivariateStats.jl)'s
+`PCA`, instead of a random or structured rotation. Uses the same
+`outdim`/`indim`/`transform`/`transform!`/`bitsketch` generic functions documented above
+for `RandomProjections`; unlike those, its matrix `transform` has no `minbatch` (a single
+vectorized call into MultivariateStats already covers every column).
+
+```@docs
+Projections.PCAProjection
+```
+
+## Hyperplane bit sketches (`Projections` submodule)
+
+Binary sketch generators for *any* metric space -- not just floating-point vectors under
+`transform` above: an object is encoded by which side of a set of hyperplanes, pairs of
+anchor objects compared through the space's own distance function, it falls on. Each of
+these carries its own [`distance`](@ref) (Hamming, over the packed sketch) and supports
+[`Projections.outdim`](@ref)/[`Projections.bitsketch`](@ref) like the projections above.
+See the [bit sketches tutorial](@ref "Quantization and Bit Sketches") for a worked example.
+
+```@docs
+Projections.DistantHyperplanes
+Projections.AnchoredDistantHyperplanes
+Projections.RandomHyperplanes
 ```
 
 ## Spherical embedding for MIPS (`Special.Spherical` submodule)

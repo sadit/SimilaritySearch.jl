@@ -155,7 +155,7 @@ end
     bitsketch(m::AnchoredDistantHyperplanes, X::AbstractDatabase; minbatch::Int=4) -> MatrixDatabase
 
 Encodes `obj` (or every object of `X`) with the hyperplanes of `m`, exactly as
-[`bitsketch(m::DistantHyperplanes, ...)`](@ref) does. Sketches are compared with
+[`bitsketch`](@ref) does for a [`DistantHyperplanes`](@ref). Sketches are compared with
 [`distance`](@ref)`(m)`.
 
 # Arguments
