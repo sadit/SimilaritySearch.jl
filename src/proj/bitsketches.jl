@@ -219,3 +219,37 @@ julia> size(B), eltype(B)  # (2, 1000), UInt64  -- cld(128, 64) == 2 words per s
 """
 bitsketch(hp::HadamardProjection, v::AbstractVector{<:AbstractFloat}) = _bitsketch_apply(hp, v)
 bitsketch(hp::HadamardProjection, X::AbstractMatrix{<:AbstractFloat}; minbatch::Int=4) = _bitsketch_apply(hp, X; minbatch)
+
+"""
+    bitsketch(p::PCAProjection, v::AbstractVector{<:AbstractFloat}) -> Vector{UInt64}
+    bitsketch(p::PCAProjection, X::AbstractMatrix{<:AbstractFloat}; minbatch::Int=4) -> Matrix{UInt64}
+
+Computes a bit sketch the same way as [`bitsketch(R::AbstractMatrix, data)`](@ref), but
+using a fitted [`PCAProjection`](@ref) instead of a random rotation: it encodes the sign of
+each of the `outdim(p)` transformed coordinates into `UInt64`-packed bits (see
+[`packsigns`](@ref)). As with the random-rotation forms, reuse the same `p` to sketch a
+query and the dataset it will be compared against, so their sketches are comparable.
+
+# Arguments
+- `p`: the [`PCAProjection`](@ref) to apply
+- `v`/`X`: the vector, or matrix (one vector per column), to sketch
+- `minbatch`: (matrix method only) minimum number of columns processed while packing sign
+  bits (see [`packsigns`](@ref)); `transform`ing `X` through `p` itself is not batched --
+  see [`transform(p::PCAProjection, X::AbstractMatrix)`](@ref)
+
+# Examples
+
+```julia
+julia> using SimilaritySearch
+
+julia> X = rand(Float32, 128, 1000);
+
+julia> p = SimilaritySearch.Projections.PCAProjection(X, 256);
+
+julia> B = SimilaritySearch.Projections.bitsketch(p, X);
+
+julia> size(B), eltype(B)  # (4, 1000), UInt64  -- cld(256, 64) == 4 words per sketch
+```
+"""
+bitsketch(p::PCAProjection, v::AbstractVector{<:AbstractFloat}) = packsigns(transform(p, v))
+bitsketch(p::PCAProjection, X::AbstractMatrix{<:AbstractFloat}; minbatch::Int=4) = packsigns(transform(p, X); minbatch)

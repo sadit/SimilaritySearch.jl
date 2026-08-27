@@ -64,6 +64,42 @@ using Test, SimilaritySearch, SimilaritySearch.Projections, LinearAlgebra, Rando
         @test outdim(rp_qr) == out_d
     end
 
+    @testset "PCAProjection" begin
+        Xpca = randn(Float32, dim, 2000)
+        out_d = 16
+        p = Projections.PCAProjection(Xpca, out_d)
+        @test indim(p) == dim
+        @test outdim(p) == out_d
+        @test size(p) == (dim, out_d)
+
+        y = transform(p, Xpca[:, 1])
+        @test length(y) == out_d
+        @test eltype(y) == Float32
+
+        y_in = similar(y)
+        transform!(p, y_in, Xpca[:, 1])
+        @test y_in ≈ y
+
+        Y = transform(p, Xpca)
+        @test size(Y) == (out_d, size(Xpca, 2))
+
+        Y_in = similar(Y)
+        transform!(p, Y_in, Xpca)
+        @test Y_in ≈ Y
+
+        for i in 1:10
+            @test Y[:, i] ≈ transform(p, Xpca[:, i])
+        end
+
+        b_vec = bitsketch(p, Xpca[:, 1])
+        @test length(b_vec) == cld(out_d, 64)
+        @test eltype(b_vec) == UInt64
+
+        B_mat = bitsketch(p, Xpca)
+        @test size(B_mat) == (cld(out_d, 64), size(Xpca, 2))
+        @test eltype(B_mat) == UInt64
+    end
+
     @testset "BitSketches" begin
         hp = HadamardProjection(dim)
         b_vec = bitsketch(hp, v)
