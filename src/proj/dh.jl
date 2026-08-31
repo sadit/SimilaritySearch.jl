@@ -136,11 +136,15 @@ function DistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
     resize!(S, henc)
     sort!(S)
     B = BitArray(undef, henc, length(P))
+    objs = [X[S[i]] for i in 1:henc]
 
-    @BATCHES minbatch for i in 1:henc
-        obj = X[S[i]]
-        for j in eachindex(P)
-            B[i, j] = _dh_side(dist, X, P[j], obj)
+    # parallelized over candidates (columns), not sample objects (rows): each column owns a
+    # whole, exclusive set of `BitArray` words (henc is a multiple of 64), so this is
+    # race-free regardless of how @BATCHES chunks the column range -- see issue #57.
+    @BATCHES minbatch for j in eachindex(P)
+        p = P[j]
+        for i in 1:henc
+            B[i, j] = _dh_side(dist, X, p, objs[i])
         end
     end
 
