@@ -131,27 +131,25 @@ function DistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
     henc % 64 == 0 || throw(ArgumentError("henc should be a factor of 64"))
     length(X) > henc || throw(ArgumentError("henc ($henc) should be smaller than |X| ($(length(X)))"))
 
-    P, H = let
-        P = _dh_sample_pairs(length(X), hsel)
-        S = shuffle!(collect(1:length(X)))
-        resize!(S, henc)
-        sort!(S)
-        B = BitArray(undef, henc, length(P))
+    P = _dh_sample_pairs(length(X), hsel)
+    S = shuffle!(collect(1:length(X)))
+    resize!(S, henc)
+    sort!(S)
+    B = BitArray(undef, henc, length(P))
 
-        @BATCHES minbatch for i in 1:henc
-            obj = X[S[i]]
-            for j in eachindex(P)
-                B[i, j] = _dh_side(dist, X, P[j], obj)
-            end
+    @BATCHES minbatch for i in 1:henc
+        obj = X[S[i]]
+        for j in eachindex(P)
+            B[i, j] = _dh_side(dist, X, P[j], obj)
         end
-
-        H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
-        E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
-        P[E], H.matrix[:, E] |> MatrixDatabase
     end
 
-    F = fft(DualHammingDistance(), H, nbits; verbose)
-    DistantHyperplanes(dist, P[F.centers], X)
+    H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
+    E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
+    Psel, Hsel = P[E], H.matrix[:, E] |> MatrixDatabase
+
+    F = fft(DualHammingDistance(), Hsel, nbits; verbose)
+    DistantHyperplanes(dist, Psel[F.centers], X)
 end
 
 """

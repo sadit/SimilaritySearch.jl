@@ -126,28 +126,26 @@ function AnchoredDistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits
 
     a = _adh_resolve_anchor(dist, X, anchor, anchorpolicy)
 
-    P, H = let
-        P = _dh_sample_pairs(length(X), hsel)
-        _adh_orient_pairs!(dist, X, a, P)
-        S = shuffle!(collect(1:length(X)))
-        resize!(S, henc)
-        sort!(S)
-        B = BitArray(undef, henc, length(P))
+    P = _dh_sample_pairs(length(X), hsel)
+    _adh_orient_pairs!(dist, X, a, P)
+    S = shuffle!(collect(1:length(X)))
+    resize!(S, henc)
+    sort!(S)
+    B = BitArray(undef, henc, length(P))
 
-        @BATCHES minbatch for i in 1:henc
-            obj = X[S[i]]
-            for j in eachindex(P)
-                B[i, j] = _dh_side(dist, X, P[j], obj)
-            end
+    @BATCHES minbatch for i in 1:henc
+        obj = X[S[i]]
+        for j in eachindex(P)
+            B[i, j] = _dh_side(dist, X, P[j], obj)
         end
-
-        H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
-        E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
-        P[E], H.matrix[:, E] |> MatrixDatabase
     end
 
-    F = fft(Hamming(), H, nbits; verbose)
-    AnchoredDistantHyperplanes(dist, P[F.centers], X, a)
+    H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
+    E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
+    Psel, Hsel = P[E], H.matrix[:, E] |> MatrixDatabase
+
+    F = fft(Hamming(), Hsel, nbits; verbose)
+    AnchoredDistantHyperplanes(dist, Psel[F.centers], X, a)
 end
 
 """
