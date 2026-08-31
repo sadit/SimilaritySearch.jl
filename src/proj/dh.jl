@@ -4,7 +4,7 @@ export DistantHyperplanes
 
 """
     DistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
-        hsel::Int=nbits*1024, minent::Float64=0.99, henc::Int=2^13,
+        hsel::Int=nbits*1024, entquantile::Float64=0.9, henc::Int=2^13,
         minbatch::Int=4, verbose::Bool=true)
 
 Builds a hyperplane-based binary sketch generator for a generic metric space. A hyperplane
@@ -13,7 +13,13 @@ hyperplane `(i, j)` when `evaluate(dist, obj, X[i]) <= evaluate(dist, obj, X[j])
 
 `hsel` candidate hyperplanes are sampled and characterized by which side a random subsample
 of `henc` objects from `X` falls on; hyperplanes whose resulting bit-vector is not close to
-a fair coin (entropy `< minent`, out of a maximum of `1.0`) are discarded as uninformative.
+a fair coin (entropy, out of a maximum of `1.0`) are discarded as uninformative. The entropy
+cutoff is the `entquantile` quantile of the entropies the candidates actually achieved, i.e.
+the top `1 - entquantile` fraction of candidates (by entropy) survive -- this adapts
+automatically to whatever entropy ceiling the dataset/distance can actually deliver, instead
+of comparing against a fixed absolute bar that could sit above that ceiling and silently
+discard every candidate, producing a useless 0-bit sketch. Only a fully degenerate case --
+every candidate has exactly zero entropy -- raises an error, since no cutoff can rescue it.
 From the survivors, `nbits` hyperplanes are finally kept, chosen to be as mutually diverse
 as possible -- i.e., spread apart in Hamming distance between their characterization
 bit-vectors, up to a global bit-flip (two hyperplanes whose sides happen to be labeled
@@ -32,8 +38,8 @@ sketches it produces are compared with [`distance`](@ref)`(m)` (Hamming distance
 
 # Keyword Arguments
 - `hsel`: number of candidate hyperplanes (pairs of objects) to sample and characterize
-- `minent`: minimum accepted entropy (in `[0, 1]`) of a hyperplane's characterization
-  bit-vector; hyperplanes below this threshold are discarded as uninformative
+- `entquantile`: quantile (in `[0, 1]`) of the candidates' achieved entropies used as the
+  acceptance cutoff (see above)
 - `henc`: sample size used to characterize each candidate hyperplane; must be a multiple
   of 64 and smaller than `length(X)`
 - `minbatch`: minimum number of items processed per parallel task (see `@BATCHES`)
@@ -94,9 +100,27 @@ function _dh_entropy(binvec::AbstractVector{UInt64})
     n = length(binvec) * 64
     c1 = sum(count_ones, binvec)
     c0 = n - c1
+    (c0 == 0 || c1 == 0) && return 0.0  # avoid 0 * log2(0) == NaN
     p0 = c0 / n
     p1 = c1 / n
     -p0 * log2(p0) - p1 * log2(p1)
+end
+
+"""
+    _dh_entropy_threshold(ents::Vector{Float64}, entquantile::Float64, verbose::Bool)
+
+Picks the entropy cutoff used to discard uninformative candidate hyperplanes: the
+`entquantile` quantile of the entropies actually achieved by the candidates (`ents`). This
+adapts automatically to whatever entropy ceiling the dataset/distance can actually deliver
+(see issue #55), instead of comparing against a fixed absolute bar that could silently
+discard every candidate. Throws when every candidate is completely uninformative (entropy
+`0`), since no cutoff can rescue that case.
+"""
+function _dh_entropy_threshold(ents::AbstractVector{Float64}, entquantile::Float64, verbose::Bool)
+    maximum(ents) > 0 || throw(ArgumentError("none of the $(length(ents)) candidate hyperplanes carry any information (all have zero characterization entropy); cannot build a sketch for this dataset/distance"))
+    thresh = quantile(ents, entquantile)
+    verbose && @info "hyperplane characterization: entropy threshold=$(round(thresh; digits=4)) (entquantile=$entquantile), mean entropy=$(round(mean(ents); digits=4)), max entropy=$(round(maximum(ents); digits=4))"
+    thresh
 end
 
 """
@@ -122,7 +146,7 @@ end
 
 function DistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
         hsel::Int=nbits * 1024,     # number of candidate hyperplanes to evaluate
-        minent::Float64=0.99,       # minimum accepted entropy per hyperplane
+        entquantile::Float64=0.9,   # quantile of achieved entropy used as acceptance cutoff
         henc::Int=2^13,             # characterizes hyperplanes with this many objects
         minbatch::Int=4,
         verbose::Bool=true)
@@ -149,7 +173,9 @@ function DistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
     end
 
     H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
-    E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
+    ents = [_dh_entropy(H[i]) for i in eachindex(H)]
+    thresh = _dh_entropy_threshold(ents, entquantile, verbose)
+    E = ents .>= thresh
     Psel, Hsel = P[E], H.matrix[:, E] |> MatrixDatabase
 
     F = fft(DualHammingDistance(), Hsel, nbits; verbose)

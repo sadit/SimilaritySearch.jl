@@ -5,7 +5,7 @@ export AnchoredDistantHyperplanes
 """
     AnchoredDistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits::Int;
         anchor=nothing, anchorpolicy::Symbol=:random,
-        hsel::Int=nbits*1024, minent::Float64=0.99, henc::Int=2^13,
+        hsel::Int=nbits*1024, entquantile::Float64=0.9, henc::Int=2^13,
         minbatch::Int=4, verbose::Bool=true)
 
 A variant of [`DistantHyperplanes`](@ref) that avoids the flip ambiguity of hyperplanes
@@ -49,8 +49,10 @@ sketches are compared with [`distance`](@ref)`(m)`.
   `nothing` (default) computes one automatically, per `anchorpolicy`
 - `anchorpolicy`: `:random` or `:extremal` (see above); only used when `anchor === nothing`
 - `hsel`: number of candidate hyperplanes (pairs of objects) to sample and characterize
-- `minent`: minimum accepted entropy (in `[0, 1]`) of a hyperplane's characterization
-  bit-vector; hyperplanes below this threshold are discarded as uninformative
+- `entquantile`: quantile (in `[0, 1]`) of the candidates' achieved entropies used as the
+  acceptance cutoff -- adapts automatically to whatever entropy ceiling the
+  dataset/distance can actually deliver, instead of comparing against a fixed absolute bar
+  that could silently discard every candidate (see [`DistantHyperplanes`](@ref) and issue #55)
 - `henc`: sample size used to characterize each candidate hyperplane; must be a multiple
   of 64 and smaller than `length(X)`
 - `minbatch`: minimum number of items processed per parallel task (see `@BATCHES`)
@@ -115,7 +117,7 @@ function AnchoredDistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits
         anchor=nothing,
         anchorpolicy::Symbol=:random,
         hsel::Int=nbits * 1024,
-        minent::Float64=0.99,
+        entquantile::Float64=0.9,
         henc::Int=2^13,
         minbatch::Int=4,
         verbose::Bool=true)
@@ -145,7 +147,9 @@ function AnchoredDistantHyperplanes(dist::SemiMetric, X::AbstractDatabase, nbits
     end
 
     H = reshape(B.chunks, (henc ÷ 64, length(P))) |> MatrixDatabase
-    E = [_dh_entropy(H[i]) >= minent for i in eachindex(H)]
+    ents = [_dh_entropy(H[i]) for i in eachindex(H)]
+    thresh = _dh_entropy_threshold(ents, entquantile, verbose)
+    E = ents .>= thresh
     Psel, Hsel = P[E], H.matrix[:, E] |> MatrixDatabase
 
     F = fft(Hamming(), Hsel, nbits; verbose)
