@@ -101,7 +101,13 @@ neighborhood = Neighborhood(filter=IdentityNeighborhood())
 """
 struct IdentityNeighborhood <: NeighborhoodFilter end
 
-neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output) = res
+function neighborhoodfilter(::IdentityNeighborhood, ::SearchGraph, ctx::SearchGraphContext, item, res, output)
+    for i in 1:length(res)
+        push_item!(output, res[i])
+    end
+
+    output
+end
 
 """
     SatNeighborhood()

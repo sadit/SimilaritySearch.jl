@@ -226,3 +226,26 @@ end
         end
     end
 end
+
+@testset "IdentityNeighborhood passes candidates through instead of producing empty neighborhoods" begin
+    # Regression test for issue #58: `neighborhoodfilter(::IdentityNeighborhood, ...)` used to
+    # return its result instead of writing into `output`, and `find_neighborhood!` only ever
+    # reads `output` -- so every node silently ended up with zero neighbors. Nothing in the
+    # suite exercised this filter, which is why it went unnoticed.
+    dim, n, m, ksearch = 8, 2_000, 30, 8
+    dist = Dist.SqL2()
+    db = MatrixDatabase(rand(Float32, dim, n))
+    queries = MatrixDatabase(rand(Float32, dim, m))
+
+    graph = SearchGraph(dist, db)
+    ctx = SearchGraphContext(neighborhood=Neighborhood(filter=IdentityNeighborhood()), verbose=false)
+    index!(graph, ctx)
+
+    @test all(>(0), neighbors_length.(Ref(graph.adj), 1:length(graph)))
+
+    seq = ExhaustiveSearch(dist, db)
+    ectx = GenericContext()
+    gold_ids, _ = searchbatch(seq, ectx, queries, ksearch)
+    knns_ids, _ = searchbatch(graph, ctx, queries, ksearch)
+    @test macrorecall(gold_ids, knns_ids) >= 0.8
+end
