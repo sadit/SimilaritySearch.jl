@@ -111,12 +111,14 @@ end
     transform(hp::HadamardProjection, X::AbstractMatrix; minbatch::Int=4)
 
 Projects every column (vector) of `X` using `hp`, returning a new matrix of the same
-size as `X`. Columns are projected in parallel using `@BATCHES`.
+size as `X`. Computed as a single Walsh-Hadamard transform batched over every column
+at once (see [`transform!`](@ref)), not as a per-column loop.
 
 # Arguments
 - `hp`: the projection to apply
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(hp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `@BATCHES`)
+- `minbatch`: accepted for interface symmetry with other `transform` methods, but unused
+  (see [`transform!`](@ref))
 
 # Examples
 
@@ -144,20 +146,29 @@ end
 In-place version of `transform(hp, X)`: projects every column of `X` using `hp` and
 stores the result in `O`, which must have the same size as `X`. Returns `O`.
 
+Applies a single Walsh-Hadamard transform to the whole matrix at once (`Hadamard`'s FFTW
+plan is built with the `n` columns as a "howmany" batch dimension, along the lines of
+[`Hadamard.fwht_natural!`](https://github.com/stevengj/Hadamard.jl)'s `region` argument),
+rather than looping `n` times over one column each -- looping would rebuild an FFTW plan
+under FFTW's global planning lock on every single column, which is both unamortized (paying
+full plan-construction overhead per vector instead of once for the batch) and unparallelizable
+(every thread serializes on that lock); see issue #54.
+
 # Arguments
 - `hp`: the projection to apply
 - `O`: the output matrix where the projected vectors are stored
 - `X`: a matrix whose columns are the vectors to project, each of length `indim(hp)`
-- `minbatch`: minimum number of columns processed per parallel task (see `@BATCHES`)
+- `minbatch`: accepted for interface symmetry with other `transform!` methods (e.g.
+  [`RandomProjections`](@ref)), but unused: a single batched FWHT call already processes
+  every column without needing to be split across tasks
 """
 function transform!(hp::HadamardProjection, O::AbstractMatrix, X::AbstractMatrix; minbatch::Int=4)
-    n = size(X, 2)
+    size(X, 1) == indim(hp) || throw(DimensionMismatch("HadamardProjection.transform!: size(X,1)=$(size(X,1)) must equal indim(hp)=$(indim(hp))"))
+    size(O) == size(X) || throw(DimensionMismatch("HadamardProjection.transform!: size(O)=$(size(O)) must equal size(X)=$(size(X))"))
 
-    @BATCHES minbatch for i in 1:n
-        o = view(O, :, i)
-        x = view(X, :, i)
-        transform!(hp, o, x)
+    if O !== X
+        copyto!(O, X)
     end
-
+    fwht_natural!(O, (1,))
     O
 end
