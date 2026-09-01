@@ -249,3 +249,27 @@ end
     knns_ids, _ = searchbatch(graph, ctx, queries, ksearch)
     @test macrorecall(gold_ids, knns_ids) >= 0.8
 end
+
+@testset "rebuild resets a tiny inherited maxvisits instead of inheriting it" begin
+    # Regression test for issue #59: rebuild's own neighbor search (and the auto-tuning
+    # execute_callbacks! triggers afterward, which is itself anchored to whatever algo[] it's
+    # handed) used to inherit g.algo[] verbatim. A `maxvisits` tuned down for a smaller/partial
+    # graph or a different, cheap proxy distance would then silently cap every node's
+    # rebuild-time search, baking a permanently degraded topology into the result. `bsize`/`Δ`
+    # (the fields optimize_index! actually explores) should still carry over; only `maxvisits`
+    # gets reset.
+    dim, n = 8, 500
+    dist = Dist.SqL2()
+    db = MatrixDatabase(rand(Float32, dim, n))
+
+    graph = SearchGraph(dist, db)
+    index!(graph, SearchGraphContext(verbose=false))
+    graph.algo[] = BeamSearch(; bsize=graph.algo[].bsize, Δ=graph.algo[].Δ, maxvisits=1)
+
+    G = rebuild(graph, SearchGraphContext(hyperparameters_callback=nothing); progress=nothing)
+
+    @test G.algo[].maxvisits == BeamSearch().maxvisits
+    @test G.algo[].bsize == graph.algo[].bsize
+    @test G.algo[].Δ == graph.algo[].Δ
+    @test graph.algo[].maxvisits == 1  # rebuild must not mutate its input
+end
