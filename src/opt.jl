@@ -3,7 +3,7 @@
 using SearchModels, Random
 using StatsBase
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius
+export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius, MaxMatchError
 
 """
     abstract type ErrorFunction end
@@ -11,7 +11,7 @@ export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, 
 Abstract type for the optimization goals (`kind` argument) accepted by [`optimize_index!`](@ref).
 It determines how candidate hyperparameter configurations are scored/compared while
 autotuning the index. Concrete subtypes are [`MinRecall`](@ref), [`OptRadius`](@ref),
-[`ParetoRecall`](@ref), and [`ParetoRadius`](@ref).
+[`ParetoRecall`](@ref), [`ParetoRadius`](@ref), and [`MaxMatchError`](@ref).
 """
 abstract type ErrorFunction end
 
@@ -70,6 +70,90 @@ radius, without relying on a computed gold standard.
 """
 struct ParetoRadius <: ErrorFunction end
 
+"""
+    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0) <: ErrorFunction
+
+Optimization goal that favors the fastest configuration among those whose *MatchError* stays
+at or below `maxerror`. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
+as sets), MatchError compares the *distances* of the returned neighbors against the distances
+of the true neighbors at the same rank, so a substitute neighbor tied in distance with the gold
+one scores as a perfect match even if its identifier differs (relevant e.g. under `Hamming`,
+where many candidates share the same integer distance).
+
+For a query `q`, with `k' = min(k, |gold|)`, gold distances `d*_1 <= ... <= d*_k'` and the
+`r` distances actually returned `d_1 <= ... <= d_r` (both ascending):
+
+```
+δ_i = max(0, d_i - d*_i) / ρ(q)     for i <= r
+δ_i = η                             for i > r   (missing position, penalized)
+ρ(q) = d*_k' - min(d*_1, d_1) + ε
+matcherror(q) = mean(δ_i .^ p for i in 1:k')
+```
+
+`ρ(q)` is the *spread* of the gold neighborhood (not just its outer radius), so `maxerror`
+reads as a fraction of that spread regardless of how dense or sparse this particular query's
+neighborhood is — e.g. `maxerror=0.1` means "on average, within 10% of the neighborhood's own
+spread beyond where results should be". `0` is a perfect match; the error is unbounded above
+(no artificial cap), so a badly-off result keeps registering as worse than a mildly-off one.
+
+`min(d*_1, d_1)` in `ρ(q)` is a deliberate robustness choice: a returned distance below the
+gold's own minimum is impossible in theory under a consistent distance function, and in
+practice is usually floating-point noise between the exhaustive (gold) pass and the evaluated
+index — rather than failing on it (which floating-point noise would trigger often), the range
+just absorbs it. A `d_1` far enough below `d*_1` to not be explained by floating-point noise
+is instead a sign of a real bug (e.g. a distance function inconsistent with the one used for
+the gold standard); this is not currently asserted/validated, only documented here.
+
+Degenerate case: with `k=1` (or a gold neighborhood with all distances tied), `ρ(q)` collapses
+to `≈ε` and `matcherror` becomes extremely sensitive to tiny distance differences — expect noisy
+optimization at very small `k`.
+
+# Keyword Arguments
+- `maxerror`: MatchError threshold (0 is perfect, unbounded above) required to be considered
+  as fast as possible.
+- `p`: aggregation exponent, `1` for a linear (MAE-like) error, `2` for a quadratic (MSD-like)
+  error that suppresses small per-position deviations and amplifies large ones (including
+  missing positions, already at `δ_i=η`).
+- `η`: penalty assigned to a missing position (the algorithm returned fewer than `k'` items).
+
+# Examples
+
+```julia
+optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
+```
+"""
+@kwdef struct MaxMatchError <: ErrorFunction
+    maxerror::Float32 = 0.1f0
+    p::Float32 = 1f0
+    η::Float32 = 1f0
+end
+
+"""
+    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real)::Float64
+
+Per-query MatchError (see [`MaxMatchError`](@ref)): compares the distances actually returned in
+`res` against the exact gold distances `golddist` (both compared in ascending rank order),
+penalizing missing positions with `η`. Internal function used by [`create_error_function`](@ref).
+"""
+function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real)::Float64
+    kp = length(golddist)
+    kp == 0 && return 0.0
+
+    sortitems!(res)
+    r = length(res)
+    dv = DistView(res)
+    dmin = r > 0 ? min(golddist[1], dv[1]) : golddist[1]
+    ρ = golddist[kp] - dmin + eps(Float32)
+
+    s = 0.0
+    @inbounds for i in 1:kp
+        δ = i <= r ? max(0f0, dv[i] - golddist[i]) / ρ : η
+        s += δ^p
+    end
+
+    s / kp
+end
+
 
 function setconfig! end
 
@@ -95,13 +179,15 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
 end
 
 """
-    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
+    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p=1f0, η=1f0)
 
 Builds and returns a performance-evaluation closure that runs `queries` against `index` under
 a candidate configuration and reports its cost (visited nodes), radius, recall (against
-`gold`, if given) and search time. Internal function used by [`optimize_index!`](@ref).
+`gold`, if given), MatchError (against `golddists`, if given — see [`MaxMatchError`](@ref),
+`p`/`η` are its aggregation exponent and missing-position penalty) and search time. Internal
+function used by [`optimize_index!`](@ref).
 """
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, knns, queries)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p::Float32=1f0, η::Float32=1f0)
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
@@ -138,7 +224,17 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             nothing
         end
 
-        if recall < 0.3
+        match = if golddists !== nothing
+            s = 0.0
+            for (i, r) in enumerate(knns)
+                s += matcherror(golddists[i], r, p, η)
+            end
+            s / m
+        else
+            nothing
+        end
+
+        if recall !== nothing && recall < 0.3
             @warn "OPT low recall> recall: $recall, #objects: $(length(index)), #queries: $(length(queries)), cov: $cov"
             #=for (g, r) in zip(gold, R)
                 @show g, r
@@ -156,8 +252,8 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         end
 
         visited = distance_stats(ctx, before)
-        verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, length: $(length(index)), radius: $radius, visited: $visited"
-        (; visited, radius, recall, searchtime, conf)
+        verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, match: $match, length: $(length(index)), radius: $radius, visited: $visited"
+        (; visited, radius, recall, match, searchtime, conf)
     end
 end
 
@@ -188,7 +284,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Arguments
 - `index`: the index to be optimized
 - `ctx`: index ctx (caches and general hyperparameters)
-- `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()` or `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time)
+- `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()`, `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time), or `MaxMatchError(; maxerror)` (a smoother, distance-based alternative to `MinRecall`, see [`MaxMatchError`](@ref))
 
 # Keyword arguments
 
@@ -247,11 +343,23 @@ function optimize_index!(
     knns_dists = zeros(Float32, ksearch, length(queries))
     knns = [knnqueue(ctx, view(knns_ids, :, i), view(knns_dists, :, i)) for i in 1:length(queries)]
     gold = nothing
-    if kind isa ParetoRecall || kind isa MinRecall
+    golddists = nothing
+    if kind isa ParetoRecall || kind isa MinRecall || kind isa MaxMatchError
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, ctx, queries, knns)
         gold = [idset(c) for c in knns]
+        if kind isa MaxMatchError
+            # `knns` is about to be reused (overwritten) by every candidate evaluated in
+            # `create_error_function`, so the gold distances must be copied out now.
+            # `sortitems!` mutates `c` in place (a no-op for `KnnSorted`, a real sort for
+            # `KnnHeap`) and returns an `IdDistView`, not `c` itself -- read `DistView(c)`
+            # from `c` afterwards, not from what `sortitems!` returns.
+            golddists = map(knns) do c
+                sortitems!(c)
+                collect(DistView(c))
+            end
+        end
     end
 
     M = Ref(0.0) # max cost
@@ -265,7 +373,11 @@ function optimize_index!(
         end
     end
 
-    getperformance = create_error_function(index, ctx, gold, knns, queries)
+    getperformance = if kind isa MaxMatchError
+        create_error_function(index, ctx, gold, golddists, knns, queries; p=kind.p, η=kind.η)
+    else
+        create_error_function(index, ctx, gold, golddists, knns, queries)
+    end
 
     function getcost(p)
         p = last(p)
@@ -278,6 +390,8 @@ function optimize_index!(
             #p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
             #p.recall < kind.minrecall ? 2f0 - p.recall : cost
             p.recall < kind.minrecall ? 1 + max(kind.minrecall - p.recall, 0) : cost
+        elseif kind isa MaxMatchError
+            p.match > kind.maxerror ? 1 + max(p.match - kind.maxerror, 0) : cost
         elseif kind isa OptRadius
             r = p.radius.mean / R[]
             round(r / kind.tol, digits=0)
