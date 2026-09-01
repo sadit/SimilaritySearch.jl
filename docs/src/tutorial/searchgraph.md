@@ -101,6 +101,8 @@ optimize_index!(G, ctx, MinRecall(0.9))   # Optimize parameters to achieve ≥ 9
 !!! tip "Evaluation Best Practice: Held-Out Queries"
     To avoid statistical overfitting during parameter optimization, provide a separate, held-out query set via the `queries` keyword of `optimize_index!` rather than evaluating on the training data.
 
+[`MinRecall`](@ref) is not the only quality target: see [`MaxMatchError`: A Distance-Based Alternative to `MinRecall`](matcherror.md) for a tie-tolerant alternative that suits discretized/quantized spaces (e.g. bit sketches) better.
+
 ---
 
 ## Incremental Graph Growth

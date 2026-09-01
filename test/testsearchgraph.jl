@@ -292,3 +292,35 @@ end
     @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 0f0) > 100      # old behavior: blows up
     @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 1f-2) < 1       # fixed: bounded, sane
 end
+
+@testset "index!(...; :bitsketch)" begin
+    dim, n, m, ksearch = 64, 2_000, 30, 8
+    dist = Dist.SqL2()
+    db = MatrixDatabase(randn(Float32, dim, n))
+    queries = MatrixDatabase(randn(Float32, dim, m))
+    ctx = SearchGraphContext(verbose=false)
+
+    graph = SearchGraph(dist, db)
+    index!(graph, ctx, :bitsketch)
+    @test length(graph) == n
+    @test all(>(0), neighbors_length.(Ref(graph.adj), 1:n))
+    # algo[] must stay untouched (issue #59's bug: carrying over the sketch-space-tuned
+    # BeamSearch would miscalibrate every later search/optimize call against the real dist).
+    @test graph.algo[] == BeamSearch()
+
+    optimize_index!(graph, ctx, MinRecall(0.9))
+    seq = ExhaustiveSearch(dist, db)
+    ectx = GenericContext()
+    gold_ids, _ = searchbatch(seq, ectx, queries, ksearch)
+    knns_ids, _ = searchbatch(graph, ctx, queries, ksearch)
+    @test macrorecall(gold_ids, knns_ids) >= 0.7
+
+    # :qr requires nbits <= dim (an orthogonal rotation can't grow dimensionality)
+    graph_qr = SearchGraph(dist, db)
+    index!(graph_qr, ctx, :bitsketch; method=:qr, nbits=64)
+    @test length(graph_qr) == n
+
+    @test_throws ArgumentError index!(SearchGraph(dist, db), ctx, :bitsketch; nbits=100)  # not a multiple of 64
+    @test_throws ArgumentError index!(graph, ctx, :bitsketch)  # graph is no longer empty
+    @test_throws ArgumentError index!(SearchGraph(dist, VectorDatabase([rand(Float32, dim) for _ in 1:n])), ctx, :bitsketch)  # not a MatrixDatabase
+end

@@ -227,3 +227,117 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:knr};
     knr_ids, knr_dists = searchbatch(seq, ectx, db, k) # size (k, n)
     index!(idx, ctx, kind, knr_ids, knr_dists; n_neighbors, hints_size, start_factor)
 end
+
+"""
+    index!(idx::SearchGraph, ctx::SearchGraphContext, kind::Val{:bitsketch};
+        method::Symbol=:gaussian,
+        nbits::Int=256,
+        kind::ErrorFunction=MaxMatchError(; maxerror=0.01f0),
+        logbase::Float32=1.3f0,
+        parallel_block::Int=2^13
+    )
+
+Fast non-incremental construction of a `SearchGraph` via a cheap proxy space: `database(idx)`
+is sketched into an `nbits`-bit sign sketch (`method`, see
+[`SimilaritySearch.Projections.bitsketch`](@ref)), a topology is built over that sketch under
+[`Dist.Bits.Hamming`](@ref) using the normal incremental [`index!`](@ref) (tuned towards
+`kind`), and that topology (adjacency + hints -- *not* the sketch-space-tuned `BeamSearch`,
+see below) is copied into `idx`, which keeps its own real `distance(idx)`/`database(idx)` for
+serving.
+
+This grew out of a long investigation (issue #52) into `:knr`'s hierarchical-clustering
+construction, which turned out to (a) scale badly on real, high-dimensional embeddings (its
+own construction cost, not just the resulting recall) and (b) need a [`rebuild`](@ref) pass
+afterward to fix its hub-heavy degree distribution -- one whose own quality turned out to
+depend entirely on `algo[]`'s carried-over `maxvisits` (issue #59, now fixed) and whose net
+effect on recall was inconsistent and hard to predict. Sketching into a proper bit-sketch
+(not just a handful of reference ids, `:knr`'s approach) and building the topology via the
+already-well-tested incremental `index!` sidesteps both problems: no combinatorial clustering
+algorithm to scale badly, and -- per repeated measurement against a real ~600k-row embedding
+slice, confirmed at `n=100_000` and `n=200_000` with a fixed seed -- no `rebuild` pass needed
+to reach a competitive recall/QpS trade-off against an equal-effort incremental build.
+
+!!! warning "`method=:gaussian`/`:qr` only work for vector-represented databases"
+    The default rotation-based sketch methods (`:gaussian`, `:qr`) require `database(idx)` to
+    be matrix-like (a [`MatrixDatabase`](@ref)): they compute a random rotation of the raw
+    coordinate vectors and keep the sign of each resulting coordinate, which is only
+    meaningful when the objects actually *are* vectors in a Euclidean-ish space. A metric
+    space without a vector representation (edit distance over strings, an arbitrary user type
+    compared through a custom [`SemiMetric`](@ref), ...) cannot use `:gaussian`/`:qr`; a
+    hyperplane-based sketch such as [`AnchoredDistantHyperplanes`](@ref) (which only needs
+    `dist`/`evaluate`, no vector coordinates) is the right tool there instead -- but it is not
+    yet wired into `:bitsketch` as a `method` option.
+
+!!! note "Only accepts an empty `idx`, and doesn't (yet) support incremental growth"
+    Like `:knr`, this only accepts an `idx` with `length(idx) == 0` (`database(idx)` must
+    already hold the whole dataset to sketch, but no vertex may exist in the graph yet), and
+    rebuilds the whole topology from scratch every call -- there is no way to grow an
+    existing `:bitsketch`-built graph by inserting new items afterward. A proper two-stage
+    index design that supports incremental insertion on top of a fast bootstrap phase like
+    this one is tracked as a separate feature request (issue #60); for a workload that needs
+    online insertion today, use the normal incremental `index!(idx, ctx)` instead.
+
+`idx.algo[]` is deliberately left untouched (never overwritten with the sketch-space-tuned
+`BeamSearch`): its `bsize`/`Δ`/`maxvisits` were tuned for Hamming distance's very different
+scale, and carrying that over would silently miscalibrate every later search/optimize call
+against `idx`'s real distance (the exact bug fixed in issue #59, there for [`rebuild`](@ref)).
+Call [`optimize_index!`](@ref) once `idx` is populated, same as after any other construction
+method.
+
+If, after tuning, the resulting recall/QpS trade-off isn't good enough, a further
+[`rebuild`](@ref) pass against the real `distance(idx)`/`database(idx)` is worth trying --
+it is not required or applied automatically here, since in repeated measurement it did not
+reliably improve on the plain sketch-built topology (see issue #52).
+
+# Keyword Arguments
+- `method`: the bit-sketch generator, `:gaussian` (default) or `:qr` -- see
+  [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning above.
+- `nbits`: sketch width in bits, must be a multiple of 64 (default `256`, i.e. 4 `UInt64`
+  words). A wider sketch costs more memory/compute per comparison but tends to improve
+  recall; see issue #52 for measurements across 64-1536 bits on real embeddings.
+- `kind`: the [`ErrorFunction`](@ref) `OptimizeParameters`/[`optimize_index!`](@ref) tunes the
+  sketch-space construction towards (default `MaxMatchError(; maxerror=0.01f0)`, calibrated
+  to roughly match `MinRecall(0.9)`'s achieved quality on real embeddings while building
+  noticeably faster and far more consistently run-to-run -- see issue #52's measurements).
+  Pass `MinRecall(...)` to use the more familiar identifier-set-based criterion instead.
+- `logbase`: log base for the sketch-space `Neighborhood`'s size growth, see [`Neighborhood`](@ref).
+- `parallel_block`: forwarded as the sketch-space construction's own `parallel_block`
+  (size of the batch processed in parallel at a time), see [`SearchGraphContext`](@ref).
+"""
+function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
+    method::Symbol=:gaussian,
+    nbits::Int=256,
+    kind::ErrorFunction=MaxMatchError(; maxerror=0.01f0),
+    logbase::Float32=1.3f0,
+    parallel_block::Int=2^13
+)
+    length(idx) == 0 || throw(ArgumentError("index!(...; :bitsketch): this construction method accepts only not-previously-created indexes"))
+    nbits % 64 == 0 || throw(ArgumentError("index!(...; :bitsketch): nbits=$nbits must be a multiple of 64"))
+
+    db = database(idx)
+    n = length(db)
+    n > 0 || throw(ArgumentError("index!(...; :bitsketch): database(idx) is empty"))
+    db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs a hyperplane-based sketch (e.g. AnchoredDistantHyperplanes) instead of :gaussian/:qr -- not yet wired into :bitsketch"))
+
+    B, _ = Projections.bitsketch(method, nbits, db.matrix)
+    sketch_graph = SearchGraph(Dist.Bits.Hamming(), MatrixDatabase(B))
+    sketch_ctx = SearchGraphContext(
+        neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
+        hyperparameters_callback=OptimizeParameters(kind),
+        parallel_block=parallel_block,
+        reporters=ctx.reporters,
+        verbose=verbose(ctx)
+    )
+    index!(sketch_graph, sketch_ctx)
+
+    resize!(idx.adj, n)
+    for i in 1:n
+        add!(idx.adj, i, collect(neighbors(sketch_graph.adj, i)))
+    end
+    empty!(idx.hints)
+    append!(idx.hints, sketch_graph.hints)
+    idx.len[] = n
+
+    verbose(ctx) && @inform ctx "bitsketch> built $nbits-bit ($method) sketch topology, hints: $(length(idx.hints))"
+    idx
+end
