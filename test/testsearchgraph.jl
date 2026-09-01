@@ -273,3 +273,22 @@ end
     @test G.algo[].Δ == graph.algo[].Δ
     @test graph.algo[].maxvisits == 1  # rebuild must not mutate its input
 end
+
+@testset "MaxMatchError doesn't blow up on degenerate (zero-spread) gold neighborhoods" begin
+    # Regression test: matcherror's ρ(q) used to add only eps(Float32) as a floor over the
+    # gold neighborhood's own spread, so a fully degenerate query (its k gold neighbors all
+    # tied at the same distance -- routine with duplicate points, or near-duplicate items on
+    # real data) made ρ(q) collapse to ≈eps(Float32); dividing by that inflated an ordinary,
+    # non-buggy distance mismatch (here: 0.001, well within normal floating-point/approximate-
+    # search noise) by a factor of ~10^6-10^7, letting a single such query dominate a whole
+    # batch's mean MatchError. `minspread` now floors ρ(q) at something meaningful instead.
+    ctx = GenericContext()
+    res = knnqueue(ctx, 3)
+    push_item!(res, 1, 1.001f0)
+    push_item!(res, 2, 1.001f0)
+    push_item!(res, 3, 1.001f0)
+    golddist = Float32[1.0, 1.0, 1.0]  # fully tied -- true spread is exactly 0
+
+    @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 0f0) > 100      # old behavior: blows up
+    @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 1f-2) < 1       # fixed: bounded, sane
+end

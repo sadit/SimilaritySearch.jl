@@ -71,7 +71,7 @@ radius, without relying on a computed gold standard.
 struct ParetoRadius <: ErrorFunction end
 
 """
-    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0) <: ErrorFunction
+    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2) <: ErrorFunction
 
 Optimization goal that favors the fastest configuration among those whose *MatchError* stays
 at or below `maxerror`. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
@@ -86,7 +86,7 @@ For a query `q`, with `k' = min(k, |gold|)`, gold distances `d*_1 <= ... <= d*_k
 ```
 δ_i = max(0, d_i - d*_i) / ρ(q)     for i <= r
 δ_i = η                             for i > r   (missing position, penalized)
-ρ(q) = d*_k' - min(d*_1, d_1) + ε
+ρ(q) = d*_k' - min(d*_1, d_1) + minspread + ε
 matcherror(q) = mean(δ_i .^ p for i in 1:k')
 ```
 
@@ -104,9 +104,16 @@ just absorbs it. A `d_1` far enough below `d*_1` to not be explained by floating
 is instead a sign of a real bug (e.g. a distance function inconsistent with the one used for
 the gold standard); this is not currently asserted/validated, only documented here.
 
-Degenerate case: with `k=1` (or a gold neighborhood with all distances tied), `ρ(q)` collapses
-to `≈ε` and `matcherror` becomes extremely sensitive to tiny distance differences — expect noisy
-optimization at very small `k`.
+`minspread` guards against a genuinely degenerate query: with `k=1`, or whenever the gold
+neighborhood's `k'` distances are all tied (routine on real data with near-duplicate/
+syndicated items -- e.g. ~2% of queries on a real ccnews slice), the *true* spread
+`d*_k' - min(d*_1, d_1)` is exactly `0`, and without a real floor `ρ(q)` collapses to `≈ε`
+(machine epsilon) -- dividing by that inflates any ordinary, non-buggy distance mismatch by a
+factor of `~10^6-10^7`, so a single such query can swamp a whole batch's mean error. `minspread`
+should be picked relative to the typical scale of the distance function in use (e.g. `1f-2` is
+reasonable for a `[0, 2]`-ranged cosine-family distance, but Hamming over `nbits` codes wants
+something more like `1f0`, one bit); the default is not universally correct, tune it to your
+distance.
 
 # Keyword Arguments
 - `maxerror`: MatchError threshold (0 is perfect, unbounded above) required to be considered
@@ -115,6 +122,8 @@ optimization at very small `k`.
   error that suppresses small per-position deviations and amplifies large ones (including
   missing positions, already at `δ_i=η`).
 - `η`: penalty assigned to a missing position (the algorithm returned fewer than `k'` items).
+- `minspread`: absolute floor added to the gold neighborhood's spread `ρ(q)`, so a fully
+  degenerate (zero-spread) query doesn't blow up the aggregate error; see above.
 
 # Examples
 
@@ -126,16 +135,20 @@ optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
     maxerror::Float32 = 0.1f0
     p::Float32 = 1f0
     η::Float32 = 1f0
+    minspread::Float32 = 1f-2
 end
 
 """
-    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real)::Float64
+    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
 
 Per-query MatchError (see [`MaxMatchError`](@ref)): compares the distances actually returned in
 `res` against the exact gold distances `golddist` (both compared in ascending rank order),
-penalizing missing positions with `η`. Internal function used by [`create_error_function`](@ref).
+penalizing missing positions with `η`. `minspread` is the absolute floor added to the gold
+neighborhood's spread before normalizing by it, guarding against a degenerate (all-tied) gold
+neighborhood -- see [`MaxMatchError`](@ref). Internal function used by
+[`create_error_function`](@ref).
 """
-function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real)::Float64
+function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
     kp = length(golddist)
     kp == 0 && return 0.0
 
@@ -143,7 +156,7 @@ function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p:
     r = length(res)
     dv = DistView(res)
     dmin = r > 0 ? min(golddist[1], dv[1]) : golddist[1]
-    ρ = golddist[kp] - dmin + eps(Float32)
+    ρ = golddist[kp] - dmin + minspread + eps(Float32)
 
     s = 0.0
     @inbounds for i in 1:kp
@@ -179,15 +192,15 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
 end
 
 """
-    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p=1f0, η=1f0)
+    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p=1f0, η=1f0, minspread=1f-2)
 
 Builds and returns a performance-evaluation closure that runs `queries` against `index` under
 a candidate configuration and reports its cost (visited nodes), radius, recall (against
 `gold`, if given), MatchError (against `golddists`, if given — see [`MaxMatchError`](@ref),
-`p`/`η` are its aggregation exponent and missing-position penalty) and search time. Internal
-function used by [`optimize_index!`](@ref).
+`p`/`η`/`minspread` are its aggregation exponent, missing-position penalty, and degenerate-query
+spread floor) and search time. Internal function used by [`optimize_index!`](@ref).
 """
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p::Float32=1f0, η::Float32=1f0)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p::Float32=1f0, η::Float32=1f0, minspread::Float32=1f-2)
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
@@ -227,7 +240,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         match = if golddists !== nothing
             s = 0.0
             for (i, r) in enumerate(knns)
-                s += matcherror(golddists[i], r, p, η)
+                s += matcherror(golddists[i], r, p, η, minspread)
             end
             s / m
         else
@@ -374,7 +387,7 @@ function optimize_index!(
     end
 
     getperformance = if kind isa MaxMatchError
-        create_error_function(index, ctx, gold, golddists, knns, queries; p=kind.p, η=kind.η)
+        create_error_function(index, ctx, gold, golddists, knns, queries; p=kind.p, η=kind.η, minspread=kind.minspread)
     else
         create_error_function(index, ctx, gold, golddists, knns, queries)
     end
