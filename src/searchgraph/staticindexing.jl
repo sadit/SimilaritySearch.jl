@@ -258,15 +258,16 @@ slice, confirmed at `n=100_000` and `n=200_000` with a fixed seed -- no `rebuild
 to reach a competitive recall/QpS trade-off against an equal-effort incremental build.
 
 !!! warning "`method=:gaussian`/`:qr` only work for vector-represented databases"
-    The default rotation-based sketch methods (`:gaussian`, `:qr`) require `database(idx)` to
+    The rotation-based sketch methods (`:gaussian`, `:qr`) require `database(idx)` to
     be matrix-like (a [`MatrixDatabase`](@ref)): they compute a random rotation of the raw
     coordinate vectors and keep the sign of each resulting coordinate, which is only
     meaningful when the objects actually *are* vectors in a Euclidean-ish space. A metric
     space without a vector representation (edit distance over strings, an arbitrary user type
-    compared through a custom [`SemiMetric`](@ref), ...) cannot use `:gaussian`/`:qr`; a
-    hyperplane-based sketch such as [`AnchoredDistantHyperplanes`](@ref) (which only needs
-    `dist`/`evaluate`, no vector coordinates) is the right tool there instead -- but it is not
-    yet wired into `:bitsketch` as a `method` option.
+    compared through a custom [`SemiMetric`](@ref), ...) cannot use `:gaussian`/`:qr`; use
+    `method=:adh` instead -- [`AnchoredDistantHyperplanes`](@ref) only needs `dist`/`evaluate`,
+    no vector coordinates, at the cost of a slower sketch-construction pass (it samples and
+    characterizes candidate hyperplanes against `distance(idx)` up front, rather than a single
+    matrix rotation).
 
 !!! note "Only accepts an empty `idx`, and doesn't (yet) support incremental growth"
     Like `:knr`, this only accepts an `idx` with `length(idx) == 0` (`database(idx)` must
@@ -290,8 +291,10 @@ it is not required or applied automatically here, since in repeated measurement 
 reliably improve on the plain sketch-built topology (see issue #52).
 
 # Keyword Arguments
-- `method`: the bit-sketch generator, `:gaussian` (default) or `:qr` -- see
-  [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning above.
+- `method`: the bit-sketch generator: `:gaussian` (default), `:qr`, or `:adh`
+  ([`AnchoredDistantHyperplanes`](@ref), built with its own defaults -- construct one
+  directly first if it needs tuning) -- see [`SimilaritySearch.Projections.bitsketch`](@ref);
+  see the vector-space warning above.
 - `nbits`: sketch width in bits, must be a multiple of 64 (default `256`, i.e. 4 `UInt64`
   words). A wider sketch costs more memory/compute per comparison but tends to improve
   recall; see issue #52 for measurements across 64-1536 bits on real embeddings.
@@ -317,9 +320,17 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     db = database(idx)
     n = length(db)
     n > 0 || throw(ArgumentError("index!(...; :bitsketch): database(idx) is empty"))
-    db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs a hyperplane-based sketch (e.g. AnchoredDistantHyperplanes) instead of :gaussian/:qr -- not yet wired into :bitsketch"))
 
-    B, _ = Projections.bitsketch(method, nbits, db.matrix)
+    B = if method === :gaussian || method === :qr
+        db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs method=:adh instead"))
+        first(Projections.bitsketch(method, nbits, db.matrix))
+    elseif method === :adh
+        m = Projections.AnchoredDistantHyperplanes(distance(idx), db, nbits)
+        Projections.bitsketch(m, db).matrix
+    else
+        throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, or :adh)"))
+    end
+
     sketch_graph = SearchGraph(Dist.Bits.Hamming(), MatrixDatabase(B))
     sketch_ctx = SearchGraphContext(
         neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
