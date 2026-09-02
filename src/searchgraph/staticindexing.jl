@@ -291,10 +291,15 @@ it is not required or applied automatically here, since in repeated measurement 
 reliably improve on the plain sketch-built topology (see issue #52).
 
 # Keyword Arguments
-- `method`: the bit-sketch generator: `:gaussian` (default), `:qr`, or `:adh`
+- `method`: the bit-sketch generator: `:gaussian` (default), `:qr`, `:adh`
   ([`AnchoredDistantHyperplanes`](@ref), built with its own defaults -- construct one
-  directly first if it needs tuning) -- see [`SimilaritySearch.Projections.bitsketch`](@ref);
-  see the vector-space warning above.
+  directly first if it needs tuning), or `:external` (use a sketch computed outside this
+  package -- e.g. another binarization method entirely -- passed via `sketch`) -- see
+  [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning above.
+- `sketch`: only used when `method=:external`. A precomputed `(nbits÷64, n)` `UInt64`
+  matrix (one `nbits`-bit sketch per column, `n == length(database(idx))`), used as-is
+  instead of computing `B` internally -- lets any external binarization method (not just
+  `:gaussian`/`:qr`/`:adh`) bootstrap the topology the same way.
 - `nbits`: sketch width in bits, must be a multiple of 64 (default `256`, i.e. 4 `UInt64`
   words). A wider sketch costs more memory/compute per comparison but tends to improve
   recall; see issue #52 for measurements across 64-1536 bits on real embeddings.
@@ -312,7 +317,8 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     nbits::Int=256,
     kind::ErrorFunction=MaxMatchError(; maxerror=0.01f0),
     logbase::Float32=1.3f0,
-    parallel_block::Int=2^13
+    parallel_block::Int=2^13,
+    sketch::Union{Nothing,AbstractMatrix{UInt64}}=nothing
 )
     length(idx) == 0 || throw(ArgumentError("index!(...; :bitsketch): this construction method accepts only not-previously-created indexes"))
     nbits % 64 == 0 || throw(ArgumentError("index!(...; :bitsketch): nbits=$nbits must be a multiple of 64"))
@@ -327,8 +333,12 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     elseif method === :adh
         m = Projections.AnchoredDistantHyperplanes(distance(idx), db, nbits)
         Projections.bitsketch(m, db).matrix
+    elseif method === :external
+        sketch === nothing && throw(ArgumentError("index!(...; :bitsketch): method=:external requires a `sketch` keyword (precomputed UInt64 bit matrix, size (nbits÷64, n))"))
+        size(sketch) == (nbits ÷ 64, n) || throw(ArgumentError("index!(...; :bitsketch): method=:external `sketch` must have size (nbits÷64, n) = ($(nbits ÷ 64), $n), got $(size(sketch))"))
+        sketch
     else
-        throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, or :adh)"))
+        throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, :adh, or :external)"))
     end
 
     sketch_graph = SearchGraph(Dist.Bits.Hamming(), MatrixDatabase(B))
