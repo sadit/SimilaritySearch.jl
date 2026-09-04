@@ -3,7 +3,7 @@ module Projections
 using Random, LinearAlgebra, Distributions, StatsBase
 export RandomProjections, outdim, indim, transform, transform!
 using ...SimilaritySearch.Dist.CastF32: dot32
-using ...SimilaritySearch: @BATCHES
+using ...SimilaritySearch: @BATCHES, @BEGINBATCH, @LOOP
 using ...SimilaritySearch: AbstractDatabase, MatrixDatabase, SubDatabase, SemiMetric
 import ...SimilaritySearch: evaluate, distance
 using ...SimilaritySearch.Dist.Bits: Hamming

@@ -52,9 +52,31 @@ function packsigns(Y::AbstractMatrix{<:Real}; minbatch::Int=4)
 end
 
 # shared implementation: sketch = sign bits of `transform(rp, data)`, for anything `rp`
-# that `transform` accepts (`RandomProjections`, `HadamardProjection`)
+# that `transform`/`transform!` accepts (`RandomProjections`, `HadamardProjection`).
+# The matrix method never materializes a dense (outdim, n) projection: each batch keeps
+# a single (outdim,)-long scratch vector, reused across the columns it packs, so peak
+# transient memory is `outdim * nthreads * sizeof(float(eltype(X)))` rather than
+# `outdim * n` (see issue #61 -- that dense intermediate used to OOM at scale). The
+# buffer's element type is driven by `X` (not `eltype(rp)`, which `HadamardProjection`
+# does not define) -- matching what `transform`/`transform!` already use internally.
 _bitsketch_apply(rp, v::AbstractVector) = packsigns(transform(rp, v))
-_bitsketch_apply(rp, X::AbstractMatrix; minbatch::Int=4) = packsigns(transform(rp, X; minbatch); minbatch)
+
+function _bitsketch_apply(rp, X::AbstractMatrix; minbatch::Int=4)
+    m, n = outdim(rp), size(X, 2)
+    T = float(eltype(X))
+    B = Matrix{UInt64}(undef, cld(m, 64), n)
+
+    @BATCHES minbatch begin
+        @BEGINBATCH
+            buf = Vector{T}(undef, m)
+        @LOOP for j in 1:n
+            transform!(rp, buf, view(X, :, j))
+            packsigns!(view(B, :, j), buf)
+        end
+    end
+
+    B
+end
 
 """
     bitsketch(R::AbstractMatrix{<:AbstractFloat}, v::AbstractVector{<:AbstractFloat}) -> Vector{UInt64}
