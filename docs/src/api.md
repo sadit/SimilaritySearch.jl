@@ -158,6 +158,7 @@ The following uses strings/arrays as input, i.e., objects follow the array inter
 ```@docs
 Dist.Seqs.CommonPrefix
 Dist.Seqs.Levenshtein
+Dist.Seqs.DamerauLevenshtein
 Dist.Seqs.Hamming
 Dist.Seqs.LCS
 ```

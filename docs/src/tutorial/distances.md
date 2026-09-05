@@ -12,7 +12,7 @@ Distance functions are organized within the `Dist` module and its specialized su
 | :--- | :--- | :--- |
 | `Dist` | Real-valued dense or sparse vectors ($\mathbb{R}^d$) | [`L1`](@ref Dist.L1), [`L2`](@ref Dist.L2), [`SqL2`](@ref Dist.SqL2), [`LInfty`](@ref Dist.LInfty), [`Lp`](@ref Dist.Lp), [`Cosine`](@ref Dist.Cosine), [`Angle`](@ref Dist.Angle) |
 | `Dist.Sets` | Sets, represented as **sorted** vectors of distinct comparable elements | `Jaccard`, `Dice`, `Intersection`, `CosineSet`, `RogersTanimoto` |
-| `Dist.Seqs` | Ordered sequences (strings, token arrays) | `Levenshtein`, `LCS`, `CommonPrefix`, `Hamming` |
+| `Dist.Seqs` | Ordered sequences (strings, token arrays) | `Levenshtein`, `DamerauLevenshtein`, `LCS`, `CommonPrefix`, `Hamming` |
 | `Dist.Bits` | Binary vectors and bit strings (`Unsigned`, `BitVector`) | `Hamming`, `RogersTanimoto` |
 
 All examples in this section use [`ExhaustiveSearch`](@ref) to illustrate the properties of each distance metric. The final section provides a theoretical analysis of why graph-based indexes ([`SearchGraph`](@ref)) require continuous distance spaces and should not be used with discrete or combinatorial metrics.
@@ -150,6 +150,19 @@ evaluate(Dist.Seqs.CommonPrefix(), a, b)  # 0.75 -- length normalized prefix mis
 While $60$ and $90$ have identical set representations ($d_{\text{Jaccard}} = 0.0$), their factorization sequences differ ($d_{\text{Levenshtein}} = 1.0$). 
 
 For sequences of equal length, [`Dist.Seqs.Hamming`](@ref Dist.Seqs.Hamming) evaluates coordinate-wise mismatches without allowing insertions or deletions.
+
+[`Dist.Seqs.DamerauLevenshtein`](@ref Dist.Seqs.DamerauLevenshtein) extends
+[`Dist.Seqs.Levenshtein`](@ref Dist.Seqs.Levenshtein) with a fourth edit operation,
+transposing two *adjacent* elements, which is useful for typo-like swaps:
+
+```julia
+evaluate(Dist.Seqs.Levenshtein(), "form", "from")        # 2.0 -- two substitutions
+evaluate(Dist.Seqs.DamerauLevenshtein(), "form", "from")  # 1.0 -- one transposition
+```
+
+This is the restricted (Optimal String Alignment) variant, so it is a `SemiMetric` rather
+than a `Metric`: it does not satisfy the triangle inequality, and should not be paired with
+indexes that rely on it (e.g. pivot-based pruning).
 
 ---
 

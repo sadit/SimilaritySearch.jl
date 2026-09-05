@@ -128,6 +128,112 @@ end
 
 
 """
+    DamerauLevenshtein(; icost=1, dcost=1, rcost=1, tcost=1)
+    DamerauLevenshtein(ctx; icost=1, dcost=1, rcost=1, tcost=1)
+
+The restricted Damerau-Levenshtein distance (a.k.a. Optimal String Alignment, OSA):
+[`Levenshtein`](@ref) extended with a fourth edit operation, the transposition of two
+*adjacent* characters, at cost `tcost`. This captures a common typo pattern, e.g.
+`"form"` -> `"from"` (the middle `"or"` swapped to `"ro"`), as a single edit instead of
+two substitutions.
+
+This is the *restricted* variant: it disallows editing a substring that already
+participated in a transposition again, which is what keeps the algorithm inside the same
+row-by-row scratch-buffer scheme as [`Levenshtein`](@ref) (a small extra lookback row,
+rather than a full `O(alen*blen)` matrix). The consequence is that this distance is a
+`SemiMetric`, not a `Metric`: it satisfies `d(a,a) == 0` and `d(a,b) == d(b,a)`, but *not*
+the triangle inequality (e.g. `evaluate(dl, "ca", "abc")` can exceed
+`evaluate(dl, "ca", "ac") + evaluate(dl, "ac", "abc")`) -- the unrestricted/"true"
+Damerau-Levenshtein distance that does satisfy it needs the full matrix and is not
+implemented here.
+
+`evaluate(::DamerauLevenshtein, a, b)` uses the same `Cpool` scratch-buffer-pool trick as
+[`Levenshtein`](@ref) (see its docstring for the rationale); the only difference is that
+three rolling rows (current, previous, and two-rows-back, for the transposition lookback)
+share one scratch buffer instead of one.
+"""
+struct DamerauLevenshtein <: SemiMetric
+    icost::Int32 # insertion cost
+    dcost::Int32 # deletion cost
+    rcost::Int32 # replace cost
+    tcost::Int32 # transposition cost
+
+    Cpool::Channel{Vector{Int16}}
+end
+
+function _damerau_levenshtein_pool(capacity::Integer)
+    n = max(1, Int(capacity))
+    pool = Channel{Vector{Int16}}(n)
+    for _ in 1:n
+        put!(pool, Vector{Int16}(undef, 3 * 64))
+    end
+    pool
+end
+
+DamerauLevenshtein(; icost=1, dcost=1, rcost=1, tcost=1) =
+    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(Threads.maxthreadid()))
+
+DamerauLevenshtein(ctx; icost=1, dcost=1, rcost=1, tcost=1) =
+    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(ctx.maxbatches))
+
+"""
+    evaluate(::DamerauLevenshtein, a, b)
+
+Computes the restricted Damerau-Levenshtein (OSA) distance between two strings, this is a
+low level function
+"""
+function evaluate(dl::DamerauLevenshtein, a, b)::Float32
+    if length(a) < length(b)
+        a, b = b, a
+    end
+
+    alen = length(a)
+    blen = length(b)
+
+    alen == 0 && return Float32(blen)
+    blen == 0 && return Float32(alen)
+
+    w = blen + 1
+    buf = take!(dl.Cpool)
+    try
+        resize!(buf, 3w)
+        twoAgo = view(buf, 1:w)
+        prevRow = view(buf, w+1:2w)
+        curRow = view(buf, 2w+1:3w)
+
+        @inbounds for j in 0:blen
+            prevRow[j+1] = j
+        end
+
+        @inbounds for i in 1:alen
+            curRow[1] = i
+            ai = a[i]
+
+            for j in 1:blen
+                cost = ai == b[j] ? 0 : dl.rcost
+                del = prevRow[j+1] + dl.dcost
+                ins = curRow[j] + dl.icost
+                sub = prevRow[j] + cost
+                best = min(del, ins, sub)
+
+                if i > 1 && j > 1 && ai == b[j-1] && a[i-1] == b[j]
+                    best = min(best, twoAgo[j-1] + dl.tcost)
+                end
+
+                curRow[j+1] = best
+            end
+
+            twoAgo, prevRow, curRow = prevRow, curRow, twoAgo
+        end
+
+        Float32(prevRow[blen+1])
+    finally
+        put!(dl.Cpool, buf)
+    end
+end
+
+
+"""
     Hamming()
 
 The hamming distance counts the differences between two equally sized strings

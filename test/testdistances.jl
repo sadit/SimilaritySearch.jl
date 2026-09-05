@@ -89,6 +89,7 @@ using SimilaritySearch, Test, LinearAlgebra
         seq_dists = [
             Dist.Seqs.CommonPrefix(),
             Dist.Seqs.Levenshtein(),
+            Dist.Seqs.DamerauLevenshtein(),
             Dist.Seqs.LCS(),
             Dist.Seqs.Hamming()
         ]
@@ -126,6 +127,22 @@ using SimilaritySearch, Test, LinearAlgebra
         # Self-distances = 0
         @test Dist.evaluate(Dist.Seqs.Levenshtein(), seq3, seq3) == 0.0f0
         @test Dist.evaluate(Dist.Seqs.LCS(), seq3, seq3) == 0.0f0
+
+        # DamerauLevenshtein: adjacent transposition counts as a single edit
+        dl = Dist.Seqs.DamerauLevenshtein()
+        @test Dist.evaluate(dl, "form", "from") == 1.0f0
+        # plain Levenshtein needs two substitutions for the same pair
+        @test Dist.evaluate(Dist.Seqs.Levenshtein(), "form", "from") == 2.0f0
+        @test Dist.evaluate(dl, "kitten", "sitting") == 3.0f0
+        @test Dist.evaluate(dl, "hello", "hello") == 0.0f0
+        @test Dist.evaluate(dl, "", "abc") == 3.0f0
+        @test Dist.evaluate(dl, "abc", "") == 3.0f0
+        @test Dist.evaluate(dl, "abcdef", "badcfe") == Dist.evaluate(dl, "badcfe", "abcdef")
+        # classic OSA/true-DL divergence: restricted distance is not a metric here
+        # (d(ca,abc) exceeds d(ca,ac) + d(ac,abc)), which is why DamerauLevenshtein
+        # is declared a SemiMetric rather than a Metric
+        @test Dist.evaluate(dl, "ca", "abc") == 3.0f0
+        @test Dist.evaluate(dl, "ca", "ac") + Dist.evaluate(dl, "ac", "abc") == 2.0f0
     end
 
     @testset "Set Distances" begin
