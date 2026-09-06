@@ -2,7 +2,7 @@
 
 module PQueue
 
-using ..SimilaritySearch: IdDist, IdIntDist, IdOrder, DistOrder, RevDistOrder
+using ..SimilaritySearch: IdDist, IdOrder, DistOrder, RevDistOrder
 import ..SimilaritySearch: push_item!, reuse!, knnqueue
 
 export AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue

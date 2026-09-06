@@ -276,7 +276,6 @@ heapfix_down!
 pop_min!
 pop_max!
 IdDist
-IdIntDist
 IdOrder
 DistOrder
 RevDistOrder

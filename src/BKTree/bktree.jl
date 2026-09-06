@@ -224,15 +224,28 @@ function index!(bkt::BKT, ctx::AbstractContext;
     bkt
 end
 
+"""
+    IdKey(id, key)
+
+A database id paired with its integer distance to the pivot being considered, used only
+while building. Private to this module on purpose: bucket keys are integers *inside* the
+tree, but everything this index hands back -- via `push_item!` into the caller's result
+queue -- is the package's standard `IdDist`, i.e. `Float32` distances.
+"""
+struct IdKey
+    id::UInt32
+    key::Int32
+end
+
 function _build!(bkt::BKT, n::Int, npivots::Int, minleaf::Int, rng::AbstractRNG)
     dist = distance(bkt)
     db = database(bkt)
 
     # `work` holds a permutation of the database ids; a node owns the contiguous range
     # `lo:hi` of it, and partitioning a node just reorders its own range in place.
-    work = Vector{IdIntDist}(undef, n)
+    work = Vector{IdKey}(undef, n)
     @inbounds for i in 1:n
-        work[i] = IdIntDist(i, 0)
+        work[i] = IdKey(i, 0)
     end
 
     best = Vector{Int32}(undef, n)     # distances of the winning candidate, reused to partition
@@ -288,14 +301,14 @@ function _build!(bkt::BKT, n::Int, npivots::Int, minleaf::Int, rng::AbstractRNG)
         end
 
         for i in lo:hi
-            work[i] = IdIntDist(work[i].id, best[i])
+            work[i] = IdKey(work[i].id, best[i])
         end
 
         work[lo], work[bestpos] = work[bestpos], work[lo]  # the pivot leads its own range
         pivot = work[lo].id
         _attach!(bkt, slot, pivot)
 
-        sort!(view(work, (lo+1):hi), by=e -> e.dist)
+        sort!(view(work, (lo+1):hi), by=e -> e.key)
 
         # every equal-key group becomes a child; they are appended in ascending key order,
         # which is what `search` binary-searches on
@@ -303,9 +316,9 @@ function _build!(bkt::BKT, n::Int, npivots::Int, minleaf::Int, rng::AbstractRNG)
         nc = 0
         i = lo + 1
         while i <= hi
-            k = work[i].dist
+            k = work[i].key
             j = i
-            while j < hi && work[j+1].dist == k
+            while j < hi && work[j+1].key == k
                 j += 1
             end
 

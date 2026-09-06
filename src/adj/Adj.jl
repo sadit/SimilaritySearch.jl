@@ -6,7 +6,7 @@
 
 Base type for adjacency-list backends used to store the neighbors of each node in a graph-based
 index. The type parameter `T` is the element type stored per neighbor (e.g., an integer id, or an
-`IdDist`/`IdIntDist` pair combining an id with a distance).
+`IdDist` pair combining an id with a distance).
 
 Concrete subtypes provide different storage strategies with the same read/write API
 (`neighbors`, `neighbors_length`, `add!`):
@@ -145,19 +145,16 @@ end
 
 """
     sparse(idx::AbstractAdjList{IdDist})
-    sparse(idx::AbstractAdjList{IdIntDist})
 
 Creates a sparse matrix (from SparseArrays) from `idx`, an adjacency list whose entries carry
-both a neighbor id and a distance (`IdDist` or `IdIntDist`). The distance stored in each entry
+both a neighbor id and a distance (`IdDist`). The distance stored in each entry
 becomes the corresponding value in the sparse matrix (unlike the `val`-based `sparse` method
 above, which fills a constant value).
 """
 sparse(adj::AbstractAdjList{IdDist}) = sparse_from_adj(adj, Int32, Float32)
-sparse(adj::AbstractAdjList{IdIntDist}) = sparse_from_adj(adj, Int32, Int32)
 
-# Internal helper (not exported) used by the `sparse(::AbstractAdjList{IdDist})` /
-# `sparse(::AbstractAdjList{IdIntDist})` methods above to build the `I`, `J`, `F` triplet passed
-# to `SparseArrays.sparse`.
+# Internal helper (not exported) used by the `sparse(::AbstractAdjList{IdDist})` method above
+# to build the `I`, `J`, `F` triplet passed to `SparseArrays.sparse`.
 function sparse_from_adj(adj::AbstractAdjList, IType, FType)
     n = length(adj)
     I = IType[]

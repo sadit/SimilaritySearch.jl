@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export IdDist, IdIntDist, IdOrder, DistOrder, RevDistOrder
+export IdDist, IdOrder, DistOrder, RevDistOrder
 
 using Base.Order
 import Base.Order: lt
@@ -26,26 +26,7 @@ struct IdDist
 end
 
 
-"""
-    IdIntDist(id, dist)
-
-Stores a pair of objects to be accessed. Similar to [`IdDist`](@ref) but it stores an integer dist
-
-# Examples
-
-```julia
-item = IdIntDist(3, 5)
-item.id    # 3
-item.dist  # 5
-```
-"""
-struct IdIntDist
-    id::UInt32
-    dist::Int32
-end
-
 Base.zero(::Type{IdDist}) = IdDist(zero(UInt32), zero(Float32))
-Base.zero(::Type{IdIntDist}) = IdDist(zero(UInt32), zero(Int32))
 
 struct IdOrderingType <: Ordering end
 struct DistOrderingType <: Ordering end
