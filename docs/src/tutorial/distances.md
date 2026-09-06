@@ -164,15 +164,18 @@ This is the restricted (Optimal String Alignment) variant, so it is a `SemiMetri
 than a `Metric`: it does not satisfy the triangle inequality, and should not be paired with
 indexes that rely on it (e.g. pivot-based pruning).
 
-Both `Levenshtein` and `DamerauLevenshtein` index their input with plain integers, so a
-`String` only works directly when every character is ASCII (one codeunit each). A `String`
-is indexed by codeunit (a byte, for `String`'s UTF-8 encoding), not by character, so a
-Unicode character (accented letters, emoji, CJK, etc.) spans multiple codeunits and
-throws a `StringIndexError`; convert it with `collect(s)` to a `Vector{Char}` first:
+`Levenshtein` and `DamerauLevenshtein` (and `LCS`, which wraps `Levenshtein`) accept
+`String`/`SubString` directly, Unicode included, with no need to `collect` into a
+`Vector{Char}` first -- a dedicated method walks each string character-by-character via
+Julia's string-iteration protocol instead of integer-indexing it:
 
 ```julia
-evaluate(Dist.Seqs.Levenshtein(), collect("héllo"), collect("hallo"))  # 1.0
+evaluate(Dist.Seqs.Levenshtein(), "héllo", "hallo")  # 1.0
 ```
+
+(Passing a general array input, e.g. `Vector{Int32}` as in the factorization example
+above, still uses the plain integer-indexing method; that one requires `a[i]` to be O(1)
+and character-aligned, which a raw `String` is not for non-ASCII text.)
 
 ---
 

@@ -42,14 +42,6 @@ evaluate(::CommonPrefix, a, b)::Float32 = 1.0f0 - Float32(common_prefix(a, b) / 
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
 The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
 
-`evaluate` indexes `a`/`b` with plain integers (`a[i]` for `i in 1:length(a)`), which only
-walks one character per index on a Julia `String` when every character is ASCII (one
-codeunit each). A `String` is indexed by *codeunit* (a byte, for `String`'s UTF-8
-encoding), not by character, so a non-ASCII/Unicode character (accented letters, emoji,
-CJK, etc.) spans multiple codeunits and `a[i]` throws a `StringIndexError` as soon as `i`
-lands inside one instead of at its first codeunit. Convert such strings to `Vector{Char}`
-first (e.g. `collect(s)`) before calling `evaluate`.
-
 `evaluate(::Levenshtein, a, b)` uses a small pool of scratch buffers (`Cpool`, a
 `Channel{Vector{Int16}}`): each call `take!`s a buffer, uses it, and `put!`s it back
 (inside a `try/finally`, so a thrown exception can't leak it). This has no dependency on
@@ -64,6 +56,21 @@ correctness.
 accepted so the pool's size can be driven by the same `maxbatches` knob used everywhere
 else in this package, instead of a bare `Threads.maxthreadid()`; either way the pool is
 clamped to at least 1 buffer (a zero-sized pool would deadlock on the first call).
+
+## `AbstractString` inputs (`String`, `SubString`, ...)
+
+`a`/`b` can be passed as plain `String`/`SubString` directly -- Unicode included -- with
+no need to `collect` them into a `Vector{Char}` first. A dedicated method (see below)
+walks each string with Julia's string-iteration protocol (`for c in s`, the efficient,
+allocation-free equivalent of repeatedly calling `nextind`) instead of integer-indexing
+`s[i]` for `i in 1:length(s)`, which is what the *generic* `evaluate(::Levenshtein, a, b)`
+method above does and why it throws `StringIndexError` on a `String`/`SubString`
+containing non-ASCII characters (a `String` is indexed by *codeunit* -- a byte, for its
+UTF-8 encoding -- not by character, and only ASCII characters take exactly one codeunit
+each). The shorter of the two strings is decoded once into a second pooled scratch buffer
+(`CharPool`, a `Channel{Vector{Char}}`) so it can be randomly indexed inside the O(alen*blen)
+dynamic-programming loop; the longer one is walked forward-only and never needs random
+access, so it costs nothing beyond that same forward pass.
 """
 struct Levenshtein <: Metric
     icost::Int32 # insertion cost
@@ -71,6 +78,7 @@ struct Levenshtein <: Metric
     rcost::Int32 # replace cost
 
     Cpool::Channel{Vector{Int16}}
+    CharPool::Channel{Vector{Char}}
 end
 
 function _levenshtein_pool(capacity::Integer)
@@ -82,16 +90,27 @@ function _levenshtein_pool(capacity::Integer)
     pool
 end
 
+function _char_pool(capacity::Integer)
+    n = max(1, Int(capacity))
+    pool = Channel{Vector{Char}}(n)
+    for _ in 1:n
+        put!(pool, Vector{Char}(undef, 64))
+    end
+    pool
+end
+
 Levenshtein(; icost=1, dcost=1, rcost=1) =
-    Levenshtein(icost, dcost, rcost, _levenshtein_pool(Threads.maxthreadid()))
+    Levenshtein(icost, dcost, rcost, _levenshtein_pool(Threads.maxthreadid()), _char_pool(Threads.maxthreadid()))
 
 Levenshtein(ctx; icost=1, dcost=1, rcost=1) =
-    Levenshtein(icost, dcost, rcost, _levenshtein_pool(ctx.maxbatches))
+    Levenshtein(icost, dcost, rcost, _levenshtein_pool(ctx.maxbatches), _char_pool(ctx.maxbatches))
 
 """
     evaluate(::Levenshtein, a, b)
 
-Computes the edit distance between two strings, this is a low level function
+Computes the edit distance between two sequences (e.g. arrays with `==`-comparable
+elements), this is a low level function. See [`Levenshtein`](@ref) for the
+`AbstractString`-specialized method used for `String`/`SubString` inputs.
 """
 function evaluate(lev::Levenshtein, a, b)::Float32
     if length(a) < length(b)
@@ -134,6 +153,64 @@ function evaluate(lev::Levenshtein, a, b)::Float32
     end
 end
 
+"""
+    evaluate(::Levenshtein, a::AbstractString, b::AbstractString)
+
+Computes the edit distance between two `AbstractString`s (`String`, `SubString`, ...),
+handling Unicode correctly without requiring the caller to `collect` into a `Vector{Char}`.
+See [`Levenshtein`](@ref) for how this differs from the generic array method.
+"""
+function evaluate(lev::Levenshtein, a::AbstractString, b::AbstractString)::Float32
+    if length(a) < length(b)
+        a, b = b, a
+    end
+
+    alen = length(a)
+    blen = length(b)
+
+    alen == 0 && return Float32(blen)
+    blen == 0 && return Float32(alen)
+
+    Bbuf = take!(lev.CharPool)
+    try
+        resize!(Bbuf, blen)
+        @inbounds for (j, c) in enumerate(b)
+            Bbuf[j] = c
+        end
+
+        C = take!(lev.Cpool)
+        try
+            resize!(C, blen + 1)
+            @inbounds for i in 0:blen
+                C[i+1] = i
+            end
+
+            prevA = 0
+            @inbounds for (i, ai) in enumerate(a)
+                prevA = i
+                prevC = C[1]
+                j = 1
+
+                while j <= blen
+                    cost = ai == Bbuf[j] ? 0 : lev.rcost
+                    C[j] = prevA
+                    j += 1
+                    prevA = min(C[j] + lev.dcost, prevA + lev.icost, prevC + cost)
+                    prevC = C[j]
+                end
+
+                C[j] = prevA
+            end
+
+            Float32(prevA)
+        finally
+            put!(lev.Cpool, C)
+        end
+    finally
+        put!(lev.CharPool, Bbuf)
+    end
+end
+
 
 """
     DamerauLevenshtein(; icost=1, dcost=1, rcost=1, tcost=1)
@@ -155,12 +232,13 @@ the triangle inequality (e.g. `evaluate(dl, "ca", "abc")` can exceed
 Damerau-Levenshtein distance that does satisfy it needs the full matrix and is not
 implemented here.
 
-Like [`Levenshtein`](@ref), `evaluate` indexes `a`/`b` with plain integers, which only
-walks one character per index on a Julia `String` when every character is ASCII. A
-`String` is indexed by *codeunit* (a byte, for `String`'s UTF-8 encoding), not by
-character, so a non-ASCII/Unicode character spans multiple codeunits and `a[i]` throws a
-`StringIndexError` as soon as `i` lands inside one. Convert such strings to `Vector{Char}`
-first (e.g. `collect(s)`) before calling `evaluate`.
+## `AbstractString` inputs (`String`, `SubString`, ...)
+
+`a`/`b` can be passed as plain `String`/`SubString` directly -- Unicode included -- via a
+dedicated method (see below); see [`Levenshtein`](@ref)'s docstring for why the generic
+`evaluate(::DamerauLevenshtein, a, b)` method above throws `StringIndexError` on those
+inputs and how the `AbstractString` method avoids it (string-iteration instead of
+`s[i]`-indexing, plus a pooled `CharPool` buffer for the shorter string).
 
 `evaluate(::DamerauLevenshtein, a, b)` uses the same `Cpool` scratch-buffer-pool trick as
 [`Levenshtein`](@ref) (see its docstring for the rationale); the only difference is that
@@ -174,6 +252,7 @@ struct DamerauLevenshtein <: SemiMetric
     tcost::Int32 # transposition cost
 
     Cpool::Channel{Vector{Int16}}
+    CharPool::Channel{Vector{Char}}
 end
 
 function _damerau_levenshtein_pool(capacity::Integer)
@@ -186,16 +265,18 @@ function _damerau_levenshtein_pool(capacity::Integer)
 end
 
 DamerauLevenshtein(; icost=1, dcost=1, rcost=1, tcost=1) =
-    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(Threads.maxthreadid()))
+    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(Threads.maxthreadid()), _char_pool(Threads.maxthreadid()))
 
 DamerauLevenshtein(ctx; icost=1, dcost=1, rcost=1, tcost=1) =
-    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(ctx.maxbatches))
+    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(ctx.maxbatches), _char_pool(ctx.maxbatches))
 
 """
     evaluate(::DamerauLevenshtein, a, b)
 
-Computes the restricted Damerau-Levenshtein (OSA) distance between two strings, this is a
-low level function
+Computes the restricted Damerau-Levenshtein (OSA) distance between two sequences (e.g.
+arrays with `==`-comparable elements), this is a low level function. See
+[`DamerauLevenshtein`](@ref) for the `AbstractString`-specialized method used for
+`String`/`SubString` inputs.
 """
 function evaluate(dl::DamerauLevenshtein, a, b)::Float32
     if length(a) < length(b)
@@ -244,6 +325,76 @@ function evaluate(dl::DamerauLevenshtein, a, b)::Float32
         Float32(prevRow[blen+1])
     finally
         put!(dl.Cpool, buf)
+    end
+end
+
+"""
+    evaluate(::DamerauLevenshtein, a::AbstractString, b::AbstractString)
+
+Computes the restricted Damerau-Levenshtein (OSA) distance between two `AbstractString`s
+(`String`, `SubString`, ...), handling Unicode correctly without requiring the caller to
+`collect` into a `Vector{Char}`. See [`DamerauLevenshtein`](@ref) for how this differs
+from the generic array method.
+"""
+function evaluate(dl::DamerauLevenshtein, a::AbstractString, b::AbstractString)::Float32
+    if length(a) < length(b)
+        a, b = b, a
+    end
+
+    alen = length(a)
+    blen = length(b)
+
+    alen == 0 && return Float32(blen)
+    blen == 0 && return Float32(alen)
+
+    Bbuf = take!(dl.CharPool)
+    try
+        resize!(Bbuf, blen)
+        @inbounds for (j, c) in enumerate(b)
+            Bbuf[j] = c
+        end
+
+        w = blen + 1
+        buf = take!(dl.Cpool)
+        try
+            resize!(buf, 3w)
+            twoAgo = view(buf, 1:w)
+            prevRow = view(buf, w+1:2w)
+            curRow = view(buf, 2w+1:3w)
+
+            @inbounds for j in 0:blen
+                prevRow[j+1] = j
+            end
+
+            aim1 = first(a)
+            @inbounds for (i, ai) in enumerate(a)
+                curRow[1] = i
+
+                for j in 1:blen
+                    bj = Bbuf[j]
+                    cost = ai == bj ? 0 : dl.rcost
+                    del = prevRow[j+1] + dl.dcost
+                    ins = curRow[j] + dl.icost
+                    sub = prevRow[j] + cost
+                    best = min(del, ins, sub)
+
+                    if i > 1 && j > 1 && ai == Bbuf[j-1] && aim1 == bj
+                        best = min(best, twoAgo[j-1] + dl.tcost)
+                    end
+
+                    curRow[j+1] = best
+                end
+
+                twoAgo, prevRow, curRow = prevRow, curRow, twoAgo
+                aim1 = ai
+            end
+
+            Float32(prevRow[blen+1])
+        finally
+            put!(dl.Cpool, buf)
+        end
+    finally
+        put!(dl.CharPool, Bbuf)
     end
 end
 

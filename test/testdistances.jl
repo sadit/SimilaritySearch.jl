@@ -143,6 +143,19 @@ using SimilaritySearch, Test, LinearAlgebra
         # is declared a SemiMetric rather than a Metric
         @test Dist.evaluate(dl, "ca", "abc") == 3.0f0
         @test Dist.evaluate(dl, "ca", "ac") + Dist.evaluate(dl, "ac", "abc") == 2.0f0
+
+        # Levenshtein/DamerauLevenshtein/LCS accept String/SubString directly, Unicode
+        # included -- no need to `collect` into a Vector{Char} -- and must agree with the
+        # Vector{Char} result
+        unicode_pairs = [
+            ("héllo", "hallo"), ("café", "cafe"), ("día", "dia"), ("señor", "senor"),
+            ("日本語", "日本後"), ("ab日", "a日b"), ("😀😃😄", "😀😄😃"),
+        ]
+        for (a, b) in unicode_pairs, d in (Dist.Seqs.Levenshtein(), dl, Dist.Seqs.LCS())
+            ref = Dist.evaluate(d, collect(a), collect(b))
+            @test Dist.evaluate(d, a, b) == ref
+            @test Dist.evaluate(d, SubString(a), SubString(b)) == ref
+        end
     end
 
     @testset "Set Distances" begin
