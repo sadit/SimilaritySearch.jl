@@ -164,6 +164,16 @@ This is the restricted (Optimal String Alignment) variant, so it is a `SemiMetri
 than a `Metric`: it does not satisfy the triangle inequality, and should not be paired with
 indexes that rely on it (e.g. pivot-based pruning).
 
+Both `Levenshtein` and `DamerauLevenshtein` index their input with plain integers, so a
+`String` only works directly when every character is ASCII (one byte each). A `String`
+with Unicode characters (accented letters, emoji, CJK, etc.) is indexed by byte, not by
+character, and throws a `StringIndexError`; convert it with `collect(s)` to a `Vector{Char}`
+first:
+
+```julia
+evaluate(Dist.Seqs.Levenshtein(), collect("héllo"), collect("hallo"))  # 1.0
+```
+
 ---
 
 ## Bit Patterns: Binary Divisibility Fingerprints
