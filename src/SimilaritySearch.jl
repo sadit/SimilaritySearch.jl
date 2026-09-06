@@ -24,7 +24,8 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     SpatialAccessTree, Sat, SatInitialPartition, RandomInitialPartition,
     RandomSortSat, ProximalSortSat, DistalSortSat,
     satpermutation, satpermutation!, permutesat,
-    SatContext, BeamSearchSat, PruningSat, BeamSearchMultiSat, PrunParSat, BeamSearchParSat
+    SatContext, BeamSearchSat, PruningSat, BeamSearchMultiSat, PrunParSat, BeamSearchParSat,
+    BKTree, BKT
 
 """
     abstract type AbstractContext end
@@ -293,6 +294,8 @@ include("permindex.jl")
 include("allknn.jl")
 include("SpatialAccessTree/SpatialAccessTree.jl")
 using .SpatialAccessTree
+include("BKTree/BKTree.jl")
+using .BKTree: BKT
 include("bichromatic/Bichromatic.jl")
 using .Bichromatic
 include("hsp.jl")

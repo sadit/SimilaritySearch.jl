@@ -251,6 +251,7 @@ d: 1.0      1.0       1.0 (All neighbors tie at distance 1.0)
 
 - **Continuous vector spaces ($\mathbb{R}^d$, embeddings)**: Use [`SearchGraph`](@ref) for sub-linear approximate nearest neighbor search, or [`ExhaustiveSearch`](@ref) for baseline validation.
 - **Discrete, combinatorial, or set spaces (Jaccard, Levenshtein, Hamming)**: Use [`ExhaustiveSearch`](@ref) or inverted indexes ([`InvertedFile`](@ref)). Do not use `SearchGraph` for discrete metrics with high tie frequencies.
+- **Integer-valued metrics queried with a small radius (dictionary lookup, spelling correction)**: [`BKT`](@ref), a BK-tree, is exact and prunes whole subtrees per distance evaluation — the plateau that stalls a graph search is exactly what it buckets on. It needs an integer-valued `Dist.Metric` (`Levenshtein`, `Hamming`; *not* `DamerauLevenshtein`, which is a `SemiMetric`), and it only pays off while the search radius stays small next to the spread of the distance distribution: a large `k` over data with no near neighbors visits the whole tree.
 
 ---
 

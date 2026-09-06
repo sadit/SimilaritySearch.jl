@@ -12,6 +12,7 @@ end
 ExhaustiveSearch
 ParallelExhaustiveSearch
 SearchGraph
+BKT
 PermutedSearchIndex
 distance
 ```
