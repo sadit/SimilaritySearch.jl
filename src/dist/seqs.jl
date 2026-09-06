@@ -44,10 +44,11 @@ The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
 
 `evaluate` indexes `a`/`b` with plain integers (`a[i]` for `i in 1:length(a)`), which only
 walks one character per index on a Julia `String` when every character is ASCII (one
-byte each). A `String` containing non-ASCII/Unicode characters (accented letters, emoji,
-CJK, etc.) is indexed by *byte*, not by character, so `a[i]` throws a `StringIndexError`
-as soon as `i` lands inside a multi-byte character instead of at its first byte. Convert
-such strings to `Vector{Char}` first (e.g. `collect(s)`) before calling `evaluate`.
+codeunit each). A `String` is indexed by *codeunit* (a byte, for `String`'s UTF-8
+encoding), not by character, so a non-ASCII/Unicode character (accented letters, emoji,
+CJK, etc.) spans multiple codeunits and `a[i]` throws a `StringIndexError` as soon as `i`
+lands inside one instead of at its first codeunit. Convert such strings to `Vector{Char}`
+first (e.g. `collect(s)`) before calling `evaluate`.
 
 `evaluate(::Levenshtein, a, b)` uses a small pool of scratch buffers (`Cpool`, a
 `Channel{Vector{Int16}}`): each call `take!`s a buffer, uses it, and `put!`s it back
@@ -156,9 +157,10 @@ implemented here.
 
 Like [`Levenshtein`](@ref), `evaluate` indexes `a`/`b` with plain integers, which only
 walks one character per index on a Julia `String` when every character is ASCII. A
-`String` with non-ASCII/Unicode characters is indexed by *byte*, not by character, so
-`a[i]` throws a `StringIndexError` as soon as `i` lands inside a multi-byte character.
-Convert such strings to `Vector{Char}` first (e.g. `collect(s)`) before calling `evaluate`.
+`String` is indexed by *codeunit* (a byte, for `String`'s UTF-8 encoding), not by
+character, so a non-ASCII/Unicode character spans multiple codeunits and `a[i]` throws a
+`StringIndexError` as soon as `i` lands inside one. Convert such strings to `Vector{Char}`
+first (e.g. `collect(s)`) before calling `evaluate`.
 
 `evaluate(::DamerauLevenshtein, a, b)` uses the same `Cpool` scratch-buffer-pool trick as
 [`Levenshtein`](@ref) (see its docstring for the rationale); the only difference is that

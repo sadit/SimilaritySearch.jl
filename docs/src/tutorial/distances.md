@@ -165,10 +165,10 @@ than a `Metric`: it does not satisfy the triangle inequality, and should not be 
 indexes that rely on it (e.g. pivot-based pruning).
 
 Both `Levenshtein` and `DamerauLevenshtein` index their input with plain integers, so a
-`String` only works directly when every character is ASCII (one byte each). A `String`
-with Unicode characters (accented letters, emoji, CJK, etc.) is indexed by byte, not by
-character, and throws a `StringIndexError`; convert it with `collect(s)` to a `Vector{Char}`
-first:
+`String` only works directly when every character is ASCII (one codeunit each). A `String`
+is indexed by codeunit (a byte, for `String`'s UTF-8 encoding), not by character, so a
+Unicode character (accented letters, emoji, CJK, etc.) spans multiple codeunits and
+throws a `StringIndexError`; convert it with `collect(s)` to a `Vector{Char}` first:
 
 ```julia
 evaluate(Dist.Seqs.Levenshtein(), collect("héllo"), collect("hallo"))  # 1.0
