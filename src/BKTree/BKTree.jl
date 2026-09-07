@@ -15,6 +15,6 @@ import ..SimilaritySearch:
 
 export BKT, getcontext
 
-include("bktree.jl")
+include("bkt.jl")
 
 end # module
