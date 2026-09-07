@@ -465,7 +465,7 @@ be individually omitted).
     `searchgraph/context.jl`'s `getvstate`/`getbeam`, which read `ctx.batchid` deep inside
     `find_neighborhood!`/`search`, not at the `@BATCHES` call site itself (see
     `SearchGraphContext`). The pattern that makes this safe is: mint a tagged, per-batch
-    copy once in `@BEGINBATCH` (`bctx = @set ctx.batchid = @batchid()`, via `Accessors.@set`)
+    copy once in `@BEGINBATCH` (`bctx = beginbatch(ctx, @batchid())`)
     and use *that* copy -- never the original, outer object -- for every call made from
     inside that batch. **If even one call inside `@LOOP`/`@ENDBATCH` is accidentally
     passed the untagged original instead of the tagged copy, every batch silently
@@ -487,7 +487,7 @@ be individually omitted).
     # batches, on every scheduler, despite `tmp`/`N` themselves being correctly
     # @batchid()-sliced right above it.
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
         tmp = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid() - 1))
         N = knnqueue(bctx, view(qcache, 1:ksearch, 2 * @batchid()))
     @LOOP for objID in 1:n

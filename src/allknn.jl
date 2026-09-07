@@ -89,7 +89,7 @@ function allknn!(g::AbstractSearchIndex, ctx::AbstractContext,
     let progress = progress
         @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
-            bctx = @set ctx.batchid = @batchid()
+            bctx = beginbatch(ctx, @batchid())
         @LOOP for j in 1:n
             res = knnqueue(bctx, view(ids, :, j), view(dists, :, j))
             allknn_single_search!(g, bctx, j, res)

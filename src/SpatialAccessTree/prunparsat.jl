@@ -125,7 +125,7 @@ function runconfig(config::PrunParSatConfig, index::PrunParSat, ctx::SatContext,
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
         travelsat!(index, bctx, queries.map[i], reuse!(knns[i]), config)
     end

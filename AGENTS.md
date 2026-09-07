@@ -186,16 +186,25 @@ Key facts an agent must know before editing anything here:
   fixed, disjoint ordinals — race-free under *every* scheduler (`:static`/`:default`/
   `:greedy`). `Threads.threadid()`-indexing is only safe under `:static` (the default) and
   is a silent data race under the others. No remaining call site in `src/` still does
-  this: `dist/seqs.jl`'s `Levenshtein`/`LCS` were the one case that couldn't use
-  `@batchid` at all (their scratch buffer is needed inside `evaluate(dist, a, b)`, the
-  generic, context-free interface shared by *every* distance function in this package —
-  no `ctx`/`@batchid` reaches it), so instead of thread-indexing they use a `Channel`-based
-  buffer pool (`take!`/`put!`, sized from `ctx.maxbatches` when a context is given via
-  `Levenshtein(ctx; ...)`/`LCS(ctx)`) — safe under *any* concurrency model, not just
-  `@BATCHES`, since it has no dependency on thread identity at all. A smaller pool only
-  costs throughput (a `take!` blocks until a buffer is returned), never correctness — this
-  is the preferred pattern over thread/batch-indexing whenever the caller can't supply a
-  `@batchid` at all (e.g. a context-free interface like `evaluate`).
+  this: `dist/seqs.jl`'s `Levenshtein`/`DamerauLevenshtein`/`LCS` are the one case that
+  can't use `@batchid` at all (their scratch buffer is needed inside `evaluate(dist, a, b)`,
+  the generic, context-free interface shared by *every* distance function in this package —
+  no `ctx`/`@batchid` reaches it). They own **no shared mutable state**: an ordinary
+  instance allocates its scratch per call, which is safe under any concurrency model
+  precisely because there is nothing to race on.
+- **A batch may ask for its own copy of a resource, via `beginbatch`.** `beginbatch(ctx, id)`
+  is what every `@BEGINBATCH` uses to mint its per-batch context (it replaced writing
+  `@set ctx.batchid = @batchid()` by hand), and `beginbatch(dist)` is its counterpart for a
+  distance: the default returns it unchanged, while one carrying scratch returns a copy
+  owning private buffers. A batch is single-tasked, so that copy needs no synchronization at
+  all. Reach for this instead of a lock whenever a context-free interface needs scratch.
+  Do **not** reintroduce a `Channel`-based buffer pool here: it was measured at ~80x slower
+  than allocating on a parallel map of short-word edit distances (302ms vs 3.6ms over 64
+  threads), because a `take!`/`put!` pair costs far more than the work it guards whenever
+  evaluations are cheap. Making this composition general (any index context combined with
+  any distance's batch-local state, so `search` picks it up without threading it by hand) is
+  an open 2.0 item — today only a caller that passes the batch-local distance explicitly,
+  like `BKTree`'s build, benefits.
 - **`GenericContext`/`SearchGraphContext` carry `batchid`/`maxbatches` fields** (see
   `searchgraph/context.jl`) precisely so `@batchid`-indexing can flow through the existing
   `search`/`find_neighborhood!` call graph without changing any of those functions'

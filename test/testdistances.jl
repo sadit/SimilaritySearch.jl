@@ -144,6 +144,22 @@ using SimilaritySearch, Test, LinearAlgebra
         @test Dist.evaluate(dl, "ca", "abc") == 3.0f0
         @test Dist.evaluate(dl, "ca", "ac") + Dist.evaluate(dl, "ac", "abc") == 2.0f0
 
+        # `beginbatch` must hand back a *distinct* distance owning private scratch. This is
+        # easy to break silently: if the submodule defining these methods stops importing the
+        # generic, its methods land on a new function, the default `dist -> dist` wins, and
+        # everything still computes the right answers -- just allocating on every call.
+        for d in (Dist.Seqs.Levenshtein(), Dist.Seqs.DamerauLevenshtein())
+            b = beginbatch(d)
+            @test b !== d
+            @test !isempty(b.C) && !isempty(b.B)
+            @test isempty(d.C) && isempty(d.B)   # the shared one owns nothing, so it is safe to share
+            x, y = collect("kitten"), collect("sitting")
+            @test Dist.evaluate(b, x, y) == Dist.evaluate(d, x, y)
+            @test Dist.evaluate(b, "héllo", "hallo") == Dist.evaluate(d, "héllo", "hallo")
+            Dist.evaluate(b, x, y)                          # warm its buffers
+            @test (@allocated Dist.evaluate(b, x, y)) == 0  # and then reuse them
+        end
+
         # Levenshtein/DamerauLevenshtein/LCS accept String/SubString directly, Unicode
         # included -- no need to `collect` into a Vector{Char} -- and must agree with the
         # Vector{Char} result

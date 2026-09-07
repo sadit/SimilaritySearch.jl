@@ -11,7 +11,7 @@ using Statistics: mean
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
     SearchResult, push_item!, append_items!, getminbatch,
-    IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles,
+    IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles, beginbatch,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     Selection, fft, dnet, randsel, multirandsel, neardup,
     AbstractSelection, CenterSelection, NearDupSelection,
@@ -42,6 +42,7 @@ function append_items! end
 function index! end
 function reuse! end
 function knnqueue end
+function beginbatch end
 
 """
     getminbatch(n::Int, nt::Int=Threads.nthreads();
@@ -222,6 +223,45 @@ Accessors.ConstructionBase.constructorof(::Type{<:GenericContext{K}}) where {K} 
 knnqueue(::GenericContext{KnnType}, args...) where {KnnType<:AbstractKnnQueue} = knnqueue(KnnType, args...)
 verbose(ctx::GenericContext) = ctx.verbose
 
+"""
+    beginbatch(ctx::AbstractContext, id::Integer) -> ctx
+    beginbatch(dist::PreMetric) -> dist
+
+Announces that a [`@BATCHES`](@ref) batch is starting, and returns whatever that batch should
+use in place of the object handed in. Call it once per batch, in `@BEGINBATCH`, and use only
+the returned value inside that batch:
+
+```julia
+@BEGINBATCH
+    bctx = beginbatch(ctx, @batchid())
+    bdist = beginbatch(distance(index))
+```
+
+The point is that a batch is **single-tasked**: whatever it gets back is its own for the
+duration, so it needs no synchronization of any kind -- no lock, no `Threads.threadid()`
+assumption, and therefore no dependence on which `@BATCHES` scheduler is in play.
+
+- For a context, the default is what every call site used to write by hand
+  (`@set ctx.batchid = id`): the batch id is what per-batch caches index by
+  (`getvstate`/`getbeam`/...). A context that keeps richer per-batch state can specialize
+  this to refresh it instead of indexing it.
+- For a distance, the default is to return it unchanged, which is right for the vast
+  majority: a distance without mutable state is already safe to share. One that keeps
+  scratch buffers ([`Dist.Seqs.Levenshtein`](@ref), [`Dist.Seqs.DamerauLevenshtein`](@ref))
+  returns a copy owning private buffers.
+
+!!! note "To revisit in 2.0"
+    This is deliberately the smallest thing that removes the synchronization from the hot
+    path, not a finished design. `evaluate(dist, a, b)` is context-free, so a batch-local
+    distance only reaches the inner loop if the calling code threads it there by hand --
+    there is no general `distance(ctx, index)` resolution yet, so an index whose `search`
+    ignores `beginbatch(dist)` simply keeps using the shared distance (correct, just not
+    faster). Making the composition general -- any index context combined with any
+    distance's batch-local state -- is the 2.0 item.
+"""
+@inline beginbatch(ctx::AbstractContext, id::Integer) = @set ctx.batchid = id
+@inline beginbatch(dist::PreMetric) = dist
+
 # A slot counts toward these stats if it's nonzero -- a real search always performs >= 1
 # evaluation, so 0 reliably means "never touched" (lifetime form) / "untouched since the
 # snapshot" (diff form below) -- true regardless of how large the raw cumulative value is.
@@ -348,7 +388,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for j in 1:m
         res = knnqueue(bctx, view(ids, :, j), view(dists, :, j))
         search(index, bctx, Q[j], res)
@@ -400,7 +440,7 @@ function searchbatch!(index::AbstractSearchIndex, ctx::AbstractContext, Q::Abstr
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
         search(index, bctx, Q[i], knns[i])
     end

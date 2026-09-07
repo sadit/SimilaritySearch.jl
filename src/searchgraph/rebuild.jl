@@ -72,7 +72,7 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         qcache_ids   = zeros(UInt32,  ksearch, 2 * @nbatches())
         qcache_dists = zeros(Float32, ksearch, 2 * @nbatches())
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
         tmp = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
         N   = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
     @LOOP for objID in 1:n

@@ -22,6 +22,7 @@ module Dist
     module Seqs
         using Distances: PreMetric, SemiMetric, Metric
         import Distances: evaluate
+        import ...SimilaritySearch: beginbatch
         include("seqs.jl")
     end
 

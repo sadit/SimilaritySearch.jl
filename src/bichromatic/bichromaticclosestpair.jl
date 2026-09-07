@@ -64,7 +64,7 @@ function bichromatic_closestpair(idxA::T, ctx::AbstractContext, B::AbstractDatab
         knns_dists = zeros(Float32, min_k, @nbatches())
         BEST = Vector{Tuple{Int32,Int32,Float32}}(undef, @nbatches())
     @BEGINBATCH
-        batchctx = @set ctx.batchid = @batchid()
+        batchctx = beginbatch(ctx, @batchid())
         r = knnqueue(KnnSorted, view(knns_ids, :, @batchid()), view(knns_dists, :, @batchid())) # requires KnnSorted to support pop_min!
         b = (zero(Int32), zero(Int32), typemax(Float32))
     @LOOP for objID in 1:n

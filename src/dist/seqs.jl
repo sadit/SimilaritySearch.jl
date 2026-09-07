@@ -42,20 +42,25 @@ evaluate(::CommonPrefix, a, b)::Float32 = 1.0f0 - Float32(common_prefix(a, b) / 
 The levenshtein distance measures the minimum number of edit operations to convert one string into another.
 The costs insertion `icost`, deletion cost `dcost`, and replace cost `rcost`.
 
-`evaluate(::Levenshtein, a, b)` uses a small pool of scratch buffers (`Cpool`, a
-`Channel{Vector{Int16}}`): each call `take!`s a buffer, uses it, and `put!`s it back
-(inside a `try/finally`, so a thrown exception can't leak it). This has no dependency on
-thread identity at all -- unlike `Threads.threadid()`-indexing, it is safe under *every*
-`@BATCHES` scheduler (`:static`/`:default`/`:greedy`), and under any other concurrency
-model too (e.g. calling `evaluate` from a user's own `Threads.@spawn` code), since
-correctness never relies on which thread/task happens to run a given call. A smaller pool
-only ever costs *throughput* (a `take!` blocks until another call returns a buffer), never
-correctness.
+## Scratch buffers, and why there is no lock
 
-`ctx` (a `GenericContext`/`SearchGraphContext`, anything with a `.maxbatches` field) is
-accepted so the pool's size can be driven by the same `maxbatches` knob used everywhere
-else in this package, instead of a bare `Threads.maxthreadid()`; either way the pool is
-clamped to at least 1 buffer (a zero-sized pool would deadlock on the first call).
+`evaluate` needs a row of `Int16`s (plus, for `AbstractString` inputs, a `Vector{Char}`).
+A `Levenshtein` built the ordinary way owns **no** scratch and allocates what it needs per
+call, which is what makes it safe to share across tasks unconditionally -- there is no
+mutable state to race on, under any scheduler or any concurrency model of your own.
+
+To skip even that allocation, ask [`beginbatch`](@ref) for a batch-local copy at the top of
+a `@BATCHES` batch (`bdist = beginbatch(distance(index))`) and use *that* inside the batch.
+The copy owns private buffers it grows once and reuses; a batch is single-tasked, so nothing
+guards them and nothing needs to.
+
+This replaced a `Channel`-based buffer pool. The pool was safe, but its `take!`/`put!` pair
+per call turned out to cost far more than the work it was protecting whenever evaluations
+are cheap: on a 200k-element parallel map of 5-10 character words over 64 threads it was
+**~80x slower** than allocating (302ms vs 3.6ms), and it lost even single-threaded.
+
+`ctx` is still accepted and ignored, so old call sites keep working -- it used to size the
+pool. It will go away in 2.0.
 
 ## `AbstractString` inputs (`String`, `SubString`, ...)
 
@@ -68,7 +73,7 @@ method above does and why it throws `StringIndexError` on a `String`/`SubString`
 containing non-ASCII characters (a `String` is indexed by *codeunit* -- a byte, for its
 UTF-8 encoding -- not by character, and only ASCII characters take exactly one codeunit
 each). The shorter of the two strings is decoded once into a second pooled scratch buffer
-(`CharPool`, a `Channel{Vector{Char}}`) so it can be randomly indexed inside the O(alen*blen)
+(see the scratch section above) so it can be randomly indexed inside the O(alen*blen)
 dynamic-programming loop; the longer one is walked forward-only and never needs random
 access, so it costs nothing beyond that same forward pass.
 """
@@ -77,33 +82,26 @@ struct Levenshtein <: Metric
     dcost::Int32 # deletion cost
     rcost::Int32 # replace cost
 
-    Cpool::Channel{Vector{Int16}}
-    CharPool::Channel{Vector{Char}}
+    # Private scratch, empty unless this is a `beginbatch` copy -- see the docstring. Empty
+    # means "own nothing, allocate per call", which is what makes a shared instance safe.
+    C::Vector{Int16}
+    B::Vector{Char}
 end
 
-function _levenshtein_pool(capacity::Integer)
-    n = max(1, Int(capacity))
-    pool = Channel{Vector{Int16}}(n)
-    for _ in 1:n
-        put!(pool, Vector{Int16}(undef, 64))
-    end
-    pool
-end
+Levenshtein(; icost=1, dcost=1, rcost=1) = Levenshtein(icost, dcost, rcost, Int16[], Char[])
+Levenshtein(ctx; icost=1, dcost=1, rcost=1) = Levenshtein(; icost, dcost, rcost)
 
-function _char_pool(capacity::Integer)
-    n = max(1, Int(capacity))
-    pool = Channel{Vector{Char}}(n)
-    for _ in 1:n
-        put!(pool, Vector{Char}(undef, 64))
-    end
-    pool
-end
+"""
+    beginbatch(lev::Levenshtein)
 
-Levenshtein(; icost=1, dcost=1, rcost=1) =
-    Levenshtein(icost, dcost, rcost, _levenshtein_pool(Threads.maxthreadid()), _char_pool(Threads.maxthreadid()))
+A copy owning private scratch buffers, for use inside a single `@BATCHES` batch. See
+[`Levenshtein`](@ref) and [`beginbatch`](@ref).
+"""
+beginbatch(lev::Levenshtein) =
+    Levenshtein(lev.icost, lev.dcost, lev.rcost, Vector{Int16}(undef, 64), Vector{Char}(undef, 64))
 
-Levenshtein(ctx; icost=1, dcost=1, rcost=1) =
-    Levenshtein(icost, dcost, rcost, _levenshtein_pool(ctx.maxbatches), _char_pool(ctx.maxbatches))
+"Scratch of length `n`: the batch-local buffer when there is one, a fresh one otherwise."
+@inline _scratch(buf::Vector, n::Integer) = isempty(buf) ? similar(buf, n) : (resize!(buf, n); buf)
 
 """
     evaluate(::Levenshtein, a, b)
@@ -123,9 +121,8 @@ function evaluate(lev::Levenshtein, a, b)::Float32
     alen == 0 && return Float32(blen)
     blen == 0 && return Float32(alen)
 
-    C = take!(lev.Cpool)
-    try
-        resize!(C, blen + 1)
+    C = _scratch(lev.C, blen + 1)
+    begin
         @inbounds for i in 0:blen
             C[i+1] = i
         end
@@ -148,8 +145,6 @@ function evaluate(lev::Levenshtein, a, b)::Float32
         end
 
         Float32(prevA)
-    finally
-        put!(lev.Cpool, C)
     end
 end
 
@@ -171,16 +166,14 @@ function evaluate(lev::Levenshtein, a::AbstractString, b::AbstractString)::Float
     alen == 0 && return Float32(blen)
     blen == 0 && return Float32(alen)
 
-    Bbuf = take!(lev.CharPool)
-    try
-        resize!(Bbuf, blen)
+    Bbuf = _scratch(lev.B, blen)
+    begin
         @inbounds for (j, c) in enumerate(b)
             Bbuf[j] = c
         end
 
-        C = take!(lev.Cpool)
-        try
-            resize!(C, blen + 1)
+        C = _scratch(lev.C, blen + 1)
+        begin
             @inbounds for i in 0:blen
                 C[i+1] = i
             end
@@ -203,11 +196,7 @@ function evaluate(lev::Levenshtein, a::AbstractString, b::AbstractString)::Float
             end
 
             Float32(prevA)
-        finally
-            put!(lev.Cpool, C)
         end
-    finally
-        put!(lev.CharPool, Bbuf)
     end
 end
 
@@ -238,12 +227,12 @@ implemented here.
 dedicated method (see below); see [`Levenshtein`](@ref)'s docstring for why the generic
 `evaluate(::DamerauLevenshtein, a, b)` method above throws `StringIndexError` on those
 inputs and how the `AbstractString` method avoids it (string-iteration instead of
-`s[i]`-indexing, plus a pooled `CharPool` buffer for the shorter string).
+`s[i]`-indexing, plus a scratch buffer holding the shorter string's characters).
 
-`evaluate(::DamerauLevenshtein, a, b)` uses the same `Cpool` scratch-buffer-pool trick as
-[`Levenshtein`](@ref) (see its docstring for the rationale); the only difference is that
-three rolling rows (current, previous, and two-rows-back, for the transposition lookback)
-share one scratch buffer instead of one.
+`evaluate(::DamerauLevenshtein, a, b)` handles scratch exactly as [`Levenshtein`](@ref)
+does -- allocated per call unless [`beginbatch`](@ref) handed out a batch-local copy, never
+locked -- the only difference being that three rolling rows (current, previous, and
+two-rows-back, for the transposition lookback) share one buffer instead of one row using it.
 """
 struct DamerauLevenshtein <: SemiMetric
     icost::Int32 # insertion cost
@@ -251,24 +240,26 @@ struct DamerauLevenshtein <: SemiMetric
     rcost::Int32 # replace cost
     tcost::Int32 # transposition cost
 
-    Cpool::Channel{Vector{Int16}}
-    CharPool::Channel{Vector{Char}}
-end
-
-function _damerau_levenshtein_pool(capacity::Integer)
-    n = max(1, Int(capacity))
-    pool = Channel{Vector{Int16}}(n)
-    for _ in 1:n
-        put!(pool, Vector{Int16}(undef, 3 * 64))
-    end
-    pool
+    # private scratch, empty unless this is a `beginbatch` copy -- see [`Levenshtein`](@ref)
+    C::Vector{Int16}
+    B::Vector{Char}
 end
 
 DamerauLevenshtein(; icost=1, dcost=1, rcost=1, tcost=1) =
-    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(Threads.maxthreadid()), _char_pool(Threads.maxthreadid()))
+    DamerauLevenshtein(icost, dcost, rcost, tcost, Int16[], Char[])
 
 DamerauLevenshtein(ctx; icost=1, dcost=1, rcost=1, tcost=1) =
-    DamerauLevenshtein(icost, dcost, rcost, tcost, _damerau_levenshtein_pool(ctx.maxbatches), _char_pool(ctx.maxbatches))
+    DamerauLevenshtein(; icost, dcost, rcost, tcost)
+
+"""
+    beginbatch(dl::DamerauLevenshtein)
+
+A copy owning private scratch buffers, for use inside a single `@BATCHES` batch. See
+[`Levenshtein`](@ref) and [`beginbatch`](@ref).
+"""
+beginbatch(dl::DamerauLevenshtein) =
+    DamerauLevenshtein(dl.icost, dl.dcost, dl.rcost, dl.tcost,
+        Vector{Int16}(undef, 3 * 64), Vector{Char}(undef, 64))
 
 """
     evaluate(::DamerauLevenshtein, a, b)
@@ -290,9 +281,8 @@ function evaluate(dl::DamerauLevenshtein, a, b)::Float32
     blen == 0 && return Float32(alen)
 
     w = blen + 1
-    buf = take!(dl.Cpool)
-    try
-        resize!(buf, 3w)
+    buf = _scratch(dl.C, 3w)
+    begin
         twoAgo = view(buf, 1:w)
         prevRow = view(buf, w+1:2w)
         curRow = view(buf, 2w+1:3w)
@@ -323,8 +313,6 @@ function evaluate(dl::DamerauLevenshtein, a, b)::Float32
         end
 
         Float32(prevRow[blen+1])
-    finally
-        put!(dl.Cpool, buf)
     end
 end
 
@@ -347,17 +335,15 @@ function evaluate(dl::DamerauLevenshtein, a::AbstractString, b::AbstractString):
     alen == 0 && return Float32(blen)
     blen == 0 && return Float32(alen)
 
-    Bbuf = take!(dl.CharPool)
-    try
-        resize!(Bbuf, blen)
+    Bbuf = _scratch(dl.B, blen)
+    begin
         @inbounds for (j, c) in enumerate(b)
             Bbuf[j] = c
         end
 
         w = blen + 1
-        buf = take!(dl.Cpool)
-        try
-            resize!(buf, 3w)
+        buf = _scratch(dl.C, 3w)
+        begin
             twoAgo = view(buf, 1:w)
             prevRow = view(buf, w+1:2w)
             curRow = view(buf, 2w+1:3w)
@@ -390,11 +376,7 @@ function evaluate(dl::DamerauLevenshtein, a::AbstractString, b::AbstractString):
             end
 
             Float32(prevRow[blen+1])
-        finally
-            put!(dl.Cpool, buf)
         end
-    finally
-        put!(dl.CharPool, Bbuf)
     end
 end
 

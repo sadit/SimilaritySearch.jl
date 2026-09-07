@@ -54,7 +54,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
 
         @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
-            bctx = @set ctx.batchid = @batchid()
+            bctx = beginbatch(ctx, @batchid())
             tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
             neighbors_ = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
         @LOOP for objID in sp:ep

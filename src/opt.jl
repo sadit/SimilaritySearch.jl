@@ -183,7 +183,7 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
         runconfig(conf, index, bctx, queries[i], reuse!(knns[i]))
     end

@@ -133,7 +133,7 @@ function index!(
     minbatch = getminbatch(ctx, length(C))
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for i in eachindex(C)
         c = C[i]
         if sat.children[c] !== nothing
@@ -169,7 +169,7 @@ function index!(
     minbatch = getminbatch(ctx, nparts)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
-        bctx = @set ctx.batchid = @batchid()
+        bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:nparts
         sp = nparts + (i - 1) * m
         c = P[i]
