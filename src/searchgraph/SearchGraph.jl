@@ -153,8 +153,11 @@ struct SearchGraph{DIST<:PreMetric,
     db::DB
     adj::ADJ
     hints::HINTS
-    algo::Ref{BeamSearch}
-    len::Ref{Int64}
+    # `Base.RefValue`, not `Ref`: `Ref{T}` is an *abstract* type, so these fields would not
+    # be concrete and every `algo[]`/`len[]` read would go through a dynamic access, boxing
+    # its result. `length(index)` reads `len[]`, so that cost landed in every search.
+    algo::Base.RefValue{BeamSearch}
+    len::Base.RefValue{Int64}
 end
 
 """
