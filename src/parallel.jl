@@ -613,6 +613,15 @@ macro BATCHES(args...)
         __batch_parts = __batch_fastpath ? nothing : collect(Iterators.partition(__batch_range, __batch_minbatch))
         $(esc(:__batch_nbatches)) = __batch_fastpath ? 1 : length(__batch_parts)
 
+        # `@BEGIN` must run before `__batch_f` is *defined*, not merely before it is called:
+        # a variable the closure captures but which is assigned after the closure is created
+        # has to be boxed, since the closure must observe the later value. Emitting the block
+        # first lets every `@BEGIN`-declared buffer be captured unboxed -- it was costing
+        # 2.4M boxed scalars per `ParallelExhaustiveSearch` batch search before it was
+        # profiled. The documented ordering is unchanged: this still runs, once, in the
+        # caller's scope, before any batch starts.
+        $(begin_code)
+
         __batch_f = function ($(esc(:__batch_id)),)
             __batch_chunk = __batch_fastpath ? __batch_range : __batch_parts[$(esc(:__batch_id))]
             $(beginbatch_code)
@@ -621,8 +630,6 @@ macro BATCHES(args...)
             end
             $(endbatch_code)
         end
-
-        $(begin_code)
 
         if __batch_fastpath
             __batch_f(1)
