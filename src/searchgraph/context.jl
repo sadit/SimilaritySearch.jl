@@ -91,11 +91,15 @@ ctx2 = SearchGraphContext(ctx; parallel_block=64)    # copy overriding one keywo
 ctx3 = SearchGraphContext(; maxbatches=4Threads.nthreads())  # smaller batch-cache cap
 ```
 """
-struct SearchGraphContext{KnnType,VSType} <: AbstractContext
+struct SearchGraphContext{KnnType,VSType,NFILTER} <: AbstractContext
     reporters::Vector{AbstractReporter}
     observers::Vector{AbstractObserver}
     verbose::Bool
-    neighborhood::Neighborhood
+    # Parameterized on purpose: `Neighborhood` unadorned is not a concrete type, so every
+    # `ctx.neighborhood.<field>` read would go through a dynamic `getproperty` and box its
+    # result -- once per inner-loop iteration in `find_neighborhood!`, which measured a
+    # million boxed `Float32`s per 30k-object build.
+    neighborhood::Neighborhood{NFILTER}
     hints_callback::Union{Nothing,Callback}
     hyperparameters_callback::Union{Nothing,Callback}
     logbase_callback::Float32
@@ -137,7 +141,8 @@ function SearchGraphContext(
     costdists   === nothing && (costdists   = zeros(Int, maxbatches))
     costblocks    === nothing && (costblocks    = zeros(Int, maxbatches))
 
-    SearchGraphContext{KnnType,typeof(vstates)}(reporterlist(reporters), observerlist(observers),
+    SearchGraphContext{KnnType,typeof(vstates),typeof(neighborhood.filter)}(
+        reporterlist(reporters), observerlist(observers),
         verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         convert(Float32, logbase_callback),
@@ -148,7 +153,7 @@ function SearchGraphContext(
         costdists, costblocks)
 end
 
-function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
+function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType,NFILTER};
     reporters=ctx.reporters,
     observers=ctx.observers,
     verbose=ctx.verbose,
@@ -166,9 +171,12 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType};
     scheduler=ctx.scheduler,
     costdists=ctx.costdists,
     costblocks=ctx.costblocks
-) where {KnnType,VSType}
+) where {KnnType,VSType,NFILTER}
 
-    SearchGraphContext{KnnType,typeof(vstates)}(reporterlist(reporters), observerlist(observers),
+    # `typeof(neighborhood.filter)`, not `NFILTER`: the copy may override `neighborhood`
+    # with one carrying a different filter
+    SearchGraphContext{KnnType,typeof(vstates),typeof(neighborhood.filter)}(
+        reporterlist(reporters), observerlist(observers),
         verbose, neighborhood,
         hints_callback, hyperparameters_callback,
         logbase_callback, starting_callback,
@@ -180,8 +188,8 @@ end
 # SearchGraphContext has a phantom type parameter (KnnType, not derivable from any field),
 # so ConstructionBase's default reconstruction (used by Accessors.@set) can't infer it --
 # this override makes `@set ctx.batchid = ...`/`@set ctx.maxbatches = ...` work.
-Accessors.ConstructionBase.constructorof(::Type{<:SearchGraphContext{K,V}}) where {K,V} =
-    (args...) -> SearchGraphContext{K,V}(args...)
+Accessors.ConstructionBase.constructorof(::Type{<:SearchGraphContext{K,V,N}}) where {K,V,N} =
+    (args...) -> SearchGraphContext{K,V,N}(args...)
 
 """
     getminbatch(ctx::AbstractContext, n::Int, nt::Int=Threads.nthreads(); blocks_per_thread::Int=8)

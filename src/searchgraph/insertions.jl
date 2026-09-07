@@ -47,19 +47,27 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
     resize!(index.adj, n)
 
     while sp <= n
-        ep = min(n, sp + ctx.parallel_block - 1)  # sp:ep has at most ctx.parallel_block elements
+        # `sp` is a parameter reassigned at the bottom of this loop *and* captured by the
+        # batch closure below, so Julia keeps it in a `Core.Box` and reading it yields `Any`.
+        # Unwrap it once, here, before anything is derived from it: `ep` is computed from it,
+        # and a single untyped endpoint is enough to make `objID` untyped inside the loop,
+        # hence `item`, hence every distance find_neighborhood! computes over `blockrange` --
+        # a million boxed `Float32`s per 4k-object build. Typing only the range's start does
+        # nothing; `ep` has to be typed too, which is why this sits above it (see issue #56).
+        spb = sp::Int
+        ep = min(n, spb + ctx.parallel_block - 1)  # spb:ep has at most ctx.parallel_block elements
         ksearch = neighborhoodsize(ctx.neighborhood, ep)
         # qcache width is sized from ctx.maxbatches (see index!), derived from actual buffer size
-        minbatch = getminbatch(ep - sp + 1; maxbatches=size(qcache_ids, 2) ÷ 2)
+        minbatch = getminbatch(ep - spb + 1; maxbatches=size(qcache_ids, 2) ÷ 2)
 
         @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
             bctx = beginbatch(ctx, @batchid())
             tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
             neighbors_ = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
-        @LOOP for objID in sp:ep
+        @LOOP for objID in spb:ep
             item = database(index, objID)
-            R = sp:objID-1
+            R = spb:objID-1
             reuse!(tmp)
             reuse!(neighbors_)
             find_neighborhood!(neighbors_, index, bctx, item, tmp, R)
