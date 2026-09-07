@@ -177,7 +177,7 @@ Index of the first edge in `lo:hi` whose key is `>= d`, or `hi + 1` when there i
 end
 
 """
-    index!(bkt::BKT, ctx::AbstractContext; npivots=2, minleaf=12, rng=Random.default_rng())
+    index!(bkt::BKT, ctx::AbstractContext; npivots=2, nsample=32, minleaf=12)
 
 Builds the tree over the whole `database(bkt)`, top-down: at each node it picks a pivot,
 partitions the remaining objects by their exact integer distance to it, and recurses into
@@ -185,26 +185,35 @@ each resulting bucket. Returns `bkt`. The tree must be empty (`BKT` is build-onc
 incremental insertion).
 
 # Keyword Arguments
-- `npivots`: how many pivot candidates are sampled per node; the one producing the **most
+- `npivots`: how many pivot candidates are considered per node; the one producing the **most
   distinct distance values** wins, i.e. the one splitting its objects into the most buckets.
-  The winner's distances are reused to partition, so the build costs one extra pass per
-  *rejected* candidate: `npivots` is a straight multiplier on build time. Keep it small --
-  `1` disables the choice altogether, and on a 30k-word dictionary going from `1` to `2`
-  improved every query shape measured (k-NN and range alike) by 10-20%, while `3` and `5`
-  bought nothing beyond it and were often worse: the criterion also rewards *outlier*
-  pivots, which see many distinct distances precisely because they sit far from everything,
-  and the more candidates are drawn the likelier one is picked.
+  `1` disables the choice altogether. On a 30k-word dictionary going from `1` to `2` improved
+  every query shape measured (k-NN and range alike) by 10-20%, while `3` and `5` bought
+  nothing beyond it and were often worse: the criterion also rewards *outlier* pivots, which
+  see many distinct distances precisely because they sit far from everything, and the more
+  candidates are drawn the likelier one is picked.
+- `nsample`: how many of a node's own objects each candidate is judged against. Selection is
+  a heuristic, so it is judged on a sample rather than on everything the node covers -- that
+  keeps its cost `npivots * nsample` per node instead of `npivots` times the node's size,
+  which would make `npivots` a straight multiplier on the whole build. Every candidate of a
+  node faces the *same* sample, so they compete on equal terms.
 - `minleaf`: objects per **long leaf**. A group this size or smaller becomes a leaf holding a
   plain list, scanned exhaustively, instead of a sub-tree. This trades query cost for build
   cost and size, and it is a real trade in both directions: on that same dictionary, going
   from `4` to `32` shrank the tree ~7x (4622 to 613 internal nodes) and the build ~20%, and
   cost ~40% more distance evaluations per query. Pass `1` to build the tree all the way down.
-- `rng`: random source used to sample pivot candidates.
-"""
+
+Nodes of the same level are expanded in parallel (`@BATCHES`, `scheduler=ctx.scheduler`):
+they own disjoint ranges of the working permutation, so they never contend. Only the
+reservation of their slots in the shared child/bucket arrays is serial, and that is a prefix
+sum over the level's nodes -- `O(#nodes)`, against the `O(npivots * n)` distance evaluations
+each level spends. Pivot candidates are drawn from the task-local RNG, so `Random.seed!`
+still controls the build, but the tree it produces depends on the thread count."""
 function index!(bkt::BKT, ctx::AbstractContext;
-        npivots::Int=2, minleaf::Int=12, rng::AbstractRNG=Random.default_rng())
+        npivots::Int=2, nsample::Int=32, minleaf::Int=12)
     npivots >= 1 || throw(ArgumentError("npivots must be >= 1, got $npivots"))
     minleaf >= 1 || throw(ArgumentError("minleaf must be >= 1, got $minleaf"))
+    nsample >= 1 || throw(ArgumentError("nsample must be >= 1, got $nsample"))
     bkt.root[] == 0 && isempty(bkt.bucket) ||
         throw(ArgumentError("index! needs an empty BKT: it is a build-once index, it cannot grow or be rebuilt in place"))
 
@@ -216,7 +225,14 @@ function index!(bkt::BKT, ctx::AbstractContext;
         fill!(v, 0)
     end
 
-    cost = _build!(bkt, n, npivots, minleaf, rng)
+    # both are bounded by n (one edge per non-root node; one bucket slot per object that is
+    # not its leaf's representative), and the build grows them level by level -- reserving
+    # up front turns those growths into no-ops instead of realloc-and-copy
+    sizehint!(bkt.childkey, n)
+    sizehint!(bkt.childnode, n)
+    sizehint!(bkt.bucket, n)
+
+    cost = _build!(bkt, ctx, n, npivots, minleaf, nsample)
 
     add_distance_evaluations!(ctx, cost)
     OBSERVE(ctx, :add!, bkt, 1, n)
@@ -237,7 +253,188 @@ struct IdKey
     key::Int32
 end
 
-function _build!(bkt::BKT, n::Int, npivots::Int, minleaf::Int, rng::AbstractRNG)
+"""
+    _choosepivot!(bkt, dist, work, lo, hi, npivots, nsample, spos, vals, scratch) -> (bestpos, cost)
+
+Position of the pivot chosen for the node owning `work[lo:hi]`: of `npivots` candidates, the
+one whose distances to a **sample** of the node's own objects take the most distinct values,
+i.e. the one that splits them into the most buckets.
+
+The sample is what keeps selection cheap: judging a candidate against every object it covers
+would make the whole build `npivots` times more expensive, while the ranking it produces is a
+heuristic either way. Every candidate is judged against the *same* sample, so they compete on
+equal terms. Reads `work[lo:hi]` and nothing else, so nodes of a level run this concurrently.
+"""
+function _choosepivot!(bkt::BKT, dist, work::Vector{IdKey}, lo::Int32, hi::Int32, npivots::Int,
+        nsample::Int, spos::Vector{Int32}, vals::Vector{Int32}, scratch::Vector{Int32})
+    db = database(bkt)
+    s = hi - lo + 1
+    ns = min(nsample, s)
+
+    # grow-only scratch owned by the batch, so a level's thousands of nodes share three
+    # buffers instead of allocating three apiece
+    length(spos) < ns && (resize!(spos, ns); resize!(vals, ns); resize!(scratch, ns))
+    @inbounds if ns == s
+        for u in 1:ns
+            spos[u] = lo + u - 1
+        end
+    else
+        for u in 1:ns
+            spos[u] = rand(lo:hi)  # TaskLocalRNG: each task draws from its own state
+        end
+    end
+
+    bestpos = lo
+    bestnd = -1
+    cost = 0
+    m = min(npivots, s)
+    @inbounds for t in 1:m
+        # every object is a candidate when there are no more of them than candidates
+        cpos = m == s ? (lo + t - 1) : rand(lo:hi)
+        p = work[cpos].id
+        for u in 1:ns
+            vals[u] = round(Int32, Dist.evaluate(dist, db[p], db[work[spos[u]].id]))
+        end
+        cost += ns
+
+        nd = _ndistinct!(scratch, vals, 1, ns)
+        if nd > bestnd
+            bestnd = nd
+            bestpos = cpos
+        end
+    end
+
+    bestpos, cost
+end
+
+"""
+    _countsort!(work, work2, cnt, lo, hi, minleaf) -> (ngroups, nbucket, nbig)
+
+Sorts `work[(lo+1):hi]` by key **and** reports what phase D must reserve for that node: how
+many equal-key groups it has, how many objects land in long-leaf buckets, and how many groups
+keep branching.
+
+A counting sort, not a comparison sort, because the keys are exactly what this whole index is
+built on: small non-negative integers. It runs in `O(s + kmax)` instead of `O(s log s)`, it
+allocates nothing (`work2` is a shared scratch permutation, indexed over the same disjoint
+range the node owns, and `cnt` is the batch's grow-only histogram), and the histogram it
+builds *is* the group structure -- so counting the groups is free rather than a second pass.
+"""
+function _countsort!(work::Vector{IdKey}, work2::Vector{IdKey}, cnt::Vector{Int32},
+        lo::Int32, hi::Int32, minleaf::Int)
+    kmax = zero(Int32)
+    @inbounds for i in (lo+1):hi
+        kmax = max(kmax, work[i].key)
+    end
+
+    m = kmax + 1
+    length(cnt) < m && resize!(cnt, m)
+    @inbounds begin
+        for k in 1:m
+            cnt[k] = 0
+        end
+
+        for i in (lo+1):hi
+            cnt[work[i].key+1] += 1
+        end
+
+        # prefix sum into starting offsets; every nonempty key is one group, so the sizes
+        # this pass already has in hand are exactly what phase D needs counted
+        ngroups = nbucket = nbig = 0
+        acc = lo + 1
+        for k in 1:m
+            c = cnt[k]
+            if c > 0
+                ngroups += 1
+                c <= minleaf ? (nbucket += c - 1) : (nbig += 1)
+            end
+
+            cnt[k] = acc
+            acc += c
+        end
+
+        for i in (lo+1):hi
+            e = work[i]
+            p = cnt[e.key+1]
+            work2[p] = e
+            cnt[e.key+1] = p + 1
+        end
+
+        for i in (lo+1):hi
+            work[i] = work2[i]
+        end
+
+        return ngroups, nbucket, nbig
+    end
+end
+
+"""
+    _emit!(bkt, work, lo, hi, slot, coff, boff, noff, next, minleaf)
+
+Writes a node into the tree, into slots phase B already reserved for it: names it in its
+parent's edge, records its children (ascending by key, as `search` expects), copies its long
+leaves' objects into `bucket`, and appends the groups that keep branching to `next`. Writes
+nothing that another node of the same level also writes, so this runs concurrently too.
+"""
+function _emit!(bkt::BKT, work::Vector{IdKey}, lo::Int32, hi::Int32, slot::Int32,
+        coff::Int32, boff::Int32, noff::Int32, next::Vector{NTuple{3,Int32}}, minleaf::Int)
+    @inbounds begin
+        node = work[lo].id
+        _attach!(bkt, slot, node)
+        s = hi - lo + 1
+
+        if s <= minleaf  # a whole node no bigger than a long leaf: only the root can be one
+            if s > 1
+                bkt.bucketstart[node] = boff
+                bkt.bucketlen[node] = s - 1
+                for (u, i) in enumerate((lo+1):hi)
+                    bkt.bucket[boff+u-1] = work[i].id
+                end
+            end
+
+            return nothing
+        end
+
+        bkt.childstart[node] = coff
+        e, b, x = coff, boff, noff
+        i = lo + 1
+        while i <= hi
+            k = work[i].key
+            j = i
+            while j < hi && work[j+1].key == k
+                j += 1
+            end
+
+            bkt.childkey[e] = k
+            gsize = j - i + 1
+            if gsize <= minleaf  # long leaf: its first object represents it, the rest go to `bucket`
+                leaf = work[i].id
+                bkt.childnode[e] = leaf
+                if gsize > 1
+                    bkt.bucketstart[leaf] = b
+                    bkt.bucketlen[leaf] = gsize - 1
+                    for u in (i+1):j
+                        bkt.bucket[b] = work[u].id
+                        b += 1
+                    end
+                end
+            else
+                bkt.childnode[e] = 0  # filled next level, once this child picks its pivot
+                next[x] = (Int32(i), Int32(j), Int32(e))
+                x += 1
+            end
+
+            e += 1
+            i = j + 1
+        end
+
+        bkt.childcount[node] = e - coff
+    end
+
+    nothing
+end
+
+function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::Int, nsample::Int)
     dist = distance(bkt)
     db = database(bkt)
 
@@ -248,88 +445,156 @@ function _build!(bkt::BKT, n::Int, npivots::Int, minleaf::Int, rng::AbstractRNG)
         work[i] = IdKey(i, 0)
     end
 
-    best = Vector{Int32}(undef, n)     # distances of the winning candidate, reused to partition
-    cand = Vector{Int32}(undef, n)     # distances of the candidate being evaluated
-    scratch = Vector{Int32}(undef, n)  # workspace of _ndistinct!
+    # Built breadth-first, one level at a time: every node of a level owns a disjoint range
+    # of `work`, so they expand concurrently. A node is `(lo, hi, slot)` -- the range it owns
+    # plus the parent edge that names it (0 for the root, which nothing points to); its own
+    # id is only known once its pivot is chosen, which is why the parent reserves the slot up
+    # front and the child fills it in.
+    level = [(Int32(1), Int32(n), Int32(0))]
+    next = NTuple{3,Int32}[]
 
-    # (lo, hi, slot) -- an explicit worklist: a pending node is fully described by the range
-    # of `work` it owns plus the edge slot naming it (0 for the root, which nothing points
-    # to). A node's own id is only known once its pivot is chosen, which is why the parent
-    # reserves the slot up front and the child fills it in.
-    stack = [(Int32(1), Int32(n), Int32(0))]
+    # Every buffer below is allocated once and resized per level, never reallocated per node:
+    # `wpos`/`wpiv` peak at the first level and only shrink afterwards, and the per-node
+    # vectors grow monotonically, so past the first level this loop allocates nothing.
+    wpos = Vector{Int32}(undef, n)   # the level's workload: every position whose key is
+    wpiv = Vector{UInt32}(undef, n)  # still unknown, paired with the pivot measuring it
+    work2 = Vector{IdKey}(undef, n)  # counting-sort scratch, indexed over each node's range
+    # Per-batch scratch, indexed by `@batchid()` and allocated once for the whole build
+    # rather than once per parallel region (there are five of them per level). Batch ids are
+    # disjoint ordinals bounded by `ctx.maxbatches` -- which is exactly what `getminbatch(ctx,
+    # ...)` caps the batch count by -- so a slot is private to whichever batch holds it, the
+    # same arrangement `SatContext`'s `getvstate`/`getbeam` use.
+    nb = max(1, Int(ctx.maxbatches))
+    bdists = [beginbatch(dist) for _ in 1:nb]
+    sposb = [Int32[] for _ in 1:nb]
+    valsb = [Int32[] for _ in 1:nb]
+    pscrb = [Int32[] for _ in 1:nb]
+    cntb = [Int32[] for _ in 1:nb]
+
+    costs = Int[]
+    woff = Int32[]
+    gcount = Int32[]
+    bcount = Int32[]
+    ncount = Int32[]
+    coff = Int32[]
+    boff = Int32[]
+    noff = Int32[]
     cost = 0
 
-    @inbounds while !isempty(stack)
-        lo, hi, slot = pop!(stack)
-        s = hi - lo + 1
+    while !isempty(level)
+        nl = length(level)
+        for v in (woff, gcount, bcount, ncount, coff, boff, noff)
+            length(v) < nl && resize!(v, nl)
+        end
 
-        if s <= minleaf  # long leaf: its first object represents it, the rest go to `bucket`
-            node = work[lo].id
-            _attach!(bkt, slot, node)
-            if s > 1
-                bkt.bucketstart[node] = length(bkt.bucket) + 1
-                bkt.bucketlen[node] = s - 1
-                for i in (lo+1):hi
-                    push!(bkt.bucket, work[i].id)
+        length(costs) < nl && resize!(costs, nl)
+
+        # ---- phase A: pick each node's pivot from a sample of its own objects, in parallel
+        minbatch = getminbatch(ctx, nl)
+        @BATCHES minbatch scheduler=ctx.scheduler begin
+        @BEGINBATCH
+            _b = @batchid()
+            bdist = bdists[_b]
+            spos = sposb[_b]; vals = valsb[_b]; pscratch = pscrb[_b]
+        @LOOP for t in 1:nl
+            lo, hi, _ = level[t]
+            if hi - lo + 1 <= minleaf   # already a long leaf: no pivot to choose
+                costs[t] = 0
+            else
+                bestpos, c = _choosepivot!(bkt, bdist, work, lo, hi, npivots, nsample,
+                                           spos, vals, pscratch)
+                costs[t] = c
+                work[lo], work[bestpos] = work[bestpos], work[lo]  # the pivot leads its range
+            end
+        end
+        @END
+        end
+
+        # ---- the workload: one entry per object whose key is still unknown, tagged with the
+        # pivot that will measure it. Flat and dense, so the root -- a single node covering
+        # everything -- parallelizes exactly as well as a level made of thousands of nodes.
+        w = 0
+        @inbounds for t in 1:nl
+            lo, hi, _ = level[t]
+            woff[t] = w + 1
+            cost += costs[t]
+            hi - lo + 1 <= minleaf || (w += hi - lo)
+        end
+
+        resize!(wpos, w)
+        resize!(wpiv, w)
+        @BATCHES minbatch scheduler=ctx.scheduler for t in 1:nl
+            lo, hi, _ = level[t]
+            if hi - lo + 1 > minleaf
+                @inbounds begin
+                    p = work[lo].id
+                    u = woff[t]
+                    for i in (lo+1):hi
+                        wpos[u] = i
+                        wpiv[u] = p
+                        u += 1
+                    end
                 end
             end
-
-            continue
         end
 
-        # pivot selection: keep the candidate splitting `lo:hi` into the most buckets
-        bestpos = lo
-        bestnd = -1
-        m = min(npivots, s)
-        for t in 1:m
-            # every object is a candidate when there are no more of them than candidates
-            cpos = m == s ? (lo + t - 1) : rand(rng, lo:hi)
-            p = work[cpos].id
-            for i in lo:hi
-                # the caller guarantees these are integer-valued (see BKT's docstring); a
-                # fractional distance would round into a bucket it does not belong to
-                cand[i] = round(Int32, Dist.evaluate(dist, db[p], db[work[i].id]))
+        # ---- phase B: the level's entire partitioning pass, one parallel map
+        @BATCHES getminbatch(ctx, w) scheduler=ctx.scheduler begin
+        @BEGINBATCH
+            # a batch is single-tasked, so a distance with scratch can hand this batch its
+            # own buffers and skip both the locking and the per-call allocation
+            bdist = bdists[@batchid()]
+        @LOOP for u in 1:w
+            i = wpos[u]
+            # the caller guarantees these are integer-valued (see BKT's docstring); a
+            # fractional distance would round into a bucket it does not belong to
+            @inbounds work[i] = IdKey(work[i].id,
+                round(Int32, Dist.evaluate(bdist, db[wpiv[u]], db[work[i].id])))
+        end
+        @END
+        end
+        cost += w
+
+        # ---- phase C: sort each node's range by key and count what it needs, in parallel
+        @BATCHES minbatch scheduler=ctx.scheduler begin
+        @BEGINBATCH
+            cnt = cntb[@batchid()]   # the batch's grow-only counting-sort histogram
+        @LOOP for t in 1:nl
+            lo, hi, _ = level[t]
+            if hi - lo + 1 <= minleaf
+                gcount[t], bcount[t], ncount[t] = 0, hi - lo, 0
+            else
+                gcount[t], bcount[t], ncount[t] = _countsort!(work, work2, cnt, lo, hi, minleaf)
             end
-            cost += s
-
-            nd = _ndistinct!(scratch, cand, lo, hi)
-            if nd > bestnd
-                bestnd = nd
-                bestpos = cpos
-                cand, best = best, cand  # keep the winner's distances, they partition below
-            end
+        end
+        @END
         end
 
-        for i in lo:hi
-            work[i] = IdKey(work[i].id, best[i])
+        # ---- phase D: serial, but only O(#nodes of the level): turn the counts into
+        # disjoint reservations, so phase E never contends for the shared arrays.
+        c = Int32(length(bkt.childkey) + 1)
+        b = Int32(length(bkt.bucket) + 1)
+        x = one(Int32)
+        for t in 1:nl
+            coff[t], boff[t], noff[t] = c, b, x
+            c += gcount[t]
+            b += bcount[t]
+            x += ncount[t]
         end
 
-        work[lo], work[bestpos] = work[bestpos], work[lo]  # the pivot leads its own range
-        pivot = work[lo].id
-        _attach!(bkt, slot, pivot)
+        resize!(bkt.childkey, c - 1)
+        resize!(bkt.childnode, c - 1)
+        resize!(bkt.bucket, b - 1)
+        resize!(next, x - 1)
 
-        sort!(view(work, (lo+1):hi), by=e -> e.key)
-
-        # every equal-key group becomes a child; they are appended in ascending key order,
-        # which is what `search` binary-searches on
-        bkt.childstart[pivot] = length(bkt.childkey) + 1
-        nc = 0
-        i = lo + 1
-        while i <= hi
-            k = work[i].key
-            j = i
-            while j < hi && work[j+1].key == k
-                j += 1
-            end
-
-            push!(bkt.childkey, k)
-            push!(bkt.childnode, 0)  # filled once this child's own pivot is chosen
-            nc += 1
-            push!(stack, (Int32(i), Int32(j), Int32(length(bkt.childkey))))
-            i = j + 1
+        # ---- phase E: fill the reservations, in parallel again
+        @BATCHES minbatch scheduler=ctx.scheduler for t in 1:nl
+            lo, hi, slot = level[t]
+            _emit!(bkt, work, lo, hi, slot, coff[t], boff[t], noff[t], next, minleaf)
         end
 
-        bkt.childcount[pivot] = nc
+        level, next = next, level
+        empty!(next)
     end
 
     cost
