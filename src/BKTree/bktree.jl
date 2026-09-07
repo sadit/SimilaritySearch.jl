@@ -482,7 +482,15 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
     cost = 0
 
     while !isempty(level)
-        nl = length(level)
+        # `level`/`next` are swapped at the bottom of this loop, and a captured variable that
+        # is reassigned in its enclosing scope gets *boxed* -- every `level[t]` below would
+        # come back as `Any`, boxing the ranges and counters derived from it (see issue #56;
+        # it cost 4.5MiB of boxed scalars per 30k build before it was profiled). These
+        # aliases are assigned once per iteration and never reassigned, so the parallel
+        # regions capture them unboxed; use only these inside a `@BATCHES` body.
+        L = level
+        N = next
+        nl = length(L)
         for v in (woff, gcount, bcount, ncount, coff, boff, noff)
             length(v) < nl && resize!(v, nl)
         end
@@ -497,7 +505,7 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
             bdist = bdists[_b]
             spos = sposb[_b]; vals = valsb[_b]; pscratch = pscrb[_b]
         @LOOP for t in 1:nl
-            lo, hi, _ = level[t]
+            lo, hi, _ = L[t]
             if hi - lo + 1 <= minleaf   # already a long leaf: no pivot to choose
                 costs[t] = 0
             else
@@ -515,7 +523,7 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
         # everything -- parallelizes exactly as well as a level made of thousands of nodes.
         w = 0
         @inbounds for t in 1:nl
-            lo, hi, _ = level[t]
+            lo, hi, _ = L[t]
             woff[t] = w + 1
             cost += costs[t]
             hi - lo + 1 <= minleaf || (w += hi - lo)
@@ -524,7 +532,7 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
         resize!(wpos, w)
         resize!(wpiv, w)
         @BATCHES minbatch scheduler=ctx.scheduler for t in 1:nl
-            lo, hi, _ = level[t]
+            lo, hi, _ = L[t]
             if hi - lo + 1 > minleaf
                 @inbounds begin
                     p = work[lo].id
@@ -560,7 +568,7 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
         @BEGINBATCH
             cnt = cntb[@batchid()]   # the batch's grow-only counting-sort histogram
         @LOOP for t in 1:nl
-            lo, hi, _ = level[t]
+            lo, hi, _ = L[t]
             if hi - lo + 1 <= minleaf
                 gcount[t], bcount[t], ncount[t] = 0, hi - lo, 0
             else
@@ -585,12 +593,12 @@ function _build!(bkt::BKT, ctx::AbstractContext, n::Int, npivots::Int, minleaf::
         resize!(bkt.childkey, c - 1)
         resize!(bkt.childnode, c - 1)
         resize!(bkt.bucket, b - 1)
-        resize!(next, x - 1)
+        resize!(N, x - 1)
 
         # ---- phase E: fill the reservations, in parallel again
         @BATCHES minbatch scheduler=ctx.scheduler for t in 1:nl
-            lo, hi, slot = level[t]
-            _emit!(bkt, work, lo, hi, slot, coff[t], boff[t], noff[t], next, minleaf)
+            lo, hi, slot = L[t]
+            _emit!(bkt, work, lo, hi, slot, coff[t], boff[t], noff[t], N, minleaf)
         end
 
         level, next = next, level
