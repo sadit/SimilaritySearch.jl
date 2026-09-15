@@ -183,9 +183,9 @@ end
 Key facts an agent must know before editing anything here:
 
 - **Index scratch buffers by `@batchid`, never by `Threads.threadid()`.** Batch ids are
-  fixed, disjoint ordinals — race-free under *every* scheduler (`:static`/`:default`/
-  `:greedy`). `Threads.threadid()`-indexing is only safe under `:static` (the default) and
-  is a silent data race under the others. No remaining call site in `src/` still does
+  fixed, disjoint ordinals — race-free under *every* scheduler (`:dynamic`/`:static`/
+  `:greedy`). `Threads.threadid()`-indexing is only safe under `:static` (no longer the
+  default; `:dynamic` is) and is a silent data race under the others. No remaining call site in `src/` still does
   this: `dist/seqs.jl`'s `Levenshtein`/`DamerauLevenshtein`/`LCS` are the one case that
   can't use `@batchid` at all (their scratch buffer is needed inside `evaluate(dist, a, b)`,
   the generic, context-free interface shared by *every* distance function in this package —
@@ -289,7 +289,7 @@ Key facts an agent must know before editing anything here:
 - Some search methods (e.g. `ParallelExhaustiveSearch`'s `search`) are commonly invoked
   from *within* another `@BATCHES`-parallelized outer loop (`searchbatch!`/`allknn`/
   `closestpair` all do this generically). Native `:static` throws if nested/concurrent;
-  such inner call sites force `scheduler=:default` explicitly rather than relying on the
+  such inner call sites force `scheduler=:dynamic` explicitly rather than relying on the
   global default.
 
 ## Git / commit conventions

@@ -43,7 +43,7 @@ one more when it does not (asking for 8 over 300 objects returns 9). Use [`fft`]
   caller that has one should pass `reporters=ctx.reporters` for its silencing to reach here; pass
   `reporters=[]` to silence it directly.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler stored in the internal `GenericContext`
-  used for this call (`:default`, `:static`, `:greedy`, or `:sequential` to disable
+  used for this call (`:dynamic`, `:default`, `:static`, `:greedy`, or `:sequential` to disable
   threading entirely). Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns

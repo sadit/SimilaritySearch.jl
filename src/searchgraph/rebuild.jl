@@ -67,8 +67,8 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         # one private pair of scratch buffers per batch (`tmp`/`N`), indexed by @batchid() --
         # @nbatches() is bounded (~8 * nthreads(), via getminbatch), never by n, so this
         # never grows with the database size. Unlike Threads.threadid()-indexing, this
-        # stays race-free under every scheduler (:static/:default/:greedy), not just the
-        # default :static.
+        # stays race-free under every scheduler (:dynamic/:static/:greedy), not just the
+        # fixed-placement :static.
         qcache_ids   = zeros(UInt32,  ksearch, 2 * @nbatches())
         qcache_dists = zeros(Float32, ksearch, 2 * @nbatches())
     @BEGINBATCH

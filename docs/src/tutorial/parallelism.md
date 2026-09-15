@@ -145,10 +145,13 @@ end
 ## Batch Schedulers
 
 `@BATCHES` supports multiple execution schedulers:
-- `:static`: Partitions iterations evenly across threads without task migration.
-- `:default`: Standard Julia task scheduler.
-- `:greedy`: Dynamic work-stealing scheduler (Julia $\ge$ 1.11).
+- `:dynamic` (**the global default**): Julia's dynamic scheduler over migratable tasks. Places no restriction on where a `@BATCHES` call may run, so any number of them may be live at once in one process, nested or concurrent.
+- `:default`: Whatever `Threads.@threads` picks with no schedule annotation (currently `:dynamic`, but Julia reserves the right to change it). Say `:dynamic` when you want the dynamic schedule itself.
+- `:static`: Partitions iterations evenly across threads without task migration. Worth asking for explicitly in two cases: in controlled experiments and benchmarks, where its fixed, precomputed chunking is the cheapest and most reproducible schedule (no migration, no work-stealing, no per-batch scheduling decisions, so timings vary less between runs); and as the only schedule under which `Threads.threadid()` is a valid index into per-thread data structures, which is sometimes the only option for code that cannot reach a `@batchid()`. It is not the default because Julia refuses to enter a `@threads :static` region while another one is running *anywhere in the process* — two unrelated indexes, each under its own lock, still collide.
+- `:greedy`: Dynamic work-stealing scheduler (Julia $\ge$ 1.11). Best for very uneven per-batch cost; since `@BATCHES` already averages `minbatch` elements into each batch, there is usually little imbalance left for it to recover.
 - `:sequential`: Disables multithreading, running iterations sequentially in the caller task. Useful for deterministic debugging and benchmarking.
+
+The global choice is read and written with [`get_batch_scheduler`](@ref)/[`set_batch_scheduler!`](@ref), and seeded at load time from the `SIMSEARCH_BATCH_SCHEDULER` environment variable.
 
 ### Context-Level Scheduler Configuration
 

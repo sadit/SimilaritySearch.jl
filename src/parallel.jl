@@ -85,7 +85,7 @@ Inside a `@BATCHES` call's `@BEGINBATCH`, `@LOOP`, or `@ENDBATCH` section, expan
 current batch's fixed, 1-based ordinal index (stable for the whole lifetime of that
 batch's task). Since batch ids are disjoint -- no two concurrently-running batches ever
 share one -- indexing a shared, `@nbatches()`-sized array by `@batchid()` is race-free by
-construction, regardless of scheduler (`:static`/`:default`/`:greedy`); this is safer than
+construction, regardless of scheduler (`:dynamic`/`:static`/`:greedy`); this is safer than
 indexing by `Threads.threadid()`, which can alias/migrate under non-`:static` schedulers.
 Not meaningful in `@BEGIN`/`@END` (those run once, globally, not per batch) -- using it
 there raises `UndefVarError`.
@@ -111,14 +111,14 @@ end
     SCHEDULER
 
 Global selector (a `Ref{Symbol}`, seeded at package load time from the
-`SIMSEARCH_BATCH_SCHEDULER` environment variable, default `:static`) for the
+`SIMSEARCH_BATCH_SCHEDULER` environment variable, default `:dynamic`) for the
 `Threads.@threads` scheduler kind used by [`@BATCHES`](@ref) when a call site does not
-specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy`,
+specify its own `scheduler=` override. One of `:dynamic`, `:default`, `:static`, `:greedy`,
 `:sequential` (`:greedy` only valid on Julia >= 1.11). Read/write it via
 [`get_batch_scheduler`](@ref)/[`set_batch_scheduler!`](@ref) rather than directly, since
 the latter validates its argument.
 """
-const SCHEDULER = Ref{Symbol}(:static)
+const SCHEDULER = Ref{Symbol}(:dynamic)
 
 """
     set_batch_scheduler!(sched::Symbol)
@@ -126,20 +126,34 @@ const SCHEDULER = Ref{Symbol}(:static)
 Sets the global `Threads.@threads` schedule kind used by [`@BATCHES`](@ref) whenever a
 call site does not give its own `scheduler=` override. Must be one of:
 
-- `:static` (**the default**): one task per thread, never migrates mid-execution. This
-  package no longer has any `Threads.threadid()`-indexed shared state on its own parallel
-  paths: `searchgraph/context.jl`'s `vstates`/`beams`, `searchgraph/rebuild.jl`,
-  `searchgraph/insertions.jl`, `closestpair.jl`, and `exact/parallel-exhaustive.jl` all use
-  `@batchid()`-indexing (safe under every scheduler); `dist/seqs.jl`'s `Levenshtein`/`LCS`,
-  which can't reach a `@batchid()` at all (their scratch buffer is needed inside the
-  generic, context-free `evaluate(dist, a, b)`), use a `Channel`-based buffer pool
-  instead of thread-indexing. `:static` remains the default for its simpler, more
-  predictable scheduling, not because anything in this package still depends on it for
-  correctness. Trade-off: throws immediately if a `@BATCHES` call is ever nested inside
-  another already-threaded region, or invoked from a non-main thread.
-- `:dynamic`/`:default`: whatever `Threads.@threads` itself currently defaults to
-  (currently `:dynamic`; passed through as `:default` here so this package does not hard-
-  code a name that Julia itself reserves the right to change).
+- `:dynamic` (**the default**): `Threads.@threads :dynamic`, i.e. migratable tasks placed
+  by Julia's dynamic scheduler. Unlike `:static` it puts no restriction whatsoever on
+  where a `@BATCHES` call may run: any number of them may be live at once in one process,
+  nested or concurrent, which is what any library serving several indexes from one
+  process needs. This package no longer has any `Threads.threadid()`-indexed shared state
+  on its own parallel paths: `searchgraph/context.jl`'s `vstates`/`beams`,
+  `searchgraph/rebuild.jl`, `searchgraph/insertions.jl`, `closestpair.jl`, and
+  `exact/parallel-exhaustive.jl` all use `@batchid()`-indexing (safe under every
+  scheduler); `dist/seqs.jl`'s `Levenshtein`/`LCS`, which can't reach a `@batchid()` at all
+  (their scratch buffer is needed inside the generic, context-free `evaluate(dist, a, b)`),
+  use a `Channel`-based buffer pool instead of thread-indexing.
+- `:default`: whatever `Threads.@threads` picks when given no schedule annotation at all
+  (currently `:dynamic`, but that is a default Julia explicitly reserves the right to
+  change). Use it only when following Julia's future choice is what you actually want;
+  to ask for the dynamic schedule itself, say `:dynamic`.
+- `:static`: one task per thread, fixed placement, never migrates mid-execution.
+  Worth choosing deliberately in two situations: (a) in controlled experiments and
+  benchmarks, where its fixed, precomputed chunking is the cheapest and most reproducible
+  schedule available -- no migration, no work-stealing, no per-batch scheduling decisions
+  -- so timings vary less between runs; and (b) as the *only* schedule under which
+  `Threads.threadid()` is a valid index into per-thread data structures, which is
+  occasionally the only option for code that cannot reach a [`@batchid()`](@ref) (be aware
+  that a nested `@BATCHES` region would still break that assumption). Trade-off, and the
+  reason it is no longer the default: Julia refuses to enter a `@threads :static` region
+  while another one is already running *anywhere in the process*, and the flag it tests is
+  global -- two unrelated indexes, in unrelated calls, each under its own lock, still
+  collide -- so it throws if a `@BATCHES` call is nested inside another already-threaded
+  region, runs concurrently with one, or is invoked from a non-main thread.
 - `:greedy`: spawns up to `Threads.threadpoolsize()` tasks that each greedily pull the
   next batch of work as they finish; best for very uneven per-batch cost. **Requires
   Julia >= 1.11** (raises `ArgumentError` on older versions, at the point this is set, not
@@ -151,8 +165,8 @@ call site does not give its own `scheduler=` override. Must be one of:
   and [`@batchid()`](@ref) is `1` for the entire call.
 
 !!! warning
-    `:default`/`:greedy` use migratable `Task`s: `Threads.threadid()` can change *during*
-    a single batch's execution. Switching away from `:static` is **unsafe** for any code
+    `:dynamic`/`:default`/`:greedy` use migratable `Task`s: `Threads.threadid()` can change
+    *during* a single batch's execution. Anything other than `:static` is **unsafe** for any code
     that indexes per-thread state by `Threads.threadid()` -- unlike `:static`'s nesting
     restriction, this failure mode is a **silent data race**, not an error. Nothing in
     this package's own `@BATCHES`-parallelized paths does this anymore (see above); this
@@ -164,8 +178,8 @@ call site does not give its own `scheduler=` override. Must be one of:
 See also [`get_batch_scheduler`](@ref).
 """
 function set_batch_scheduler!(sched::Symbol)
-    sched === :default || sched === :static || sched === :greedy || sched === :sequential ||
-        throw(ArgumentError("invalid @BATCHES scheduler `:$sched`; expected :default, :static, :greedy, or :sequential"))
+    sched === :dynamic || sched === :default || sched === :static || sched === :greedy || sched === :sequential ||
+        throw(ArgumentError("invalid @BATCHES scheduler `:$sched`; expected :dynamic, :default, :static, :greedy, or :sequential"))
     sched === :greedy && VERSION < v"1.11" &&
         throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11 (native Threads.@threads :greedy does not exist before that)"))
     SCHEDULER[] = sched
@@ -175,18 +189,18 @@ end
     get_batch_scheduler() -> Symbol
 
 Returns the current global scheduler used by [`@BATCHES`](@ref) when a call site does not
-specify its own `scheduler=` override. One of `:default`, `:static`, `:greedy`,
+specify its own `scheduler=` override. One of `:dynamic`, `:default`, `:static`, `:greedy`,
 `:sequential`. See [`set_batch_scheduler!`](@ref) for what each means and how to change it.
 """
 get_batch_scheduler() = SCHEDULER[]
 
 function __init__()
-    s = Symbol(get(ENV, "SIMSEARCH_BATCH_SCHEDULER", "static"))
-    if s === :static || s === :default || s === :sequential || (s === :greedy && VERSION >= v"1.11")
+    s = Symbol(get(ENV, "SIMSEARCH_BATCH_SCHEDULER", "dynamic"))
+    if s === :dynamic || s === :static || s === :default || s === :sequential || (s === :greedy && VERSION >= v"1.11")
         SCHEDULER[] = s
     else
-        @warn "unrecognized or unsupported SIMSEARCH_BATCH_SCHEDULER=$(repr(String(s))); falling back to :static" maxlog=1
-        SCHEDULER[] = :static
+        @warn "unrecognized or unsupported SIMSEARCH_BATCH_SCHEDULER=$(repr(String(s))); falling back to :dynamic" maxlog=1
+        SCHEDULER[] = :dynamic
     end
 end
 
@@ -206,6 +220,12 @@ end
 
 function _batches_run_static(f::F, n::Int) where {F}
     Threads.@threads :static for id in 1:n
+        f(id)
+    end
+end
+
+function _batches_run_dynamic(f::F, n::Int) where {F}
+    Threads.@threads :dynamic for id in 1:n
         f(id)
     end
 end
@@ -233,8 +253,10 @@ function _batches_dispatch(f::F, n::Int, sched::Symbol) where {F}
         _batches_run_greedy(f, n)
     elseif sched === :static
         _batches_run_static(f, n)
-    else
+    elseif sched === :default
         _batches_run_default(f, n)
+    else
+        _batches_run_dynamic(f, n)
     end
 end
 
@@ -243,8 +265,8 @@ end
 # variable, `ctx.scheduler`, a function call, ...) whose value can only be known once the
 # expression is actually evaluated.
 function _batches_validate_scheduler(sched::Symbol)
-    (sched === :default || sched === :static || sched === :greedy || sched === :sequential) ||
-        throw(ArgumentError("@BATCHES: `scheduler` must be one of :default, :static, :greedy, :sequential; got `:$sched` (resolved at run time)"))
+    (sched === :dynamic || sched === :default || sched === :static || sched === :greedy || sched === :sequential) ||
+        throw(ArgumentError("@BATCHES: `scheduler` must be one of :dynamic, :default, :static, :greedy, :sequential; got `:$sched` (resolved at run time)"))
     sched === :greedy && VERSION < v"1.11" &&
         throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11"))
     sched
@@ -274,8 +296,8 @@ function _batches_parse_args(args)
                 # variable name (`scheduler=myvar`) is *also* a plain `Symbol` at the AST
                 # level, but never a `QuoteNode`.
                 sym = val.value
-                (sym === :default || sym === :static || sym === :greedy || sym === :sequential) ||
-                    throw(ArgumentError("@BATCHES: `scheduler` must be one of :default, :static, :greedy, :sequential; got `$val`"))
+                (sym === :dynamic || sym === :default || sym === :static || sym === :greedy || sym === :sequential) ||
+                    throw(ArgumentError("@BATCHES: `scheduler` must be one of :dynamic, :default, :static, :greedy, :sequential; got `$val`"))
                 sym === :greedy && VERSION < v"1.11" &&
                     throw(ArgumentError("@BATCHES: scheduler=:greedy requires Julia >= 1.11"))
                 scheduler = val
@@ -393,7 +415,7 @@ end
 # --- @BATCHES itself -----------------------------------------------------------------
 
 """
-    @BATCHES minbatch [scheduler=:default|:static|:greedy] for i in range ... end
+    @BATCHES minbatch [scheduler=:dynamic|:default|:static|:greedy] for i in range ... end
     @BATCHES minbatch [scheduler=...] begin
         @BEGIN ... end            # optional, runs once, before dispatch
         @BEGINBATCH ... end       # optional, runs once per batch, before its elements
@@ -441,8 +463,8 @@ be individually omitted).
   positional argument. Use [`getminbatch`](@ref) to compute a reasonable value (aims for
   ~8 batches per thread) instead of hand-picking one.
 - `scheduler`: overrides the global [`get_batch_scheduler`](@ref)/
-  [`set_batch_scheduler!`](@ref) selection for this call site only. One of `:default`,
-  `:static`, `:greedy`, or `:sequential` -- `scheduler=:sequential` forces this call site to
+  [`set_batch_scheduler!`](@ref) selection for this call site only. One of `:dynamic`,
+  `:default`, `:static`, `:greedy`, or `:sequential` -- `scheduler=:sequential` forces this call site to
   run its whole `range` as a single, unthreaded batch (`@nbatches()` is `1`, `@batchid()` is
   `1`), regardless of `Threads.nthreads()` or how `range` compares to `minbatch`; see
   [`set_batch_scheduler!`](@ref). May be given either as a literal (`scheduler=:static`,
@@ -452,11 +474,12 @@ be individually omitted).
   and validated once, right before this call's batches start.
 
 !!! warning
-    **`:static` is the global default scheduler; switching to `:default`/`:greedy` is
-    unsafe for code that indexes per-thread state by `Threads.threadid()`** (a silent
-    data race, not an error, since those two schedulers use migratable `Task`s). Prefer
-    [`@batchid()`](@ref)-indexed scratch space in new code -- it is safe under every
-    scheduler. See [`set_batch_scheduler!`](@ref) for the full explanation.
+    **`:dynamic` is the global default scheduler; only `:static` is safe for code that
+    indexes per-thread state by `Threads.threadid()`** -- under the migratable-`Task`
+    schedulers (`:dynamic`/`:default`/`:greedy`) that is a silent data race, not an error.
+    Prefer [`@batchid()`](@ref)-indexed scratch space in new code -- it is safe under every
+    scheduler. See [`set_batch_scheduler!`](@ref) for the full explanation, including when
+    `:static` is still worth asking for.
 
 !!! danger "The tagged-handle hazard: passing the wrong *object*, not the wrong index"
     A second, more insidious hazard shows up whenever `@batchid()`-indexed state is resolved
@@ -576,6 +599,8 @@ macro BATCHES(args...)
         :(_batches_run_static(__batch_f, $(esc(:__batch_nbatches))))
     elseif scheduler_sym === :default
         :(_batches_run_default(__batch_f, $(esc(:__batch_nbatches))))
+    elseif scheduler_sym === :dynamic
+        :(_batches_run_dynamic(__batch_f, $(esc(:__batch_nbatches))))
     elseif scheduler_sym === :sequential
         nothing  # never reached -- __batch_sequential forces __batch_fastpath below
     elseif scheduler_is_runtime

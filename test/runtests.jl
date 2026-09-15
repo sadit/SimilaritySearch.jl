@@ -25,6 +25,7 @@ function create_sequence(dim, sort, range=1:10)
     s
 end
 
+include("testbatches.jl")
 include("testdistances.jl")
 include("testdb.jl")
 include("testmmapdb.jl")

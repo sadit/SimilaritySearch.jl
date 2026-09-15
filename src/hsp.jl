@@ -50,7 +50,7 @@ non-redundant neighbors are kept.
 
 # Keyword Arguments
 - `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-query HSP filtering
-  (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
+  (`:dynamic`, `:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
   Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns

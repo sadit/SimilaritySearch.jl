@@ -21,7 +21,7 @@ If `start=0` then a random starting point is selected, otherwise a valid object 
   caller that has one should pass `reporters=ctx.reporters` for its silencing to reach here; pass
   `reporters=[]` to silence it directly.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-pivot distance update
-  (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
+  (`:dynamic`, `:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
   Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns

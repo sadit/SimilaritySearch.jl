@@ -26,7 +26,7 @@ all of them at once). Once `k` centers are selected, it computes for the entire 
 - `start`: index of the first center. If 0, a random center is chosen.
 - `scheduler`: the [`@BATCHES`](@ref) scheduler used for the per-step candidate evaluation
   and stored in the internal `GenericContext` used for the final nearest-center pass
-  (`:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
+  (`:dynamic`, `:default`, `:static`, `:greedy`, or `:sequential` to disable threading entirely).
   Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns

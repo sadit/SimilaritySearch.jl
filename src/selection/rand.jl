@@ -16,7 +16,7 @@ selectors are interchangeable.
 
 # Keyword Arguments
 - `scheduler`: the [`@BATCHES`](@ref) scheduler stored in the internal `GenericContext`
-  used for this call (`:default`, `:static`, `:greedy`, or `:sequential` to disable
+  used for this call (`:dynamic`, `:default`, `:static`, `:greedy`, or `:sequential` to disable
   threading entirely). Defaults to [`get_batch_scheduler`](@ref).
 
 # Returns
