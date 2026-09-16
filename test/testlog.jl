@@ -175,6 +175,20 @@ end
         @test occursin("n.size-quantiles", s)            # the SearchGraph-specific detail survives
     end
 
+    @testset "the per-item insertion path reports the same fields as the parallel one" begin
+        # Regression test for #66: the sequential path omitted `n.size-quantiles`, so the same
+        # `add!` event had a different shape depending on Threads.nthreads(). `parallel_block=1`
+        # forces that path whatever the thread count, so this holds under -t 1 and -t auto alike.
+        db = MatrixDatabase(rand(Float32, dim, n))
+        buf = IOBuffer()
+        graph = SearchGraph(Dist.L2(), db)
+        ctx = SearchGraphContext(verbose=true, parallel_block=1, reporters=InformativeLog(buf; dt=0))
+        index!(graph, ctx)
+        s = String(take!(buf))
+        @test occursin("add! sp=1 ep=1", s)              # per item, not per block
+        @test occursin("n.size-quantiles", s)
+    end
+
     @testset "dt <= 0 drops nothing" begin
         buf = IOBuffer()
         ctx = GenericContext(; reporters=InformativeLog(buf; dt=0))

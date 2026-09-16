@@ -32,6 +32,19 @@ function append_items!(
     index!(index, ctx)
 end
 
+"""
+    add_inform_message(index::SearchGraph, sp, ep) -> String
+
+The `add!` progress line, worded identically on both insertion paths (#66): the per-item
+sequential path used to omit `n.size-quantiles`, so a reporter saw one schema under
+`Threads.nthreads() > 1` and another under `-t 1`. The quantile is taken over the range just
+inserted (`sp:ep`), not over the whole graph, so it stays O(ep - sp) -- a single value on the
+sequential path. Called only from `@inform`'s thunk, i.e. never when the context is silent.
+"""
+function add_inform_message(index::SearchGraph, sp, ep)
+    "add! sp=$sp ep=$ep $(index.algo[]) n.size-quantiles=$(quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0))"
+end
+
 function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
     @inbounds while sp <= n
         ksearch = neighborhoodsize(ctx.neighborhood, sp)
@@ -76,7 +89,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         end
 
         OBSERVE(ctx, :add!, index, sp, ep)
-        @inform ctx "add! sp=$sp ep=$ep $(index.algo[]) n.size-quantiles=$(quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0))"
+        @inform ctx add_inform_message(index, sp, ep)
         # connecting neighbors
         connect_reverse_links!(index.adj, sp, ep; scheduler=ctx.scheduler)
         index.len[] = ep
@@ -161,7 +174,7 @@ Arguments:
     n = Int32(index.len[] + 1)
     add!(index.adj, n, IdView(neighbors_))
     OBSERVE(ctx, :add!, index, n, n)
-    @inform ctx "add! sp=$n ep=$n $(index.algo[])"
+    @inform ctx add_inform_message(index, n, n)
     if n > 1
         connect_reverse_links!(index.adj, n, neighbors(index.adj, n))
         execute_callbacks!(index, ctx)
