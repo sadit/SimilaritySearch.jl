@@ -45,11 +45,11 @@ function prepare_benchmark(Database;
     B
 end
 
-function abs_minrecall(B; kwargs...)
-    @info "===================== minrecall $kwargs =============================="
+function abs_minrecall(B; filter=SatNeighborhood(), kwargs...)
+    @info "===================== minrecall $(typeof(filter)) $kwargs =============================="
     graph = SearchGraph(B.dist, B.db; kwargs...)
     ctx = SearchGraphContext(
-        neighborhood=Neighborhood(filter=SatNeighborhood()),
+        neighborhood=Neighborhood(; filter),
         #neighborhood = Neighborhood(filter=IdentityNeighborhood()),
         hyperparameters_callback=OptimizeParameters(MinRecall(0.99)),
         verbose=false
@@ -323,4 +323,41 @@ end
     @test_throws ArgumentError index!(SearchGraph(dist, db), ctx, :bitsketch; nbits=100)  # not a multiple of 64
     @test_throws ArgumentError index!(graph, ctx, :bitsketch)  # graph is no longer empty
     @test_throws ArgumentError index!(SearchGraph(dist, VectorDatabase([rand(Float32, dim) for _ in 1:n])), ctx, :bitsketch)  # not a MatrixDatabase
+end
+
+@testset "every NeighborhoodFilter builds a usable graph" begin
+    # KCentersNeighborhood shipped unusable (#64: it crashed on the second insertion, where the
+    # candidate set has exactly one item) precisely because nothing here ever built with it.
+    B = prepare_benchmark(MatrixDatabase)
+    for filter in (DistalSatNeighborhood(), KCentersNeighborhood())
+        graph, ctx = abs_minrecall(B; filter)
+        @test all(neighbors_length(graph.adj, i) > 0 for i in eachindex(graph.adj))
+    end
+end
+
+@testset "find_neighborhood! resolves the degenerate candidate sets itself" begin
+    # `find_neighborhood!` guarantees filters at least two candidates: zero happens on the first
+    # insertion, one on the second. KCentersNeighborhood is the filter that derives a size from
+    # the candidate count, so it is the one that notices when that guarantee breaks.
+    dist = Dist.SqL2()
+    ctx = SearchGraphContext(neighborhood=Neighborhood(filter=KCentersNeighborhood()), verbose=false)
+
+    for n in 1:4   # the sizes where the candidate set is degenerate or barely not
+        graph = SearchGraph(dist, MatrixDatabase(rand(Float32, 4, n)))
+        index!(graph, ctx)
+        @test length(graph) == n
+        # the second insertion is the one handed a single candidate: it must still connect
+        n >= 2 && @test neighbors_length(graph.adj, 2) > 0
+    end
+
+    # and the filter itself survives a single candidate (defense in depth: `log2(m + 1)` never
+    # asks fft for zero centers). It is driven as `find_neighborhood!` drives it, with
+    # `sortitems!(tmp)`, not a raw queue.
+    graph = SearchGraph(dist, MatrixDatabase(rand(Float32, 4, 300)))
+    index!(graph, ctx)
+    res, out = knnqueue(ctx, 4), knnqueue(ctx, 4)
+    push_item!(res, 2, 0.5f0)
+    @test length(SimilaritySearch.neighborhoodfilter(KCentersNeighborhood(), graph, ctx, database(graph, 1), sortitems!(res), out)) == 1
+    push_item!(res, 3, 0.7f0)
+    @test length(SimilaritySearch.neighborhoodfilter(KCentersNeighborhood(), graph, ctx, database(graph, 1), sortitems!(res), reuse!(out))) == 2
 end

@@ -37,8 +37,15 @@ function find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::Sear
         push_item!(tmp, i, d)
     end
 
-    if length(tmp) > 0 ## only normal on length(blockrange) == 0 && n == 0
+    # The bootstrap regime is handled here, once, instead of by every filter: with a single
+    # candidate there is nothing to select among, and a filter that derives a size from
+    # `length(res)` (as `KCentersNeighborhood` does) would be handed a degenerate value. Zero
+    # candidates is only normal on `length(blockrange) == 0 && n == 0`, i.e. the very first
+    # insertion. So filters are guaranteed `length(res) >= 2`.
+    if length(tmp) > 1
         neighborhoodfilter(ctx.neighborhood.filter, index, ctx, item, sortitems!(tmp), out)
+    elseif length(tmp) == 1
+        push_item!(out, sortitems!(tmp)[1])
     end
     
     out
@@ -171,8 +178,11 @@ struct KCentersNeighborhood <: NeighborhoodFilter end
 
 @inline function neighborhoodfilter(N::KCentersNeighborhood, G::SearchGraph, ctx::SearchGraphContext, center, res, output)
     S = SubDatabase(database(G), IdView(res))
-    k = ceil(Int, log2(length(res)))
-    k = min(16, k)
+    # `log2(m + 1)`, not `log2(m)`: the two agree except when `m` is a power of two, and the
+    # latter asks `fft` for zero centers when `m == 1` (`fft` rejects k == 0). No upper cap is
+    # needed -- `res` holds at most `neighborhoodsize(...)` candidates (38 at n=10^4, ~55 at
+    # n=10^6), so a cap at 16 would take 65535 of them to ever bind.
+    k = ceil(Int, log2(length(res) + 1))
     C = fft(distance(G), S, k; verbose=false, scheduler=:sequential)
     for i in C.centers
         push_item!(output, res[i])

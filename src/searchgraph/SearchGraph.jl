@@ -28,7 +28,9 @@ abstract type Callback end
 """
     abstract type NeighborhoodFilter end
     
-Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood!`
+Postprocessing of a neighborhood using some criteria. Called from `find_neighborhood!`,
+which guarantees at least two candidates: it resolves the degenerate cases (zero candidates
+on the very first insertion, one candidate on the second) itself, so a filter never sees them.
 """
 abstract type NeighborhoodFilter end
 
