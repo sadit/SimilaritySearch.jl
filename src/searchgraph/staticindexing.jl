@@ -376,6 +376,30 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
         Projections.quantsketch(qs, db).matrix, distance(qs)
     end
 
+    _bitsketch_bootstrap!(idx, ctx, B, sketchdist, kind, logbase, parallel_block)
+
+    verbose(ctx) && @inform ctx "bitsketch> built $nbits-hyperplane ($method, $(width)b each = $(nbits * width) bits) sketch topology, hints: $(length(idx.hints))"
+    idx
+end
+
+"""
+    _bitsketch_bootstrap!(idx, ctx, B, sketchdist, kind, logbase, parallel_block)
+
+Builds the sketch-space `SearchGraph` over the codes `B` under `sketchdist` and copies its
+topology (adjacency + hints) into `idx`.
+
+This is a *function barrier*, and that is its whole reason for existing as a separate
+method. `width` is an ordinary run-time `Int`, so the branch that produces `(B, sketchdist)`
+in [`index!`](@ref)`(...; :bitsketch)` yields a `Union` -- `Matrix{UInt64}`/`Hamming` at
+`width=1`, `Matrix{UInt8}`/one of the `SQgu*.SqL2` otherwise -- and everything written
+after it in that same body would be compiled against the union, dispatching dynamically.
+Passing the pair across a call boundary re-specializes the expensive part (the whole
+sketch-space construction) on their concrete types.
+"""
+function _bitsketch_bootstrap!(idx::SearchGraph, ctx::SearchGraphContext,
+        B::AbstractMatrix, sketchdist::PreMetric,
+        kind::ErrorFunction, logbase::Float32, parallel_block::Int)
+    n = size(B, 2)
     sketch_graph = SearchGraph(sketchdist, MatrixDatabase(B))
     sketch_ctx = SearchGraphContext(
         neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
@@ -393,7 +417,5 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     empty!(idx.hints)
     append!(idx.hints, sketch_graph.hints)
     idx.len[] = n
-
-    verbose(ctx) && @inform ctx "bitsketch> built $nbits-hyperplane ($method, $(width)b each = $(nbits * width) bits) sketch topology, hints: $(length(idx.hints))"
     idx
 end
