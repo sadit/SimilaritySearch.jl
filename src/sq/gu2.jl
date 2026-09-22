@@ -217,11 +217,13 @@ end
 end
 
 """
-    _u2_reduce(kernel, x, y) -> Int
+    _u2_reduce(kernel, x, y) -> (Int, Int)
 
-Runs `kernel` (`_u2_sqdiff` or `_u2_dot`) over the whole of `x`/`y` and returns the scalar
-total, handling the blocking that keeps the `Int16` lanes from overflowing, the
-partially-unrolled remainder, and the sub-`N`-byte scalar tail.
+Runs `kernel` (`_u2_sqdiff` or `_u2_dot`) over as much of `x`/`y` as SIMD can cover, and
+returns the accumulated total together with the index of the first byte it did *not*
+process -- the caller finishes those (fewer than 16) scalar-wise. It handles the blocking
+that keeps the `Int16` lanes from overflowing, the partially-unrolled remainder, and the
+half-width cleanup pass below.
 """
 @inline function _u2_reduce(kernel::F, x, y) where {F}
     N, CHUNK, BLOCK = _U2_N, _U2_CHUNK, _U2_BLOCK
@@ -253,7 +255,20 @@ partially-unrolled remainder, and the sub-`N`-byte scalar tail.
                Int(sum(convert(Vec{N,Int32}, acc3))) + Int(sum(convert(Vec{N,Int32}, acc4)))
     end
 
-    res
+    # Half-width cleanup: `N = 32` bytes is a lot to require before any vector work
+    # happens, and the loop above takes nothing at all when fewer than that remain. A
+    # 2-bit sketch of 64 hyperplanes is exactly 16 bytes, so without this pass it was
+    # decoded entirely by the caller's scalar tail -- 64 shifts and masks, measured at
+    # ~67ns against ~14ns here. Any length leaves at most 31 bytes for the loop above to
+    # refuse, so one 16-lane pass is all that is ever needed; a single pass accumulates at
+    # most 36 per lane, far from Int16 overflow, so it needs no blocking of its own.
+    @inbounds while i + 15 <= n
+        acc = kernel(x, y, i, zero(Vec{16,Int16}))
+        res += Int(sum(convert(Vec{16,Int32}, acc)))
+        i += 16
+    end
+
+    res, i
 end
 
 """
@@ -272,9 +287,8 @@ end
 function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
 
-    res = _u2_reduce(_u2_dot, x, y)
+    res, i = _u2_reduce(_u2_dot, x, y)
     n = length(x)
-    i = n - (n % _U2_N) + 1
 
     @inbounds while i <= n
         xv, yv = x[i], y[i]
@@ -303,9 +317,8 @@ end
 function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
 
-    res = _u2_reduce(_u2_sqdiff, x, y)
+    res, i = _u2_reduce(_u2_sqdiff, x, y)
     n = length(x)
-    i = n - (n % _U2_N) + 1
 
     @inbounds while i <= n
         x_val, y_val = x[i], y[i]

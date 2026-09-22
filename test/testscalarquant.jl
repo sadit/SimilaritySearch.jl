@@ -3,12 +3,21 @@ using SimilaritySearch, Test, Distances
 
 """
 Reference (non-SIMD) implementation of the code-space squared L2 / dot product between
-two nibble- or byte-packed globally-quantized vectors, used to cross-check the SIMD
-kernels in `ScalarQuant.SQgu4`/`ScalarQuant.SQgu8`.
+two 2-bit-, nibble- or byte-packed globally-quantized vectors, used to cross-check the SIMD
+kernels in `ScalarQuant.SQgu2`/`ScalarQuant.SQgu4`/`ScalarQuant.SQgu8`.
 """
 function manual_packed_sql2(qa, qb; bits::Int)
     res = 0
-    if bits == 4
+    if bits == 2
+        for i in eachindex(qa)
+            xa, xb = qa[i], qb[i]
+            for shift in (0, 2, 4, 6)
+                va = Int(xa >>> shift) & 0x03
+                vb = Int(xb >>> shift) & 0x03
+                res += (va - vb)^2
+            end
+        end
+    elseif bits == 4
         for i in eachindex(qa)
             xa, xb = qa[i], qb[i]
             for shift in (0, 4)
@@ -27,7 +36,16 @@ end
 
 function manual_packed_dot(qa, qb; bits::Int)
     res = 0
-    if bits == 4
+    if bits == 2
+        for i in eachindex(qa)
+            xa, xb = qa[i], qb[i]
+            for shift in (0, 2, 4, 6)
+                va = Int(xa >>> shift) & 0x03
+                vb = Int(xb >>> shift) & 0x03
+                res += va * vb
+            end
+        end
+    elseif bits == 4
         for i in eachindex(qa)
             xa, xb = qa[i], qb[i]
             for shift in (0, 4)
@@ -143,5 +161,22 @@ end
         true_sql2 = sum(abs2, view(X, :, 1) .- view(X, :, 2))
         code_sql2 = evaluate(mod.SqL2(), view(Q, :, 1), view(Q, :, 2))
         @test code_sql2 / c^2 ≈ true_sql2 rtol=0.3
+    end
+end
+
+@testset "ScalarQuant: every SIMD phase boundary (SQgu2, SQgu4, SQgu8)" begin
+    # These kernels run a blocked/unrolled pass, then a half-width pass, then a scalar
+    # tail, and which of them runs is decided purely by `length % N`. A remainder of 16..31
+    # used to reach neither SIMD pass in the 32-byte-wide kernels (SQgu2, SQgu8) and fell
+    # to the scalar loop instead; the 2-bit one skipped SIMD outright below 32 bytes, which
+    # is exactly a 64-hyperplane sketch. The lengths below put the remainder in each class
+    # (0, 1..15, 16, 17..31) so no phase can be silently skipped or double-counted.
+    for nbytes in (0, 1, 15, 16, 17, 31, 32, 33, 47, 48, 63, 64, 65, 79, 80, 127, 128, 129, 200, 208)
+        a, b = rand(UInt8, nbytes), rand(UInt8, nbytes)
+        for (mod, bits) in ((ScalarQuant.SQgu2, 2), (ScalarQuant.SQgu4, 4), (ScalarQuant.SQgu8, 8))
+            @test evaluate(mod.SqL2(), a, b) == manual_packed_sql2(a, b; bits)
+            @test evaluate(mod.NormCosine(), a, b) == manual_packed_dot(a, b; bits)
+            @test evaluate(mod.SqL2(), a, a) == 0f0
+        end
     end
 end

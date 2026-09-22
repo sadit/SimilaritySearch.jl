@@ -255,8 +255,20 @@ function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{U
     # Horizontal reduction
     res = sum(acc_total)
     
+    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
+    # `N = 32` is a lot of codes to require before any vector work happens: a remainder of
+    # 16..31 used to go to the scalar loop below, which measurably costs more than running
+    # SIMD over *more* data -- 48 codes took 22.6ns against 11.7ns for 64. One pass is all
+    # that can ever be needed, since phase 2 leaves fewer than 32 codes.
+    @inbounds while i + 15 <= n
+        vx = vload(Vec{16, UInt8}, x, i)
+        vy = vload(Vec{16, UInt8}, y, i)
+        res += sum(convert(Vec{16, UInt32}, vx) * convert(Vec{16, UInt32}, vy))
+        i += 16
+    end
+
     # --- PHASE 3: Scalar Tail Cleanup ---
-    # Catches the absolute tail if there are fewer than 32 elements left
+    # Catches the absolute tail if there are fewer than 16 elements left
     @inbounds while i <= n
         res += UInt32(x[i]) * UInt32(y[i])
         i += 1
@@ -337,6 +349,17 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     # Horizontal reduction
     res = sum(acc_total)
     
+    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
+    # See the note in NormCosine above: a 16..31 code remainder is worth vectorizing, and
+    # phase 2 can leave at most 31.
+    @inbounds while i + 15 <= n
+        vx = vload(Vec{16, UInt8}, x, i)
+        vy = vload(Vec{16, UInt8}, y, i)
+        d = convert(Vec{16, Int32}, vx) - convert(Vec{16, Int32}, vy)
+        res += sum(d * d)
+        i += 16
+    end
+
     # --- PHASE 3: Scalar Tail Cleanup ---
     @inbounds while i <= n
         # Widen to Int32 before subtracting!
