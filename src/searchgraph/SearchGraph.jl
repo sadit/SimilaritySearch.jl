@@ -4,7 +4,6 @@ export LocalSearchAlgorithm, SearchGraph, SearchGraphContext
 export index!, push_item!
 export BeamSearch, BeamSearchSpace, Callback
 export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, AdjacentStoredHints, matrixhints
-export warmupbuild
 #export RandomPruning, KeepNearestPruning, SatPruning, prune!
 
 """

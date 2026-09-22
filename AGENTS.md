@@ -27,8 +27,11 @@ scheduler-specific behavior.
 
 Individual test files live in `test/*.jl` and are `include`d from `test/runtests.jl`; to
 run just one, `include` it directly after `using SimilaritySearch` in a REPL/script rather
-than editing `runtests.jl`. `Aqua.jl` ambiguity/quality checks only run under
-`VERSION == v"1.10"` (see the top of `runtests.jl`).
+than editing `runtests.jl`. `Aqua.jl` ambiguity/quality checks run under
+`VERSION >= v"1.12"` and `!FAST_TESTS` (see the top of `runtests.jl`) -- version-pinned
+because Aqua's findings, ambiguities above all, differ between Julia versions. They were
+dead code until 2026-09-22: the gate read `VERSION == v"1.10"`, which is false even on
+1.10.12 (`v"1.10"` means `v"1.10.0"`), so `Aqua.test_all` had never actually run.
 
 ### Fast dev loop vs. the pre-commit/pre-push gate
 
@@ -67,22 +70,43 @@ launching Julia) *before* the first `include`/`Pkg.test()` call in that process;
 `ENV["FAST_TESTS"]` mid-session has no effect on an already-`include`d file.
 
 **Before commit/push, run the full gate** — plain `Pkg.test()` (no `FAST_TESTS`, fresh
-process, full data, Aqua enabled on Julia 1.10) — since that's the only way to reliably
+process, full data, Aqua included) — since that's the only way to reliably
 exercise a cold-compile path and the full-size code paths (`Pkg.test()` also always runs in
 its own isolated sandboxed environment, unlike a warm dev session).
 
 ### Julia version matrix
 
-CI (`.github/workflows/ci.yml`) only officially tests **Julia 1.12**. The package also
-supports 1.10 and 1.11 (verified by hand repeatedly during development, not by CI) via
-`@static if VERSION >= v"1.11"` gates, mainly in `src/parallel.jl` (native
-`Threads.@threads :greedy` doesn't exist before 1.11). If `juliaup` has other versions
-installed, cross-check with:
+**Work against Julia 1.12.** It is the only version CI runs
+(`.github/workflows/ci.yml`) and the only one the routine gate below is expected to be
+run on; treat a failure anywhere else as a separate, deliberate investigation rather than
+part of an ordinary change.
+
+`[compat] julia` still claims **1.10+**, and that is on purpose: nothing in the package
+needs a newer floor. The one version-dependent construct is `@BATCHES`'s `:greedy`
+scheduler, which already handles it -- `src/parallel.jl` carries `VERSION >= v"1.11"`
+gates (native `Threads.@threads :greedy` doesn't exist before 1.11), and
+`test/testbatches.jl` shortens its scheduler list to match. Don't delete those gates to
+"simplify"; they are what keeps the declared floor honest.
+
+Checking an older version is therefore ad-hoc, not routine. Note the local `Manifest.toml`
+is resolved by whichever Julia last touched it, so a 1.10/1.11 run from this checkout
+fails to instantiate (`Could not locate the source code for the OpenSSL_jll package`);
+use a throwaway environment that `Pkg.develop`s this path instead of resolving the repo's
+own manifest against the older version:
 
 ```sh
-julia +1.11 -t auto --project=. -e 'using Pkg; Pkg.test()'
-julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load smoke-test
+mkdir -p /tmp/env110
+julia +1.10 -t auto --project=/tmp/env110 -e 'using Pkg; Pkg.develop(path="."); Pkg.test("SimilaritySearch")'
 ```
+
+**Known: that 1.10 run is not currently green.** `test/testprojections.jl:167`
+(`AnchoredDistantHyperplanes`, batch `bitsketch(m, db)` vs per-object `bitsketch(m, db[i])`)
+failed 2 of 2 full-suite runs on 1.10.12 on 2026-09-22, while passing 3 of 3 when that file
+runs alone (its `seed!(42)` makes it deterministic; inside the suite the preceding parallel
+testsets consume the RNG, so the data differs), and passing on 1.12. A targeted repro over
+~5M batch-vs-single comparisons on 1.10 found no mismatch, and the `BitArray`+`@BATCHES`
+alignment hazard is ruled out (all four sites parallelize over columns owning whole 64-bit
+words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidence about it.
 
 ## Architecture map (`src/`)
 

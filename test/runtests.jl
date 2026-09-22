@@ -9,7 +9,12 @@ using SimilaritySearch, LinearAlgebra
 # a full `Pkg.test()` run (unset, the default) before committing/pushing.
 @isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
 
-if VERSION == v"1.10" && !FAST_TESTS
+# Routine work targets 1.12 (the only version CI runs); `[compat] julia` still claims
+# 1.10+, and @BATCHES keeps its VERSION gates for that. Aqua reports version-dependent
+# results (ambiguities especially), so it is pinned to the version everything else is
+# checked on -- written as `>=` because the old `VERSION == v"1.10"` never fired: VERSION
+# is 1.10.12, while v"1.10" means v"1.10.0".
+if VERSION >= v"1.12" && !FAST_TESTS
     using Aqua
     Aqua.test_all(SimilaritySearch, ambiguities=false)
     Aqua.test_ambiguities([SimilaritySearch])

@@ -136,7 +136,7 @@ function LinearAlgebra.normalize!(A::SparseVecView)
     A
 end
 
-function Base.getindex(D::SparseDatabase, i)
+function Base.getindex(D::SparseDatabase, i::Integer)
     r = nzrange(D.M, i)
     rows = rowvals(D.M)
     vals = nonzeros(D.M)

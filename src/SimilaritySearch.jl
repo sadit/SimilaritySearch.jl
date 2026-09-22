@@ -10,7 +10,7 @@ import Base: push!, append!
 using Statistics: mean
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
-    SearchResult, push_item!, append_items!, getminbatch,
+    push_item!, append_items!, getminbatch,
     IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles, beginbatch,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     Selection, fft, dnet, randsel, multirandsel, neardup,
