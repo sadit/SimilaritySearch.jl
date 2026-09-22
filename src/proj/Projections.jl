@@ -4,9 +4,13 @@ using Random, LinearAlgebra, Distributions, StatsBase
 export RandomProjections, outdim, indim, transform, transform!
 using ...SimilaritySearch.Dist.CastF32: dot32
 using ...SimilaritySearch: @BATCHES, @BEGINBATCH, @LOOP
-using ...SimilaritySearch: AbstractDatabase, MatrixDatabase, SubDatabase, SemiMetric
-import ...SimilaritySearch: evaluate, distance
+using ...SimilaritySearch: AbstractDatabase, MatrixDatabase, SubDatabase, SemiMetric, PreMetric,
+    AbstractSearchIndex, AbstractContext, ExhaustiveSearch,
+    AbstractKnnQueue, KnnSorted, knnqueue, maxlength, push_item!,
+    getminbatch, add_distance_evaluations!
+import ...SimilaritySearch: evaluate, distance, search, database
 using ...SimilaritySearch.Dist.Bits: Hamming
+using ...SimilaritySearch.ScalarQuant: SQgu2, SQgu4, SQgu8
 using ...SimilaritySearch.Selection: fft
 
 """
@@ -225,5 +229,7 @@ include("bitsketches.jl")
 include("dh.jl")
 include("adh.jl")
 include("hbe.jl")
+include("quantsketch.jl")
+include("sketchedsearch.jl")
 
 end

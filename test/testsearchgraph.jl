@@ -320,9 +320,31 @@ end
     index!(graph_qr, ctx, :bitsketch; method=:qr, nbits=64)
     @test length(graph_qr) == n
 
+    # width > 1 bootstraps through QuantSketch's m-bit codes instead of sign bits. The model
+    # is NOT resized by it: all four graphs below are built from the same 512 hyperplanes,
+    # and `width` only changes how many bits each hyperplane's value is kept with (so the
+    # sketch grows to 512*width bits). That is the point -- more precision on the same,
+    # already-fitted model.
+    for width in (2, 4, 8)
+        g = SearchGraph(dist, db)
+        index!(g, ctx, :bitsketch; method=:gaussian, nbits=512, width)
+        @test length(g) == n
+        @test all(>(0), neighbors_length.(Ref(g.adj), 1:n))
+        @test g.algo[] == BeamSearch()
+        optimize_index!(g, ctx, MinRecall(0.9))
+        knns_ids, _ = searchbatch(g, ctx, queries, ksearch)
+        @test macrorecall(gold_ids, knns_ids) >= 0.7
+    end
+
     @test_throws ArgumentError index!(SearchGraph(dist, db), ctx, :bitsketch; nbits=100)  # not a multiple of 64
+    @test_throws ArgumentError index!(SearchGraph(dist, db), ctx, :bitsketch; width=3)    # not 1, 2, 4 or 8
+    # a precomputed sketch carries no quantization range, so it cannot be widened
+    @test_throws ArgumentError index!(SearchGraph(dist, db), ctx, :bitsketch;
+                                      method=:external, nbits=512, width=2,
+                                      sketch=rand(UInt64, 8, n))
     @test_throws ArgumentError index!(graph, ctx, :bitsketch)  # graph is no longer empty
     @test_throws ArgumentError index!(SearchGraph(dist, VectorDatabase([rand(Float32, dim) for _ in 1:n])), ctx, :bitsketch)  # not a MatrixDatabase
+    @test_throws ArgumentError index!(SearchGraph(dist, VectorDatabase([rand(Float32, dim) for _ in 1:n])), ctx, :bitsketch; nbits=512, width=2)
 end
 
 @testset "every NeighborhoodFilter builds a usable graph" begin

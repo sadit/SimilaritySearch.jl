@@ -120,9 +120,20 @@ julia +1.12 -t auto --project=. -e 'using SimilaritySearch'   # at least a load 
   (`InvertedFile`, with `WeightedInvertedFile` as its weighted-vector constructor, and
   `InvertedFileContext`).
 - `sq/` (`ScalarQuant` submodule) — per-column (`SQu2`/`SQu4`/`SQu8`) and global
-  (`SQgu4`/`SQgu8`) scalar quantization, each its own nested submodule.
+  (`SQgu2`/`SQgu4`/`SQgu8`) scalar quantization, each its own nested submodule. The global
+  ones share `sqglobalscale` and expose an in-place `quantize!(vout, v, minmax)` alongside
+  the allocating `quantize`, so an encoding loop can reuse one output buffer.
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
-  `HadamardProjection`, and `bitsketch` (SimHash-style binary sketches).
+  `HadamardProjection`, `PCAProjection`, the metric-hyperplane models (`DistantHyperplanes`,
+  `AnchoredDistantHyperplanes`, `RandomHyperplanes`), and two encodings over them:
+  `bitsketch` (SimHash-style, one *sign* bit per component, Hamming) and `QuantSketch`
+  (`quantsketch.jl`: 2/4/8-bit codes per component via `SQgu2`/`SQgu4`/`SQgu8`, compared
+  with their SIMD `SqL2` over the packed codes). Both encodings are one function of the
+  same real-valued vector, `sketchvalues!` — projected coordinates for the rotations, the
+  signed margin `d(obj, b) - d(obj, a)` for the hyperplanes — with a shared sign
+  convention, which is why `QuantSketch` at `nbits=1` reproduces `bitsketch` exactly.
+  `sketchedsearch.jl` wraps the whole encode/index/rerank flow as `SketchedSearch`, an
+  ordinary (static, non-incremental) `AbstractSearchIndex`.
 - `selection/` (`Selection` submodule) — algorithms that pick a subset standing for the whole
   dataset, in two dual shapes: fixed-count (`fft`, `dnet`, `randsel`, `multirandsel`, returning
   a `CenterSelection`) and fixed-radius (`neardup`, returning a `NearDupSelection`). Both name

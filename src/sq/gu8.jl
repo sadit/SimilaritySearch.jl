@@ -8,9 +8,9 @@ codes directly with SIMD. Accessed as `ScalarQuant.SQgu8.quantize`, etc.
 """
 module SQgu8
 
-export quantize, NormCosine, SqL2
+export quantize, quantize!, NormCosine, SqL2
 
-using ..ScalarQuant: getminbatch, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
 using Statistics: quantile
 using SIMD
 
@@ -81,7 +81,7 @@ function quantize(X::AbstractMatrix;
         minmax
     end
 
-    c = Float32(255 / (max - min + 1e-6))
+    c = sqglobalscale(255, min, max)
     min = Float32(min)
 
     minbatch = getminbatch(n)
@@ -158,11 +158,27 @@ function quantize(v::AbstractVector;
         minmax
     end
 
-    c = Float32(255 / (max - min + 1e-6))
+    c = sqglobalscale(255, min, max)
     min = Float32(min)
     quant_global_u8!(vout, v, min, c)
 
     vout
+end
+
+
+
+"""
+    quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax) -> vout
+
+In-place, allocation-free [`quantize`](@ref) of a single vector into a caller-provided
+`vout` of length `length(v)`, using the explicit `(min, max)` range `minmax`.
+Intended for encoding loops that reuse their output buffer (see
+`Projections.quantsketch`); the range is never estimated here, precisely so every vector
+encoded through it stays comparable.
+"""
+function quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax)
+    min, max = minmax
+    quant_global_u8!(vout, v, Float32(min), sqglobalscale(255, min, max))
 end
 
 

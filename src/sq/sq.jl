@@ -21,8 +21,23 @@ struct SQMinC
     c::Float32
 end
 
+"""
+    sqglobalscale(levels::Integer, min, max)
+
+The scale factor shared by every *global* quantizer (`SQgu2`/`SQgu4`/`SQgu8`): maps the
+range `[min, max]` onto the `levels + 1` integer codes `0:levels` as
+`code = round(clamp((x - min) * c, 0, levels))`. The `1e-6` in the denominator keeps a
+degenerate (`min == max`) range from producing `Inf`.
+
+# Arguments
+- `levels`: the largest code the target width can hold (`3`, `15` or `255`)
+- `min`, `max`: the global value range being mapped
+"""
+sqglobalscale(levels::Integer, min, max) = Float32(levels / (max - min + 1e-6))
+
 include("gu8.jl")
 include("gu4.jl")
+include("gu2.jl")
 include("u8.jl")
 include("u4.jl")
 include("u2.jl")

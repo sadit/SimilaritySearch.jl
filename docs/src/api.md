@@ -319,17 +319,27 @@ ScalarQuant.SQu8.SqL2
 ScalarQuant.SQu8.NormCosine
 ```
 
-### Global (database-wide) quantization (`SQgu4`, `SQgu8` submodules)
+### Global (database-wide) quantization (`SQgu2`, `SQgu4`, `SQgu8` submodules)
 
 All columns share a single `min`/scale, letting the distance kernels compare the packed
-codes directly with SIMD, without any per-element dequantization.
+codes directly with SIMD, without any per-element dequantization. Each submodule offers an
+allocating `quantize` and an in-place `quantize!(vout, v, minmax)` for loops that reuse
+their output buffer.
 ```@docs
+ScalarQuant.sqglobalscale
+ScalarQuant.SQgu2
+ScalarQuant.SQgu2.quantize
+ScalarQuant.SQgu2.quantize!
+ScalarQuant.SQgu2.NormCosine
+ScalarQuant.SQgu2.SqL2
 ScalarQuant.SQgu4
 ScalarQuant.SQgu4.quantize
+ScalarQuant.SQgu4.quantize!
 ScalarQuant.SQgu4.NormCosine
 ScalarQuant.SQgu4.SqL2
 ScalarQuant.SQgu8
 ScalarQuant.SQgu8.quantize
+ScalarQuant.SQgu8.quantize!
 ScalarQuant.SQgu8.NormCosine
 ScalarQuant.SQgu8.SqL2
 ```
@@ -382,6 +392,37 @@ See the [bit sketches tutorial](@ref "Quantization and Bit Sketches") for a work
 Projections.DistantHyperplanes
 Projections.AnchoredDistantHyperplanes
 Projections.RandomHyperplanes
+```
+
+## Multi-bit sketches (`Projections.QuantSketch`)
+
+The same sketch models as above, but keeping an `m`-bit unsigned code per component
+(`m = 2, 4, 8`, via [`ScalarQuant.SQgu2`](@ref)/[`ScalarQuant.SQgu4`](@ref)/[`ScalarQuant.SQgu8`](@ref))
+instead of a single sign bit -- so a sketch records *how far* an object sits from each
+hyperplane, not merely on which side. `nbits=1` is supported too and reproduces
+[`Projections.bitsketch`](@ref) exactly, so a sweep over `1, 2, 4, 8` bits runs through one
+API. Applies to both families: for a rotation the encoded value is the projected
+coordinate, for a metric hyperplane it is the signed margin
+`d(obj, b) - d(obj, a)` -- see [`Projections.sketchvalues!`](@ref).
+
+```@docs
+Projections.QuantSketch
+Projections.quantsketch
+Projections.sketchvalues!
+Projections.sketchbits
+Projections.sketchsize
+Projections.hyperplanewidths
+```
+
+## Sketch-based search pipeline (`Projections.SketchedSearch`)
+
+Encode, index, retrieve candidates cheaply, re-score them exactly -- packaged as an
+ordinary `AbstractSearchIndex`, so `search`/`searchbatch` work on it unchanged and its
+results are ids into the original database with true distances.
+
+```@docs
+Projections.SketchedSearch
+Projections.exhaustivesketchindex
 ```
 
 ## Spherical embedding for MIPS (`Special.Spherical` submodule)

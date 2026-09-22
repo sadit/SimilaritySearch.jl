@@ -300,9 +300,19 @@ reliably improve on the plain sketch-built topology (see issue #52).
   matrix (one `nbits`-bit sketch per column, `n == length(database(idx))`), used as-is
   instead of computing `B` internally -- lets any external binarization method (not just
   `:gaussian`/`:qr`/`:adh`) bootstrap the topology the same way.
-- `nbits`: sketch width in bits, must be a multiple of 64 (default `256`, i.e. 4 `UInt64`
-  words). A wider sketch costs more memory/compute per comparison but tends to improve
-  recall; see issue #52 for measurements across 64-1536 bits on real embeddings.
+- `nbits`: how many hyperplanes the sketch model is built with, must be a multiple of 64
+  (default `256`). More hyperplanes cost more memory/compute per comparison but tend to
+  improve recall; see issue #52 for measurements across 64-1536 bits on real embeddings.
+  At `width=1` this is also the sketch's size in bits, which is why the name says "bits".
+- `width`: bits spent per hyperplane -- `1` (default: one sign bit, compared with Hamming,
+  the historical behavior) or `2`/`4`/`8` (a [`QuantSketch`](@ref
+  SimilaritySearch.Projections.QuantSketch) code, compared with the matching `SQgu*.SqL2`).
+  The model is **not** resized by this: the same `nbits` hyperplanes are fitted either way,
+  and the sketch simply occupies `nbits * width` bits instead of `nbits`. So `width` buys
+  precision with memory at no additional model-fitting cost -- a sign bit only records
+  which side of a hyperplane an object falls on, while a wider code also records how far,
+  which is information the model already computed and was throwing away.
+  `method=:external` supports only `width=1`.
 - `kind`: the [`ErrorFunction`](@ref) `OptimizeParameters`/[`optimize_index!`](@ref) tunes the
   sketch-space construction towards (default `MaxMatchError(; maxerror=0.01f0)`, calibrated
   to roughly match `MinRecall(0.9)`'s achieved quality on real embeddings while building
@@ -315,6 +325,7 @@ reliably improve on the plain sketch-built topology (see issue #52).
 function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     method::Symbol=:gaussian,
     nbits::Int=256,
+    width::Int=1,
     kind::ErrorFunction=MaxMatchError(; maxerror=0.01f0),
     logbase::Float32=1.3f0,
     parallel_block::Int=2^13,
@@ -322,26 +333,50 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
 )
     length(idx) == 0 || throw(ArgumentError("index!(...; :bitsketch): this construction method accepts only not-previously-created indexes"))
     nbits % 64 == 0 || throw(ArgumentError("index!(...; :bitsketch): nbits=$nbits must be a multiple of 64"))
+    width in (1, 2, 4, 8) || throw(ArgumentError("index!(...; :bitsketch): width=$width must be one of 1, 2, 4 or 8"))
 
     db = database(idx)
     n = length(db)
     n > 0 || throw(ArgumentError("index!(...; :bitsketch): database(idx) is empty"))
 
-    B = if method === :gaussian || method === :qr
-        db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs method=:adh instead"))
-        first(Projections.bitsketch(method, nbits, db.matrix))
-    elseif method === :adh
-        m = Projections.AnchoredDistantHyperplanes(distance(idx), db, nbits)
-        Projections.bitsketch(m, db).matrix
-    elseif method === :external
-        sketch === nothing && throw(ArgumentError("index!(...; :bitsketch): method=:external requires a `sketch` keyword (precomputed UInt64 bit matrix, size (nbits÷64, n))"))
-        size(sketch) == (nbits ÷ 64, n) || throw(ArgumentError("index!(...; :bitsketch): method=:external `sketch` must have size (nbits÷64, n) = ($(nbits ÷ 64), $n), got $(size(sketch))"))
-        sketch
+    # `nbits` is the *model* size -- how many hyperplanes are fitted -- and `width` is how
+    # many bits each one's value is kept with, so the sketch occupies `nbits * width` bits.
+    # Raising `width` buys precision with memory at no extra model cost: the same
+    # hyperplanes, the expensive part, are reused as-is. width=1 keeps the historical path
+    # (sign bits compared with Hamming) untouched.
+    B, sketchdist = if width == 1
+        Bits = if method === :gaussian || method === :qr
+            db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs method=:adh instead"))
+            first(Projections.bitsketch(method, nbits, db.matrix))
+        elseif method === :adh
+            m = Projections.AnchoredDistantHyperplanes(distance(idx), db, nbits)
+            Projections.bitsketch(m, db).matrix
+        elseif method === :external
+            sketch === nothing && throw(ArgumentError("index!(...; :bitsketch): method=:external requires a `sketch` keyword (precomputed UInt64 bit matrix, size (nbits÷64, n))"))
+            size(sketch) == (nbits ÷ 64, n) || throw(ArgumentError("index!(...; :bitsketch): method=:external `sketch` must have size (nbits÷64, n) = ($(nbits ÷ 64), $n), got $(size(sketch))"))
+            sketch
+        else
+            throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, :adh, or :external)"))
+        end
+
+        Bits, Dist.Bits.Hamming()
     else
-        throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, :adh, or :external)"))
+        method === :external && throw(ArgumentError("index!(...; :bitsketch): method=:external supports only width=1 (a precomputed sketch carries no quantization range to compare its codes with)"))
+        model = if method === :gaussian || method === :qr
+            db isa MatrixDatabase || throw(ArgumentError("index!(...; :bitsketch): method=:$method needs database(idx) to be a MatrixDatabase (vector-represented); a non-vector metric space needs method=:adh instead"))
+            indim = size(db.matrix, 1)
+            method === :gaussian ? Projections.gaussian(indim, nbits) : Projections.qr(indim, nbits)
+        elseif method === :adh
+            Projections.AnchoredDistantHyperplanes(distance(idx), db, nbits)
+        else
+            throw(ArgumentError("index!(...; :bitsketch): unknown method=:$method (expected :gaussian, :qr, :adh, or :external)"))
+        end
+
+        qs = Projections.QuantSketch(model, width, db)
+        Projections.quantsketch(qs, db).matrix, distance(qs)
     end
 
-    sketch_graph = SearchGraph(Dist.Bits.Hamming(), MatrixDatabase(B))
+    sketch_graph = SearchGraph(sketchdist, MatrixDatabase(B))
     sketch_ctx = SearchGraphContext(
         neighborhood=Neighborhood(; filter=SatNeighborhood(), logbase),
         hyperparameters_callback=OptimizeParameters(kind),
@@ -359,6 +394,6 @@ function index!(idx::SearchGraph, ctx::SearchGraphContext, ::Val{:bitsketch};
     append!(idx.hints, sketch_graph.hints)
     idx.len[] = n
 
-    verbose(ctx) && @inform ctx "bitsketch> built $nbits-bit ($method) sketch topology, hints: $(length(idx.hints))"
+    verbose(ctx) && @inform ctx "bitsketch> built $nbits-hyperplane ($method, $(width)b each = $(nbits * width) bits) sketch topology, hints: $(length(idx.hints))"
     idx
 end
