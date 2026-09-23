@@ -114,6 +114,55 @@ end
     end
 end
 
+@testset "ScalarQuant: per-column SqL2 is exact on equal scales and accurate otherwise" begin
+    # SqL2 between two per-column vectors no longer dequantizes coordinate by coordinate: it
+    # expands (a*cA + mA - b*cB - mB)^2, which leaves one integer dot product over the codes
+    # plus per-vector sums known since quantization. Two properties that buys, and one it
+    # would have cost without the equal-scale branch:
+    #
+    #   * more accurate than the loop it replaces, because the sums are integers rather than
+    #     Float32 accumulations -- checked here against a Float64 evaluation of the same codes;
+    #   * exactly 0f0 for a vector against itself. The general expansion cancels only up to
+    #     rounding, so equal scales (self-comparisons, duplicates) take an exact integer path.
+    #     `neardup` at radius 0 depends on this.
+    for (mod, cpb) in ((ScalarQuant.SQu2, 4), (ScalarQuant.SQu4, 2), (ScalarQuant.SQu8, 1))
+        for dim in (8, 16, 64, 260)
+            X = randn(Float32, dim, 24)
+            db = mod.quantize(X)
+
+            for i in 1:24
+                @test evaluate(mod.SqL2(), db[i], db[i]) == 0f0
+                @test evaluate(mod.L2(), db[i], db[i]) == 0f0
+            end
+
+            for (i, j) in ((1, 2), (3, 11), (5, 24))
+                a, b = db[i], db[j]
+                truth = sum((Float64(a[t]) - Float64(b[t]))^2 for t in 1:dim)
+                got = evaluate(mod.SqL2(), a, b)
+                @test abs(got - truth) <= 1f-5 * max(1.0, truth)
+                @test got >= 0f0
+                @test evaluate(mod.L2(), a, b) ≈ sqrt(got)
+            end
+        end
+    end
+
+    # two vectors that share a scale but differ in codes still take the exact path and agree
+    # with the general one to Float32 tolerance
+    v = randn(Float32, 64)
+    a = ScalarQuant.SQu8.SQu8Vec(v)
+    b = ScalarQuant.SQu8.SQu8Vec(ScalarQuant.SQMinC(a.E.min, a.E.c), reverse(a.V))
+    truth = sum((Float64(a[t]) - Float64(b[t]))^2 for t in 1:64)
+    @test abs(evaluate(ScalarQuant.SQu8.SqL2(), a, b) - truth) <= 1f-4 * truth
+
+    # NormCosine (SQu8 only) goes through the same expansion
+    X = randn(Float32, 64, 8)
+    db = ScalarQuant.SQu8.quantize(X)
+    for (i, j) in ((1, 2), (3, 8))
+        dot64 = sum(Float64(db[i][t]) * Float64(db[j][t]) for t in 1:64)
+        @test abs(evaluate(ScalarQuant.SQu8.NormCosine(), db[i], db[j]) - (1.0 - dot64)) <= 1f-4 * max(1.0, abs(1.0 - dot64))
+    end
+end
+
 @testset "ScalarQuant: per-column databases rebuild from their own fields (#69)" begin
     # The persistence shape: a caller stores `E` and `Q`, and on the way back in has exactly
     # those two and not the Float32 matrix they came from. Rebuilding that matrix to re-quantize
