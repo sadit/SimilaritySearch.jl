@@ -278,6 +278,72 @@ end
     @test all(length(r) > 0 for r in knns)
 end
 
+@testset "optimize_index! tunes for a radius workload (#67)" begin
+    Random.seed!(0xBA11)
+    dim, n = 8, 2_000
+    dist = Dist.SqL2()
+    db = MatrixDatabase(randn(Float32, dim, n))
+    graph = SearchGraph(dist, db)
+    ctx = SearchGraphContext(verbose=false)
+    index!(graph, ctx)
+
+    queries = [randn(Float32, dim) for _ in 1:40]
+    alldists = [sort!([Dist.evaluate(dist, q, db[i]) for i in 1:n]) for q in queries]
+    radius = Float32(sum(d[5] for d in alldists) / length(queries))   # balls of ~5-10 members
+
+    function ballrecall()
+        found, wanted = 0, 0
+        for (q, dd) in zip(queries, alldists)
+            wanted += count(<=(radius), dd)
+            found += length(search(graph, ctx, q, RadiusSorted(radius)))
+        end
+        found / wanted
+    end
+
+    # tuning against ball gold, which only MaxMatchError can score
+    optimize_index!(graph, ctx, MaxMatchError(; maxerror=0.01f0); radius, kmin=8, numqueries=32)
+    @test graph.algo[] isa BeamSearch
+    @test ballrecall() >= 0.8
+
+    # the recall-based goals cannot: macrorecall divides by the gold ball's size, and a small
+    # radius routinely leaves a query with an empty ball
+    @test_throws ArgumentError optimize_index!(graph, ctx, MinRecall(0.9); radius)
+    @test_throws ArgumentError optimize_index!(graph, ctx, ParetoRecall(); radius)
+end
+
+@testset "matcherror scores the ball, not the navigation reserve" begin
+    # Regression guard with teeth: SearchModels swallows exceptions raised while evaluating a
+    # configuration ("ignoring configuration due to exception") and optimization still returns a
+    # result, so a broken matcherror on BallKnn looks like a successful tuning run. It is asserted
+    # here directly instead.
+    golddist = Float32[0.1, 0.2, 0.3]           # the true ball: 3 members within radius 1.0
+
+    perfect = SimilaritySearch.BallKnn(1.0f0, 2)
+    for (i, d) in enumerate((0.1f0, 0.2f0, 0.3f0))
+        push_item!(perfect, i, d)
+    end
+    @test SimilaritySearch.matcherror(golddist, perfect, 1f0, 1f0, 1f-2) == 0.0
+
+    # same three ball members, plus reserve items *outside* the radius: the reserve must not
+    # change the score, and must not be mistaken for ball members that were found
+    withreserve = SimilaritySearch.BallKnn(1.0f0, 6)
+    for (i, d) in enumerate((0.1f0, 0.2f0, 0.3f0, 5f0, 6f0, 7f0))
+        push_item!(withreserve, i, d)
+    end
+    @test length(withreserve) > length(SimilaritySearch.ballview(withreserve))
+    @test SimilaritySearch.matcherror(golddist, withreserve, 1f0, 1f0, 1f-2) == 0.0
+
+    # a search that reached only one of the three ball members pays η for each one it missed
+    partial = SimilaritySearch.BallKnn(1.0f0, 4)
+    for (i, d) in enumerate((0.1f0, 4f0, 5f0, 6f0))
+        push_item!(partial, i, d)
+    end
+    @test SimilaritySearch.ninside(partial) == 1
+    @test SimilaritySearch.matcherror(golddist, partial, 1f0, 1f0, 1f-2) ≈ 2/3
+    # an empty true ball is free: there was nothing to find
+    @test SimilaritySearch.matcherror(Float32[], partial, 1f0, 1f0, 1f-2) == 0.0
+end
+
 @testset "BallKnn keeps a navigation reserve outside the ball" begin
     # the queue #67's fix navigates with: the ball plus at least `kmin` nearest items, whichever
     # is larger, so it is never empty and its `maximum` is a threshold that actually moves
