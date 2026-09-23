@@ -136,6 +136,26 @@ function quantize(X::AbstractMatrix)
     SQu4Database(X)
 end
 
+"""
+    SQu4Database(X::AbstractMatrix)
+    SQu4Database(E::AbstractVector{SQMinC}, Q::AbstractMatrix{UInt8})
+
+An [`AbstractDatabase`](@ref) of vectors quantized to 4 bits per coordinate, two 4-bit codes packed per `UInt8`,
+each column carrying its **own** `min`/scale pair (`E[i]`) computed from that vector's own
+extrema. Indexing yields a [`SQu4Vec`](@ref), which the distances in this module consume
+without dequantizing.
+
+The first constructor quantizes `X` (it is what [`quantize`](@ref) calls). The second takes the
+two fields back as they are, quantizing nothing -- that is the one to use after reading `E`/`Q`
+from storage, so a stored database goes straight back to work without rebuilding the `Float32`
+matrix it came from (which would cost 8x the memory the quantization was chosen to avoid, to
+recompute codes that are already in hand). The two must agree: exactly one `SQMinC` per stored
+vector, i.e. `length(E) == size(Q, 2)`.
+
+# Fields
+- `E::Vector{SQMinC}`: per-column `min`/scale, one entry per stored vector
+- `Q::Matrix{UInt8}`: the codes, `size(X, 1) ÷ 2` rows by one column per vector
+"""
 struct SQu4Database <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
@@ -150,6 +170,12 @@ struct SQu4Database <: AbstractDatabase
             E[i] = quant_u4!(view(Q, :, i), view(X, :, i))
         end
 
+        new(E, Q)
+    end
+
+    function SQu4Database(E::AbstractVector{SQMinC}, Q::AbstractMatrix{UInt8})
+        length(E) == size(Q, 2) ||
+            throw(ArgumentError("SQu4Database: got $(length(E)) quantization parameters for $(size(Q, 2)) columns; there is exactly one `SQMinC` per stored vector"))
         new(E, Q)
     end
 end
