@@ -7,6 +7,10 @@ import ..SimilaritySearch: push_item!, reuse!, knnqueue
 
 export AbstractMetricQueue, AbstractKnnQueue, AbstractRadiusQueue
 export KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue, IdDist
+# BallKnn is internal (see ballknn.jl): exported here only so it is reachable as
+# `SimilaritySearch.BallKnn`, like heap.jl's primitives below, never from a plain
+# `using SimilaritySearch`.
+export BallKnn, ballview
 export push_item!, covradius, maxlength, reuse!, sortitems!, pop_max!, pop_min!, nearest, frontier
 export DistView, IdView, IdDistView
 export knn_matrices
@@ -82,6 +86,7 @@ include("knnheap.jl")
 include("knnsorted.jl")
 include("radiussorted.jl")
 include("radiusheap.jl")
+include("ballknn.jl")
 
 @inline Base.iterate(res::AbstractMetricQueue, state=1) = iterate(IdDistView(res), state)
 
@@ -233,6 +238,7 @@ IdDistView(ids::AbstractVector, dists::AbstractVector) =
 IdDistView(res::KnnSorted) = IdDistView(res.ids, res.dists, Int(res.sp), Int(res.ep))
 IdDistView(res::KnnHeap)   = IdDistView(res.ids, res.dists, 1, Int(res.len))
 IdDistView(res::RadiusSorted) = IdDistView(res.ids, res.dists, 1, length(res.ids))
+IdDistView(res::BallKnn) = IdDistView(res.ids, res.dists, 1, length(res.ids))
 IdDistView(res::RadiusHeap)   = sortitems!(res)
 
 # ── knnqueue constructors ─────────────────────────────────────────────────────

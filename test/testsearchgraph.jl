@@ -227,6 +227,91 @@ end
     end
 end
 
+@testset "radius search navigates when the ball starts out of reach (#67)" begin
+    # The testset above keeps n < 64 so `search` takes its brute-force branch; this one is the
+    # opposite case, the one that crashed: a graph large enough to be navigated, with a radius so
+    # small that no entry point falls inside it. `RadiusSorted` rejected every hint, stayed empty,
+    # and `nearest(res)` read past the end of a 0-element vector.
+    dim, n = 4, 3000
+    dist = Dist.SqL2()
+    db = MatrixDatabase(rand(Xoshiro(1), Float32, dim, n))
+    graph = SearchGraph(dist, db)
+    ctx = SearchGraphContext(verbose=false)
+    index!(graph, ctx)
+
+    queries = [rand(Xoshiro(100 + j), Float32, dim) for j in 1:20]
+    balls = [Set(i for i in 1:n if Dist.evaluate(dist, q, db[i]) <= r) for q in queries, r in (0.02f0,)]
+
+    for QueueType in (RadiusSorted, RadiusHeap)
+        found = 0
+        wanted = 0
+        for (j, q) in enumerate(queries)
+            res = search(graph, ctx, q, QueueType(0.02f0))
+            got = collect(IdDistView(res))
+            # never returns anything outside the ball, and never the navigation reserve
+            @test all(p -> p.dist <= 0.02f0, got)
+            @test Set(p.id for p in got) ⊆ balls[j]
+            found += length(got)
+            wanted += length(balls[j])
+        end
+
+        # the real regression this guards: a guarded-but-ungradiented search returns *empty* balls
+        @test wanted > 0
+        @test found >= 0.6 * wanted
+    end
+
+    # a radius no object can satisfy must come back empty, not crash
+    res = search(graph, ctx, queries[1], RadiusSorted(0f0))
+    @test length(res) == 0
+
+    # kmin is a keyword; every value keeps the answer a subset of the true ball
+    for kmin in (1, 2, 8, 64)
+        res = search(graph, ctx, queries[1], RadiusSorted(0.05f0); kmin)
+        @test Set(p.id for p in IdDistView(res)) ⊆ Set(i for i in 1:n if Dist.evaluate(dist, queries[1], db[i]) <= 0.05f0)
+    end
+    @test_throws ArgumentError search(graph, ctx, queries[1], RadiusSorted(0.05f0); kmin=0)
+
+    # searchbatch! reaches the same method
+    Q = MatrixDatabase(hcat(queries...))
+    knns = [RadiusSorted(0.05f0) for _ in queries]
+    searchbatch!(graph, ctx, Q, knns)
+    @test all(length(r) > 0 for r in knns)
+end
+
+@testset "BallKnn keeps a navigation reserve outside the ball" begin
+    # the queue #67's fix navigates with: the ball plus at least `kmin` nearest items, whichever
+    # is larger, so it is never empty and its `maximum` is a threshold that actually moves
+    res = SimilaritySearch.BallKnn(1.0f0, 4)
+    @test length(res) == 0
+    @test maximum(res) == typemax(Float32)      # nothing to bound the search with yet
+
+    for (i, d) in enumerate((9f0, 8f0, 7f0, 6f0, 5f0))
+        push_item!(res, i, d)
+    end
+    @test length(res) == 4                      # trimmed to the reserve
+    @test maximum(res) == 8f0                   # the k-th distance, shrinking
+    @test SimilaritySearch.maxlength(res) == 4  # == capacity, what optimize_index!'s cov block reads
+    @test length(res) == SimilaritySearch.maxlength(res)
+    @test length(SimilaritySearch.ballview(res)) == 0   # nothing is inside the ball yet
+    @test nearest(res).dist == 5f0
+
+    for (i, d) in enumerate((0.5f0, 0.25f0, 0.75f0, 0.9f0, 0.1f0))
+        push_item!(res, 100 + i, d)
+    end
+    @test length(SimilaritySearch.ballview(res)) == 5   # every item within the radius is kept
+    @test maximum(res) == 1.0f0                          # flattened at the radius
+    @test all(p -> p.dist <= 1.0f0, SimilaritySearch.ballview(res))
+
+    # a sixth ball member grows the queue past kmin; the reserve no longer bounds it
+    push_item!(res, 200, 0.3f0)
+    @test length(SimilaritySearch.ballview(res)) == 6
+    @test length(res) == 6
+
+    reuse!(res)
+    @test length(res) == 0
+    @test maximum(res) == typemax(Float32)
+end
+
 @testset "IdentityNeighborhood passes candidates through instead of producing empty neighborhoods" begin
     # Regression test for issue #58: `neighborhoodfilter(::IdentityNeighborhood, ...)` used to
     # return its result instead of writing into `output`, and `find_neighborhood!` only ever
@@ -294,6 +379,11 @@ end
 end
 
 @testset "index!(...; :bitsketch)" begin
+    # seeded: the recall assertions below are statistical, and every testset that runs earlier in
+    # this file consumes the global RNG (graph construction samples hints and neighborhoods), so
+    # without this the data here shifts whenever a testset is added above and a borderline
+    # threshold starts failing for reasons that have nothing to do with :bitsketch
+    Random.seed!(0xB175)
     dim, n, m, ksearch = 64, 2_000, 30, 8
     dist = Dist.SqL2()
     db = MatrixDatabase(randn(Float32, dim, n))
