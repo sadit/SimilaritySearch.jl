@@ -216,6 +216,47 @@ function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractMet
     search(index.algo[], index, ctx, q, res, index.hints, vstate)
 end
 
+"""
+    search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractRadiusQueue; kmin::Int=8) -> res
+
+Solves the radius-bounded (epsilon-ball) query `q` and fills `res` with every item the search
+found within its radius.
+
+The graph is navigated with a [`BallKnn`](@ref) instead of `res` itself, and only its in-ball
+prefix is copied back here. A radius container cannot drive a graph search on its own: it rejects
+every candidate outside the ball, so it is still empty when the beam needs a starting point
+(issue #67's segfault), and its `maximum` is a constant, so the beam's admission test stops
+shrinking and a search that starts outside the ball dies on its first expansion. `BallKnn` keeps a
+`kmin`-sized navigation reserve that restores both, and the reserve never reaches `res`.
+
+Unlike the exhaustive indexes, this answer is **approximate**: it is a subset of the true ball,
+whose completeness is governed by the same `BeamSearch` parameters as a k-NN search (`bsize` and
+`Δ` above all). Use an [`ExhaustiveSearch`](@ref) when the ball must be exact.
+
+# Arguments
+- `index`, `ctx`, `q`: as in the k-NN method above
+- `res`: the radius container to fill ([`RadiusSorted`](@ref)/[`RadiusHeap`](@ref)); its radius is
+  read with [`covradius`](@ref)
+
+# Keyword Arguments
+- `kmin`: size of the navigation reserve. It is the floor of the search's cost -- a radius query
+  costs about what a k-NN query with `k = kmin` costs -- and, at the hyperparameters construction
+  leaves behind, it is what keeps a beam starting outside the ball alive. Tuning `bsize`/`Δ` for
+  the radius workload makes the choice nearly free, and then `2` is measurably cheaper; the
+  default protects the untuned path. See #67 for the measurements.
+"""
+function search(index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractRadiusQueue; kmin::Int=8)
+    vstate = getvstate(length(index), ctx)
+    nav = BallKnn(covradius(res), kmin)
+    search(index.algo[], index, ctx, q, nav, index.hints, vstate)
+
+    @inbounds for p in ballview(nav)
+        push_item!(res, p)
+    end
+
+    res
+end
+
 include("callbacks.jl")
 include("rebuild.jl")
 include("staticindexing.jl")

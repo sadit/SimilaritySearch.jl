@@ -252,6 +252,9 @@ Result containers accumulate `(id, dist)` pairs found during a search. They live
 `KnnSorted`, keep the `k` closest items) and radius-bounded (`AbstractRadiusQueue`:
 `RadiusSorted`, `RadiusHeap`, keep every item within a fixed distance threshold, however many
 that turns out to be -- see the [`searchbatch!`](@ref) form that accepts a vector of these).
+A radius container is a result container only: graph searches over one are navigated with the
+internal `SimilaritySearch.BallKnn`, which adds the navigation reserve they lack, and receive just
+its in-ball part.
 Although they're implemented in the `PQueue` submodule, every name below is re-exported
 unqualified from `SimilaritySearch`, exactly as before this reorganization.
 ```@docs
@@ -262,6 +265,8 @@ KnnHeap
 KnnSorted
 RadiusSorted
 RadiusHeap
+SimilaritySearch.BallKnn
+SimilaritySearch.ballview
 knnqueue
 nearest
 frontier
