@@ -3,12 +3,11 @@
 using Test, SimilaritySearch, LinearAlgebra, Random
 Random.seed!(0)
 
-@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
 
 @testset "closestpair" begin
     dist = SimilaritySearch.Dist.Cosine()
     dim, mindist = 2, 1e-4
-    db = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 200 : 1000))
+    db = MatrixDatabase(rand(Float32, dim, 1000))
     G = SearchGraph(dist, db)
     ctx = SearchGraphContext()
     tG = @elapsed index!(G, ctx)
@@ -188,9 +187,9 @@ end
     # keeps the "matches the documented algorithm" comparisons below deterministic (the
     # only randomness in bichromatic_metricjoin is the last-resort fallback, only reached
     # when literally every group is under mingroup, which this size ratio avoids). Keep the
-    # ~1:15 ratio under FAST_TESTS too.
-    A = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 60 : 200))
-    B = MatrixDatabase(rand(Float32, dim, FAST_TESTS ? 900 : 3000))
+    # ~1:15 ratio if these sizes are ever changed.
+    A = MatrixDatabase(rand(Float32, dim, 200))
+    B = MatrixDatabase(rand(Float32, dim, 3000))
     idxA = ExhaustiveSearch(dist, A)
     ctx = GenericContext()
 

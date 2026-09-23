@@ -37,6 +37,13 @@ jobs:
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+        with:
+          # Coverage costs ~38% of the run (measured cold on testsearchgraph.jl, 2 threads:
+          # 103s -> 143s) and nothing consumes it -- there is no codecov/lcov step in any
+          # workflow. It also forces the package to be recompiled instrumented, which throws
+          # away what julia-actions/cache restores. Turn it on in a job of its own if the
+          # numbers are ever wanted.
+          coverage: false
         env:
           JULIA_NUM_THREADS: auto
 

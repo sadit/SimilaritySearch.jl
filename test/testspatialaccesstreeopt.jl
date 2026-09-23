@@ -4,10 +4,9 @@ using SimilaritySearch
 using Test, Random
 Random.seed!(0)
 
-@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
 
 @testset "SpatialAccessTree approximate variants" begin
-    dim, n, nq, k = 4, (FAST_TESTS ? 500 : 2_000), 30, 10
+    dim, n, nq, k = 4, 2_000, 30, 10
     dist = Dist.L2()
     db = MatrixDatabase(rand(Float32, dim, n))
     queries = MatrixDatabase(rand(Float32, dim, nq))
@@ -20,9 +19,9 @@ Random.seed!(0)
     index!(sat, GenericContext())
 
     ctx = SatContext()
-    # optimize_index! runs a SearchModels autotuning search whose cost scales with
-    # population/iterations, independently of n -- shrink both under FAST_TESTS.
-    optkwargs = FAST_TESTS ? (; numqueries=16, initialpopulation=4, maxiters=4) : (;)
+    # optimize_index! runs a SearchModels autotuning search whose cost scales with its
+    # population/iteration counts, independently of n; the defaults are used here.
+    optkwargs = (;)
 
     for (build, minrecall) in [
         (s -> BeamSearchSat(s), 0.7),
