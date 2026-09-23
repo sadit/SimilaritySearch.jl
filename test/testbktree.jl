@@ -4,7 +4,6 @@ using SimilaritySearch
 using Test, Random
 Random.seed!(0)
 
-@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
 
 # every object of the subtree rooted at `node`: the node itself, its long-leaf bucket (if
 # any), and recursively its children
@@ -64,7 +63,7 @@ end
 @testset "BKTree" begin
     alphabet = collect("abcdefgh")
     mkword() = collect(String(rand(alphabet, rand(3:9))))
-    n, m, k = (FAST_TESTS ? 500 : 2000), 30, 10
+    n, m, k = 2000, 30, 10
     dist = Dist.Seqs.Levenshtein()
     db = VectorDatabase([mkword() for _ in 1:n])
     queries = VectorDatabase([mkword() for _ in 1:m])
@@ -125,7 +124,7 @@ end
 
     @testset "Hamming over bit vectors" begin
         hdist = Dist.Bits.Hamming()
-        hdb = VectorDatabase([rand(UInt64, 4) for _ in 1:(FAST_TESTS ? 300 : 1000)])
+        hdb = VectorDatabase([rand(UInt64, 4) for _ in 1:1000])
         hq = VectorDatabase([rand(UInt64, 4) for _ in 1:10])
         hseq = ExhaustiveSearch(hdist, hdb)
         hbkt = BKT(hdist, hdb)

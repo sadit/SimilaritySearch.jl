@@ -6,13 +6,12 @@ using Test
 using Random
 Random.seed!(0)
 
-@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
 
 @testset "InvertedFile with Dist.NormCosine()" begin
     @test !SimilaritySearch.InvertedFiles.has_exact_fastpath(Dist.NormCosine())
 
-    local_dim = FAST_TESTS ? 60 : 300
-    local_n = FAST_TESTS ? 300 : 1000
+    local_dim = 300
+    local_n = 1000
     A = MatrixDatabase(normalize!(rand(local_dim, local_n)))
     B = VectorDatabase([sparse(a) for a in A])
 
@@ -115,7 +114,7 @@ end
 
 @testset "InvertedFile" begin
     vocsize = 128
-    n = FAST_TESTS ? 300 : 2_000
+    n = 2_000
     m = 30
     len = 10
     k = 10
@@ -278,7 +277,7 @@ end
 
 @testset "InvertedFile/DictInvertedFile decoupled index!" begin
     vocsize = 128
-    n = FAST_TESTS ? 200 : 1_000
+    n = 1_000
     m = 20
     len = 10
     k = 10

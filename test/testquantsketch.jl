@@ -4,7 +4,6 @@ using Test, SimilaritySearch, SimilaritySearch.Projections, Random, Statistics
 
 const SQ = SimilaritySearch.ScalarQuant
 
-@isdefined(FAST_TESTS) || (const FAST_TESTS = parse(Bool, get(ENV, "FAST_TESTS", "false")))
 
 "Unpacks every `nbits`-wide code held by the packed byte vector `p` (low bits first)."
 function unpackcodes(p::AbstractVector{UInt8}, nbits::Int)
@@ -87,7 +86,7 @@ end
     Random.seed!(11)
     dist = SimilaritySearch.Dist.L2()
     dim = 32
-    n = FAST_TESTS ? 2^10 : 2^12
+    n = 2^12
     X = MatrixDatabase(randn(Float32, dim, n))
     Q = MatrixDatabase(randn(Float32, dim, 30))
     ncomp = 128

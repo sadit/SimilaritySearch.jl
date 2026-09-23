@@ -25,54 +25,60 @@ session is single-threaded (`Threads.nthreads() == 1`), which silently takes eve
 serial path in `@BATCHES` and never exercises real parallelism, races, or
 scheduler-specific behavior.
 
-Individual test files live in `test/*.jl` and are `include`d from `test/runtests.jl`; to
-run just one, `include` it directly after `using SimilaritySearch` in a REPL/script rather
-than editing `runtests.jl`. `Aqua.jl` ambiguity/quality checks run under
-`VERSION >= v"1.12"` and `!FAST_TESTS` (see the top of `runtests.jl`) -- version-pinned
-because Aqua's findings, ambiguities above all, differ between Julia versions. They were
+Individual test files live in `test/*.jl` and are `include`d from `test/runtests.jl`, which
+selects among them by substring: `Pkg.test(test_args=["searchgraph"])` runs that one file, and
+no argument runs all of them. `Aqua.jl`'s ambiguity/quality checks run under `VERSION >=
+v"1.12"` and only on a complete run (they are about the package, not about any one file) --
+version-pinned because Aqua's findings, ambiguities above all, differ between Julia versions. They were
 dead code until 2026-09-22: the gate read `VERSION == v"1.10"`, which is false even on
 1.10.12 (`v"1.10"` means `v"1.10.0"`), so `Aqua.test_all` had never actually run.
 
 ### Fast dev loop vs. the pre-commit/pre-push gate
 
-Measured directly (this repo, 2026-08): a fresh `julia -t auto --project=. -e 'using Pkg;
-Pkg.test()'` costs **~180s**, and **~90% of that is one-time JIT compilation** of
-SearchGraph/InvertedFiles/SearchModels code paths, not test data size -- running the exact
-same suite a *second* time inside the *same already-warm process* (no new process, so
-compilation is already cached) drops to **~20s**. Shrinking `n`/iteration counts only
-shaves a further ~20% off that already-warm 20s (`FAST_TESTS=true`, see below); it does
-**nothing** for a cold process, because compilation swamps it. Concretely:
+**Where the time actually goes.** Measured on CI (2 threads, the GitHub runner configuration,
+2026-09-23) over a 25.7 min job:
 
-| invocation | cost |
+| phase | cost |
 |---|---|
-| `julia -e '...; Pkg.test()'` (fresh process each time) | ~180s, `FAST_TESTS` included |
-| same suite, 2nd `include` in an already-running session | ~20s |
-| ...with `FAST_TESTS=true` on top | ~16s |
+| package precompilation | 1.0 min |
+| running the tests | 24.2 min |
+| ...of that, *inside* testsets | **5.5 min** |
+| ...of that, JIT compilation *between* testsets | **18.9 min (78%)** |
 
-**The actual lever for a fast dev loop is a persistent process, not smaller data.** Keep one
-Julia session open (e.g. with [`Revise.jl`](https://github.com/timholy/Revise.jl)) and
-re-`include` a test file after each edit instead of spawning `julia -e ...`/`Pkg.test()`
-per iteration:
+So dataset size is not the lever: shrinking every `n` to zero would leave ~20 min standing.
+That compilation is concentrated in two subsystems -- ~11 min ahead of the first
+`testquantsketch.jl` testset (the sketch/quantization SIMD kernels, one specialization per
+code width and `Vec{N,T}`) and ~5.5 min ahead of `SpatialAccessTree`'s -- so it tracks the
+number of *type combinations* the tests instantiate, not the number of points they touch.
+`FAST_TESTS`, which used to shrink `n`, was removed for that reason: it could only address
+the 5.5 min, and it forced every size in the suite to be written twice.
+
+**To iterate, run fewer files** (each argument is matched as a substring against the file
+names in `runtests.jl`; a pattern matching nothing errors and lists them):
+
+```sh
+julia --project=. -e 'using Pkg; Pkg.test(test_args=["searchgraph"])'
+julia -t auto --project=. test/runtests.jl scalarquant     # 12s cold, vs minutes for all 26
+```
+
+**Faster still is a persistent process**, since a cold start pays the compilation above
+regardless of how few tests run. Keep one session open with
+[`Revise.jl`](https://github.com/timholy/Revise.jl) and re-`include` after each edit:
 
 ```julia
 using Revise, SimilaritySearch, Test
-ENV["FAST_TESTS"] = "true"   # optional: shrinks the handful of tests whose cost actually
-                             # scales with dataset size/iteration count (SearchGraph/
-                             # InvertedFile construction, optimize_index! autotuning,
-                             # SpatialAccessTree) -- worthwhile once warm, negligible cold.
 includet("test/testsearchgraph.jl")   # Revise.includet, not include -- tracks edits
 # ...edit source, then just re-run the line above; no new process, no re-compiling the world
 ```
 
-`FAST_TESTS` reads once per session (`@isdefined(FAST_TESTS) || (const FAST_TESTS = ...)`
-guard at the top of every test file that uses it) — set the `ENV` var (or export it before
-launching Julia) *before* the first `include`/`Pkg.test()` call in that process; changing
-`ENV["FAST_TESTS"]` mid-session has no effect on an already-`include`d file.
+**Before commit/push, run the full gate** — plain `Pkg.test()` with no `test_args`, which is
+the only form that also runs Aqua, in a fresh process and its own sandboxed environment.
 
-**Before commit/push, run the full gate** — plain `Pkg.test()` (no `FAST_TESTS`, fresh
-process, full data, Aqua included) — since that's the only way to reliably
-exercise a cold-compile path and the full-size code paths (`Pkg.test()` also always runs in
-its own isolated sandboxed environment, unlike a warm dev session).
+**CI runs with `coverage: false`** (`.github/workflows/ci.yml`). It was measured at ~38% of
+the run (cold, 2 threads, `testsearchgraph.jl`: 103s -> 143s), no workflow consumes the
+result, and instrumenting the package invalidates exactly what `julia-actions/cache` restores.
+If coverage numbers are ever wanted, add a separate scheduled job that uploads them rather
+than paying for them on every push.
 
 ### Julia version matrix
 

@@ -2,19 +2,57 @@
 using SimilaritySearch, LinearAlgebra
 #using JET
 
-# Fast dev loop: `FAST_TESTS=true julia -t auto --project=. -e 'using Pkg; Pkg.test()'`
-# shrinks the handful of tests whose cost actually scales with dataset size/iteration count
-# (SearchGraph/InvertedFile construction, optimize_index! autotuning, SpatialAccessTree),
-# without skipping any test file. It's meant for quick iteration, NOT as a substitute for
-# a full `Pkg.test()` run (unset, the default) before committing/pushing.
-@isdefined(FAST_TESTS) || (const FAST_TESTS = get(ENV, "FAST_TESTS", "false") == "true")
+# Every file, always: there is no reduced mode. What used to be `FAST_TESTS` shrank dataset
+# sizes, which is not where the time goes -- in CI, of a 25.7 min run, 5.5 min was spent
+# inside testsets and 18.9 min compiling between them, so shrinking the data could not have
+# moved the number much. To iterate quickly, run *fewer files* instead:
+#
+#     julia --project=. -e 'using Pkg; Pkg.test(test_args=["searchgraph"])'
+#     julia -t auto --project=. test/runtests.jl searchgraph quantsketch
+#
+# Each argument is matched as a substring against the file names below (case-insensitive), so
+# `searchgraph` runs testsearchgraph.jl and `spatialaccess` runs both SAT files. A pattern that
+# matches nothing is an error listing the available names, rather than a silent empty run.
+# Faster still, for a tight edit/run loop, is one persistent session with Revise:
+# `using Revise, SimilaritySearch, Test; includet("test/testsearchgraph.jl")`.
+const TESTFILES = [
+    "testbatches.jl",
+    "testdistances.jl",
+    "testdb.jl",
+    "testmmapdb.jl",
+    "testlog.jl",
+    "testresults.jl",
+    "testsparse.jl",
+    "testscalarquant.jl",
+    "testspherical.jl",
+    "testexactseq.jl",
+    "testexact.jl",
+    "testparallelexhaustive.jl",
+    "testhsp.jl",
+    "testselection.jl",
+    "testadj.jl",
+    "testsearchgraph.jl",
+    "testallknn.jl",
+    "testclosestpair.jl",
+    "testindexingprefixes.jl",
+    "testintersections.jl",
+    "testinvertedfiles.jl",
+    "testprojections.jl",
+    "testquantsketch.jl",
+    "testspatialaccesstree.jl",
+    "testspatialaccesstreeopt.jl",
+    "testbktree.jl",
+]
 
-# Routine work targets 1.12 (the only version CI runs); `[compat] julia` still claims
-# 1.10+, and @BATCHES keeps its VERSION gates for that. Aqua reports version-dependent
-# results (ambiguities especially), so it is pinned to the version everything else is
-# checked on -- written as `>=` because the old `VERSION == v"1.10"` never fired: VERSION
-# is 1.10.12, while v"1.10" means v"1.10.0".
-if VERSION >= v"1.12" && !FAST_TESTS
+selected(f) = isempty(ARGS) || any(a -> occursin(lowercase(a), lowercase(f)), ARGS)
+const SELECTED = filter(selected, TESTFILES)
+isempty(SELECTED) && error("no test file matches $(ARGS); available: " * join(TESTFILES, ", "))
+
+# Aqua's checks are about the package as a whole, not about any one file, so they belong to a
+# complete run. They are pinned to 1.12 because its findings -- ambiguities above all -- differ
+# between Julia versions, and 1.12 is what CI runs. (Written as `>=`: the old `VERSION ==
+# v"1.10"` never fired, since VERSION is 1.10.12 while v"1.10" means v"1.10.0".)
+if VERSION >= v"1.12" && isempty(ARGS)
     using Aqua
     Aqua.test_all(SimilaritySearch, ambiguities=false)
     Aqua.test_ambiguities([SimilaritySearch])
@@ -30,29 +68,9 @@ function create_sequence(dim, sort, range=1:10)
     s
 end
 
-include("testbatches.jl")
-include("testdistances.jl")
-include("testdb.jl")
-include("testmmapdb.jl")
-include("testlog.jl")
-include("testresults.jl")
-include("testsparse.jl")
-include("testscalarquant.jl")
-include("testspherical.jl")
-include("testexactseq.jl")
-include("testexact.jl")
-include("testparallelexhaustive.jl")
-include("testhsp.jl")
-include("testselection.jl")
-include("testadj.jl")
-include("testsearchgraph.jl")
-include("testallknn.jl")
-include("testclosestpair.jl")
-include("testindexingprefixes.jl")
-include("testintersections.jl")
-include("testinvertedfiles.jl")
-include("testprojections.jl")
-include("testquantsketch.jl")
-include("testspatialaccesstree.jl")
-include("testspatialaccesstreeopt.jl")
-include("testbktree.jl")
+length(SELECTED) < length(TESTFILES) &&
+    @info "running $(length(SELECTED)) of $(length(TESTFILES)) test files" SELECTED
+
+for f in SELECTED
+    include(f)
+end
