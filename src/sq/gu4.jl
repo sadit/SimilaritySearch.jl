@@ -284,6 +284,19 @@ function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{U
 
     res = sum(acc_total)
 
+    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 8) ---
+    # Phase 2 needs a full `N = 16` bytes, so an 8..15 byte remainder went to the scalar
+    # loop below, which unpacks two nibbles per byte by hand. It costs more than simply
+    # having more data to vectorize: scanning 65536 vectors, 24 bytes took 22.3ns against
+    # 12.8ns for 32. One pass suffices, since phase 2 leaves at most 15 bytes.
+    @inbounds if i + 7 <= n
+        vx = vload(Vec{8, UInt8}, x, i)
+        vy = vload(Vec{8, UInt8}, y, i)
+        res += sum(convert(Vec{8, UInt32}, vx & mask) * convert(Vec{8, UInt32}, vy & mask))
+        res += sum(convert(Vec{8, UInt32}, vx >>> 4) * convert(Vec{8, UInt32}, vy >>> 4))
+        i += 8
+    end
+
     # --- PHASE 3: Scalar Tail Cleanup ---
     @inbounds while i <= n
         xv, yv = x[i], y[i]
@@ -398,6 +411,19 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     end
 
     res = sum(acc_total)
+
+    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 8) ---
+    # See the note in NormCosine above: phase 2 needs a full 16 bytes and leaves at most
+    # 15, so one 8-lane pass covers the only remainder worth vectorizing.
+    @inbounds if i + 7 <= n
+        vx = vload(Vec{8, UInt8}, x, i)
+        vy = vload(Vec{8, UInt8}, y, i)
+
+        d_low  = convert(Vec{8, Int32}, vx & mask) - convert(Vec{8, Int32}, vy & mask)
+        d_high = convert(Vec{8, Int32}, vx >>> 4) - convert(Vec{8, Int32}, vy >>> 4)
+        res += sum(d_low * d_low) + sum(d_high * d_high)
+        i += 8
+    end
 
     # --- PHASE 3: Scalar Tail Cleanup ---
     @inbounds while i <= n

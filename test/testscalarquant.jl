@@ -170,8 +170,10 @@ end
     # used to reach neither SIMD pass in the 32-byte-wide kernels (SQgu2, SQgu8) and fell
     # to the scalar loop instead; the 2-bit one skipped SIMD outright below 32 bytes, which
     # is exactly a 64-hyperplane sketch. The lengths below put the remainder in each class
-    # (0, 1..15, 16, 17..31) so no phase can be silently skipped or double-counted.
-    for nbytes in (0, 1, 15, 16, 17, 31, 32, 33, 47, 48, 63, 64, 65, 79, 80, 127, 128, 129, 200, 208)
+    # (0, 1..15, 16, 17..31) so no phase can be silently skipped or double-counted. The
+    # 16-byte-wide kernel (SQgu4) splits the same way one notch down, at 8, so the lengths
+    # also cover a remainder below and above that.
+    for nbytes in (0, 1, 8, 15, 16, 17, 24, 31, 32, 33, 40, 47, 48, 63, 64, 65, 79, 80, 104, 127, 128, 129, 200, 208)
         a, b = rand(UInt8, nbytes), rand(UInt8, nbytes)
         for (mod, bits) in ((ScalarQuant.SQgu2, 2), (ScalarQuant.SQgu4, 4), (ScalarQuant.SQgu8, 8))
             @test evaluate(mod.SqL2(), a, b) == manual_packed_sql2(a, b; bits)
