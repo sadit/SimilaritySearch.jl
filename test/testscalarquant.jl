@@ -114,6 +114,50 @@ end
     end
 end
 
+@testset "ScalarQuant: per-column databases rebuild from their own fields (#69)" begin
+    # The persistence shape: a caller stores `E` and `Q`, and on the way back in has exactly
+    # those two and not the Float32 matrix they came from. Rebuilding that matrix to re-quantize
+    # costs several times the memory the quantization was chosen to avoid, to recompute codes
+    # already in hand -- so every per-column database must accept its own fields. SQu2 always
+    # could (it has Julia's default field constructor); SQu4/SQu8 fused quantization into their
+    # only constructor and could not.
+    dim, n = 8, 64
+    X = rand(Float32, dim, n)
+
+    for (mod, T) in ((ScalarQuant.SQu2, ScalarQuant.SQu2.SQu2Database),
+                     (ScalarQuant.SQu4, ScalarQuant.SQu4.SQu4Database),
+                     (ScalarQuant.SQu8, ScalarQuant.SQu8.SQu8Database))
+        db = mod.quantize(X)
+        rebuilt = T(db.E, db.Q)              # no matrix, no re-quantization
+
+        @test length(rebuilt) == length(db)
+        @test rebuilt.E == db.E
+        @test rebuilt.Q == db.Q
+        # identical as a database: same codes in, same distances out (L1/L2/SqL2 are defined by
+        # all three modules; NormCosine only by SQu8)
+        for (i, j) in ((1, 2), (3, 17), (n - 1, n))
+            for dist in (mod.L1(), mod.L2(), mod.SqL2())
+                @test evaluate(dist, rebuilt[i], rebuilt[j]) == evaluate(dist, db[i], db[j])
+            end
+            mod === ScalarQuant.SQu8 &&
+                @test evaluate(mod.NormCosine(), rebuilt[i], rebuilt[j]) == evaluate(mod.NormCosine(), db[i], db[j])
+        end
+        # and usable as an index's database without dequantizing anything
+        seq = ExhaustiveSearch(mod.SqL2(), rebuilt)
+        res = search(seq, GenericContext(), rebuilt[1], knnqueue(KnnSorted, 3))
+        @test nearest(res).id == 1
+        @test nearest(res).dist == 0f0
+    end
+
+    # the one invariant the fields must satisfy: exactly one SQMinC per stored vector
+    for (mod, T) in ((ScalarQuant.SQu4, ScalarQuant.SQu4.SQu4Database),
+                     (ScalarQuant.SQu8, ScalarQuant.SQu8.SQu8Database))
+        db = mod.quantize(X)
+        @test_throws ArgumentError T(db.E[1:(n ÷ 2)], db.Q)
+        @test_throws ArgumentError T(db.E, db.Q[:, 1:(n ÷ 2)])
+    end
+end
+
 @testset "ScalarQuant: dimension-conformance ArgumentError (SQu2, SQu4)" begin
     # SQu2 packs 4 codes/UInt8; SQu4 packs 2 codes/UInt8 -- non-conforming dims must be
     # rejected upfront (at `quantize`/`SQuXVec` construction time) instead of silently
