@@ -149,13 +149,28 @@ neighborhood -- see [`MaxMatchError`](@ref). Internal function used by
 [`create_error_function`](@ref).
 """
 function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
+    sortitems!(res)
+    _matcherror(golddist, DistView(res), length(res), p, η, minspread)
+end
+
+"""
+    matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
+
+MatchError of a radius-bounded search: scores only the items `res` holds *within its radius*,
+never its navigation reserve (see [`BallKnn`](@ref)), against the true ball's distances. Each ball
+member the search did not reach costs `η`, which is what makes this the radius counterpart of
+recall -- and why [`MaxMatchError`](@ref) is the only `ErrorFunction` that transfers to radius
+queries: [`MinRecall`](@ref) goes through `macrorecall`, which divides by the gold set's size, and
+a small radius routinely produces queries whose true ball is empty.
+"""
+function matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
+    _matcherror(golddist, DistView(res), ninside(res), p, η, minspread)
+end
+
+function _matcherror(golddist::AbstractVector{Float32}, dv, r::Integer, p::Real, η::Real, minspread::Real)::Float64
     kp = length(golddist)
     kp == 0 && return 0.0
-
-    sortitems!(res)
-    r = length(res)
-    dv = DistView(res)
-    dmin = r > 0 ? min(golddist[1], dv[1]) : golddist[1]
+    dmin = r > 0 ? min(golddist[1], @inbounds(dv[1])) : golddist[1]
     ρ = golddist[kp] - dmin + minspread + eps(Float32)
 
     s = 0.0
@@ -281,6 +296,8 @@ _kfun(x) = 1.0 - 1.0 / (1.0 + x)
         space::AbstractSolutionSpace=optimization_space(index),
         queries=nothing,
         ksearch=10,
+        radius=nothing,
+        kmin=8,
         numqueries=64,
         initialpopulation=16,
         maxpopulation=16,
@@ -303,7 +320,15 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 
 - `space`: defines the search space
 - `queries`: the set of queries to be used to measure performances, a validation set. It can be an `AbstractDatabase` or nothing.
-- `ksearch`: the number of neighbors to retrieve for `queries`
+- `ksearch`: the number of neighbors to retrieve for `queries` (k-NN workloads only; ignored when `radius` is given)
+- `radius`: tune for radius-bounded (epsilon-ball) queries of this radius instead of k-NN queries.
+  The gold standard becomes each query's true ball -- of whatever size, empty included -- and
+  candidates are scored with [`matcherror`](@ref) over it, so this requires `kind::MaxMatchError`;
+  the recall-based goals raise an `ArgumentError`, since `macrorecall` divides by the gold ball's
+  size and a small radius routinely produces empty balls. What gets tuned is an ordinary
+  `BeamSearch`, so the result also governs later k-NN searches on the index.
+- `kmin`: navigation reserve used while tuning (see [`BallKnn`](@ref)); pass the value the radius
+  searches themselves will use, since a configuration is only tuned relative to it
 - `numqueries`: if `queries===nothing` then a sample of the already indexed database is used, `numqueries` is the size of the sample.
 - `rng`: random number generator used to draw the sample of queries when `queries===nothing`.
 - `initialpopulation`: the initial sample for the optimization procedure
@@ -332,6 +357,8 @@ function optimize_index!(
     space::AbstractSolutionSpace=optimization_space(index),
     queries=nothing,
     ksearch=10,
+    radius=nothing,
+    kmin::Int=8,
     numqueries=64,
     initialpopulation=16,
     maxpopulation=16,
@@ -352,26 +379,45 @@ function optimize_index!(
         verbose(ctx) && @inform ctx "using $(length(queries)) given as hyperparameter"
     end
 
-    knns_ids = zeros(UInt32, ksearch, length(queries))
-    knns_dists = zeros(Float32, ksearch, length(queries))
-    knns = [knnqueue(ctx, view(knns_ids, :, i), view(knns_dists, :, i)) for i in 1:length(queries)]
     gold = nothing
     golddists = nothing
+
+    knns = if radius === nothing
+        knns_ids = zeros(UInt32, ksearch, length(queries))
+        knns_dists = zeros(Float32, ksearch, length(queries))
+        [knnqueue(ctx, view(knns_ids, :, i), view(knns_dists, :, i)) for i in 1:length(queries)]
+    else
+        # Radius workload: tune against balls instead of k nearest neighbors. Only MaxMatchError
+        # transfers -- see `matcherror(::Any, ::BallKnn, ...)` for why the recall-based goals
+        # cannot. The containers are `BallKnn` rather than `RadiusSorted` for two reasons: the
+        # search needs the navigation reserve to reach the ball at all (#67), and `lossfun` records
+        # a covering radius only where `length(r) == maxlength(r)`, which a container of unbounded
+        # capacity never satisfies -- it would reject every configuration with InvalidSetupError.
+        kind isa MaxMatchError || throw(ArgumentError("optimize_index!: radius=$radius requires kind::MaxMatchError, got $(typeof(kind)); the recall-based goals score with macrorecall, which divides by the gold ball's size, and a small radius routinely yields empty balls"))
+        [BallKnn(radius, kmin) for _ in 1:length(queries)]
+    end
+
     if kind isa ParetoRecall || kind isa MinRecall || kind isa MaxMatchError
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, ctx, queries, knns)
-        gold = [idset(c) for c in knns]
-        if kind isa MaxMatchError
-            # `knns` is about to be reused (overwritten) by every candidate evaluated in
-            # `create_error_function`, so the gold distances must be copied out now.
-            # `sortitems!` mutates `c` in place (a no-op for `KnnSorted`, a real sort for
-            # `KnnHeap`) and returns an `IdDistView`, not `c` itself -- read `DistView(c)`
-            # from `c` afterwards, not from what `sortitems!` returns.
-            golddists = map(knns) do c
-                sortitems!(c)
-                collect(DistView(c))
+        # `knns` is about to be reused (overwritten) by every candidate evaluated in
+        # `create_error_function`, so the gold must be copied out now. `sortitems!` mutates `c`
+        # in place (a no-op for `KnnSorted`, a real sort for `KnnHeap`) and returns an
+        # `IdDistView`, not `c` itself -- read `DistView(c)` from `c` afterwards, not from what
+        # `sortitems!` returns.
+        if radius === nothing
+            gold = [idset(c) for c in knns]
+            if kind isa MaxMatchError
+                golddists = map(knns) do c
+                    sortitems!(c)
+                    collect(DistView(c))
+                end
             end
+        else
+            # the exhaustive pass filled every BallKnn with the *true* ball (plus a reserve, which
+            # is not part of the gold); `gold` stays nothing, as recall is not computed here
+            golddists = [Float32[p.dist for p in ballview(c)] for c in knns]
         end
     end
 

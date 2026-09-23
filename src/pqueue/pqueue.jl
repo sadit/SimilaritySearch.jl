@@ -10,7 +10,7 @@ export KnnHeap, KnnSorted, RadiusSorted, RadiusHeap, knnqueue, IdDist
 # BallKnn is internal (see ballknn.jl): exported here only so it is reachable as
 # `SimilaritySearch.BallKnn`, like heap.jl's primitives below, never from a plain
 # `using SimilaritySearch`.
-export BallKnn, ballview
+export BallKnn, ballview, ninside
 export push_item!, covradius, maxlength, reuse!, sortitems!, pop_max!, pop_min!, nearest, frontier
 export DistView, IdView, IdDistView
 export knn_matrices
@@ -144,6 +144,7 @@ Base.eachindex(res::IdView)  = firstindex(res):lastindex(res)
 Base.getindex(res::IdView{<:KnnSorted}, i::Integer) = @inbounds res.A.ids[res.A.sp + i - 1]
 Base.getindex(res::IdView{<:KnnHeap},   i::Integer) = @inbounds res.A.ids[i]
 Base.getindex(res::IdView{<:AbstractRadiusQueue}, i::Integer) = @inbounds res.A.ids[i]
+Base.getindex(res::IdView{<:BallKnn}, i::Integer) = @inbounds res.A.ids[i]
 
 # Plain UInt32 arrays
 Base.getindex(res::IdView{<:AbstractMatrix{UInt32}}, i...) = res.A[i...]
@@ -182,6 +183,7 @@ Base.eachindex(res::DistView)  = firstindex(res):lastindex(res)
 Base.getindex(res::DistView{<:KnnSorted}, i::Integer) = @inbounds res.A.dists[res.A.sp + i - 1]
 Base.getindex(res::DistView{<:KnnHeap},   i::Integer) = @inbounds res.A.dists[i]
 Base.getindex(res::DistView{<:AbstractRadiusQueue}, i::Integer) = @inbounds res.A.dists[i]
+Base.getindex(res::DistView{<:BallKnn}, i::Integer) = @inbounds res.A.dists[i]
 
 # Plain Float32 arrays
 Base.getindex(res::DistView{<:AbstractMatrix{Float32}}, i...) = res.A[i...]

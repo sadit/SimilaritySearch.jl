@@ -131,7 +131,14 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
 - `pqueue/` — k-NN result containers (`KnnSorted`, `KnnHeap`), both `AbstractKnnQueue`
   subtypes sharing one interface (`push_item!`, `nearest`, `frontier`, `IdDistView`,
   `reuse!`, `maxlength`). Construct via `knnqueue(KnnSorted, k_or_vec)`, never the raw
-  struct constructor.
+  struct constructor. The radius-bounded siblings (`RadiusSorted`, `RadiusHeap`) are
+  *containers*, not search state: a graph search cannot be driven by one, since it rejects
+  everything outside the ball and so is empty when the beam needs a starting point, and its
+  `maximum` is a constant instead of a threshold that shrinks (issue #67 — the first half
+  segfaults, the second silently returns empty balls). `ballknn.jl`'s internal `BallKnn`
+  is what `search(::SearchGraph, ..., ::AbstractRadiusQueue)` navigates with: the ball plus
+  a reserve of at least `kmin` nearest items, trimmed to the ball on the way out. Don't
+  "fix" a radius crash by guarding the emptiness; that is the half that returns nothing.
 - `exact/` — `ExhaustiveSearch` (sequential) and `ParallelExhaustiveSearch` (parallel,
   `@BATCHES`-based, lock-free per-batch buffers).
 - `searchgraph/` — `SearchGraph` itself: construction/insertion (`insertions.jl`),
