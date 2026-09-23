@@ -26,6 +26,56 @@ The main set of functions are:
 
 The precise definitions of these functions and the complete set of functions and structures can be found in the [documentation](https://sadit.github.io/SimilaritySearch.jl/dev), which also includes a from-scratch [tutorial series](https://sadit.github.io/SimilaritySearch.jl/dev/tutorial/) covering databases, distances, `SearchGraph`, these whole-dataset operations, parallelism, persistence, logging, inverted files, and quantization/bit sketches.
 
+# What each release series brings
+
+The package follows semantic versioning; a series (`1.5.x`, `1.4.x`, ...) adds features without
+removing any that worked before. Patch releases inside a series are fixes and performance work.
+
+## 1.5
+
+- **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
+  single sign bit — the same fitted model, more precision per unit of memory — and
+  `Projections.SketchedSearch` packages the whole encode/index/rerank pipeline as an ordinary index.
+  `index!(idx, ctx, :bitsketch; width)` bootstraps a `SearchGraph` from those wider codes.
+- **Radius-bounded (ε-ball) search over `SearchGraph`.** Passing a `RadiusSorted`/`RadiusHeap`
+  to `search` now navigates the graph instead of crashing, and `optimize_index!(...; radius=ε)`
+  tunes the index for that workload (with `MaxMatchError`, the only error function that applies
+  when a query's true ball can be empty). The answer is approximate, as any graph search is;
+  `ExhaustiveSearch` remains exact.
+- **Stored quantized databases can be rebuilt from their fields.** `SQu4Database`/`SQu8Database`
+  accept `(E, Q)` back, so a persisted per-column database no longer has to be re-quantized from
+  the `Float32` matrix it came from.
+- **Faster quantized distances.** Per-column `SqL2`/`NormCosine` are computed from integer code
+  sums rather than dequantizing coordinate by coordinate (up to 3.5x, and an order of magnitude
+  more accurate), and the global `SQgu*` kernels vectorize the remainder they used to leave to
+  scalar code.
+
+## 1.4
+
+- **`BKT`**, an exact BK-tree index for integer-valued metrics (`Levenshtein`, `DamerauLevenshtein`,
+  `LCS`), built in parallel over a flat per-object workload.
+- **`beginbatch`**, which lets a distance hand each batch its own scratch buffers — replacing the
+  `Channel`-based pool the edit distances used, measured ~80x faster on short words.
+- **`@BATCHES` accepts `:dynamic`** and uses it by default, so nested and concurrent parallel
+  regions are safe.
+
+## 1.3
+
+- **Metric-hyperplane bit sketches**: `DistantHyperplanes`, `AnchoredDistantHyperplanes`,
+  `RandomHyperplanes`, plus `PCAProjection` as a data-fitted alternative to random projections.
+- **`index!(idx, ctx, :bitsketch)`**, a fast bootstrap that builds an empty `SearchGraph`'s topology
+  in sketch space (`method=:gaussian`, `:qr`, `:adh`, or `:external` for precomputed sketches).
+- **`MaxMatchError`**, a continuous, distance-based goal for `optimize_index!`, next to `MinRecall`.
+- **`DamerauLevenshtein`**, and `String`/`SubString` accepted directly by the edit distances.
+
+## 1.2
+
+- **`MMapMatrixDatabase`**, a disk-backed growable database via `mmap`.
+- **Two logging channels**: reporters receive progress (`INFORM`) and observers react to structural
+  events (`OBSERVE`, e.g. `:add!`), so persistence can hook into an index without printing anything.
+- **The `Selection` submodule**: `fft`, `dnet`, `randsel`, `multirandsel` and `neardup` under one
+  roof, each returning a typed selection rather than loose arrays.
+
 # Similarity search _ecosystem_ in Julia
 Currently, there exists several packages dedicated to nearest neighbor search, for instance we have [`NearestNeighbors.jl`](https://github.com/KristofferC/NearestNeighbors.jl), [`RegionTrees.jl`](https://github.com/rdeits/RegionTrees.jl), and [`JuliaNeighbors`](https://github.com/JuliaNeighbors) implement search structures like [kd-trees](https://en.wikipedia.org/wiki/K-d_tree), [ball trees](https://en.wikipedia.org/wiki/Ball_tree), [quadtrees](https://en.wikipedia.org/wiki/Quadtree), [octrees](https://en.wikipedia.org/wiki/Octree), [bk-trees](https://en.wikipedia.org/wiki/BK-tree), [vp-tree](https://en.wikipedia.org/wiki/Vantage-point_tree) and other multidimensional and metric structures. These structures work quite well for low dimensional data since they are designed to solve exact similarity queries.
 
