@@ -372,6 +372,44 @@ function squared_euclidean(A::SQu2Vec, B::SQu2Vec)::Float32
     d
 end
 
+### Mixed comparisons -- see the note in u4.jl. Here a byte holds four coordinates that are
+### adjacent in `B`, so the interleave is four-way and costs two rounds of shuffles; it pays for
+### itself several times over, since the scalar loop below is the slowest kernel in this family.
+const _U2_ILV8  = Val(ntuple(t -> (t-1) % 2 == 0 ? (t-1) ÷ 2 : 8 + (t-1) ÷ 2, 16))
+const _U2_ILV16 = Val(ntuple(t -> begin
+                                     g = (t-1) ÷ 4; o = (t-1) % 4
+                                     o < 2 ? 2g + o : 16 + 2g + (o - 2)
+                                 end, 32))
+
+function squared_euclidean(A::SQu2Vec, B::SIMD.FastContiguousArray{Float32,1})::Float32
+    nb = length(A.V); i = 1
+    c = A.E.c; m = A.E.min
+    vc = Vec{32,Float32}(c); vm = Vec{32,Float32}(m)
+    acc = zero(Vec{32,Float32})
+
+    @inbounds while i + 7 <= nb                  # 8 bytes == 32 coordinates
+        b = vload(Vec{8,UInt8}, A.V, i)
+        v0 = b & 0x03; v1 = (b >>> 2) & 0x03; v2 = (b >>> 4) & 0x03; v3 = b >>> 6
+        codes = shufflevector(shufflevector(v0, v1, _U2_ILV8),
+                              shufflevector(v2, v3, _U2_ILV8), _U2_ILV16)
+        d = muladd(convert(Vec{32,Float32}, codes), vc, vm) - vload(Vec{32,Float32}, B, 4i - 3)
+        acc = muladd(d, d, acc)
+        i += 8
+    end
+
+    s = sum(acc)
+    @inbounds while i <= nb
+        a = A.V[i]; j = 4i - 3
+        for p in 0:3
+            d = Float32((a >> 2p) & 0x03) * c + m - B[j+p]
+            s += d * d
+        end
+        i += 1
+    end
+
+    s
+end
+
 function squared_euclidean(A::SQu2Vec, B)::Float32
     d = zero(Float32)
     n = length(A.V)  # == length(B) ÷ 4, exact (see `quantize`/`SQu2Vec`)
