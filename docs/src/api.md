@@ -335,18 +335,26 @@ ScalarQuant.sqglobalscale
 ScalarQuant.SQgu2
 ScalarQuant.SQgu2.quantize
 ScalarQuant.SQgu2.quantize!
-ScalarQuant.SQgu2.NormCosine
 ScalarQuant.SQgu2.SqL2
 ScalarQuant.SQgu4
 ScalarQuant.SQgu4.quantize
 ScalarQuant.SQgu4.quantize!
-ScalarQuant.SQgu4.NormCosine
 ScalarQuant.SQgu4.SqL2
 ScalarQuant.SQgu8
 ScalarQuant.SQgu8.quantize
 ScalarQuant.SQgu8.quantize!
-ScalarQuant.SQgu8.NormCosine
 ScalarQuant.SQgu8.SqL2
+```
+
+### A database that keeps its quantization parameters (`GlobalQuantDatabase`)
+
+`SQgu*.quantize` returns a bare matrix of codes and leaves `min`/`max` to the caller, so
+stored codes cannot be dequantized and can only be compared against codes from the same run.
+`GlobalQuantDatabase` keeps the pair, and the per-vector code sums an order-preserving cosine
+needs; it yields the ordinary `SQu*Vec` types, so every per-column distance applies to it.
+```@docs
+ScalarQuant.GlobalQuantDatabase
+ScalarQuant.Cosine
 ```
 
 ## Random projections (`Projections` submodule)

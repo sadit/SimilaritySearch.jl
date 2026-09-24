@@ -3,8 +3,7 @@
 
 Global (database-wide) 2-bit scalar quantization: [`quantize`](@ref SQgu2.quantize) maps
 every coordinate of every vector using a single shared `min`/scale pair, packing four
-2-bit codes per `UInt8`, and [`NormCosine`](@ref SQgu2.NormCosine)/[`SqL2`](@ref
-SQgu2.SqL2) compare the resulting codes directly with SIMD. Accessed as
+2-bit codes per `UInt8`, and [`SqL2`](@ref SQgu2.SqL2) compares the resulting codes directly with SIMD. Accessed as
 `ScalarQuant.SQgu2.quantize`, etc.
 
 It is the coarsest member of the global family (`SQgu2`/`SQgu4`/`SQgu8`): four codes fit
@@ -14,7 +13,7 @@ bits `2:3`, and so on), exactly like [`SQu2`](@ref ScalarQuant.SQu2)'s per-colum
 """
 module SQgu2
 
-export quantize, quantize!, NormCosine, SqL2
+export quantize, quantize!, SqL2
 
 using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
 using Statistics: quantile
@@ -55,7 +54,7 @@ enough precision while being cheaper to compute and store.
 Codes are packed four per `UInt8` (low bits first), so the returned matrix has
 `cld(size(X, 1), 4)` rows. Packing four dimensions into a single byte, combined with a
 *global* (rather than per-column) `min`/scale, lets [`SqL2`](@ref) and
-[`NormCosine`](@ref) operate directly on the packed codes with SIMD, without any
+[`SqL2`](@ref) operates directly on the packed codes with SIMD, without any
 per-element dequantization: since every column shares the same affine mapping,
 comparisons and (squared) differences computed in code space are already proportional to
 the ones in the original space.
@@ -116,7 +115,7 @@ of length `cld(length(v), 4)`, instead of a `Matrix{UInt8}`.
 
 !!! warning
     To produce codes that are meaningfully comparable (e.g. for distance computations
-    with [`NormCosine`](@ref)/[`SqL2`](@ref)) to those of an already-quantized dataset,
+    with [`SqL2`](@ref)) to those of an already-quantized dataset,
     `minmax` **must** be the exact same `(min, max)` pair used to quantize that dataset
     (e.g., a query vector must be quantized with the dataset's `minmax`, not its own).
     Leaving `minmax=nothing` here estimates a *new*, independent range from `v` alone,
@@ -255,35 +254,6 @@ half-width cleanup pass below.
     res, i
 end
 
-"""
-    NormCosine()
-
-Dissimilarity between two vectors quantized with [`quantize`](@ref) (four globally-scaled
-2-bit codes per byte), computed as the negative dot product of the raw packed codes.
-Since both vectors share the same global `min`/scale, the dot product of codes is an
-affine, order-preserving proxy of the dot product of the original (typically
-pre-normalized) vectors, so no per-element dequantization is needed. `evaluate` unpacks
-each byte into its four 2-bit fields and accumulates their products with SIMD.
-"""
-struct NormCosine <: Dist.SemiMetric
-end
-
-function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
-    @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
-
-    res, i = _u2_reduce(_u2_dot, x, y)
-    n = length(x)
-
-    @inbounds while i <= n
-        xv, yv = x[i], y[i]
-        for p in 0:2:6
-            res += Int((xv >>> p) & 0x03) * Int((yv >>> p) & 0x03)
-        end
-        i += 1
-    end
-
-    -Float32(res)
-end
 
 """
     SqL2()

@@ -3,13 +3,12 @@
 
 Global (database-wide) 4-bit scalar quantization: [`quantize`](@ref SQgu4.quantize) maps
 every coordinate of every vector using a single shared `min`/scale pair, packing two
-4-bit codes per `UInt8`, and [`NormCosine`](@ref SQgu4.NormCosine)/[`SqL2`](@ref
-SQgu4.SqL2) compare the resulting codes directly with SIMD. Accessed as
+4-bit codes per `UInt8`, and [`SqL2`](@ref SQgu4.SqL2) compares the resulting codes directly with SIMD. Accessed as
 `ScalarQuant.SQgu4.quantize`, etc.
 """
 module SQgu4
 
-export quantize, quantize!, NormCosine, SqL2
+export quantize, quantize!, SqL2
 
 using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
 using Statistics: quantile
@@ -50,7 +49,7 @@ a single global range provides enough precision while being cheaper to compute a
 Codes are packed two per `UInt8` (low nibble, high nibble), exactly like [`SQu4`](@ref ScalarQuant.SQu4)'s,
 so the returned matrix has `ceil(Int, size(X, 1) / 2)` rows. Packing pairs of dimensions
 into a single byte, combined with a *global* (rather than per-column) `min`/scale, lets
-[`SqL2`](@ref) and [`NormCosine`](@ref) operate directly on the packed codes
+[`SqL2`](@ref) operates directly on the packed codes
 with SIMD, without any per-element dequantization: since every column shares the same
 affine mapping, comparisons and (squared) differences computed in code space are already
 proportional to the ones in the original space.
@@ -122,7 +121,7 @@ codes per byte) of length `ceil(Int, length(v) / 2)`, instead of a `Matrix{UInt8
 
 !!! warning
     To produce codes that are meaningfully comparable (e.g. for distance computations
-    with [`NormCosine`](@ref)/[`SqL2`](@ref)) to those of an already-quantized dataset,
+    with [`SqL2`](@ref)) to those of an already-quantized dataset,
     `minmax` **must** be the exact same `(min, max)` pair used to quantize that dataset
     (e.g., a query vector must be quantized with the dataset's `minmax`, not its own).
     Leaving `minmax=nothing` here estimates a *new*, independent range from `v` alone,
@@ -207,75 +206,6 @@ end
 ### but each `UInt8` holds two packed 4-bit codes (low nibble / high nibble) that must be
 ### unpacked before being combined
 
-"""
-    NormCosine()
-
-Dissimilarity between two vectors quantized with [`quantize`](@ref) (nibble-packed,
-globally-scaled 4-bit codes), computed as the negative dot product of the raw packed
-codes. Since both vectors share the same global `min`/scale, the dot product of codes is
-an affine, order-preserving proxy of the dot product of the original (typically
-pre-normalized) vectors, so no per-element dequantization is needed. `evaluate` unpacks
-each byte into its low and high nibble and accumulates their products with SIMD.
-"""
-struct NormCosine <: Dist.SemiMetric
-end
-
-function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
-    @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
-
-    # N=16: each byte expands into two 32-bit lanes (low + high nibble), so N=16 keeps
-    # the 4 unrolled chunks (8 accumulators) from spilling out of the SIMD register file.
-    # One 32-lane accumulator, not eight 16-lane ones: the unrolled shape it replaces was
-    # measurably slower (40.6ns against 16.4ns at 256 codes) -- with two nibble chains per
-    # unrolled block the loop keeps far more live vector state than the FMA latency it hides.
-    # A lane accumulates at most 2*225 per step, so Int32 cannot overflow at any usable size.
-    mask = 0x0f
-    n = length(x)
-    i = 1
-    acc = zero(Vec{32, UInt32})
-
-    @inbounds while i + 31 <= n
-        vx = vload(Vec{32, UInt8}, x, i)
-        vy = vload(Vec{32, UInt8}, y, i)
-        acc = muladd(convert(Vec{32, UInt32}, vx & mask), convert(Vec{32, UInt32}, vy & mask), acc)
-        acc = muladd(convert(Vec{32, UInt32}, vx >>> 4),  convert(Vec{32, UInt32}, vy >>> 4),  acc)
-        i += 32
-    end
-
-    res = Int(sum(acc))
-
-    # --- PHASE 2: Single SIMD Loop Cleanup ---
-    @inbounds while i + 15 <= n
-        vx = vload(Vec{16, UInt8}, x, i)
-        vy = vload(Vec{16, UInt8}, y, i)
-        res += Int(sum(convert(Vec{16, UInt32}, vx & mask) * convert(Vec{16, UInt32}, vy & mask)))
-        res += Int(sum(convert(Vec{16, UInt32}, vx >>> 4) * convert(Vec{16, UInt32}, vy >>> 4)))
-        i += 16
-    end
-
-    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 8) ---
-    # Phase 2 needs a full `N = 16` bytes, so an 8..15 byte remainder went to the scalar
-    # loop below, which unpacks two nibbles per byte by hand. It costs more than simply
-    # having more data to vectorize: scanning 65536 vectors, 24 bytes took 22.3ns against
-    # 12.8ns for 32. One pass suffices, since phase 2 leaves at most 15 bytes.
-    @inbounds if i + 7 <= n
-        vx = vload(Vec{8, UInt8}, x, i)
-        vy = vload(Vec{8, UInt8}, y, i)
-        res += Int(sum(convert(Vec{8, UInt32}, vx & mask) * convert(Vec{8, UInt32}, vy & mask)))
-        res += Int(sum(convert(Vec{8, UInt32}, vx >>> 4) * convert(Vec{8, UInt32}, vy >>> 4)))
-        i += 8
-    end
-
-    # --- PHASE 3: Scalar Tail Cleanup ---
-    @inbounds while i <= n
-        xv, yv = x[i], y[i]
-        res += Int(xv & mask) * Int(yv & mask)
-        res += Int(xv >>> 4) * Int(yv >>> 4)
-        i += 1
-    end
-
-    -Float32(res)
-end
 
 """
     SqL2()
@@ -296,7 +226,7 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     # We use N=16 here instead of 32.
     # Why? Because every 1 byte splits into TWO 32-bit accumulators.
     # N=16 prevents "register spilling" on AVX2 architectures, keeping everything in the CPU's fast registers.
-    # See the note in NormCosine above: one 32-lane accumulator instead of eight 16-lane ones.
+    # One 32-lane accumulator, not eight 16-lane ones -- see the note in gu8.jl.
     mask = 0x0f
     n = length(x)
     i = 1
@@ -325,7 +255,7 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     end
 
     # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 8) ---
-    # See the note in NormCosine above: phase 2 needs a full 16 bytes and leaves at most
+    # Phase 2 needs a full 16 bytes and leaves at most
     # 15, so one 8-lane pass covers the only remainder worth vectorizing.
     @inbounds if i + 7 <= n
         vx = vload(Vec{8, UInt8}, x, i)

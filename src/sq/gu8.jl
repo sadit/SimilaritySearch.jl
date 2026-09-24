@@ -3,12 +3,12 @@
 
 Global (database-wide) 8-bit scalar quantization: [`quantize`](@ref SQgu8.quantize)
 maps every coordinate of every vector using a single shared `min`/scale pair, and
-[`NormCosine`](@ref SQgu8.NormCosine)/[`SqL2`](@ref SQgu8.SqL2) compare the resulting
+[`SqL2`](@ref SQgu8.SqL2) compares the resulting
 codes directly with SIMD. Accessed as `ScalarQuant.SQgu8.quantize`, etc.
 """
 module SQgu8
 
-export quantize, quantize!, NormCosine, SqL2
+export quantize, quantize!, SqL2
 
 using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
 using Statistics: quantile
@@ -101,7 +101,7 @@ coordinate) instead of a `Matrix{UInt8}`.
 
 !!! warning
     To produce codes that are meaningfully comparable (e.g. for distance computations
-    with [`NormCosine`](@ref)/[`SqL2`](@ref)) to those of an already-quantized dataset,
+    with [`SqL2`](@ref)) to those of an already-quantized dataset,
     `minmax` **must** be the exact same `(min, max)` pair used to quantize that dataset
     (e.g., a query vector must be quantized with the dataset's `minmax`, not its own).
     Leaving `minmax=nothing` here estimates a *new*, independent range from `v` alone,
@@ -184,96 +184,6 @@ end
 
 ### the following code was made with the help of Gemini IA
 
-"""
-    NormCosine()
-
-Dissimilarity between two vectors quantized with [`quantize`](@ref) (globally-scaled
-8-bit codes), computed as the negative dot product of the raw codes. Since both vectors
-share the same global `min`/scale, the dot product of codes is an affine, order-preserving
-proxy of the dot product of the original (typically pre-normalized) vectors, so no
-per-element dequantization is needed. `evaluate` accumulates the products with SIMD,
-widening each `UInt8` code to `UInt32` to avoid overflow.
-"""
-struct NormCosine <: Dist.SemiMetric
-end
-
-function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
-    @boundscheck length(x) == length(y) || throw(DimensionMismatch("Vectors must be the same length"))
-    
-    N = 32
-    UNROLL = 4
-    CHUNK = N * UNROLL # Processes 128 elements per loop iteration
-    
-    # Initialize 4 independent accumulators to break dependency chains
-    acc1 = zero(Vec{N, UInt32})
-    acc2 = zero(Vec{N, UInt32})
-    acc3 = zero(Vec{N, UInt32})
-    acc4 = zero(Vec{N, UInt32})
-    
-    n = length(x)
-    limit_unrolled = n - CHUNK + 1
-    i = 1
-    
-    # --- PHASE 1: The Unrolled Loop (Chunks of 128) ---
-    @inbounds while i <= limit_unrolled
-        # 1. Load 4 distinct chunks from each array
-        vx1 = vload(Vec{N, UInt8}, x, i)
-        vy1 = vload(Vec{N, UInt8}, y, i)
-        
-        vx2 = vload(Vec{N, UInt8}, x, i + N)
-        vy2 = vload(Vec{N, UInt8}, y, i + N)
-        
-        vx3 = vload(Vec{N, UInt8}, x, i + 2N)
-        vy3 = vload(Vec{N, UInt8}, y, i + 2N)
-        
-        vx4 = vload(Vec{N, UInt8}, x, i + 3N)
-        vy4 = vload(Vec{N, UInt8}, y, i + 3N)
-        
-        # 2. Widen and accumulate into independent registers
-        acc1 = muladd(convert(Vec{N, UInt32}, vx1), convert(Vec{N, UInt32}, vy1), acc1)
-        acc2 = muladd(convert(Vec{N, UInt32}, vx2), convert(Vec{N, UInt32}, vy2), acc2)
-        acc3 = muladd(convert(Vec{N, UInt32}, vx3), convert(Vec{N, UInt32}, vy3), acc3)
-        acc4 = muladd(convert(Vec{N, UInt32}, vx4), convert(Vec{N, UInt32}, vy4), acc4)
-        
-        i += CHUNK
-    end
-    
-    # Reduced to a scalar here, before the cleanup loops, and not after them: keeping the
-    # vector accumulator live across a loop whose trip count the compiler cannot prove is zero
-    # costs 2.6x on this kernel (69.7ns against 26.4ns at 512 codes, measured with the cleanup
-    # never actually running). The cleanup phases below accumulate into `res` instead.
-    res = Int(sum(acc1)) + Int(sum(acc2)) + Int(sum(acc3)) + Int(sum(acc4))
-
-    # --- PHASE 2: Single SIMD Loop Cleanup (Chunks of 32) ---
-    # Catches the remaining vectors if the array length isn't a perfect multiple of 128
-    @inbounds while i + N - 1 <= n
-        vx = vload(Vec{N, UInt8}, x, i)
-        vy = vload(Vec{N, UInt8}, y, i)
-        res += Int(sum(convert(Vec{N, UInt32}, vx) * convert(Vec{N, UInt32}, vy)))
-        i += N
-    end
-    
-    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
-    # `N = 32` is a lot of codes to require before any vector work happens: a remainder of
-    # 16..31 used to go to the scalar loop below, which measurably costs more than running
-    # SIMD over *more* data -- 48 codes took 22.6ns against 11.7ns for 64. One pass is all
-    # that can ever be needed, since phase 2 leaves fewer than 32 codes.
-    @inbounds while i + 15 <= n
-        vx = vload(Vec{16, UInt8}, x, i)
-        vy = vload(Vec{16, UInt8}, y, i)
-        res += Int(sum(convert(Vec{16, UInt32}, vx) * convert(Vec{16, UInt32}, vy)))
-        i += 16
-    end
-
-    # --- PHASE 3: Scalar Tail Cleanup ---
-    # Catches the absolute tail if there are fewer than 16 elements left
-    @inbounds while i <= n
-        res += Int(x[i]) * Int(y[i])
-        i += 1
-    end
-    
-    -Float32(res)
-end
 
 
 
@@ -347,7 +257,7 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     end
     
     # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
-    # See the note in NormCosine above: a 16..31 code remainder is worth vectorizing, and
+    # A 16..31 code remainder is worth vectorizing, and
     # phase 2 can leave at most 31.
     @inbounds while i + 15 <= n
         vx = vload(Vec{16, UInt8}, x, i)
