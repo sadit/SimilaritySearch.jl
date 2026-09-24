@@ -41,5 +41,6 @@ include("gu2.jl")
 include("u8.jl")
 include("u4.jl")
 include("u2.jl")
+include("gdb.jl")
 
 end

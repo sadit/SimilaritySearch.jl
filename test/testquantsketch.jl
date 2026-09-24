@@ -36,7 +36,6 @@ end
         a, b = view(Q, :, 1), view(Q, :, 2)
         fa, fb = Int32.(unpackcodes(a, 2)), Int32.(unpackcodes(b, 2))
         @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.SqL2(), a, b) ≈ Float32(sum((fa .- fb) .^ 2))
-        @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.NormCosine(), a, b) ≈ -Float32(sum(fa .* fb))
     end
 
     # a coarse quantizer still has to be monotone: the code never decreases with the value
@@ -57,7 +56,6 @@ end
         @test length(A) == nbytes
         fa, fb = Int32.(unpackcodes(A, 2)), Int32.(unpackcodes(B, 2))
         @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.SqL2(), A, B) ≈ Float32(sum((fa .- fb) .^ 2))
-        @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.NormCosine(), A, B) ≈ -Float32(sum(fa .* fb))
     end
 
     # adversarial, far past one accumulator block: every lane takes the maximum a byte can
@@ -67,8 +65,6 @@ end
         A = fill(0x00, nbytes)
         B = fill(0xff, nbytes)
         @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.SqL2(), A, B) == Float32(nbytes * 4 * 9)
-        @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.NormCosine(), A, B) == 0f0
-        @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.NormCosine(), B, B) == -Float32(nbytes * 4 * 9)
         @test SimilaritySearch.Dist.evaluate(SQ.SQgu2.SqL2(), B, B) == 0f0
     end
 

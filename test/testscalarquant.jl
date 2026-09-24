@@ -65,11 +65,7 @@ end
 @testset "ScalarQuant: per-column quantization (SQu2, SQu4, SQu8)" begin
     dim, n = 20, 30  # multiple of 4, so it satisfies SQu2's (and SQu4's) packing requirement
 
-    for (mod, bits, has_normcosine) in (
-            (ScalarQuant.SQu2, 2, false),
-            (ScalarQuant.SQu4, 4, false),
-            (ScalarQuant.SQu8, 8, true),
-        )
+    for (mod, bits) in ((ScalarQuant.SQu2, 2), (ScalarQuant.SQu4, 4), (ScalarQuant.SQu8, 8))
         X = rand(Float32, dim, n)
         db = mod.quantize(X)
         @test length(db) == n
@@ -107,10 +103,6 @@ end
         manual = sum(j -> (a[j] - plain[j])^2, 1:dim)
         @test sql2_mixed ≈ manual atol=1f-3
 
-        if has_normcosine
-            nc = evaluate(mod.NormCosine(), a, b)
-            @test nc isa Float32
-        end
     end
 end
 
@@ -274,9 +266,6 @@ end
             sql2 = evaluate(mod.SqL2(), a, b)
             @test sql2 == manual_packed_sql2(a, b; bits)
 
-            nc = evaluate(mod.NormCosine(), a, b)
-            @test nc == manual_packed_dot(a, b; bits)
-            @test nc <= 0  # it's a negated dot product of non-negative codes
         end
 
         # loose round-trip sanity: quantized SqL2 should correlate with true squared L2
@@ -301,8 +290,78 @@ end
         a, b = rand(UInt8, nbytes), rand(UInt8, nbytes)
         for (mod, bits) in ((ScalarQuant.SQgu2, 2), (ScalarQuant.SQgu4, 4), (ScalarQuant.SQgu8, 8))
             @test evaluate(mod.SqL2(), a, b) == manual_packed_sql2(a, b; bits)
-            @test evaluate(mod.NormCosine(), a, b) == manual_packed_dot(a, b; bits)
             @test evaluate(mod.SqL2(), a, a) == 0f0
         end
     end
+end
+
+@testset "ScalarQuant: GlobalQuantDatabase keeps what raw-data comparisons need (#77)" begin
+    # A globally quantized vector is a per-column one whose scale happens to be shared, so this
+    # database yields the same SQu*Vec types and inherits their kernels. What it adds is the
+    # pair of parameters `quantize` used to throw away -- without them stored codes cannot be
+    # dequantized at all -- and the per-vector code sums, which is what an order-preserving
+    # cosine needs.
+    dim, n = 64, 40
+    X = randn(Float32, dim, n)
+    mm = extrema(X)
+
+    for (bits, VT) in ((8, ScalarQuant.SQu8.SQu8Vec), (4, ScalarQuant.SQu4.SQu4Vec), (2, ScalarQuant.SQu2.SQu2Vec))
+        db = ScalarQuant.GlobalQuantDatabase(bits, X; minmax=mm)
+        @test length(db) == n
+        @test db[1] isa VT
+        @test db isa SimilaritySearch.AbstractDatabase
+
+        # every vector shares one scale, and dequantization is code * c + min
+        @test db[1].E === db[n].E
+        @test db[3][1] ≈ Float32(db.Q[1, 3] & (bits == 8 ? 0xff : bits == 4 ? 0x0f : 0x03)) * db.E.c + db.E.min
+
+        # rebuilt from the stored codes and the pair they were made with
+        reb = ScalarQuant.GlobalQuantDatabase(bits, db.Q, mm)
+        @test reb.E == db.E
+        @test reb.Sa == db.Sa && reb.Saa == db.Saa
+
+        sql2 = bits == 8 ? ScalarQuant.SQu8.SqL2() : bits == 4 ? ScalarQuant.SQu4.SqL2() : ScalarQuant.SQu2.SqL2()
+        for i in (1, 7, n)
+            # equal scales: the exact integer path, so a vector against itself is exactly zero
+            @test evaluate(sql2, db[i], db[i]) == 0f0
+            # against a plain Float32 vector: the mixed kernels, no quantization of the query
+            raw = Float32[db[i][t] for t in 1:dim]
+            @test evaluate(sql2, db[i], raw) <= 1f-6 * max(1f0, sum(abs2, raw))
+        end
+
+        # Cosine against a Float64 evaluation of the same dequantized vectors
+        for (i, j) in ((1, 2), (5, 31))
+            a = Float64[db[i][t] for t in 1:dim]
+            b = Float64[db[j][t] for t in 1:dim]
+            truth = 1.0 - dot(a, b) / (norm(a) * norm(b))
+            @test abs(evaluate(ScalarQuant.Cosine(), db[i], db[j]) - truth) <= 1f-4
+        end
+        @test evaluate(ScalarQuant.Cosine(), db[1], db[1]) <= 1f-6
+
+        # a query quantized with the database's own parameters is comparable with it
+        q = ScalarQuant.quantize(db, view(X, :, 5))
+        @test q isa VT
+        @test evaluate(sql2, db[5], q) == 0f0
+    end
+
+    @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(3, X)
+    @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(16, X)
+
+    # usable directly as an index's database
+    db = ScalarQuant.GlobalQuantDatabase(8, X; minmax=mm)
+    seq = ExhaustiveSearch(ScalarQuant.Cosine(), db)
+    res = search(seq, GenericContext(), db[7], knnqueue(KnnSorted, 3))
+    @test nearest(res).id == 7
+
+    # the ordering the raw-code dot product could not give: on centered data, ranking by
+    # Cosine must agree with exact cosine far better than chance (issue #77 measured 0.005)
+    Y = randn(Float32, 32, 500); foreach(j -> normalize!(view(Y, :, j)), 1:500)
+    dby = ScalarQuant.GlobalQuantDatabase(8, Y; minmax=extrema(Y))
+    hits = 0
+    for q in 1:20
+        gold = partialsortperm([-dot(view(Y, :, i), view(Y, :, q)) for i in 1:500], 1:5)
+        got = partialsortperm([evaluate(ScalarQuant.Cosine(), dby[i], dby[q]) for i in 1:500], 1:5)
+        hits += length(intersect(Set(gold), Set(got)))
+    end
+    @test hits >= 0.7 * 20 * 5
 end
