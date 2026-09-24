@@ -373,6 +373,40 @@ function squared_euclidean(A::SQu4Vec, B::SQu4Vec)::Float32
     Float32(max(0.0, d))
 end
 
+### Mixed comparisons -- a quantized vector against a plain `Float32` one -- cannot use the
+### integer expansion the SQu4Vec/SQu4Vec kernels do: one side is not quantized, so there is
+### nothing to keep in integers. What they *can* avoid is the scalar unpacking. Each byte holds
+### two coordinates that are adjacent in `B`, and that interleaving is what stops the compiler
+### from vectorizing the loop below; doing it explicitly with one shuffle per block recovers it.
+"Interleaves the low and high nibble lanes back into coordinate order: [lo1, hi1, lo2, hi2, ...]."
+const _U4_ILV = Val(ntuple(t -> (t-1) % 2 == 0 ? (t-1) ÷ 2 : 16 + (t-1) ÷ 2, 32))
+
+function squared_euclidean(A::SQu4Vec, B::SIMD.FastContiguousArray{Float32,1})::Float32
+    nb = length(A.V); i = 1
+    c = A.E.c; m = A.E.min
+    vc = Vec{32,Float32}(c); vm = Vec{32,Float32}(m)
+    acc = zero(Vec{32,Float32})
+
+    @inbounds while i + 15 <= nb                 # 16 bytes == 32 coordinates
+        b = vload(Vec{16,UInt8}, A.V, i)
+        codes = shufflevector(b & 0x0f, b >>> 4, _U4_ILV)
+        d = muladd(convert(Vec{32,Float32}, codes), vc, vm) - vload(Vec{32,Float32}, B, 2i - 1)
+        acc = muladd(d, d, acc)
+        i += 16
+    end
+
+    s = sum(acc)
+    @inbounds while i <= nb
+        a = A.V[i]; j = 2i - 1
+        d1 = Float32(a & 0x0f) * c + m - B[j]
+        d2 = Float32(a >>> 4) * c + m - B[j+1]
+        s += d1 * d1 + d2 * d2
+        i += 1
+    end
+
+    s
+end
+
 function squared_euclidean(A::SQu4Vec, B)::Float32
     d = zero(Float32)
     n = length(A.V)  # == length(B) ÷ 2, exact (see `quantize`/`SQu4Vec`)

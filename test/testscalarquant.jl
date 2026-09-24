@@ -163,6 +163,37 @@ end
     end
 end
 
+@testset "ScalarQuant: mixed quantized-vs-Float32 distances agree across container types" begin
+    # The mixed path (a quantized vector against a plain Float32 one, e.g. an unquantized query)
+    # has an explicitly vectorized method for contiguous Float32 storage and a generic fallback
+    # for everything else. Both must agree with each other and with a Float64 evaluation; the
+    # SIMD one is also the only place where a packed vector's codes are interleaved back into
+    # coordinate order by hand, so an off-by-one there would be silent.
+    for (mod, cpb) in ((ScalarQuant.SQu2, 4), (ScalarQuant.SQu4, 2), (ScalarQuant.SQu8, 1))
+        for dim in (8, 16, 64, 100, 128, 260)
+            dim % cpb == 0 || continue
+            X = randn(Float32, dim, 8)
+            db = mod.quantize(X)
+            q = randn(Float32, dim)
+            qview = view(hcat(q, q), :, 1)          # what a MatrixDatabase column looks like
+            qgeneric = Float64.(q)                  # not Float32: takes the fallback
+
+            for i in 1:8
+                truth = sum((Float64(db[i][t]) - Float64(q[t]))^2 for t in 1:dim)
+                got = evaluate(mod.SqL2(), db[i], q)
+                @test abs(got - truth) <= 1f-5 * max(1.0, truth)
+                @test evaluate(mod.SqL2(), db[i], qview) == got          # same path, same answer
+                @test abs(evaluate(mod.SqL2(), db[i], qgeneric) - truth) <= 1f-5 * max(1.0, truth)
+                @test evaluate(mod.L2(), db[i], q) ≈ sqrt(got)
+            end
+
+            # a quantized vector against its own dequantization is (nearly) zero distance
+            deq = Float32[db[1][t] for t in 1:dim]
+            @test evaluate(mod.SqL2(), db[1], deq) <= 1f-6 * max(1f0, sum(abs2, deq))
+        end
+    end
+end
+
 @testset "ScalarQuant: per-column databases rebuild from their own fields (#69)" begin
     # The persistence shape: a caller stores `E` and `Q`, and on the way back in has exactly
     # those two and not the Float32 matrix they came from. Rebuilding that matrix to re-quantize
