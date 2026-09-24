@@ -238,22 +238,20 @@ function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{U
         i += CHUNK
     end
     
-    # Combine the 4 parallel accumulators into one
-    acc_total = acc1 + acc2 + acc3 + acc4
-    
+    # Reduced to a scalar here, before the cleanup loops, and not after them: keeping the
+    # vector accumulator live across a loop whose trip count the compiler cannot prove is zero
+    # costs 2.6x on this kernel (69.7ns against 26.4ns at 512 codes, measured with the cleanup
+    # never actually running). The cleanup phases below accumulate into `res` instead.
+    res = Int(sum(acc1)) + Int(sum(acc2)) + Int(sum(acc3)) + Int(sum(acc4))
+
     # --- PHASE 2: Single SIMD Loop Cleanup (Chunks of 32) ---
     # Catches the remaining vectors if the array length isn't a perfect multiple of 128
-    limit_single = n - N + 1
-    @inbounds while i <= limit_single
+    @inbounds while i + N - 1 <= n
         vx = vload(Vec{N, UInt8}, x, i)
         vy = vload(Vec{N, UInt8}, y, i)
-        
-        acc_total = muladd(convert(Vec{N, UInt32}, vx), convert(Vec{N, UInt32}, vy), acc_total)
+        res += Int(sum(convert(Vec{N, UInt32}, vx) * convert(Vec{N, UInt32}, vy)))
         i += N
     end
-    
-    # Horizontal reduction
-    res = sum(acc_total)
     
     # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
     # `N = 32` is a lot of codes to require before any vector work happens: a remainder of
@@ -263,14 +261,14 @@ function Dist.evaluate(::NormCosine, x::AbstractArray{UInt8}, y::AbstractArray{U
     @inbounds while i + 15 <= n
         vx = vload(Vec{16, UInt8}, x, i)
         vy = vload(Vec{16, UInt8}, y, i)
-        res += sum(convert(Vec{16, UInt32}, vx) * convert(Vec{16, UInt32}, vy))
+        res += Int(sum(convert(Vec{16, UInt32}, vx) * convert(Vec{16, UInt32}, vy)))
         i += 16
     end
 
     # --- PHASE 3: Scalar Tail Cleanup ---
     # Catches the absolute tail if there are fewer than 16 elements left
     @inbounds while i <= n
-        res += UInt32(x[i]) * UInt32(y[i])
+        res += Int(x[i]) * Int(y[i])
         i += 1
     end
     
@@ -334,20 +332,19 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
         i += CHUNK
     end
     
-    # Combine the parallel accumulators
-    acc_total = acc1 + acc2 + acc3 + acc4
-    
+    # Reduced to a scalar here, before the cleanup loops, and not after them: keeping the
+    # vector accumulator live across a loop whose trip count the compiler cannot prove is zero
+    # costs 2.6x on this kernel (69.7ns against 26.4ns at 512 codes, measured with the cleanup
+    # never actually running). The cleanup phases below accumulate into `res` instead.
+    res = Int(sum(acc1)) + Int(sum(acc2)) + Int(sum(acc3)) + Int(sum(acc4))
+
     # --- PHASE 2: Single SIMD Loop Cleanup ---
-    limit_single = n - N + 1
-    @inbounds while i <= limit_single
-        diff = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i)) - 
+    @inbounds while i + N - 1 <= n
+        diff = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i)) -
                convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i))
-        acc_total = muladd(diff, diff, acc_total)
+        res += Int(sum(diff * diff))
         i += N
     end
-    
-    # Horizontal reduction
-    res = sum(acc_total)
     
     # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
     # See the note in NormCosine above: a 16..31 code remainder is worth vectorizing, and
@@ -356,14 +353,14 @@ function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
         vx = vload(Vec{16, UInt8}, x, i)
         vy = vload(Vec{16, UInt8}, y, i)
         d = convert(Vec{16, Int32}, vx) - convert(Vec{16, Int32}, vy)
-        res += sum(d * d)
+        res += Int(sum(d * d))
         i += 16
     end
 
     # --- PHASE 3: Scalar Tail Cleanup ---
     @inbounds while i <= n
         # Widen to Int32 before subtracting!
-        scalar_diff = Int32(x[i]) - Int32(y[i])
+        scalar_diff = Int(x[i]) - Int(y[i])
         res += scalar_diff * scalar_diff
         i += 1
     end

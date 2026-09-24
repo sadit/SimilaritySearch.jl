@@ -193,26 +193,26 @@ const _U2_CHUNK = _U2_N * _U2_UNROLL
 const _U2_BLOCK = 512 * _U2_CHUNK   # 512 iterations * 36 per lane == 18432 < typemax(Int16)
 
 "Accumulates, in `Int16` lanes, the per-field squared differences of the `N` bytes of `x`/`y` at `i`."
-@inline function _u2_sqdiff(x, y, i, acc::Vec{N,Int16}) where {N}
+@inline function _u2_sqdiff(x, y, i, acc::Vec{N,T}) where {N,T}
     vx = vload(Vec{N,UInt8}, x, i)
     vy = vload(Vec{N,UInt8}, y, i)
     m = 0x03
-    d0 = convert(Vec{N,Int16}, vx & m)         - convert(Vec{N,Int16}, vy & m)
-    d1 = convert(Vec{N,Int16}, (vx >>> 2) & m) - convert(Vec{N,Int16}, (vy >>> 2) & m)
-    d2 = convert(Vec{N,Int16}, (vx >>> 4) & m) - convert(Vec{N,Int16}, (vy >>> 4) & m)
-    d3 = convert(Vec{N,Int16}, vx >>> 6)       - convert(Vec{N,Int16}, vy >>> 6)
+    d0 = convert(Vec{N,T}, vx & m)         - convert(Vec{N,T}, vy & m)
+    d1 = convert(Vec{N,T}, (vx >>> 2) & m) - convert(Vec{N,T}, (vy >>> 2) & m)
+    d2 = convert(Vec{N,T}, (vx >>> 4) & m) - convert(Vec{N,T}, (vy >>> 4) & m)
+    d3 = convert(Vec{N,T}, vx >>> 6)       - convert(Vec{N,T}, vy >>> 6)
     muladd(d0, d0, muladd(d1, d1, muladd(d2, d2, muladd(d3, d3, acc))))
 end
 
 "Accumulates, in `Int16` lanes, the per-field products of the `N` bytes of `x`/`y` at `i`."
-@inline function _u2_dot(x, y, i, acc::Vec{N,Int16}) where {N}
+@inline function _u2_dot(x, y, i, acc::Vec{N,T}) where {N,T}
     vx = vload(Vec{N,UInt8}, x, i)
     vy = vload(Vec{N,UInt8}, y, i)
     m = 0x03
-    a0 = convert(Vec{N,Int16}, vx & m);         b0 = convert(Vec{N,Int16}, vy & m)
-    a1 = convert(Vec{N,Int16}, (vx >>> 2) & m); b1 = convert(Vec{N,Int16}, (vy >>> 2) & m)
-    a2 = convert(Vec{N,Int16}, (vx >>> 4) & m); b2 = convert(Vec{N,Int16}, (vy >>> 4) & m)
-    a3 = convert(Vec{N,Int16}, vx >>> 6);       b3 = convert(Vec{N,Int16}, vy >>> 6)
+    a0 = convert(Vec{N,T}, vx & m);         b0 = convert(Vec{N,T}, vy & m)
+    a1 = convert(Vec{N,T}, (vx >>> 2) & m); b1 = convert(Vec{N,T}, (vy >>> 2) & m)
+    a2 = convert(Vec{N,T}, (vx >>> 4) & m); b2 = convert(Vec{N,T}, (vy >>> 4) & m)
+    a3 = convert(Vec{N,T}, vx >>> 6);       b3 = convert(Vec{N,T}, vy >>> 6)
     muladd(a0, b0, muladd(a1, b1, muladd(a2, b2, muladd(a3, b3, acc))))
 end
 
@@ -226,45 +226,29 @@ that keeps the `Int16` lanes from overflowing, the partially-unrolled remainder,
 half-width cleanup pass below.
 """
 @inline function _u2_reduce(kernel::F, x, y) where {F}
-    N, CHUNK, BLOCK = _U2_N, _U2_CHUNK, _U2_BLOCK
     n = length(x)
     res = 0
     i = 1
 
-    @inbounds while i + N - 1 <= n
-        stop = Base.min(n, i + BLOCK - 1)
-        acc1 = zero(Vec{N,Int16}); acc2 = zero(Vec{N,Int16})
-        acc3 = zero(Vec{N,Int16}); acc4 = zero(Vec{N,Int16})
-
-        while i + CHUNK - 1 <= stop
-            acc1 = kernel(x, y, i,      acc1)
-            acc2 = kernel(x, y, i + N,  acc2)
-            acc3 = kernel(x, y, i + 2N, acc3)
-            acc4 = kernel(x, y, i + 3N, acc4)
-            i += CHUNK
-        end
-
-        while i + N - 1 <= stop
-            acc1 = kernel(x, y, i, acc1)
-            i += N
-        end
-
-        # widened one accumulator at a time: their *sum* can exceed Int16 even when each
-        # one cannot (this loop runs at least once, so `i` always advances -- no hang)
-        res += Int(sum(convert(Vec{N,Int32}, acc1))) + Int(sum(convert(Vec{N,Int32}, acc2))) +
-               Int(sum(convert(Vec{N,Int32}, acc3))) + Int(sum(convert(Vec{N,Int32}, acc4)))
+    # One 32-lane Int32 accumulator, and no blocking. The earlier shape -- four Int16
+    # accumulators widened per block -- was chosen to halve the lane width and so cover 32
+    # bytes per operation, but measured slower than this (31.0ns against 18.2ns at 256 codes,
+    # scanning 32768 vectors): the four chains keep more live vector state than the FMA
+    # latency they hide, and widening every block costs more than it saves. Int32 lanes take
+    # at most 4*9 == 36 per step here, so ~59M steps would be needed to overflow -- no
+    # blocking is required at any size this package can index.
+    acc = zero(Vec{32,Int32})
+    @inbounds while i + 31 <= n
+        acc = kernel(x, y, i, acc)
+        i += 32
     end
+    res += Int(sum(acc))
 
-    # Half-width cleanup: `N = 32` bytes is a lot to require before any vector work
-    # happens, and the loop above takes nothing at all when fewer than that remain. A
-    # 2-bit sketch of 64 hyperplanes is exactly 16 bytes, so without this pass it was
-    # decoded entirely by the caller's scalar tail -- 64 shifts and masks, measured at
-    # ~67ns against ~14ns here. Any length leaves at most 31 bytes for the loop above to
-    # refuse, so one 16-lane pass is all that is ever needed; a single pass accumulates at
-    # most 36 per lane, far from Int16 overflow, so it needs no blocking of its own.
-    @inbounds while i + 15 <= n
-        acc = kernel(x, y, i, zero(Vec{16,Int16}))
-        res += Int(sum(convert(Vec{16,Int32}, acc)))
+    # Half-width cleanup: a 2-bit sketch of 64 hyperplanes is exactly 16 bytes, which the loop
+    # above cannot take, and leaving it to the caller's scalar tail meant decoding 64 fields by
+    # hand (~67ns against ~14ns here). At most 31 bytes can remain, so one pass suffices.
+    @inbounds if i + 15 <= n
+        res += Int(sum(kernel(x, y, i, zero(Vec{16,Int32}))))
         i += 16
     end
 
