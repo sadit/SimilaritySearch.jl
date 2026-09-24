@@ -23,6 +23,12 @@ The `ScalarQuant` module provides multiple bit-depth representations:
 - **`SQu4` (4-bit)**: Compresses by 8$\times$.
 - **`SQu2` (2-bit)**: Compresses by 16$\times$.
 
+Each of them keeps one `min`/scale pair *per column*, in `E`, next to the packed codes in `Q`.
+Those two fields are everything a database is, so a stored one can be rebuilt without the
+original matrix -- `SQu8Database(E, Q)` quantizes nothing and recomputes what it derives. That
+matters at scale: re-quantizing a 64 x 730,320 projection to recover 46.7 MB of codes would
+first rebuild 187 MB of `Float32`.
+
 ### Example: Quantization and Search with `SQu8`
 
 ```julia
@@ -37,9 +43,12 @@ X = rand(Float32, dim, n)
 # 2. Quantize dataset to 8 bits per coordinate
 db_sq = ScalarQuant.SQu8.quantize(X)
 
-# 3. Construct an exact search index using Squared Euclidean distance
-dist = Dist.SqL2()
-idx = ExhaustiveSearch(dist, db_sq)
+# 3. Construct an exact search index. The distance must be the quantizer's own: it reads the
+#    packed codes directly, while `Dist.SqL2()` is for plain Float32 vectors and has no method
+#    for a quantized one.
+dist = Dist.SqL2()                       # kept for the plain-vector examples further down
+qdist = ScalarQuant.SQu8.SqL2()          # what a quantized database is searched with
+idx = ExhaustiveSearch(qdist, db_sq)
 ctx = GenericContext()
 
 # 4. Execute queries using unquantized Float32 vectors
@@ -51,6 +60,52 @@ knns = searchbatch(idx, ctx, queries_db, 10)
 ```
 
 Scalar quantization substantially reduces memory footprint while maintaining high fidelity in nearest-neighbor rankings through asymmetric distance computation.
+
+### Global quantization, stored parameters, and raw queries
+
+The `SQgu2`/`SQgu4`/`SQgu8` variants share **one** `min`/scale pair across the whole dataset.
+That makes their kernels cheaper -- a shared scale cancels in a difference, so codes are
+compared as integers -- but `quantize` hands back a bare `Matrix{UInt8}` and leaves the pair
+with the caller. Codes stored without it cannot be dequantized at all, and can only ever be
+compared against codes from the same run.
+
+`GlobalQuantDatabase` keeps the pair, and the per-vector code sums:
+
+```julia
+using SimilaritySearch
+using SimilaritySearch.ScalarQuant
+
+Xg = randn(Float32, 64, 10_000)
+gdb = ScalarQuant.GlobalQuantDatabase(8, Xg; minmax=extrema(Xg))
+
+qg = randn(Float32, 64)                                  # a *raw* query, not quantized
+gidx = ExhaustiveSearch(ScalarQuant.SQu8.SqL2(), gdb)
+gres = search(gidx, GenericContext(), qg, knnqueue(KnnSorted, 10))
+
+# and cosine, which needs the stored sums
+cidx = ExhaustiveSearch(ScalarQuant.Cosine(), gdb)
+cres = search(cidx, GenericContext(), ScalarQuant.quantize(gdb, qg), knnqueue(KnnSorted, 10))
+```
+
+Indexing it yields the same `SQu*Vec` the per-column quantizers produce -- a globally quantized
+vector *is* a per-column one whose scale happens to be shared -- so every per-column distance
+applies, and each takes its best path: an exact integer pass between two stored vectors, and
+the mixed kernels against a plain `Float32` query.
+
+!!! note "`NormCosine` was removed from `SQgu*` in v1.5.1"
+    It ranked by the dot product of the raw codes, which preserves order only when the global
+    minimum is zero. On centered data -- any ordinary embedding -- it scored recall@10 of 0.005
+    against exact cosine. Use `ScalarQuant.Cosine()` on a `GlobalQuantDatabase`, which corrects
+    both the offset term (0.005 -> 0.97 at 8 bits) and the norm drift quantization leaves in a
+    pre-normalized vector; the latter is worth more the fewer bits there are.
+
+Two things worth knowing when choosing parameters:
+
+- `quantize` estimates the range from the `[0.025, 0.975]` quantiles of a sample unless you
+  pass `minmax`. On normalized data that clipping is expensive: recall@10 at 8 bits was 0.97
+  with the exact extrema and 0.796 with the default.
+- Comparing against a **raw** `Float32` query beats quantizing the query, increasingly so as
+  precision drops: 0.9755 vs 0.97 at 8 bits, and 0.203 vs 0.0975 at 2 bits.
 
 ---
 
@@ -158,3 +213,6 @@ search(idx_bits, ctx, bq, res)
 `AnchoredDistantHyperplanes` and `RandomHyperplanes` are drop-in replacements for `m` in the
 snippet above; only their construction differs (see their docstrings for the extra keyword
 arguments each one takes).
+
+In the next section, [Multi-Bit Sketches](multibit_sketches.md), we keep more than one bit per
+hyperplane -- the same fitted model, with the magnitude it was already computing.

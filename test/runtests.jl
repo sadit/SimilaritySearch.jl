@@ -42,6 +42,7 @@ const TESTFILES = [
     "testspatialaccesstree.jl",
     "testspatialaccesstreeopt.jl",
     "testbktree.jl",
+    "testtutorial.jl",
 ]
 
 selected(f) = isempty(ARGS) || any(a -> occursin(lowercase(a), lowercase(f)), ARGS)

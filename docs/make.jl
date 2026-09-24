@@ -28,6 +28,8 @@ makedocs(;
             "tutorial/logging.md",
             "tutorial/invertedfiles.md",
             "tutorial/quantization_and_bitsketches.md",
+            "tutorial/multibit_sketches.md",
+            "tutorial/sketchedsearch.md",
         ],
         "API" => "api.md"
     ],
