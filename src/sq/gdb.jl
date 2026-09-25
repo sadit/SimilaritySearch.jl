@@ -126,18 +126,14 @@ end
 function GlobalQuantDatabase(bits::Integer, X::AbstractMatrix; minmax=nothing, kwargs...)
     bits in (2, 4, 8) || throw(ArgumentError("GlobalQuantDatabase: bits=$bits must be 2, 4 or 8"))
     B = Val(Int(bits))
-    mm = minmax === nothing ? _gqminmax(X; kwargs...) : minmax
+    mm = minmax === nothing ? _gqminmax(X, bits; kwargs...) : minmax
     Q = _gqquantize(B, X; minmax=mm)
     GlobalQuantDatabase(bits, Q, mm)
 end
 
 "Estimates the global range the same way the underlying `quantize` does when none is given."
-function _gqminmax(X::AbstractMatrix; quant=[0.025, 0.975], samplesize=0)
-    V = vec(X)
-    s = samplesize === 0 ? ceil(Int, length(V)^0.5) : samplesize
-    lo, hi = quantile(rand(V, s), quant)
-    (Float32(lo), Float32(hi))
-end
+_gqminmax(X::AbstractMatrix, bits::Integer; quant=nothing, samplesize=0) =
+    sqrange(vec(X), (1 << bits) - 1; quant, samplesize)
 
 Base.length(db::GlobalQuantDatabase) = size(db.Q, 2)
 Base.eltype(db::GlobalQuantDatabase) = typeof(db[1])

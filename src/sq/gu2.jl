@@ -15,7 +15,7 @@ module SQgu2
 
 export quantize, quantize!, SqL2
 
-using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES
 using Statistics: quantile
 using SIMD
 
@@ -42,7 +42,7 @@ function quant_global_u2!(vout::AbstractVector{UInt8}, v::AbstractVector, min::F
 end
 
 """
-    quantize(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes every entry of `X` to 2 bits using a single, global pair of
 dequantization parameters shared by all columns, unlike [`SQu2`](@ref ScalarQuant.SQu2)'s
@@ -68,10 +68,14 @@ quantiles of the sample (to be robust to outliers), unless it is provided explic
 - `X`: the matrix to quantize; each entry is quantized independently but using shared
   `min`/`max` values
 - `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
-  (the default) the range is estimated from a random sample of the entries of `X` using
-  `quant`
-- `quant`: the lower and upper quantiles (of the sampled entries of `X`) used to estimate
-  `min` and `max` when `minmax` is not given
+  (the default) the range is chosen from a random sample of the entries of `X` by
+  [`sqautorange`](@ref ScalarQuant.sqautorange), or by `quant` when that is given
+- `quant`: a fixed lower/upper quantile pair (of the sampled entries of `X`) to use as the
+  range instead of searching for it. `nothing` (the default) runs
+  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  minimizes the error the codes would incur -- the optimum moves with the code width, so a
+  fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
+  pre-search behaviour
 - `samplesize`: the number of entries sampled (with replacement) from `X` to estimate the
   quantiles; when `0` (the default) it is set to `ceil(Int, length(X)^0.5)`
 
@@ -89,12 +93,12 @@ julia> size(Q), eltype(Q)  # (2, 1000), UInt8
 """
 function quantize(X::AbstractMatrix;
         minmax=nothing,
-        quant=[0.025, 0.975],
+        quant=nothing,
         samplesize=0
     )
     m, n = size(X)
     Q = Matrix{UInt8}(undef, cld(m, 4), n)
-    min, max = _minmax(vec(X), minmax, quant, samplesize)
+    min, max = sqrange(vec(X), 3; minmax, quant, samplesize)
     c = sqglobalscale(3, min, max)
     min = Float32(min)
 
@@ -107,7 +111,7 @@ function quantize(X::AbstractMatrix;
 end
 
 """
-    quantize(v::AbstractVector; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(v::AbstractVector; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes a single vector `v` to 2 bits, using the same global scheme as
 [`quantize(X::AbstractMatrix)`](@ref), producing a `Vector{UInt8}` (four codes per byte)
@@ -128,18 +132,19 @@ of length `cld(length(v), 4)`, instead of a `Matrix{UInt8}`.
   (the default) the range is estimated from a random sample of `v`'s entries using
   `quant`. **Must match the dataset's `minmax`** if `v` is to be compared against an
   existing quantized dataset.
-- `quant`: the lower and upper quantiles used to estimate `min` and `max` when `minmax`
+- `quant`: a fixed lower/upper quantile pair to use as the range instead of searching for
+  it; `nothing` (the default) runs [`sqautorange`](@ref ScalarQuant.sqautorange). Used when `minmax`
   is not given
 - `samplesize`: the number of entries sampled (with replacement) from `v` to estimate the
   quantiles; when `0` (the default) it is set to `ceil(Int, length(v)^0.5)`
 """
 function quantize(v::AbstractVector;
         minmax=nothing,
-        quant=[0.025, 0.975],
+        quant=nothing,
         samplesize=0
     )
     vout = Vector{UInt8}(undef, cld(length(v), 4))
-    min, max = _minmax(v, minmax, quant, samplesize)
+    min, max = sqrange(v, 3; minmax, quant, samplesize)
     quant_global_u2!(vout, v, Float32(min), sqglobalscale(3, min, max))
     vout
 end
@@ -158,12 +163,6 @@ function quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax)
     quant_global_u2!(vout, v, Float32(min), sqglobalscale(3, min, max))
 end
 
-function _minmax(v, minmax, quant, samplesize)
-    minmax === nothing || return minmax
-    n = length(v)
-    samplesize = samplesize === 0 ? ceil(Int, n^0.5) : samplesize
-    quantile(rand(v, samplesize), quant)
-end
 
 
 

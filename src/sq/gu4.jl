@@ -10,7 +10,7 @@ module SQgu4
 
 export quantize, quantize!, SqL2
 
-using ..ScalarQuant: getminbatch, sqglobalscale, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES
 using Statistics: quantile
 using SIMD
 
@@ -38,7 +38,7 @@ function quant_global_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::F
 end
 
 """
-    quantize(X::AbstractMatrix; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes every entry of `X` to 4 bits using a single, global pair of
 dequantization parameters shared by all columns, unlike [`SQu4`](@ref ScalarQuant.SQu4)'s `quantize`
@@ -63,10 +63,14 @@ quantiles of the sample (to be robust to outliers), unless it is provided explic
 - `X`: the matrix to quantize; each entry is quantized independently but using shared
   `min`/`max` values
 - `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
-  (the default) the range is estimated from a random sample of the entries of `X` using
-  `quant`
-- `quant`: the lower and upper quantiles (of the sampled entries of `X`) used to estimate
-  `min` and `max` when `minmax` is not given
+  (the default) the range is chosen from a random sample of the entries of `X` by
+  [`sqautorange`](@ref ScalarQuant.sqautorange), or by `quant` when that is given
+- `quant`: a fixed lower/upper quantile pair (of the sampled entries of `X`) to use as the
+  range instead of searching for it. `nothing` (the default) runs
+  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  minimizes the error the codes would incur -- the optimum moves with the code width, so a
+  fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
+  pre-search behaviour
 - `samplesize`: the number of entries sampled (with replacement) from `X` to estimate the
   quantiles; when `0` (the default) it is set to `ceil(Int, length(X)^0.5)`
 
@@ -84,22 +88,13 @@ julia> size(Q), eltype(Q)  # (4, 1000), UInt8
 """
 function quantize(X::AbstractMatrix;
         minmax=nothing,
-        quant=[0.025, 0.975],
+        quant=nothing,
         samplesize=0
     )
     m, n = size(X)
     Q = Matrix{UInt8}(undef, ceil(Int, m / 2), n)
 
-    min, max = if minmax === nothing
-        let  V = vec(X),
-             n = length(V),
-             samplesize = samplesize === 0 ? ceil(Int, n^0.5) : samplesize
-             S = rand(V, samplesize)
-            quantile(S, quant)
-        end
-    else
-        minmax
-    end
+    min, max = sqrange(vec(X), 15; minmax, quant, samplesize)
 
     c = sqglobalscale(15, min, max)
     min = Float32(min)
@@ -113,7 +108,7 @@ function quantize(X::AbstractMatrix;
 end
 
 """
-    quantize(v::AbstractVector; minmax=nothing, quant=[0.025, 0.975], samplesize=0)
+    quantize(v::AbstractVector; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes a single vector `v` to 4 bits, using the same global scheme as
 [`quantize(X::AbstractMatrix)`](@ref), producing a `Vector{UInt8}` (nibble-packed, two
@@ -138,8 +133,12 @@ codes per byte) of length `ceil(Int, length(v) / 2)`, instead of a `Matrix{UInt8
   (the default) the range is estimated from a random sample of `v`'s entries using
   `quant`. **Must match the dataset's `minmax`** if `v` is to be compared against an
   existing quantized dataset.
-- `quant`: the lower and upper quantiles (of the sampled entries of `v`) used to estimate
-  `min` and `max` when `minmax` is not given
+- `quant`: a fixed lower/upper quantile pair (of the sampled entries of `v`) to use as the
+  range instead of searching for it. `nothing` (the default) runs
+  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  minimizes the error the codes would incur -- the optimum moves with the code width, so a
+  fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
+  pre-search behaviour
 - `samplesize`: the number of entries sampled (with replacement) from `v` to estimate the
   quantiles; when `0` (the default) it is set to `ceil(Int, length(v)^0.5)`
 
@@ -163,20 +162,13 @@ julia> length(qv), eltype(qv)  # (4, UInt8)
 """
 function quantize(v::AbstractVector;
         minmax=nothing,
-        quant=[0.025, 0.975],
+        quant=nothing,
         samplesize=0
     )
     m = length(v)
     vout = Vector{UInt8}(undef, ceil(Int, m / 2))
 
-    min, max = if minmax === nothing
-        let samplesize = samplesize === 0 ? ceil(Int, m^0.5) : samplesize
-            S = rand(v, samplesize)
-            quantile(S, quant)
-        end
-    else
-        minmax
-    end
+    min, max = sqrange(v, 15; minmax, quant, samplesize)
 
     c = sqglobalscale(15, min, max)
     min = Float32(min)
