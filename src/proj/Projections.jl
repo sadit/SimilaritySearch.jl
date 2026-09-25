@@ -10,7 +10,7 @@ using ...SimilaritySearch: AbstractDatabase, MatrixDatabase, SubDatabase, SemiMe
     getminbatch, add_distance_evaluations!
 import ...SimilaritySearch: evaluate, distance, search, database
 using ...SimilaritySearch.Dist.Bits: Hamming
-using ...SimilaritySearch.ScalarQuant: SQgu2, SQgu4, SQgu8
+using ...SimilaritySearch.ScalarQuant: SQgu2, SQgu4, SQgu8, sqautorange
 using ...SimilaritySearch.Selection: fft
 
 """

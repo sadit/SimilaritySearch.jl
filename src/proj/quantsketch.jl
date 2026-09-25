@@ -161,7 +161,7 @@ end
 function QuantSketch(model, nbits::Int, X;
         minmax=nothing,
         normalize::Bool=true,
-        quant=[0.025, 0.975],
+        quant=nothing,
         samplesize::Int=0
     )
     nbits in (1, 2, 4, 8) || throw(ArgumentError("QuantSketch: nbits=$nbits must be one of 1, 2, 4 or 8"))
@@ -188,7 +188,11 @@ function QuantSketch(model, nbits::Int, X;
         end
     end
 
-    lo, hi = quantile(V, quant)
+    # The range is searched rather than read off fixed quantiles: its optimum moves with
+    # `nbits` (near 1.5σ of the projected values at 2 bits and 3.9σ at 8, for a marginal a
+    # random rotation makes Gaussian), so no single pair serves every width. `quant` still
+    # takes a pair for the pre-search behaviour.
+    lo, hi = quant === nothing ? sqautorange(V, (1 << nbits) - 1) : quantile(V, quant)
     QuantSketch{nbits,typeof(model)}(model, scale, (Float32(lo), Float32(hi)))
 end
 

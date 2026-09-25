@@ -125,6 +125,122 @@ degenerate (`min == max`) range from producing `Inf`.
 """
 sqglobalscale(levels::Integer, min, max) = Float32(levels / (max - min + 1e-6))
 
+"""
+    sqdistortion(S, levels, min, max)
+
+Mean squared error the codes of a global quantizer over `[min, max]` would inflict on the
+values `S`, counting both halves of what the range trades: the rounding of what falls inside
+and the saturation of what falls outside. This is the quantity [`sqautorange`](@ref)
+minimizes, and it is computed through the very same arithmetic
+[`sqglobalscale`](@ref) hands the quantizers, so the range it picks is optimal for the grid
+that will actually be used rather than for an idealized one.
+"""
+function sqdistortion(S::AbstractVector, levels::Integer, min::Real, max::Real)
+    max > min || return Inf64
+    c = sqglobalscale(levels, min, max)
+    lo = Float32(min)
+    top = Float32(levels)
+    acc = 0.0
+    @inbounds for x in S
+        q = round(clamp((Float32(x) - lo) * c, 0f0, top))
+        d = Float32(x) - (q / c + lo)
+        acc += Float64(d) * Float64(d)
+    end
+
+    acc / length(S)
+end
+
+"""
+    sqautorange(V, levels; samplesize=0, factors=0.30f0:0.05f0:3.0f0, passes=3)
+
+Picks the `(min, max)` a global quantizer of `levels + 1` codes should use for `V`, by
+minimizing [`sqdistortion`](@ref) over a sample of `V` itself. Returns a `(Float32, Float32)`
+pair, ready for `minmax`.
+
+The search runs over **each side separately**: the range is anchored at the median and each
+end is placed at its own multiple of that side's distance to the `[0.02, 0.98]` quantiles,
+`(min, max) = (med - a(med - q02), med + b(q98 - med))`, with `a` and `b` found by coordinate
+descent over `factors`. Three properties come out of that parametrization, and all three were
+measured to matter:
+
+- **the right width follows the code width.** Widening coarsens every code by `2L/levels`
+  while narrowing saturates more mass, and more levels make the first cheap, so the optimum
+  moves out as `levels` grows: for a Gaussian marginal it sits near `1.50σ` at 2 bits and
+  `3.93σ` at 8. One fixed quantile pair cannot serve both; searching finds each.
+- **the median anchors it.** Scaling both quantiles by a single factor displaces a marginal
+  that is not centered as it widens it, and anchoring at the quantile interval's midpoint
+  instead drags `min` below zero on one-signed data (ReLU outputs, term weights), spending
+  codes where there is no data. Anchoring at the median does neither, and `med == q02` pins
+  a one-signed range at its own floor for free.
+- **no distributional assumption.** Tabulated loading factors are Gaussian values, and the
+  optimum moves out fast under heavier tails (near `7σ` at 8 bits for a Laplace marginal).
+  The search reads the shape off the sample instead.
+
+The sample is `1024 (levels + 1)` values, or `sqrt(length(V))` when that is larger, because
+the tail the optimum clips shrinks with the code width and has to be visible in the sample to
+be placed. Cost is a few hundred passes over it -- milliseconds even at 8 bits -- against a
+quantization that touches every entry.
+"""
+function sqautorange(V::AbstractVector, levels::Integer;
+        samplesize::Int=0, factors=0.30f0:0.05f0:3.0f0, passes::Int=3
+    )
+    n = length(V)
+    # The sample has to resolve the tail the optimum will clip, and that tail shrinks as the
+    # codes get finer: at 8 bits the best range saturates ~0.009% of the mass, which `sqrt(n)`
+    # values (2.8K for a 7.7M-entry matrix) cannot see at all -- the search then settles on
+    # whatever the noise above ~3σ suggests, and returns a range that is both too narrow and
+    # visibly asymmetric on symmetric data. Scaling the floor with `levels` keeps a few dozen
+    # sampled values beyond the optimum's own clipping point in every width.
+    ss = samplesize == 0 ? clamp(Base.max(ceil(Int, sqrt(n)), 1024 * (levels + 1)), 1, n) :
+                           Base.min(samplesize, n)
+    S = ss < n ? rand(V, ss) : collect(V)
+    med, qlo, qhi = quantile(S, (0.5, 0.02, 0.98))
+    slo, shi = med - qlo, qhi - med
+
+    # A degenerate spread (a constant column, or a sample that is more than 98% one value)
+    # leaves nothing to place: fall back to the sample's own extrema, which `sqglobalscale`
+    # already guards against collapsing.
+    if slo <= 0 && shi <= 0
+        lo, hi = extrema(S)
+        return (Float32(lo), Float32(hi))
+    end
+
+    # Coordinate descent, coarse then fine: the distortion is smooth in both factors, so a
+    # sweep at 1/10th of the range followed by a local sweep at full resolution finds the same
+    # pair as the full grid for about a seventh of the evaluations -- which matters at 8 bits,
+    # where the sample is large enough that the search would otherwise outcost the encoding.
+    lo, hi = Float32(first(factors)), Float32(last(factors))
+    step = Float32(Base.step(factors))
+    coarse = lo:(10step):hi
+    a = b = 1.0f0
+    for pass in 1:passes
+        grid(x) = pass == 1 ? coarse : Base.max(lo, x - 10step):step:Base.min(hi, x + 10step)
+        slo > 0 && (a = argmin(f -> sqdistortion(S, levels, med - f * slo, med + b * shi), grid(a)))
+        shi > 0 && (b = argmin(f -> sqdistortion(S, levels, med - a * slo, med + f * shi), grid(b)))
+    end
+
+    (Float32(med - a * slo), Float32(med + b * shi))
+end
+
+"""
+    sqrange(V, levels; minmax=nothing, quant=nothing, samplesize=0)
+
+The `(min, max)` every global quantizer in this module resolves before encoding: `minmax`
+verbatim when given, else the fixed quantile pair `quant` when given, else
+[`sqautorange`](@ref)'s search. Pass `quant=[0.025, 0.975]` to get the fixed-quantile
+behaviour that used to be the default.
+"""
+function sqrange(V::AbstractVector, levels::Integer;
+        minmax=nothing, quant=nothing, samplesize::Int=0
+    )
+    minmax === nothing || return (Float32(minmax[1]), Float32(minmax[2]))
+    quant === nothing && return sqautorange(V, levels; samplesize)
+    n = length(V)
+    ss = samplesize === 0 ? ceil(Int, n^0.5) : samplesize
+    lo, hi = quantile(rand(V, ss), quant)
+    (Float32(lo), Float32(hi))
+end
+
 include("gu8.jl")
 include("gu4.jl")
 include("gu2.jl")
