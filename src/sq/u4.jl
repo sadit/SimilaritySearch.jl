@@ -9,33 +9,16 @@ module SQu4
 
 export quantize, SQu4Vec, SQu4Database, L1, L2, SqL2
 
-using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES
+using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES,
+                     packcodes!, getcode, codesums, dotcodes, sqdiffcodes
 using SIMD
 import Distances: evaluate
-
-function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32, c::Float32)
-    m = length(v)  # even, guaranteed by `quantize`/`SQu4Vec`
-    k = 1
-    j = 1
-    @inbounds while j <= m
-        a = round((v[j] - min) * c; digits=0)
-        a = UInt8(clamp(a, 0, 15))
-        b = round((v[j+1] - min) * c; digits=0)
-        b = UInt8(clamp(b, 0, 15))
-
-        vout[k] = a | (b << 4)
-        j += 2
-        k += 1
-    end
-
-    vout
-end
 
 function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=1f-6)
     min, max = extrema(v)
     min, max = Float32(min), Float32(max)
     c = (max - min + eps) / 15f0
-    quant_u4!(vout, v, min, 1f0/c)
+    packcodes!(Val(4), vout, v, min, 1f0/c)
     SQMinC(min, c)
 end
 
@@ -61,96 +44,14 @@ not created directly by users.
     must be padded to that same length too, since those distances index the plain vector
     positionally and do not know about the padding.
 """
-### Integer kernels -- the 4-bit counterpart of SQu8's; see the note there for the algebra.
-### Each byte holds two codes in 0:15, so a squared difference or product is at most 225 per
-### code and an Int32 lane never overflows for any realistic dimension. Both nibbles of every
-### byte are read, padding included, exactly as the coordinate loops these replace did.
-
-"Σ of the codes and Σ of their squares, over both nibbles of every byte."
-@inline function u4sums(v::AbstractVector{UInt8})
-    n = length(v); i = 1; m = 0x0f
-    sa = zero(Vec{32,Int32}); saa = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        b = vload(Vec{32,UInt8}, v, i)
-        lo = convert(Vec{32,Int32}, b & m); hi = convert(Vec{32,Int32}, b >>> 4)
-        sa += lo + hi
-        saa = muladd(lo, lo, muladd(hi, hi, saa))
-        i += 32
-    end
-    a = Int(sum(sa)); aa = Int(sum(saa))
-    @inbounds if i + 15 <= n
-        b = vload(Vec{16,UInt8}, v, i)
-        lo = convert(Vec{16,Int32}, b & m); hi = convert(Vec{16,Int32}, b >>> 4)
-        a += Int(sum(lo)) + Int(sum(hi)); aa += Int(sum(lo * lo)) + Int(sum(hi * hi))
-        i += 16
-    end
-    @inbounds while i <= n
-        b = v[i]; lo = Int(b & m); hi = Int(b >>> 4)
-        a += lo + hi; aa += lo * lo + hi * hi; i += 1
-    end
-
-    Float32(a), Float32(aa)
-end
-
-"Σ aᵢbᵢ over the unpacked codes."
-@inline function u4dotcodes(x::AbstractVector{UInt8}, y::AbstractVector{UInt8})
-    n = length(x); i = 1; m = 0x0f; acc = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        bx = vload(Vec{32,UInt8}, x, i); by = vload(Vec{32,UInt8}, y, i)
-        acc = muladd(convert(Vec{32,Int32}, bx & m), convert(Vec{32,Int32}, by & m), acc)
-        acc = muladd(convert(Vec{32,Int32}, bx >>> 4), convert(Vec{32,Int32}, by >>> 4), acc)
-        i += 32
-    end
-    s = Int(sum(acc))
-    @inbounds if i + 15 <= n
-        bx = vload(Vec{16,UInt8}, x, i); by = vload(Vec{16,UInt8}, y, i)
-        s += Int(sum(convert(Vec{16,Int32}, bx & m) * convert(Vec{16,Int32}, by & m))) +
-             Int(sum(convert(Vec{16,Int32}, bx >>> 4) * convert(Vec{16,Int32}, by >>> 4)))
-        i += 16
-    end
-    @inbounds while i <= n
-        bx, by = x[i], y[i]
-        s += Int(bx & m) * Int(by & m) + Int(bx >>> 4) * Int(by >>> 4)
-        i += 1
-    end
-    s
-end
-
-"Σ (aᵢ-bᵢ)² over the unpacked codes, for the equal-scale case."
-@inline function u4sqdiffcodes(x::AbstractVector{UInt8}, y::AbstractVector{UInt8})
-    n = length(x); i = 1; m = 0x0f; acc = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        bx = vload(Vec{32,UInt8}, x, i); by = vload(Vec{32,UInt8}, y, i)
-        dlo = convert(Vec{32,Int32}, bx & m) - convert(Vec{32,Int32}, by & m)
-        dhi = convert(Vec{32,Int32}, bx >>> 4) - convert(Vec{32,Int32}, by >>> 4)
-        acc = muladd(dlo, dlo, muladd(dhi, dhi, acc))
-        i += 32
-    end
-    s = Int(sum(acc))
-    @inbounds if i + 15 <= n
-        bx = vload(Vec{16,UInt8}, x, i); by = vload(Vec{16,UInt8}, y, i)
-        dlo = convert(Vec{16,Int32}, bx & m) - convert(Vec{16,Int32}, by & m)
-        dhi = convert(Vec{16,Int32}, bx >>> 4) - convert(Vec{16,Int32}, by >>> 4)
-        s += Int(sum(dlo * dlo)) + Int(sum(dhi * dhi))
-        i += 16
-    end
-    @inbounds while i <= n
-        bx, by = x[i], y[i]
-        dlo = Int(bx & m) - Int(by & m); dhi = Int(bx >>> 4) - Int(by >>> 4)
-        s += dlo * dlo + dhi * dhi
-        i += 1
-    end
-    s
-end
-
 struct SQu4Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
     V::VEC
-    Sa::Float32      # Σ codes, Σ codes² -- see `u4sums`
+    Sa::Float32      # Σ codes, Σ codes² -- see `codesums`
     Saa::Float32
 end
 
-SQu4Vec(E::SQMinC, V::AbstractVector{UInt8}) = SQu4Vec(E, V, u4sums(V)...)
+SQu4Vec(E::SQMinC, V::AbstractVector{UInt8}) = SQu4Vec(E, V, codesums(Val(4), V)...)
 
 function SQu4Vec(v::AbstractVector)
     length(v) % 2 == 0 || throw(ArgumentError("SQu4Vec: length(v) = $(length(v)) must be a multiple of 2 (2 coordinates are packed per UInt8)"))
@@ -160,15 +61,7 @@ function SQu4Vec(v::AbstractVector)
 end
 
 Base.@propagate_inbounds function Base.getindex(qvec::SQu4Vec, i::Integer)::Float32
-    if isodd(i)
-        i = (i + 1) >> 1
-        val = qvec.V[i] & UInt8(0x0f)
-    else
-        i >>= 1
-        val = qvec.V[i] >> 4
-    end
-
-    Float32(val) * qvec.E.c + qvec.E.min
+    Float32(getcode(Val(4), qvec.V, i)) * qvec.E.c + qvec.E.min
 end
 
 Base.length(a::SQu4Vec) = 2length(a.V)
@@ -259,7 +152,7 @@ struct SQu4Database <: AbstractDatabase
         Saa = Vector{Float32}(undef, n)
         @BATCHES minbatch for i in 1:n
             E[i] = quant_u4!(view(Q, :, i), view(X, :, i))
-            Sa[i], Saa[i] = u4sums(view(Q, :, i))
+            Sa[i], Saa[i] = codesums(Val(4), view(Q, :, i))
         end
 
         new(E, Q, Sa, Saa)
@@ -273,7 +166,7 @@ struct SQu4Database <: AbstractDatabase
         Saa = Vector{Float32}(undef, n)
         minbatch = getminbatch(n)
         @BATCHES minbatch for i in 1:n
-            Sa[i], Saa[i] = u4sums(view(Q, :, i))
+            Sa[i], Saa[i] = codesums(Val(4), view(Q, :, i))
         end
 
         new(E, Q, Sa, Saa)
@@ -360,13 +253,13 @@ function squared_euclidean(A::SQu4Vec, B::SQu4Vec)::Float32
     # Equal scales -- every self-comparison, every pair of duplicates -- take an exact
     # integer pass, so identical codes still give exactly 0f0 (see the SQu8 counterpart).
     if cA == cB && mA == mB
-        return cA * cA * Float32(u4sqdiffcodes(A.V, B.V))
+        return cA * cA * Float32(sqdiffcodes(Val(4), A.V, B.V))
     end
 
     cA64, mA64 = Float64(cA), Float64(mA)
     cB64, mB64 = Float64(cB), Float64(mB)
     k = mA64 - mB64
-    Sab = Float64(u4dotcodes(A.V, B.V))
+    Sab = Float64(dotcodes(Val(4), A.V, B.V))
     ncoords = 2 * length(A.V)      # both nibbles of every byte, padding included
     d = cA64 * cA64 * Float64(A.Saa) + cB64 * cB64 * Float64(B.Saa) - 2 * cA64 * cB64 * Sab +
         2 * k * (cA64 * Float64(A.Sa) - cB64 * Float64(B.Sa)) + ncoords * k * k

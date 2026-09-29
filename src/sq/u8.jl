@@ -10,109 +10,19 @@ module SQu8
 
 export quantize, SQu8Vec, SQu8Database, L1, L2, SqL2, NormCosine
 
-using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES
+using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES,
+                     packcodes!, getcode, codesums, dotcodes, sqdiffcodes
 using SIMD
 import Distances: evaluate
 
 ### note we need to avoid overflows in high dimensional vectors (i.e., accumulated squared differences like 127^2)
 
-function quant_u8!(vout, v, min::Float32, c::Float32)
-    # c = 255f0 / (max - min)
-    for j in eachindex(v)
-        x = round((v[j] - min) * c; digits=0)
-        vout[j] = clamp(x, 0, 255)
-    end
-
-    vout
-end
-
 function quant_u8!(vout, v::AbstractVector; eps::Float32=1f-6)
     min, max = extrema(v)
     min, max = Float32(min), Float32(max)
     c = (max - min + eps) / 255f0
-    quant_u8!(vout, v, min, 1f0/c)
+    packcodes!(Val(8), vout, v, min, 1f0/c)
     SQMinC(min, c)
-end
-
-### Integer kernels.
-###
-### A dequantized coordinate is `a*c + m`, and `c`/`m` belong to the *vector*, not to the
-### database, so two SQu8Vec codes cannot be compared directly the way SQgu8's shared-scale
-### ones can. Expanding anyway:
-###
-###   (a*cA + mA) - (b*cB + mB) = cA*a - cB*b + k,        k = mA - mB
-###   Σ(...)² = cA²Σa² + cB²Σb² - 2cAcB Σab + 2k(cA Σa - cB Σb) + n k²
-###
-### Everything there but `Σab` depends on a single vector, so it is computed once when the
-### vector is quantized (`Sa`, `Saa` below) and a distance costs one integer dot product
-### instead of dequantizing 2n coordinates into floats. The same expansion serves the dot
-### product behind NormCosine.
-###
-### Overflow: each Int32 lane accumulates at most 255² = 65025 per step, so a single
-### unwidened pass is safe up to ~33k steps, i.e. ~528k coordinates -- far beyond any
-### vector this is used with. Each kernel runs a 32-lane pass, then at most one 16-lane
-### pass, then the scalar remainder: the same shape as SQgu8's, and for the same measured
-### reason -- a 16..31 code remainder left to scalar code costs more than vectorizing it.
-
-"Σ of the codes and Σ of their squares, as `Float32`s: the per-vector halves of the expansion above."
-@inline function u8sums(v::AbstractVector{UInt8})
-    n = length(v); i = 1
-    sa = zero(Vec{32,Int32}); saa = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        x = convert(Vec{32,Int32}, vload(Vec{32,UInt8}, v, i))
-        sa += x
-        saa = muladd(x, x, saa)
-        i += 32
-    end
-    a = Int(sum(sa)); aa = Int(sum(saa))
-    @inbounds if i + 15 <= n
-        x = convert(Vec{16,Int32}, vload(Vec{16,UInt8}, v, i))
-        a += Int(sum(x)); aa += Int(sum(x * x))
-        i += 16
-    end
-    @inbounds while i <= n
-        x = Int(v[i]); a += x; aa += x * x; i += 1
-    end
-
-    Float32(a), Float32(aa)
-end
-
-"Σ aᵢbᵢ over the raw codes -- the only term of the expansion that depends on both vectors."
-@inline function u8dotcodes(x::AbstractVector{UInt8}, y::AbstractVector{UInt8})
-    n = length(x); i = 1; acc = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        acc = muladd(convert(Vec{32,Int32}, vload(Vec{32,UInt8}, x, i)),
-                     convert(Vec{32,Int32}, vload(Vec{32,UInt8}, y, i)), acc)
-        i += 32
-    end
-    s = Int(sum(acc))
-    @inbounds if i + 15 <= n
-        s += Int(sum(convert(Vec{16,Int32}, vload(Vec{16,UInt8}, x, i)) *
-                     convert(Vec{16,Int32}, vload(Vec{16,UInt8}, y, i))))
-        i += 16
-    end
-    @inbounds while i <= n; s += Int(x[i]) * Int(y[i]); i += 1; end
-    s
-end
-
-"Σ (aᵢ-bᵢ)² over the raw codes, for the equal-scale case where it is the whole answer."
-@inline function u8sqdiffcodes(x::AbstractVector{UInt8}, y::AbstractVector{UInt8})
-    n = length(x); i = 1; acc = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        d = convert(Vec{32,Int32}, vload(Vec{32,UInt8}, x, i)) -
-            convert(Vec{32,Int32}, vload(Vec{32,UInt8}, y, i))
-        acc = muladd(d, d, acc)
-        i += 32
-    end
-    s = Int(sum(acc))
-    @inbounds if i + 15 <= n
-        d = convert(Vec{16,Int32}, vload(Vec{16,UInt8}, x, i)) -
-            convert(Vec{16,Int32}, vload(Vec{16,UInt8}, y, i))
-        s += Int(sum(d * d))
-        i += 16
-    end
-    @inbounds while i <= n; d = Int(x[i]) - Int(y[i]); s += d * d; i += 1; end
-    s
 end
 
 """
@@ -132,12 +42,12 @@ not created directly by users.
 struct SQu8Vec{VEC<:AbstractVector{UInt8}}
     E::SQMinC
     V::VEC
-    Sa::Float32      # Σ codes      -- see the expansion above `u8sums`
+    Sa::Float32      # Σ codes      -- see the expansion above `codesums`
     Saa::Float32     # Σ codes²
 end
 
 "Computes the two code sums for `V`; they are part of the vector, not of any database."
-SQu8Vec(E::SQMinC, V::AbstractVector{UInt8}) = SQu8Vec(E, V, u8sums(V)...)
+SQu8Vec(E::SQMinC, V::AbstractVector{UInt8}) = SQu8Vec(E, V, codesums(Val(8), V)...)
 
 function SQu8Vec(v::AbstractVector)
     vout = Vector{UInt8}(undef, length(v))
@@ -213,7 +123,7 @@ vector, i.e. `length(E) == size(Q, 2)`.
 struct SQu8Database <: AbstractDatabase
     E::Vector{SQMinC}
     Q::Matrix{UInt8}
-    Sa::Vector{Float32}      # per column: Σ codes, Σ codes² -- see `u8sums`. Derived from
+    Sa::Vector{Float32}      # per column: Σ codes, Σ codes² -- see `codesums`. Derived from
     Saa::Vector{Float32}     # `Q` alone, so they are recomputed rather than stored/read.
 
     function SQu8Database(X::AbstractMatrix)
@@ -225,7 +135,7 @@ struct SQu8Database <: AbstractDatabase
         minbatch = getminbatch(n)
         @BATCHES minbatch for i in 1:n
             E[i] = quant_u8!(view(Q, :, i), view(X, :, i))
-            Sa[i], Saa[i] = u8sums(view(Q, :, i))
+            Sa[i], Saa[i] = codesums(Val(8), view(Q, :, i))
         end
 
         new(E, Q, Sa, Saa)
@@ -239,7 +149,7 @@ struct SQu8Database <: AbstractDatabase
         Saa = Vector{Float32}(undef, n)
         minbatch = getminbatch(n)
         @BATCHES minbatch for i in 1:n
-            Sa[i], Saa[i] = u8sums(view(Q, :, i))
+            Sa[i], Saa[i] = codesums(Val(8), view(Q, :, i))
         end
 
         new(E, Q, Sa, Saa)
@@ -293,14 +203,14 @@ end
 
 @inline function dotu8(A::SQu8Vec, B::SQu8Vec)::Float32
     # Σ(a*cA + mA)(b*cB + mB) = cAcB Σab + cA mB Σa + cB mA Σb + n mA mB, and only Σab is
-    # not already known -- see the note above `u8sums`.
+    # not already known -- see the note above `codesums`.
     # The combination is O(1) per distance -- four products -- so it is done in Float64:
     # its terms are large and of opposite signs, and in Float32 their cancellation cost up
     # to 4% of relative accuracy on measured data, while the coordinate loop it replaces
     # had none of that.
     cA, mA = Float64(A.E.c), Float64(A.E.min)
     cB, mB = Float64(B.E.c), Float64(B.E.min)
-    Sab = Float64(u8dotcodes(A.V, B.V))
+    Sab = Float64(dotcodes(Val(8), A.V, B.V))
     Float32(cA * cB * Sab + cA * mB * Float64(A.Sa) + cB * mA * Float64(B.Sa) +
             length(A.V) * mA * mB)
 end
@@ -372,7 +282,7 @@ function squared_euclidean(A::SQu8Vec, B::SQu8Vec)::Float32
     # general expansion below cannot promise that, since its terms cancel only up to
     # Float32 rounding.
     if cA == cB && mA == mB
-        return cA * cA * Float32(u8sqdiffcodes(A.V, B.V))
+        return cA * cA * Float32(sqdiffcodes(Val(8), A.V, B.V))
     end
 
     # Float64 for the same reason as in `dotu8`: O(1) work per distance, and the expansion
@@ -380,7 +290,7 @@ function squared_euclidean(A::SQu8Vec, B::SQu8Vec)::Float32
     cA64, mA64 = Float64(cA), Float64(mA)
     cB64, mB64 = Float64(cB), Float64(mB)
     k = mA64 - mB64
-    Sab = Float64(u8dotcodes(A.V, B.V))
+    Sab = Float64(dotcodes(Val(8), A.V, B.V))
     d = cA64 * cA64 * Float64(A.Saa) + cB64 * cB64 * Float64(B.Saa) - 2 * cA64 * cB64 * Sab +
         2 * k * (cA64 * Float64(A.Sa) - cB64 * Float64(B.Sa)) + length(A.V) * k * k
     Float32(max(0.0, d))   # a difference of positives; rounding can still undershoot zero

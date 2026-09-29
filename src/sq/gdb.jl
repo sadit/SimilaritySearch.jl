@@ -25,9 +25,9 @@ struct Cosine <: SemiMetric end
 
 # per-width bridges: the integer kernels live in the per-column modules, which already
 # vectorize them (one 32-lane pass, one 16-lane pass, scalar remainder)
-@inline _dotcodes(a::SQu8.SQu8Vec, b::SQu8.SQu8Vec) = SQu8.u8dotcodes(a.V, b.V)
-@inline _dotcodes(a::SQu4.SQu4Vec, b::SQu4.SQu4Vec) = SQu4.u4dotcodes(a.V, b.V)
-@inline _dotcodes(a::SQu2.SQu2Vec, b::SQu2.SQu2Vec) = SQu2.u2dotcodes(a.V, b.V)
+@inline _dotcodes(a::SQu8.SQu8Vec, b::SQu8.SQu8Vec) = dotcodes(Val(8), a.V, b.V)
+@inline _dotcodes(a::SQu4.SQu4Vec, b::SQu4.SQu4Vec) = dotcodes(Val(4), a.V, b.V)
+@inline _dotcodes(a::SQu2.SQu2Vec, b::SQu2.SQu2Vec) = dotcodes(Val(2), a.V, b.V)
 
 "Number of coordinates a quantized vector stands for, padding included."
 @inline ncoords(a::SQu8.SQu8Vec) = length(a.V)
@@ -98,26 +98,22 @@ end
 _gqmod(::Val{2}) = SQu2
 _gqmod(::Val{4}) = SQu4
 _gqmod(::Val{8}) = SQu8
-_gqsums(::Val{8}, v) = SQu8.u8sums(v)
-_gqsums(::Val{4}, v) = SQu4.u4sums(v)
-_gqsums(::Val{2}, v) = SQu2.u2sums(v)
 _gqquantize(::Val{8}, X; kwargs...) = SQgu8.quantize(X; kwargs...)
 _gqquantize(::Val{4}, X; kwargs...) = SQgu4.quantize(X; kwargs...)
 _gqquantize(::Val{2}, X; kwargs...) = SQgu2.quantize(X; kwargs...)
-_gqlevels(::Val{B}) where B = 2^B - 1
 
 function GlobalQuantDatabase(bits::Integer, Q::Matrix{UInt8}, minmax)
     bits in (2, 4, 8) || throw(ArgumentError("GlobalQuantDatabase: bits=$bits must be 2, 4 or 8"))
     B = Val(Int(bits))
     mn, mx = Float32(first(minmax)), Float32(last(minmax))
     # `sqglobalscale` is the *quantization* multiplier; a code dequantizes with its inverse
-    E = SQMinC(mn, 1f0 / sqglobalscale(_gqlevels(B), mn, mx))
+    E = SQMinC(mn, 1f0 / sqglobalscale(levels(B), mn, mx))
     n = size(Q, 2)
     Sa = Vector{Float32}(undef, n)
     Saa = Vector{Float32}(undef, n)
     minbatch = getminbatch(n)
     @BATCHES minbatch for i in 1:n
-        Sa[i], Saa[i] = _gqsums(B, view(Q, :, i))
+        Sa[i], Saa[i] = codesums(B, view(Q, :, i))
     end
 
     GlobalQuantDatabase{Int(bits)}(Q, E, Sa, Saa)
@@ -153,9 +149,9 @@ Quantizes `v` with `db`'s own parameters, so the result is comparable with what 
 """
 function quantize(db::GlobalQuantDatabase{BITS}, v::AbstractVector) where BITS
     B = Val(BITS)
-    Q = _gqquantize(B, reshape(collect(Float32, v), :, 1); minmax=(db.E.min, db.E.min + db.E.c * _gqlevels(B)))
+    Q = _gqquantize(B, reshape(collect(Float32, v), :, 1); minmax=(db.E.min, db.E.min + db.E.c * levels(B)))
     codes = view(Q, :, 1)
-    Sa, Saa = _gqsums(B, codes)
+    Sa, Saa = codesums(B, codes)
     BITS == 8 ? SQu8.SQu8Vec(db.E, codes, Sa, Saa) :
     BITS == 4 ? SQu4.SQu4Vec(db.E, codes, Sa, Saa) :
                 SQu2.SQu2Vec(db.E, codes, Sa, Saa)

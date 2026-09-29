@@ -10,32 +10,9 @@ module SQgu4
 
 export quantize, quantize!, SqL2
 
-using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES, packcodes!, sqdiffcodes
 using Statistics: quantile
 using SIMD
-
-"Quantizes `v` into `vout` (two 4-bit codes packed per `UInt8`) using the global `min`/scale `c`; returns `vout`."
-function quant_global_u4!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32, c::Float32)
-    m = length(v)
-    k = 1
-    j = 1
-    @inbounds while j <= m
-        a = round((v[j] - min) * c; digits=0)
-        a = UInt8(clamp(a, 0, 15))
-        b = zero(UInt8)
-        if j+1 <= m
-            b = let b = round((v[j+1] - min) * c; digits=0)
-                UInt8(clamp(b, 0, 15))
-            end
-        end
-
-        vout[k] = a | (b << 4)
-        j += 2
-        k += 1
-    end
-
-    vout
-end
 
 """
     quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
@@ -101,7 +78,7 @@ function quantize(X::AbstractMatrix;
 
     minbatch = getminbatch(n)
     @BATCHES minbatch for i in 1:n
-        quant_global_u4!(view(Q, :, i), view(X, :, i), min, c)
+        packcodes!(Val(4), view(Q, :, i), view(X, :, i), min, c)
     end
 
     Q
@@ -172,11 +149,10 @@ function quantize(v::AbstractVector;
 
     c = sqglobalscale(15, min, max)
     min = Float32(min)
-    quant_global_u4!(vout, v, min, c)
+    packcodes!(Val(4), vout, v, min, c)
 
     vout
 end
-
 
 
 """
@@ -190,13 +166,8 @@ encoded through it stays comparable.
 """
 function quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax)
     min, max = minmax
-    quant_global_u4!(vout, v, Float32(min), sqglobalscale(15, min, max))
+    packcodes!(Val(4), vout, v, Float32(min), sqglobalscale(15, min, max))
 end
-
-
-### the following SIMD kernels follow the same unroll/accumulate scheme as gu8.jl,
-### but each `UInt8` holds two packed 4-bit codes (low nibble / high nibble) that must be
-### unpacked before being combined
 
 
 """
@@ -214,67 +185,7 @@ end
 
 function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
-
-    # We use N=16 here instead of 32.
-    # Why? Because every 1 byte splits into TWO 32-bit accumulators.
-    # N=16 prevents "register spilling" on AVX2 architectures, keeping everything in the CPU's fast registers.
-    # One 32-lane accumulator, not eight 16-lane ones -- see the note in gu8.jl.
-    mask = 0x0f
-    n = length(x)
-    i = 1
-    acc = zero(Vec{32, Int32})
-
-    @inbounds while i + 31 <= n
-        vx = vload(Vec{32, UInt8}, x, i)
-        vy = vload(Vec{32, UInt8}, y, i)
-        dlo = convert(Vec{32, Int32}, vx & mask) - convert(Vec{32, Int32}, vy & mask)
-        dhi = convert(Vec{32, Int32}, vx >>> 4) - convert(Vec{32, Int32}, vy >>> 4)
-        acc = muladd(dlo, dlo, muladd(dhi, dhi, acc))
-        i += 32
-    end
-
-    res = Int(sum(acc))
-
-    # --- PHASE 2: Single SIMD Loop Cleanup ---
-    @inbounds while i + 15 <= n
-        vx = vload(Vec{16, UInt8}, x, i)
-        vy = vload(Vec{16, UInt8}, y, i)
-
-        diff_low  = convert(Vec{16, Int32}, vx & mask) - convert(Vec{16, Int32}, vy & mask)
-        diff_high = convert(Vec{16, Int32}, vx >>> 4) - convert(Vec{16, Int32}, vy >>> 4)
-        res += Int(sum(diff_low * diff_low)) + Int(sum(diff_high * diff_high))
-        i += 16
-    end
-
-    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 8) ---
-    # Phase 2 needs a full 16 bytes and leaves at most
-    # 15, so one 8-lane pass covers the only remainder worth vectorizing.
-    @inbounds if i + 7 <= n
-        vx = vload(Vec{8, UInt8}, x, i)
-        vy = vload(Vec{8, UInt8}, y, i)
-
-        d_low  = convert(Vec{8, Int32}, vx & mask) - convert(Vec{8, Int32}, vy & mask)
-        d_high = convert(Vec{8, Int32}, vx >>> 4) - convert(Vec{8, Int32}, vy >>> 4)
-        res += Int(sum(d_low * d_low)) + Int(sum(d_high * d_high))
-        i += 8
-    end
-
-    # --- PHASE 3: Scalar Tail Cleanup ---
-    @inbounds while i <= n
-        # Unpack the tail byte manually
-        x_val, y_val = x[i], y[i]
-
-        x_low, y_low   = Int(x_val & mask), Int(y_val & mask)
-        x_high, y_high = Int(x_val >>> 4), Int(y_val >>> 4)
-
-        diff_low  = x_low - y_low
-        diff_high = x_high - y_high
-
-        res += (diff_low * diff_low) + (diff_high * diff_high)
-        i += 1
-    end
-
-    convert(Float32, res)
+    Float32(sqdiffcodes(Val(4), x, y))
 end
 
 end

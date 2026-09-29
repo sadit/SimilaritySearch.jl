@@ -10,20 +10,9 @@ module SQgu8
 
 export quantize, quantize!, SqL2
 
-using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES, packcodes!, sqdiffcodes
 using Statistics: quantile
 using SIMD
-
-"Quantizes `v` into `vout` (one `UInt8` code per entry) using the global `min`/scale `c`; returns `vout`."
-function quant_global_u8!(vout, v, min::Float32, c::Float32)
-    # c = 255f0 / (max - min)
-    for j in eachindex(v)
-        x = round((v[j] - min) * c; digits=0)
-        vout[j] = clamp(x, 0, 255)
-    end
-
-    vout
-end
 
 """
     quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
@@ -81,7 +70,7 @@ function quantize(X::AbstractMatrix;
 
     minbatch = getminbatch(n)
     @BATCHES minbatch for i in 1:n
-        quant_global_u8!(view(Q, :, i), view(X, :, i), min, c)
+        packcodes!(Val(8), view(Q, :, i), view(X, :, i), min, c)
     end
 
     Q
@@ -152,11 +141,10 @@ function quantize(v::AbstractVector;
 
     c = sqglobalscale(255, min, max)
     min = Float32(min)
-    quant_global_u8!(vout, v, min, c)
+    packcodes!(Val(8), vout, v, min, c)
 
     vout
 end
-
 
 
 """
@@ -170,13 +158,8 @@ encoded through it stays comparable.
 """
 function quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax)
     min, max = minmax
-    quant_global_u8!(vout, v, Float32(min), sqglobalscale(255, min, max))
+    packcodes!(Val(8), vout, v, Float32(min), sqglobalscale(255, min, max))
 end
-
-
-### the following code was made with the help of Gemini IA
-
-
 
 
 """
@@ -194,80 +177,7 @@ end
 
 function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Vectors must be the same length"))
-    
-    N = 32
-    UNROLL = 4
-    CHUNK = N * UNROLL # 128 elements per iteration
-    
-    # We use Int32 here instead of UInt32 to safely handle negative differences
-    acc1 = zero(Vec{N, Int32})
-    acc2 = zero(Vec{N, Int32})
-    acc3 = zero(Vec{N, Int32})
-    acc4 = zero(Vec{N, Int32})
-    
-    n = length(x)
-    limit_unrolled = n - CHUNK + 1
-    i = 1
-    
-    # --- PHASE 1: The Unrolled Loop ---
-    @inbounds while i <= limit_unrolled
-        # Chunk 1: Load, widen to Int32, subtract, and square-accumulate
-        diff1 = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i)) - 
-                convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i))
-        acc1 = muladd(diff1, diff1, acc1)
-        
-        # Chunk 2
-        diff2 = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i + N)) - 
-                convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i + N))
-        acc2 = muladd(diff2, diff2, acc2)
-        
-        # Chunk 3
-        diff3 = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i + 2N)) - 
-                convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i + 2N))
-        acc3 = muladd(diff3, diff3, acc3)
-        
-        # Chunk 4
-        diff4 = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i + 3N)) - 
-                convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i + 3N))
-        acc4 = muladd(diff4, diff4, acc4)
-        
-        i += CHUNK
-    end
-    
-    # Reduced to a scalar here, before the cleanup loops, and not after them: keeping the
-    # vector accumulator live across a loop whose trip count the compiler cannot prove is zero
-    # costs 2.6x on this kernel (69.7ns against 26.4ns at 512 codes, measured with the cleanup
-    # never actually running). The cleanup phases below accumulate into `res` instead.
-    res = Int(sum(acc1)) + Int(sum(acc2)) + Int(sum(acc3)) + Int(sum(acc4))
-
-    # --- PHASE 2: Single SIMD Loop Cleanup ---
-    @inbounds while i + N - 1 <= n
-        diff = convert(Vec{N, Int32}, vload(Vec{N, UInt8}, x, i)) -
-               convert(Vec{N, Int32}, vload(Vec{N, UInt8}, y, i))
-        res += Int(sum(diff * diff))
-        i += N
-    end
-    
-    # --- PHASE 2b: Half-Width SIMD Cleanup (chunks of 16) ---
-    # A 16..31 code remainder is worth vectorizing, and
-    # phase 2 can leave at most 31.
-    @inbounds while i + 15 <= n
-        vx = vload(Vec{16, UInt8}, x, i)
-        vy = vload(Vec{16, UInt8}, y, i)
-        d = convert(Vec{16, Int32}, vx) - convert(Vec{16, Int32}, vy)
-        res += Int(sum(d * d))
-        i += 16
-    end
-
-    # --- PHASE 3: Scalar Tail Cleanup ---
-    @inbounds while i <= n
-        # Widen to Int32 before subtracting!
-        scalar_diff = Int(x[i]) - Int(y[i])
-        res += scalar_diff * scalar_diff
-        i += 1
-    end
-    
-    Float32(res)
+    Float32(sqdiffcodes(Val(8), x, y))
 end
 
 end
