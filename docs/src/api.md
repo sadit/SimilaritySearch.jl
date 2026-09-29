@@ -291,10 +291,29 @@ knn_matrices
 ```
 
 ## Scalar quantization (`ScalarQuant` submodule)
-Reduces the memory footprint of a database by quantizing each coordinate to a small
-integer type. Each bit-width/strategy lives in its own nested submodule with a common,
-un-prefixed API (`quantize`, `L1`, `L2`, `SqL2`, `NormCosine`), accessed e.g. as
-`ScalarQuant.SQu8.quantize`, `ScalarQuant.SQu8.SqL2`, etc.
+Reduces the memory footprint of a database by quantizing each coordinate to 2, 4 or 8
+bits, in two families that differ in where the quantization range comes from (see the
+module docstring for how to choose). Both produce the same vector type, `SQVec`, and share
+one set of distances that read the packed codes directly; the per-width submodules keep
+their un-prefixed API (`ScalarQuant.SQu8.quantize`, `ScalarQuant.SQu8.SqL2`, ...) as aliases.
+```@docs
+ScalarQuant
+ScalarQuant.SQMinC
+ScalarQuant.SQVec
+ScalarQuant.quantvector!
+```
+
+### Distances over quantized vectors
+Defined once for every width and both families. Between two quantized vectors each is one
+integer pass over the codes plus the per-vector sums; against a plain `Float32` vector the
+codes are unpacked to floats with SIMD.
+```@docs
+ScalarQuant.SqL2
+ScalarQuant.L2
+ScalarQuant.L1
+ScalarQuant.NormCosine
+ScalarQuant.Cosine
+```
 
 ### Per-column quantization (`SQu2`, `SQu4`, `SQu8` submodules)
 
@@ -302,26 +321,13 @@ Each column (vector) keeps its own `min`/scale, computed from its own extrema.
 ```@docs
 ScalarQuant.SQu2
 ScalarQuant.SQu2.quantize
-ScalarQuant.SQu2.SQu2Vec
 ScalarQuant.SQu2.SQu2Database
-ScalarQuant.SQu2.L1
-ScalarQuant.SQu2.L2
-ScalarQuant.SQu2.SqL2
 ScalarQuant.SQu4
 ScalarQuant.SQu4.quantize
-ScalarQuant.SQu4.SQu4Vec
 ScalarQuant.SQu4.SQu4Database
-ScalarQuant.SQu4.L1
-ScalarQuant.SQu4.L2
-ScalarQuant.SQu4.SqL2
 ScalarQuant.SQu8
 ScalarQuant.SQu8.quantize
-ScalarQuant.SQu8.SQu8Vec
 ScalarQuant.SQu8.SQu8Database
-ScalarQuant.SQu8.L1
-ScalarQuant.SQu8.L2
-ScalarQuant.SQu8.SqL2
-ScalarQuant.SQu8.NormCosine
 ```
 
 ### Global (database-wide) quantization (`SQgu2`, `SQgu4`, `SQgu8` submodules)
@@ -332,6 +338,8 @@ allocating `quantize` and an in-place `quantize!(vout, v, minmax)` for loops tha
 their output buffer.
 ```@docs
 ScalarQuant.sqglobalscale
+ScalarQuant.sqautorange
+ScalarQuant.sqrange
 ScalarQuant.SQgu2
 ScalarQuant.SQgu2.quantize
 ScalarQuant.SQgu2.quantize!
@@ -351,10 +359,9 @@ ScalarQuant.SQgu8.SqL2
 `SQgu*.quantize` returns a bare matrix of codes and leaves `min`/`max` to the caller, so
 stored codes cannot be dequantized and can only be compared against codes from the same run.
 `GlobalQuantDatabase` keeps the pair, and the per-vector code sums an order-preserving cosine
-needs; it yields the ordinary `SQu*Vec` types, so every per-column distance applies to it.
+needs; it yields the ordinary `SQVec`, so every distance above applies to it.
 ```@docs
 ScalarQuant.GlobalQuantDatabase
-ScalarQuant.Cosine
 ```
 
 ## Random projections (`Projections` submodule)

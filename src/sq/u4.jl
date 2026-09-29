@@ -4,76 +4,21 @@
 Per-vector (per-column) 4-bit scalar quantization: [`quantize`](@ref SQu4.quantize) packs
 two 4-bit codes per `UInt8`, each column keeping its own `min`/scale computed from its
 extrema. Accessed as `ScalarQuant.SQu4.quantize`, etc.
+
+The vector type and the distances are the module-wide [`SQVec`](@ref ScalarQuant.SQVec)
+and [`SqL2`](@ref ScalarQuant.SqL2)/[`L2`](@ref ScalarQuant.L2)/[`L1`](@ref ScalarQuant.L1)/
+[`NormCosine`](@ref ScalarQuant.NormCosine); the names here are aliases kept for the
+per-width API.
 """
 module SQu4
 
-export quantize, SQu4Vec, SQu4Database, L1, L2, SqL2
+export quantize, SQu4Vec, SQu4Database, L1, L2, SqL2, NormCosine
 
-using ..ScalarQuant: SQMinC, AbstractDatabase, PreMetric, SemiMetric, Metric, getminbatch, @BATCHES,
-                     packcodes!, getcode, codesums, dotcodes, sqdiffcodes
-using SIMD
-import Distances: evaluate
+using ..ScalarQuant: SQMinC, AbstractDatabase, getminbatch, @BATCHES, SQVec, codesums, quantvector!
+using ..ScalarQuant: L1, L2, SqL2, NormCosine
 
-function quant_u4!(vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=1f-6)
-    min, max = extrema(v)
-    min, max = Float32(min), Float32(max)
-    c = (max - min + eps) / 15f0
-    packcodes!(Val(4), vout, v, min, 1f0/c)
-    SQMinC(min, c)
-end
-
-"""
-    SQu4Vec(v::AbstractVector)
-
-A single vector quantized to 4 bits per coordinate. It stores the packed codes (two
-4-bit codes per `UInt8`, `V`) along with the linear dequantization parameters (`E::SQMinC`)
-computed from the extrema of `v`. Indexing a `SQu4Vec` (`qvec[i]`) unpacks and dequantizes
-the `i`-th coordinate back to a `Float32` approximation of the original value.
-
-This type is the element produced by indexing a [`SQu4`](@ref) database; it is normally
-not created directly by users.
-
-# Arguments
-- `v`: the input vector to quantize; `length(v)` must be a multiple of `2` (throws
-  `ArgumentError` otherwise), since 2 coordinates are packed into each `UInt8`. Pad `v`
-  with an extra coordinate if needed.
-
-!!! note
-    If `v` needs padding, any plain (non-quantized) vector later compared against the
-    resulting `SQu4Vec` via [`L1`](@ref)/[`L2`](@ref)/[`SqL2`](@ref) (e.g. a query vector)
-    must be padded to that same length too, since those distances index the plain vector
-    positionally and do not know about the padding.
-"""
-struct SQu4Vec{VEC<:AbstractVector{UInt8}}
-    E::SQMinC
-    V::VEC
-    Sa::Float32      # Σ codes, Σ codes² -- see `codesums`
-    Saa::Float32
-end
-
-SQu4Vec(E::SQMinC, V::AbstractVector{UInt8}) = SQu4Vec(E, V, codesums(Val(4), V)...)
-
-function SQu4Vec(v::AbstractVector)
-    length(v) % 2 == 0 || throw(ArgumentError("SQu4Vec: length(v) = $(length(v)) must be a multiple of 2 (2 coordinates are packed per UInt8)"))
-    vout = Vector{UInt8}(undef, length(v) ÷ 2)
-    minc = quant_u4!(vout, v)
-    SQu4Vec(minc, vout)
-end
-
-Base.@propagate_inbounds function Base.getindex(qvec::SQu4Vec, i::Integer)::Float32
-    Float32(getcode(Val(4), qvec.V, i)) * qvec.E.c + qvec.E.min
-end
-
-Base.length(a::SQu4Vec) = 2length(a.V)
-Base.eachindex(a::SQu4Vec) = 1:2length(a.V)
-
-function Base.eachindex(a::SQu4Vec, b::SQu4Vec)
-    @assert length(a) === length(b)
-    eachindex(a.V)
-end
-
-Base.eltype(::SQu4Vec) = Float32
-Base.eltype(::Type{T}) where {T<:SQu4Vec} = Float32
+"4-bit [`SQVec`](@ref ScalarQuant.SQVec), two 4-bit codes packed per `UInt8`. `SQu4Vec(v)` quantizes `v` on its own extrema."
+const SQu4Vec = SQVec{4}
 
 """
     quantize(X::AbstractMatrix)
@@ -151,7 +96,7 @@ struct SQu4Database <: AbstractDatabase
         Sa = Vector{Float32}(undef, n)
         Saa = Vector{Float32}(undef, n)
         @BATCHES minbatch for i in 1:n
-            E[i] = quant_u4!(view(Q, :, i), view(X, :, i))
+            E[i] = quantvector!(Val(4), view(Q, :, i), view(X, :, i))
             Sa[i], Saa[i] = codesums(Val(4), view(Q, :, i))
         end
 
@@ -215,135 +160,5 @@ function quantize(db::SQu4Database, v::AbstractVector)
     SQu4Vec(v)
 end
 
-
-### distances
-
-"""
-    L1()
-
-The Manhattan (``L_1``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)).
-`evaluate` dequantizes both codes coordinate by coordinate and accumulates the absolute
-value of their difference.
-"""
-struct L1 <: Metric end
-
-@inline function evaluate(::L1, A::SQu4Vec, B::SQu4Vec)::Float32
-    d = zero(Float32)
-    n = length(A.V)
-
-    @inbounds @simd for i in 1:n
-        a, b = A.V[i], B.V[i]
-        af = Float32(a & 0x0f) * A.E.c + A.E.min
-        bf = Float32(b & 0x0f) * B.E.c + B.E.min 
-        m = abs(af - bf)
-        a >>= 4; b >>= 4
-        af = Float32(a) * A.E.c + A.E.min
-        bf = Float32(b) * B.E.c + B.E.min
-        m += abs(af - bf)
-        d += m
-    end
-
-    d
-end
-
-function squared_euclidean(A::SQu4Vec, B::SQu4Vec)::Float32
-    cA, mA = A.E.c, A.E.min
-    cB, mB = B.E.c, B.E.min
-
-    # Equal scales -- every self-comparison, every pair of duplicates -- take an exact
-    # integer pass, so identical codes still give exactly 0f0 (see the SQu8 counterpart).
-    if cA == cB && mA == mB
-        return cA * cA * Float32(sqdiffcodes(Val(4), A.V, B.V))
-    end
-
-    cA64, mA64 = Float64(cA), Float64(mA)
-    cB64, mB64 = Float64(cB), Float64(mB)
-    k = mA64 - mB64
-    Sab = Float64(dotcodes(Val(4), A.V, B.V))
-    ncoords = 2 * length(A.V)      # both nibbles of every byte, padding included
-    d = cA64 * cA64 * Float64(A.Saa) + cB64 * cB64 * Float64(B.Saa) - 2 * cA64 * cB64 * Sab +
-        2 * k * (cA64 * Float64(A.Sa) - cB64 * Float64(B.Sa)) + ncoords * k * k
-    Float32(max(0.0, d))
-end
-
-### Mixed comparisons -- a quantized vector against a plain `Float32` one -- cannot use the
-### integer expansion the SQu4Vec/SQu4Vec kernels do: one side is not quantized, so there is
-### nothing to keep in integers. What they *can* avoid is the scalar unpacking. Each byte holds
-### two coordinates that are adjacent in `B`, and that interleaving is what stops the compiler
-### from vectorizing the loop below; doing it explicitly with one shuffle per block recovers it.
-"Interleaves the low and high nibble lanes back into coordinate order: [lo1, hi1, lo2, hi2, ...]."
-const _U4_ILV = Val(ntuple(t -> (t-1) % 2 == 0 ? (t-1) ÷ 2 : 16 + (t-1) ÷ 2, 32))
-
-function squared_euclidean(A::SQu4Vec, B::SIMD.FastContiguousArray{Float32,1})::Float32
-    nb = length(A.V); i = 1
-    c = A.E.c; m = A.E.min
-    vc = Vec{32,Float32}(c); vm = Vec{32,Float32}(m)
-    acc = zero(Vec{32,Float32})
-
-    @inbounds while i + 15 <= nb                 # 16 bytes == 32 coordinates
-        b = vload(Vec{16,UInt8}, A.V, i)
-        codes = shufflevector(b & 0x0f, b >>> 4, _U4_ILV)
-        d = muladd(convert(Vec{32,Float32}, codes), vc, vm) - vload(Vec{32,Float32}, B, 2i - 1)
-        acc = muladd(d, d, acc)
-        i += 16
-    end
-
-    s = sum(acc)
-    @inbounds while i <= nb
-        a = A.V[i]; j = 2i - 1
-        d1 = Float32(a & 0x0f) * c + m - B[j]
-        d2 = Float32(a >>> 4) * c + m - B[j+1]
-        s += d1 * d1 + d2 * d2
-        i += 1
-    end
-
-    s
-end
-
-function squared_euclidean(A::SQu4Vec, B)::Float32
-    d = zero(Float32)
-    n = length(A.V)  # == length(B) ÷ 2, exact (see `quantize`/`SQu4Vec`)
-
-    @inbounds @simd for i in 1:n
-        a = A.V[i]
-        j = 2i - 1
-        af = Float32(a & 0x0f) * A.E.c + A.E.min
-        bf = B[j]
-        m = (af - bf)^2
-        a >>= 4
-        af = Float32(a) * A.E.c + A.E.min
-        bf = B[j+1]
-        m += (af - bf)^2
-        d += m
-    end
-
-    d
-end
-
-squared_euclidean(a, b::SQu4Vec) = squared_euclidean(b, a)
-
-"""
-    L2()
-
-The Euclidean (``L_2``) distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
-or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
-coordinate, accumulates the squared differences (see [`SqL2`](@ref)), and returns its
-square root.
-"""
-struct L2 <: Metric end
-
-@inline evaluate(::L2, a, b) = sqrt(squared_euclidean(a, b))
-
-"""
-    SqL2()
-
-The squared Euclidean distance between two 4-bit quantized vectors ([`SQu4Vec`](@ref)),
-or between a [`SQu4Vec`](@ref) and a plain vector. `evaluate` dequantizes coordinate by
-coordinate and accumulates the squared differences `(af - bf)^2`, avoiding the
-square root computed by [`L2`](@ref).
-"""
-struct SqL2 <: Metric end
-
-@inline evaluate(::SqL2, a, b)::Float32 = squared_euclidean(a, b)
 
 end

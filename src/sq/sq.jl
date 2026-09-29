@@ -243,6 +243,8 @@ function sqrange(V::AbstractVector, levels::Integer;
 end
 
 include("codes.jl")
+include("vec.jl")
+include("dist.jl")
 include("gu8.jl")
 include("gu4.jl")
 include("gu2.jl")
