@@ -87,10 +87,40 @@ cidx = ExhaustiveSearch(ScalarQuant.Cosine(), gdb)
 cres = search(cidx, GenericContext(), ScalarQuant.quantize(gdb, qg), knnqueue(KnnSorted, 10))
 ```
 
-Indexing it yields the same `SQu*Vec` the per-column quantizers produce -- a globally quantized
-vector *is* a per-column one whose scale happens to be shared -- so every per-column distance
-applies, and each takes its best path: an exact integer pass between two stored vectors, and
-the mixed kernels against a plain `Float32` query.
+Indexing it yields the same `SQVec` the per-column quantizers produce -- a globally quantized
+vector *is* a per-column one whose scale happens to be shared -- so every distance in
+`ScalarQuant` applies, and each takes its best path: an exact integer pass between two stored
+vectors, and the mixed kernels against a plain `Float32` query.
+
+### Growing a quantized database
+
+Both families are a `QuantDatabase`: the parameters plus *some* database of code vectors,
+which is `MatrixDatabase` when a matrix is quantized in one shot and can be any other one.
+Start from an empty growable storage and the database quantizes each vector on the way in
+with the parameters it was created with, so a `SearchGraph` builds over it one item at a
+time, and a `MMapMatrixDatabase` keeps the codes on disk across processes:
+
+```julia
+# SimilaritySearch v1.5
+using SimilaritySearch, SimilaritySearch.ScalarQuant
+
+X = randn(Float32, 64, 10_000)
+mm = extrema(X)
+gdb = GlobalQuantDatabase(8, BlockMatrixDatabase(64, UInt8), mm; dim=64)  # empty; 64 bytes per 8-bit vector
+G = SearchGraph(ScalarQuant.SqL2(), gdb)
+ctx = SearchGraphContext(; reporters=[])
+append_items!(G, ctx, MatrixDatabase(X))                # quantized on the way in
+res = search(G, ctx, randn(Float32, 64), knnqueue(KnnSorted, 10))   # a raw query, mixed kernel
+gdb == GlobalQuantDatabase(8, X; minmax=mm)             # true: the same codes, byte for byte
+
+# the per-vector family grows the same way
+pdb = ScalarQuant.SQu4.SQu4Database(ScalarQuant.SQMinC[], BlockMatrixDatabase(32, UInt8); dim=64)
+push_item!(pdb, X[:, 1])
+```
+
+`GlobalQuantDatabase(8, MMapMatrixDatabase(path), mm)` reopens a database whose codes were
+pushed into an mmap file; `E` and, if kept, the sums `Sa`/`Saa` travel with it, and a
+`Sa`/`Saa` handed back skips the one pass over the codes that otherwise recomputes them.
 
 !!! note "`NormCosine` was removed from `SQgu*` in v1.5.1"
     It ranked by the dot product of the raw codes, which preserves order only when the global

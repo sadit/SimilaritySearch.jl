@@ -303,6 +303,18 @@ ScalarQuant.SQVec
 ScalarQuant.quantvector!
 ```
 
+### The quantized database (`QuantDatabase`)
+One database type for both families, over any storage of `UInt8` vectors: static
+(`MatrixDatabase`), growing in blocks (`BlockMatrixDatabase`), on disk (`MMapMatrixDatabase`)
+or anything indexable. `push_item!`/`append_items!` quantize on the way in with the
+database's own parameters.
+```@docs
+ScalarQuant.QuantDatabase
+ScalarQuant.quantize
+ScalarQuant.isglobal
+ScalarQuant.codewidth
+```
+
 ### Distances over quantized vectors
 Defined once for every width and both families. Between two quantized vectors each is one
 integer pass over the codes plus the per-vector sums; against a plain `Float32` vector the
@@ -359,7 +371,8 @@ ScalarQuant.SQgu8.SqL2
 `SQgu*.quantize` returns a bare matrix of codes and leaves `min`/`max` to the caller, so
 stored codes cannot be dequantized and can only be compared against codes from the same run.
 `GlobalQuantDatabase` keeps the pair, and the per-vector code sums an order-preserving cosine
-needs; it yields the ordinary `SQVec`, so every distance above applies to it.
+needs; it is the global-family `QuantDatabase`, so every distance above applies to it and it
+grows like any other.
 ```@docs
 ScalarQuant.GlobalQuantDatabase
 ```

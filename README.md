@@ -45,6 +45,16 @@ removing any that worked before. Patch releases inside a series are fixes and pe
 - **Stored quantized databases can be rebuilt from their fields.** `SQu4Database`/`SQu8Database`
   accept `(E, Q)` back, so a persisted per-column database no longer has to be re-quantized from
   the `Float32` matrix it came from.
+- **Quantized databases grow, over any storage.** Both families are one `ScalarQuant.QuantDatabase`
+  whose codes live in any `AbstractDatabase` of `UInt8` vectors: a `BlockMatrixDatabase` or an
+  `MMapMatrixDatabase` makes `push_item!`/`append_items!` quantize on the way in, so a `SearchGraph`
+  builds over a quantized database one item at a time and the codes can outlive the process.
+  `db.Q` is therefore a database now, not a `Matrix{UInt8}` (`db.Q.matrix` for the default
+  `MatrixDatabase`); the constructors accept either. There is one `SQVec{B}` vector type and one
+  set of distances (`ScalarQuant.SqL2()` and friends) for every width and both families; the
+  per-width names remain as aliases. `L1` at 2 bits takes the absolute value it skipped, `NormCosine`
+  exists at 4 and 2 bits, and a `GlobalQuantDatabase` rejects a dimension that does not fill its
+  last byte instead of reading a plain query past its end.
 - **Faster quantized distances.** Per-column `SqL2`/`NormCosine` are computed from integer code
   sums rather than dequantizing coordinate by coordinate (up to 3.5x, and an order of magnitude
   more accurate), and the global `SQgu*` kernels vectorize the remainder they used to leave to

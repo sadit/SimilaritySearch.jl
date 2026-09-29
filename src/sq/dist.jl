@@ -95,7 +95,17 @@ accumulates the absolute value of the differences.
 """
 struct L1 <: Metric end
 
-_l1(A::SQVec{W}, B::SQVec{W}) where {W} = _scanpair(_absdiffop, Val(W), A, B)
+function _l1(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
+    # Equal scales collapse to `c Σ|a - b|` over the codes, an integer sum that Float32 holds
+    # exactly, so identical codes give exactly 0f0 the way `SqL2`'s equal-scale branch does.
+    # The dequantized scan cannot promise that: `@fastmath` may contract one side's `a*c + m`
+    # into an FMA and not the other's, and a vector against itself came out at 1e-7.
+    if A.E == B.E
+        return A.E.c * _scanpair(_absdiffop, Val(W), A, B, 1f0, 0f0, 1f0, 0f0)
+    end
+
+    _scanpair(_absdiffop, Val(W), A, B, A.E.c, A.E.min, B.E.c, B.E.min)
+end
 _l1(A::SQVec{W}, B::AbstractVector) where {W} = _scan(_absdiffop, Val(W), A, B)
 
 @inline evaluate(::L1, A::SQVec, B::SQVec)::Float32 = _l1(A, B)
@@ -211,10 +221,9 @@ end
     d
 end
 
-"Reduces `op` over the dequantized coordinates of two quantized vectors of the same width."
-@inline function _scanpair(op::F, ::Val{8}, A::SQVec, B::SQVec)::Float32 where {F}
+"Reduces `op` over the coordinates of two quantized vectors of the same width, each dequantized with the affine map given (`code * c + m`)."
+@inline function _scanpair(op::F, ::Val{8}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
-    cA = A.E.c; mA = A.E.min; cB = B.E.c; mB = B.E.min
     @fastmath @inbounds @simd for i in 1:n
         d = op(Float32(A.V[i]) * cA + mA, Float32(B.V[i]) * cB + mB, d)
     end
@@ -222,9 +231,8 @@ end
     d
 end
 
-@inline function _scanpair(op::F, ::Val{4}, A::SQVec, B::SQVec)::Float32 where {F}
+@inline function _scanpair(op::F, ::Val{4}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
-    cA = A.E.c; mA = A.E.min; cB = B.E.c; mB = B.E.min
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; b = B.V[i]
         d = op(Float32(a & 0x0f) * cA + mA, Float32(b & 0x0f) * cB + mB, d)
@@ -234,9 +242,8 @@ end
     d
 end
 
-@inline function _scanpair(op::F, ::Val{2}, A::SQVec, B::SQVec)::Float32 where {F}
+@inline function _scanpair(op::F, ::Val{2}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
-    cA = A.E.c; mA = A.E.min; cB = B.E.c; mB = B.E.min
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; b = B.V[i]
         d = op(Float32(a & 0x03) * cA + mA, Float32(b & 0x03) * cB + mB, d)

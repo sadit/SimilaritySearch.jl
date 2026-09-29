@@ -156,10 +156,26 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
 - `invertedfiles/` (`InvertedFiles` submodule) — general inverted index representation
   (`InvertedFile`, with `WeightedInvertedFile` as its weighted-vector constructor, and
   `InvertedFileContext`).
-- `sq/` (`ScalarQuant` submodule) — per-column (`SQu2`/`SQu4`/`SQu8`) and global
-  (`SQgu2`/`SQgu4`/`SQgu8`) scalar quantization, each its own nested submodule. The global
-  ones share `sqglobalscale` and expose an in-place `quantize!(vout, v, minmax)` alongside
-  the allocating `quantize`, so an encoding loop can reuse one output buffer.
+- `sq/` (`ScalarQuant` submodule) — scalar quantization at 2/4/8 bits, in two families
+  (per-vector and global `min`/scale) over **one** vector type and **one** database type.
+  `codes.jl` is the width layer (everything dispatched on `Val{B}`: `packcodes!`, `getcode`,
+  the integer kernels `codesums`/`dotcodes`/`sqdiffcodes`); `vec.jl` is `SQVec{B,VEC}`;
+  `dist.jl` defines `SqL2`/`L2`/`L1`/`NormCosine`/`Cosine` once over it; `db.jl` is
+  `QuantDatabase{B,P,DB}` (`P` = `Vector{SQMinC}` per-vector or `SQMinC` global, `DB` any
+  `AbstractDatabase` of `UInt8` vectors, so the codes can live in a `BlockMatrixDatabase` or
+  an `MMapMatrixDatabase` and grow through `push_item!`/`append_items!`). `u2/u4/u8.jl`,
+  `gu2/gu4/gu8.jl` and `gdb.jl` are the per-width façades (`SQu8Database`,
+  `GlobalQuantDatabase`, ... are aliases; the `SQgu*.SqL2` over raw bytes stay per-width
+  types because bytes carry no width, and the global modules keep the in-place
+  `quantize!(vout, v, minmax)` an encoding loop reuses its buffer with). Two conventions
+  were measured, not chosen: the per-vector sums `Sa`/`Saa` are sums of the *codes* (sums of
+  the original `Float32` vector lost 0.01-0.41 of recall@10 on SISAP 2025; issue #87), and
+  the float-side kernels are plain `@fastmath @simd` scalar scans that LLVM vectorizes on
+  its own -- an explicit `Vec{32,Float32}` skeleton was 77 ns against 44 at 8 bits, so don't
+  "vectorize" them by hand except for the two 4/2-bit `SqL2` shuffle kernels that already
+  are. When timing any of this, pass distances and queries through a function barrier: a
+  non-`const` global `q` or a `Module`-valued `mod.SqL2()` inside a closure adds 40-200 ns
+  of dynamic dispatch per call and produced two wrong tables before it was caught.
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
   `HadamardProjection`, `PCAProjection`, the metric-hyperplane models (`DistantHyperplanes`,
   `AnchoredDistantHyperplanes`, `RandomHyperplanes`), and two encodings over them:
