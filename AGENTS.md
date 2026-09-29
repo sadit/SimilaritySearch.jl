@@ -147,7 +147,30 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   "fix" a radius crash by guarding the emptiness; that is the half that returns nothing.
 - `exact/` — `ExhaustiveSearch` (sequential) and `ParallelExhaustiveSearch` (parallel,
   `@BATCHES`-based, lock-free per-batch buffers).
-- `searchgraph/` — `SearchGraph` itself: construction/insertion (`insertions.jl`),
+- `searchgraph/` — `SearchGraph` itself: construction/insertion (`insertions.jl`), and
+  `AbstractSearchGraph` with its other specialization, `AsymmetricSearchGraph`
+  (`asymmetric.jl`): a wrapper over a `SearchGraph` whose database stores a transformed
+  form (codes) while insertion and queries use the raw objects, evaluated raw-against-stored
+  by the graph's distance. The way of working is a property of the instance, never a
+  keyword on a call (issue #86, where an `insertion=` keyword on `append_items!` was tried
+  and rejected). The insertion loops read the query object through an `InsertionSource`
+  rather than `database(index, i)` so that path exists; `_index!(index, ctx, objects)` is
+  the internal entry the wrapper uses. Its callbacks tune with a sample of the raw items
+  (`rawqueries`), because the default `OptimizeParameters` samples stored items, i.e. codes,
+  the wrong side of an asymmetric distance. The estimator *is* the distance: the graph only
+  evaluates `dist(q, stored)`, and `dist` gets everything the model has (raw query, encoded
+  object with what was kept beside the code, its own fields), so a probabilistic estimator
+  (`AbstractEstimator <: PreMetric`, one plain serializable type, never a closure) bounds
+  its error and re-evaluates *inside* `evaluate`, transparently; `encode(dist, obj)` says
+  what the storage receives (default: `obj`, the `QuantDatabase` transforms) and
+  `encodequery(dist, q)` what a raw query becomes, applied by the graph once per query and
+  once per inserted item (a rotation is `D^2`; never per evaluation). There is no
+  post-search correction pass and no re-ranking against raw data the graph never has; the
+  scalar quantizers' distances are the no-op case. An estimator must also evaluate
+  stored-against-stored: the SAT neighborhood filters compare a new item's candidates among
+  themselves (found live: a raw-only estimator fails inside `find_neighborhood!`).
+  Measured on ccnews: the asymmetric edges are better below 8 bits, and a query evaluated
+  against codes cannot cash it,
   rebuild-from-scratch (`rebuild.jl`), beam search (`beamsearch.jl`), neighborhood
   filters (`neighborhood.jl`), adjacency backends (`../adj/`), per-call state
   (`context.jl` → `SearchGraphContext`).
@@ -208,6 +231,14 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   one; don't rely on it existing.
 - Distance functions live under `Dist` (e.g. `SimilaritySearch.Dist.SqL2()`), not at
   top level.
+- **A distance is evaluated query first: `evaluate(dist, q, obj)`**, everywhere an index
+  compares a query against a stored object (beam search, SAT, BKT, the exhaustive searches,
+  re-ranking). Metrics don't care, but an `AbstractEstimator` evaluates a *raw* query against
+  a *stored* code and is not symmetric in its arguments; the four sites that had it the other
+  way round (both `ExhaustiveSearch`es, `rerank.jl`, `sketchedsearch.jl`) were found by one
+  such estimator failing inside `optimize_index!`'s gold computation. Between two stored
+  objects (neighborhood filters, `allknn`, `distsample`) the order is whatever it is, and an
+  estimator must accept that pair too.
 - `IdDist(id, dist)` is the fundamental `(identifier, distance)` pair type; `IdView`/
   `DistView` give zero-copy column-style views over collections of it.
 

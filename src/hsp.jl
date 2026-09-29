@@ -22,6 +22,11 @@ function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase
             f = (f + 1.0f0) * 0.5f0
         end
     end=#
+    # `point` and `hsp_obj` are both stored objects -- encoded, if the database encodes --
+    # while the center never appears here: `dist_center_point` was evaluated by the caller
+    # with the center as given (raw, in an asymmetric graph) against the stored point. An
+    # estimator therefore evaluates two kinds of pairs: raw against stored to navigate and
+    # to place the center, and stored against stored for this rule between candidates.
     @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
         hsp_obj = db[hsp_objID]
         dist_point_hsp = evaluate(dist, point, hsp_obj)

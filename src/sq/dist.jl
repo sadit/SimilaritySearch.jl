@@ -47,7 +47,8 @@ already stored by every [`SQVec`](@ref) (`Sa = Σ codes`, `Saa = Σ codes²`):
   20k unit-norm vectors in dim 128, ranking by the raw code dot product gave recall@10 of
   **0.005** against exact cosine, while the full expansion gave **0.97** (issue #77);
 - the **norms**, `‖â‖² = c²·Saa + 2·c·m·Sa + n·m²`, correct the drift quantization leaves in
-  a vector that was normalized before being quantized. That matters more the fewer bits
+  a vector that was normalized before being quantized. Against a plain vector the query's
+  norm is computed on the spot. That matters more the fewer bits
   there are: on non-negative data, recall@10 went 0.9685 -> 0.979 at 8 bits, 0.590 -> 0.666
   at 4 bits, and 0.111 -> 0.126 at 2 bits.
 
@@ -63,6 +64,21 @@ function evaluate(::Cosine, a::SQVec, b::SQVec)::Float32
     (na == 0 || nb == 0) && return 1f0
     Float32(1.0 - clamp(quantdot(a, b) / (na * nb), -1.0, 1.0))
 end
+
+# against a plain vector: the query's norm is not stored anywhere, so it costs one pass over
+# the query per pair on top of the mixed dot product; a query known to be normalized can use
+# `NormCosine` instead, which is the same ranking without that pass
+function evaluate(::Cosine, a::SQVec, q::AbstractVector)::Float32
+    na = quantnorm(a)
+    nq2 = 0.0
+    @inbounds @simd for i in eachindex(q)
+        nq2 += Float64(q[i]) * Float64(q[i])
+    end
+    (na == 0 || nq2 == 0) && return 1f0
+    Float32(1.0 - clamp(Float64(dotmixed(a, q)) / (na * sqrt(nq2)), -1.0, 1.0))
+end
+
+evaluate(c::Cosine, q::AbstractVector, a::SQVec)::Float32 = evaluate(c, a, q)
 
 """
     NormCosine()

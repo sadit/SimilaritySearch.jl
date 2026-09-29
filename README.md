@@ -55,6 +55,14 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   per-width names remain as aliases. `L1` at 2 bits takes the absolute value it skipped, `NormCosine`
   exists at 4 and 2 bits, and a `GlobalQuantDatabase` rejects a dimension that does not fill its
   last byte instead of reading a plain query past its end.
+- **`AsymmetricSearchGraph`.** A graph over quantized storage that inserts and searches with the raw
+  objects, evaluated against the stored codes, so its edges are chosen on the exact distance; a
+  `SearchGraph` over the same database is the symmetric one, codes against codes. Both are
+  `AbstractSearchGraph`s, and the way of working is fixed when the instance is built. It is also the
+  path for asymmetric estimators over sketches: an `AbstractEstimator` is a distance that says
+  through `encode` what the storage receives and re-evaluates inside its own `evaluate` when its error
+  model says it must, transparently to the graph; one serializable type, its parameters as fields.
+  `ScalarQuant.Cosine` accepts a plain vector too.
 - **Faster quantized distances.** Per-column `SqL2`/`NormCosine` are computed from integer code
   sums rather than dequantizing coordinate by coordinate (up to 3.5x, and an order of magnitude
   more accurate), and the global `SQgu*` kernels vectorize the remainder they used to leave to

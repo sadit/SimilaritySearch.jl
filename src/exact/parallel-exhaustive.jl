@@ -88,7 +88,7 @@ function search(pex::ParallelExhaustiveSearch, ctx::GenericContext, q, res::Abst
     @BEGINBATCH
         r = knnqueue(KnnSorted, view(R_ids, :, @batchid()), view(R_dists, :, @batchid()))
     @LOOP for i in 1:n
-        d = Dist.evaluate(dist, database(pex, i), q)
+        d = Dist.evaluate(dist, q, database(pex, i))
         push_item!(r, i, d)
     end
     @ENDBATCH

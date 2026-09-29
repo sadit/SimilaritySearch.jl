@@ -11,7 +11,12 @@ end
 ```@docs
 ExhaustiveSearch
 ParallelExhaustiveSearch
+AbstractSearchGraph
 SearchGraph
+AsymmetricSearchGraph
+AbstractEstimator
+SimilaritySearch.encode
+SimilaritySearch.encodequery
 BKT
 PermutedSearchIndex
 distance

@@ -32,6 +32,7 @@ const TESTFILES = [
     "testselection.jl",
     "testadj.jl",
     "testsearchgraph.jl",
+    "testquantgraph.jl",
     "testallknn.jl",
     "testclosestpair.jl",
     "testindexingprefixes.jl",

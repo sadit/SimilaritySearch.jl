@@ -74,7 +74,7 @@ database, pushing each candidate into `res`.
     n = length(db)
     i = 0
     while (i += 1) <= n
-        d = Dist.evaluate(dist, db[i], q)
+        d = Dist.evaluate(dist, q, db[i])
         push_item!(res, i, d)
     end
 

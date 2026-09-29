@@ -122,22 +122,54 @@ push_item!(pdb, X[:, 1])
 pushed into an mmap file; `E` and, if kept, the sums `Sa`/`Saa` travel with it, and a
 `Sa`/`Saa` handed back skips the one pass over the codes that otherwise recomputes them.
 
-!!! note "`NormCosine` was removed from `SQgu*` in v1.5.1"
-    It ranked by the dot product of the raw codes, which preserves order only when the global
-    minimum is zero. On centered data -- any ordinary embedding -- it scored recall@10 of 0.005
-    against exact cosine. Use `ScalarQuant.Cosine()` on a `GlobalQuantDatabase`, which corrects
-    both the offset term (0.005 -> 0.97 at 8 bits) and the norm drift quantization leaves in a
-    pre-normalized vector; the latter is worth more the fewer bits there are.
+### Symmetric and asymmetric graphs over quantized storage
 
-Two things worth knowing when choosing parameters:
+A graph stored as codes can work in two ways, and the way is a property of the instance. A
+`SearchGraph` over a `QuantDatabase` is the **symmetric** graph: it inserts and searches
+with the objects as the database stores them, codes against codes on both sides, through
+the exact integer kernel. An `AsymmetricSearchGraph` over the same database stores codes
+too, but inserts and searches with the **raw** objects, evaluated against the stored codes
+by the mixed kernel: each new item picks its neighbors by its exact distance, so the
+quantization error is not baked into the edges. A query can be passed raw to either graph;
+the symmetric one also takes it as codes, `quantize(database(G), q)`.
 
-- `quantize` estimates the range from the `[0.025, 0.975]` quantiles of a sample unless you
-  pass `minmax`. On normalized data that clipping is expensive: recall@10 at 8 bits was 0.97
-  with the exact extrema and 0.796 with the default.
-- Comparing against a **raw** `Float32` query beats quantizing the query, increasingly so as
-  precision drops: 0.9755 vs 0.97 at 8 bits, and 0.203 vs 0.0975 at 2 bits.
+```julia
+# SimilaritySearch v1.5
+using SimilaritySearch, SimilaritySearch.ScalarQuant
 
----
+X = randn(Float32, 64, 10_000)
+mm = extrema(X)
+ctx = SearchGraphContext(; reporters=[])
+q = randn(Float32, 64)
+
+sym = SearchGraph(ScalarQuant.SqL2(), GlobalQuantDatabase(4, BlockMatrixDatabase(32, UInt8), mm; dim=64))
+append_items!(sym, ctx, MatrixDatabase(X))                   # edges chosen on codes
+res_raw = search(sym, ctx, q, knnqueue(KnnSorted, 10))       # query in Float32, against codes
+res_codes = search(sym, ctx, ScalarQuant.quantize(database(sym), q), knnqueue(KnnSorted, 10))
+
+asym = AsymmetricSearchGraph(ScalarQuant.SqL2(), GlobalQuantDatabase(4, BlockMatrixDatabase(32, UInt8), mm; dim=64))
+append_items!(asym, ctx, MatrixDatabase(X))                  # edges chosen on Float32 vs codes; storage at 4 bits
+res_asym = search(asym, ctx, q, knnqueue(KnnSorted, 10))
+```
+
+Quantization error at insertion time is baked into the topology for good; at query time it
+is recoverable by re-ranking. For a fixed graph, a `Float32` query never does worse than a
+quantized one, and the same edges searched over the full-precision vectors never do worse
+than either; the tests assert exactly that ordering. On the SISAP 2025 `ccnews` benchmark
+(issue #86) the asymmetric edges are better below 8 bits, but a query evaluated against
+codes cannot cash the difference, so the asymmetric graph is for queries that will be
+re-scored in higher precision and the symmetric one, cheaper at every step, for the rest.
+
+That re-evaluation belongs to the distance. The graph only ever evaluates
+`dist(q, stored)`, and `dist` receives everything a model has: the raw query, the encoded
+object with whatever the model kept beside the code, and its own parameters. The scalar
+quantizers' distances are the no-op case, an estimate that needs no correction. A
+distance that is an *estimator* with an error of its own -- a sketch against a raw query, a
+RaBitQ-style code -- is an `AbstractEstimator`: it says through `encode(est, obj)` what the
+storage receives and through `encodequery(est, q)` what a raw query becomes (a rotation,
+applied once per query rather than per evaluation), and inside its `evaluate` it bounds its
+error and re-evaluates when it must, transparently to the graph. One plain type with its parameters as fields, so the
+graph and what gives its codes meaning serialize together.
 
 ## Bit Sketches: Binary Random Projections
 

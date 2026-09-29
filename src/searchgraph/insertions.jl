@@ -33,6 +33,27 @@ function append_items!(
 end
 
 """
+    InsertionSource(dist, db, items, offset)
+
+What the insertion loops query the graph with, when that is not the database itself: object
+`i` is `encodequery(dist, items[i - offset])` when it was just appended (its raw form,
+prepared once for the query side of `dist`), and `db[i]` otherwise (what the database
+stores). It is how an [`AsymmetricSearchGraph`](@ref) inserts raw objects into a graph over
+their transformed storage; a `SearchGraph` always queries with the database. Indexing only;
+the loops never iterate it, and each object is read once, so the preparation runs once per
+inserted item.
+"""
+struct InsertionSource{D<:PreMetric,DB<:AbstractDatabase,ITEMS<:AbstractDatabase}
+    dist::D
+    db::DB
+    items::ITEMS
+    offset::Int
+end
+
+Base.@propagate_inbounds Base.getindex(s::InsertionSource, i::Integer) =
+    i > s.offset ? encodequery(s.dist, s.items[i - s.offset]) : s.db[i]
+
+"""
     add_inform_message(index::SearchGraph, sp, ep) -> String
 
 The `add!` progress line, worded identically on both insertion paths (#66): the per-item
@@ -45,18 +66,18 @@ function add_inform_message(index::SearchGraph, sp, ep)
     "add! sp=$sp ep=$ep $(index.algo[]) n.size-quantiles=$(quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0))"
 end
 
-function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
+function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists, objects)
     @inbounds while sp <= n
         ksearch = neighborhoodsize(ctx.neighborhood, sp)
         tmp       = knnqueue(ctx, view(qcache_ids, 1:ksearch, 1), view(qcache_dists, 1:ksearch, 1))
         neighbors = knnqueue(ctx, view(qcache_ids, 1:ksearch, 2), view(qcache_dists, 1:ksearch, 2))
 
-        push_item!(index, ctx, database(index, sp), tmp, neighbors, false)
+        push_item!(index, ctx, objects[sp], tmp, neighbors, false)
         sp += 1
     end
 end
 
-function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
+function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists, objects)
     resize!(index.adj, n)
 
     while sp <= n
@@ -79,7 +100,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
             neighbors_ = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
         @LOOP for objID in spb:ep
-            item = database(index, objID)
+            item = objects[objID]
             R = spb:objID-1
             reuse!(tmp)
             reuse!(neighbors_)
@@ -113,7 +134,10 @@ The arguments are the same than `append_items!` function but using the internal 
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
 
 """
-function index!(index::SearchGraph, ctx::SearchGraphContext)
+index!(index::SearchGraph, ctx::SearchGraphContext) = _index!(index, ctx, database(index))
+
+"Indexes the unindexed tail of the database, querying the graph with `objects[i]` for object `i` (see `InsertionSource`)."
+function _index!(index::SearchGraph, ctx::SearchGraphContext, objects)
     n = length(database(index))
     @assert n > 0
 
@@ -122,13 +146,13 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
             isodd(s) && (s += 1)
             zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
     else
         qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * ctx.maxbatches
             isodd(s) && (s += 1)
             zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
     end
 
     index
