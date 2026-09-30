@@ -75,6 +75,11 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   and its rotation by the object, `Projections.qr(dim, dim)`, the new `Projections.RandomizedHadamard`
   (random signs and the Walsh-Hadamard transform, `dim log dim`), or `nothing`; on the SISAP 2025 `ccnews`
   benchmark the rotation moved recall by less than 0.01 at every width and cost 30-50 µs per query.
+- **Scores with error bars.** `bootstrapscore(recallscore, gold, res)` resamples the queries and returns the
+  macro score with its standard deviation and a percentile interval, over any per-query score;
+  `perqueryscores` gives the vector it draws from, and the bootstrap of the per-query differences of two
+  results is the paired comparison. `matcherror` and the new `macromatcherror` are score functions in their
+  own right now, exported beside `recallscore`/`macrorecall` (issue #92).
 - **The Walsh-Hadamard transform is a butterfly, not an FFTW plan.** `HadamardProjection` used to build an
   FFTW plan on every per-vector `transform!`, under FFTW's global lock: 170-400 µs per vector, worse with
   threads. It is now a plain in-place butterfly on both paths, its first three passes and its `1/n` scale

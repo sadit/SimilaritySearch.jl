@@ -257,6 +257,12 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   **position into `centers`**, never an identifier into the database.
 - `allknn.jl`, `closestpair.jl`, `hsp.jl`, `rerank.jl`, `opt.jl` — higher-level algorithms built
   on top of the index interface.
+- `perf.jl` — the scores: `recallscore`/`macrorecall` (identifiers), `matcherror`/
+  `macromatcherror` (distances; `matcherror` lived in `opt.jl` as an optimizer internal until
+  #92), `perqueryscores` (the per-query vector a macro score averages) and `bootstrapscore`
+  (resamples *queries* over that vector, computed once; a paired comparison of two results is
+  the bootstrap of their per-query differences). `MinRecall`/`MaxMatchError` in `opt.jl` are
+  built on these, not the other way round.
 
 ## Conventions worth knowing before writing code
 

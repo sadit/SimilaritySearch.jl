@@ -73,8 +73,22 @@ hsp_queries
 rerank!
 distsample
 distsample_ut
+```
+
+## Scores: recall, match error, and their bootstrap
+
+A score is a two-argument function of a query's gold result and the result to evaluate; the
+macro score is its mean over the queries, and [`bootstrapscore`](@ref) resamples the queries
+to say how much that mean would move. [`MinRecall`](@ref) and [`MaxMatchError`](@ref) are
+built on `macrorecall` and `macromatcherror`.
+```@docs
 recallscore
 macrorecall
+matcherror
+macromatcherror
+perqueryscores
+bootstrapscore
+BootstrapScore
 ```
 
 ## Parallel batching (`@BATCHES`)
