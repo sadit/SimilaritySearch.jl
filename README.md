@@ -75,6 +75,11 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   and its rotation by the object, `Projections.qr(dim, dim)`, the new `Projections.RandomizedHadamard`
   (random signs and the Walsh-Hadamard transform, `dim log dim`), or `nothing`; on the SISAP 2025 `ccnews`
   benchmark the rotation moved recall by less than 0.01 at every width and cost 30-50 µs per query.
+- **The Walsh-Hadamard transform is a butterfly, not an FFTW plan.** `HadamardProjection` used to build an
+  FFTW plan on every per-vector `transform!`, under FFTW's global lock: 170-400 µs per vector, worse with
+  threads. It is now a plain in-place butterfly on both paths, 100x faster per vector and 50x faster per
+  column of a matrix than the batched FFTW call, bit for bit the same values; `Hadamard.jl` and FFTW leave
+  the dependency tree (issue #89).
 - **Faster quantized distances.** Per-column `SqL2`/`NormCosine` are computed from integer code
   sums rather than dequantizing coordinate by coordinate (up to 3.5x, and an order of magnitude
   more accurate), and the global `SQgu*` kernels vectorize the remainder they used to leave to
