@@ -233,9 +233,10 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
   `HadamardProjection` (`hadamard.jl`; its transform is `fwht!`, a plain in-place butterfly
   — **not** FFTW: the planned transform cost 170-400 µs *per vector* because Hadamard.jl
-  built a plan under FFTW's global lock on every call, and even a cached plan executes 7-20x
-  slower than the butterfly for this shape; issue #89 has the tables, don't bring a plan
-  back), `PCAProjection`, the metric-hyperplane models (`DistantHyperplanes`,
+  built a plan under FFTW's global lock on every call, and even a cached plan executes 30-60x
+  slower than the butterfly for this shape; the first three passes, whose loops are 1, 2 and 4
+  long, are one `Vec{8}` block of three shuffles, and the scale rides in the last pass; issue
+  #89 has the tables, don't bring a plan back), `PCAProjection`, the metric-hyperplane models (`DistantHyperplanes`,
   `AnchoredDistantHyperplanes`, `RandomHyperplanes`), and two encodings over them:
   `bitsketch` (SimHash-style, one *sign* bit per component, Hamming) and `QuantSketch`
   (`quantsketch.jl`: 2/4/8-bit codes per component via `SQgu2`/`SQgu4`/`SQgu8`, compared

@@ -35,7 +35,7 @@ using Test, SimilaritySearch, SimilaritySearch.Projections, LinearAlgebra, Rando
         # the butterfly against the Sylvester Hadamard matrix, natural ordering, scaled by 1/n
         # (what Hadamard.jl's fwht_natural! produced; issue #89 replaced the FFTW plans)
         sylvester(k) = k == 0 ? ones(Float64, 1, 1) : (H = sylvester(k - 1); [H H; H -H])
-        for m in (1, 8, 64, 128, 1024), T in (Float32, Float64)
+        for m in (1, 2, 4, 8, 16, 32, 64, 128, 1024), T in (Float32, Float64)   # scalar (< 8), one block (8), SIMD passes (>= 16)
             H = sylvester(Int(log2(m)))
             u = randn(T, m)
             want = T.(H * Float64.(u) ./ m)
@@ -44,6 +44,10 @@ using Test, SimilaritySearch, SimilaritySearch.Projections, LinearAlgebra, Rando
             @test got == transform(HadamardProjection(m), u)                   # the projection is the butterfly
             @test Projections.fwht!(Projections.fwht!(copy(u))) ≈ u ./ m       # H*H = n*I, twice scaled by 1/n
         end
+        # any other layout or element type takes the scalar butterfly, and agrees bit for bit
+        u = randn(Float32, 256)
+        @test Projections.fwht!(view(copy(u), 1:1:256)) == Projections.fwht!(copy(u))          # a strided view: scalar path
+        @test Projections.fwht!(Float64.(u)) ≈ Projections.fwht!(copy(u)) rtol=1f-5
         # the matrix path is the per-column butterfly, in parallel, and takes any batch size
         Y1 = transform(hp, X)
         @test Y1 == reduce(hcat, transform(hp, X[:, j]) for j in 1:n)
