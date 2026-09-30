@@ -433,15 +433,15 @@ Projections.bitsketch
 
 ## Hadamard projection (`Projections.HadamardProjection`) and the rotations
 
-A projection computed with the fast Walsh-Hadamard transform
-(via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht_natural!`) instead of a dense
-random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!`/`bitsketch` generic
+A projection computed with the fast Walsh-Hadamard transform (an in-place butterfly,
+`Projections.fwht!`, with no plan behind it) instead of a dense random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!`/`bitsketch` generic
 functions documented above for `RandomProjections`. `RandomizedHadamard` makes a random
 rotation of it (a random sign per coordinate first, and the norm preserved), and `Rotation`
 is what the estimators (`ScalarQuant.SQEncoder`, `RaBitQ`) take as theirs.
 
 ```@docs
 Projections.HadamardProjection
+Projections.fwht!
 Projections.RandomizedHadamard
 Projections.Rotation
 ```
