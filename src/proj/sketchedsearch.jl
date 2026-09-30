@@ -131,7 +131,7 @@ function search(S::SketchedSearch, ctx::AbstractContext, q, res::AbstractKnnQueu
     dist, db = S.dist, S.db
     n = 0
     for p in cand
-        push_item!(res, p.id, evaluate(dist, db[p.id], q))
+        push_item!(res, p.id, evaluate(dist, q, db[p.id]))
         n += 1
     end
 

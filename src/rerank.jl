@@ -29,7 +29,7 @@ function rerank!(dist::PreMetric, db::AbstractDatabase, q,
         else
             m = i
             o = db[pid]
-            dists[i] = evaluate(dist, o, q)
+            dists[i] = evaluate(dist, q, o)
         end
     end
 

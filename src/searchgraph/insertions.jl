@@ -45,18 +45,18 @@ function add_inform_message(index::SearchGraph, sp, ep)
     "add! sp=$sp ep=$ep $(index.algo[]) n.size-quantiles=$(quantile(neighbors_length.(Ref(index.adj), sp:ep), 0:0.25:1.0))"
 end
 
-function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
+function _sequential_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists, objects)
     @inbounds while sp <= n
         ksearch = neighborhoodsize(ctx.neighborhood, sp)
         tmp       = knnqueue(ctx, view(qcache_ids, 1:ksearch, 1), view(qcache_dists, 1:ksearch, 1))
         neighbors = knnqueue(ctx, view(qcache_ids, 1:ksearch, 2), view(qcache_dists, 1:ksearch, 2))
 
-        push_item!(index, ctx, database(index, sp), tmp, neighbors, false)
+        push_item!(index, ctx, objects[sp], tmp, neighbors, false)
         sp += 1
     end
 end
 
-function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists)
+function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContext, sp, n, qcache_ids, qcache_dists, objects)
     resize!(index.adj, n)
 
     while sp <= n
@@ -79,7 +79,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             tmp       = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))
             neighbors_ = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid()),     view(qcache_dists, 1:ksearch, 2 * @batchid()))
         @LOOP for objID in spb:ep
-            item = database(index, objID)
+            item = objects[objID]
             R = spb:objID-1
             reuse!(tmp)
             reuse!(neighbors_)
@@ -113,7 +113,10 @@ The arguments are the same than `append_items!` function but using the internal 
 - `ctx`: The context environment of the graph, see  [`SearchGraphContext`](@ref).
 
 """
-function index!(index::SearchGraph, ctx::SearchGraphContext)
+index!(index::SearchGraph, ctx::SearchGraphContext) = _index!(index, ctx, database(index))
+
+"Indexes the unindexed tail of the database, querying the graph with `objects[i]` for object `i` (see `InsertionSource`)."
+function _index!(index::SearchGraph, ctx::SearchGraphContext, objects)
     n = length(database(index))
     @assert n > 0
 
@@ -122,13 +125,13 @@ function index!(index::SearchGraph, ctx::SearchGraphContext)
             isodd(s) && (s += 1)
             zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
+        _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
     else
         qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * ctx.maxbatches
             isodd(s) && (s += 1)
             zeros(UInt32, s, t), zeros(Float32, s, t)
         end
-        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists)
+        _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
     end
 
     index

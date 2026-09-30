@@ -30,6 +30,9 @@ We recommend reading the tutorial in the following order:
 10. **[Logging and Observation Channels](logging.md)** -- Informational reporting (`reporters`) versus structural event listening (`observers`) for incremental graph tracking.
 11. **[Inverted Files and Posting List Intersections](invertedfiles.md)** -- Inverted indexing (`InvertedFile`, `DictInvertedFile`) for sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
 12. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant`, projection-based `bitsketch` (random, Hadamard, PCA), and hyperplane-based sketches for generic metric spaces.
+13. **[Multi-Bit Sketches](multibit_sketches.md)** -- Spending 2, 4 or 8 bits per hyperplane instead of a sign bit (`Projections.QuantSketch`), and bootstrapping a `SearchGraph` from the wider codes.
+14. **[Asymmetric Search: Raw Queries Against Codes](asymmetric.md)** -- The `AsymmetricSearchGraph`, whose storage is encoded while insertion and queries use the raw objects, with `ScalarQuant.SQEncoder` (with or without a rotation) and the `RaBitQ` estimators.
+15. **[Sketched Search](sketchedsearch.md)** -- The symmetric encode, index, retrieve and re-score pipeline as one ordinary index, `Projections.SketchedSearch`.
 
 ---
 

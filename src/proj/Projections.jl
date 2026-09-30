@@ -224,6 +224,7 @@ function transform!(rp::RandomProjections, O::AbstractMatrix, X::AbstractMatrix;
 end
 
 include("hadamard.jl")
+include("rotations.jl")
 include("pca.jl")
 include("bitsketches.jl")
 include("dh.jl")

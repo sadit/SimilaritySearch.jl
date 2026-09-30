@@ -94,6 +94,7 @@ module ScalarQuant
 using Distances: PreMetric, SemiMetric, Metric
 using Statistics: quantile
 using StatsBase
+using SIMD
 import Distances: evaluate
 using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist, @BATCHES
 #using ..Dist: fastacos
@@ -241,6 +242,10 @@ function sqrange(V::AbstractVector, levels::Integer;
     (Float32(lo), Float32(hi))
 end
 
+include("codes.jl")
+include("vec.jl")
+include("dist.jl")
+include("db.jl")
 include("gu8.jl")
 include("gu4.jl")
 include("gu2.jl")
@@ -248,5 +253,6 @@ include("u8.jl")
 include("u4.jl")
 include("u2.jl")
 include("gdb.jl")
+include("encoder.jl")
 
 end

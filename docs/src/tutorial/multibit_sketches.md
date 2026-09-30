@@ -99,5 +99,9 @@ useful question is which is scarce: if recall stops improving as `nbits` grows, 
 run out of informative directions and `width` is where the remaining error is; if the sketch
 is already coarse in *direction*, more hyperplanes come first.
 
-In the next section, [Sketched Search: the whole pipeline as an index](sketchedsearch.md), we
-wrap encode, index, retrieve and re-score into one ordinary search index.
+Everything on this page compared code against code: the sketch of the query against the
+sketches stored, which is the **symmetric** mode and the cheapest one. The next section,
+[Asymmetric Search: raw queries against codes](asymmetric.md), keeps the storage encoded but
+evaluates the raw query against it, so the encoding error is paid on one side only; after it,
+[Sketched Search](sketchedsearch.md) wraps the symmetric encode, index, retrieve and re-score
+steps into one ordinary search index.

@@ -9,7 +9,7 @@ makedocs(;
         prettyurls=get(ENV, "CI", nothing) == "true",
         canonical="https://sadit.github.io/SimilaritySearch.jl",
         assets=String[],
-        size_threshold=600_000,
+        size_threshold=800_000,
         size_threshold_warn=400_000,
     ),
     pages=[
@@ -29,6 +29,7 @@ makedocs(;
             "tutorial/invertedfiles.md",
             "tutorial/quantization_and_bitsketches.md",
             "tutorial/multibit_sketches.md",
+            "tutorial/asymmetric.md",
             "tutorial/sketchedsearch.md",
         ],
         "API" => "api.md"

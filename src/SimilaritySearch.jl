@@ -11,7 +11,7 @@ using Statistics: mean
 export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     search, searchbatch, searchbatch!, database, distance,
     push_item!, append_items!, getminbatch,
-    IdDist, Dist, Exact, Special, ScalarQuant, Intersections, InvertedFiles, beginbatch,
+    IdDist, Dist, Exact, Special, ScalarQuant, RaBitQ, Intersections, InvertedFiles, beginbatch,
     distance_evaluations, block_evaluations, distance_stats, block_stats,
     Selection, fft, dnet, randsel, multirandsel, neardup,
     AbstractSelection, CenterSelection, NearDupSelection,
@@ -115,6 +115,7 @@ end
 
 using Distances: Metric, SemiMetric, PreMetric, evaluate
 include("dist/Dist.jl")
+include("asymmetricgraph/estimators.jl")   # ahead of sq/ and rabitq/, which implement it
 
 #using .Dist  # keep as a separate module
 
@@ -328,6 +329,7 @@ end
 
 include("opt.jl")
 include("searchgraph/SearchGraph.jl")
+include("asymmetricgraph/AsymmetricSearchGraph.jl")
 include("invertedfiles/InvertedFiles.jl")
 include("permindex.jl")
 
@@ -340,6 +342,7 @@ include("bichromatic/Bichromatic.jl")
 using .Bichromatic
 include("hsp.jl")
 include("rerank.jl")
+include("rabitq/RaBitQ.jl")
 
 """
     searchbatch(index, ctx, Q, k::Integer) -> (ids::Matrix{UInt32}, dists::Matrix{Float32})

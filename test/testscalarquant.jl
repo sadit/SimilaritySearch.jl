@@ -88,10 +88,9 @@ end
         l1 = evaluate(mod.L1(), a, b)
         @test sql2 >= 0
         @test l2 ≈ sqrt(sql2) atol=1f-3
-        if bits > 2
-            # SQu2's L1 skips `abs` by design (documented as a ranking-only approximation)
-            @test l1 >= 0
-        end
+        @test l1 >= 0
+        # L1 is a true metric at every width (SQu2's used to skip `abs`)
+        @test l1 ≈ sum(j -> abs(a[j] - b[j]), 1:dim) atol=1f-3
 
         # SqL2/L2 must also work (both argument orders) against a plain, non-quantized
         # vector of the same (padded) dimension
@@ -146,12 +145,17 @@ end
     truth = sum((Float64(a[t]) - Float64(b[t]))^2 for t in 1:64)
     @test abs(evaluate(ScalarQuant.SQu8.SqL2(), a, b) - truth) <= 1f-4 * truth
 
-    # NormCosine (SQu8 only) goes through the same expansion
+    # NormCosine goes through the same expansion, at every width, and against a plain vector
     X = randn(Float32, 64, 8)
-    db = ScalarQuant.SQu8.quantize(X)
-    for (i, j) in ((1, 2), (3, 8))
-        dot64 = sum(Float64(db[i][t]) * Float64(db[j][t]) for t in 1:64)
-        @test abs(evaluate(ScalarQuant.SQu8.NormCosine(), db[i], db[j]) - (1.0 - dot64)) <= 1f-4 * max(1.0, abs(1.0 - dot64))
+    for mod in (ScalarQuant.SQu2, ScalarQuant.SQu4, ScalarQuant.SQu8)
+        db = mod.quantize(X)
+        for (i, j) in ((1, 2), (3, 8))
+            dot64 = sum(Float64(db[i][t]) * Float64(db[j][t]) for t in 1:64)
+            @test abs(evaluate(mod.NormCosine(), db[i], db[j]) - (1.0 - dot64)) <= 1f-4 * max(1.0, abs(1.0 - dot64))
+            dotq = sum(Float64(db[i][t]) * Float64(X[t, j]) for t in 1:64)
+            @test abs(evaluate(mod.NormCosine(), db[i], X[:, j]) - (1.0 - dotq)) <= 1f-4 * max(1.0, abs(1.0 - dotq))
+            @test evaluate(mod.NormCosine(), X[:, j], db[i]) == evaluate(mod.NormCosine(), db[i], X[:, j])
+        end
     end
 end
 
@@ -182,6 +186,21 @@ end
             # a quantized vector against its own dequantization is (nearly) zero distance
             deq = Float32[db[1][t] for t in 1:dim]
             @test evaluate(mod.SqL2(), db[1], deq) <= 1f-6 * max(1f0, sum(abs2, deq))
+
+            # L1 and NormCosine go through the same block unpacking, mixed and between codes,
+            # so they are checked at the same dimensions (whole blocks, partial blocks, tails)
+            for i in 1:8
+                l1truth = sum(abs(Float64(db[i][t]) - Float64(q[t])) for t in 1:dim)
+                @test abs(evaluate(mod.L1(), db[i], q) - l1truth) <= 1f-4 * max(1.0, l1truth)
+                @test evaluate(mod.L1(), q, db[i]) == evaluate(mod.L1(), db[i], q)
+                @test abs(evaluate(mod.L1(), db[i], qgeneric) - l1truth) <= 1f-4 * max(1.0, l1truth)
+                l1pair = sum(abs(Float64(db[i][t]) - Float64(db[3][t])) for t in 1:dim)
+                @test abs(evaluate(mod.L1(), db[i], db[3]) - l1pair) <= 1f-4 * max(1.0, l1pair)
+                dotq = sum(Float64(db[i][t]) * Float64(q[t]) for t in 1:dim)
+                @test abs(evaluate(mod.NormCosine(), db[i], q) - (1.0 - dotq)) <= 1f-4 * max(1.0, abs(1.0 - dotq))
+                @test abs(evaluate(mod.NormCosine(), db[i], qgeneric) - (1.0 - dotq)) <= 1f-4 * max(1.0, abs(1.0 - dotq))
+            end
+            @test evaluate(mod.L1(), db[1], db[1]) == 0f0
         end
     end
 end
@@ -226,7 +245,7 @@ end
                      (ScalarQuant.SQu8, ScalarQuant.SQu8.SQu8Database))
         db = mod.quantize(X)
         @test_throws ArgumentError T(db.E[1:(n ÷ 2)], db.Q)
-        @test_throws ArgumentError T(db.E, db.Q[:, 1:(n ÷ 2)])
+        @test_throws ArgumentError T(db.E, db.Q.matrix[:, 1:(n ÷ 2)])
     end
 end
 
@@ -242,6 +261,15 @@ end
     # conforming dims work
     @test ScalarQuant.SQu2.quantize(rand(Float32, 16, 5)) isa ScalarQuant.SQu2.SQu2Database
     @test ScalarQuant.SQu4.quantize(rand(Float32, 16, 5)) isa ScalarQuant.SQu4.SQu4Database
+
+    # the per-width names are aliases of the one vector type and the one set of distances
+    @test ScalarQuant.SQu2.SQu2Vec === ScalarQuant.SQVec{2}
+    @test ScalarQuant.SQu4.SQu4Vec === ScalarQuant.SQVec{4}
+    @test ScalarQuant.SQu8.SQu8Vec === ScalarQuant.SQVec{8}
+    @test ScalarQuant.SQu8.SqL2 === ScalarQuant.SQu4.SqL2 === ScalarQuant.SqL2
+    @test ScalarQuant.SQu2.L1 === ScalarQuant.L1 && ScalarQuant.SQu2.NormCosine === ScalarQuant.NormCosine
+    q = ScalarQuant.SQVec{4}(rand(Float32, 16))
+    @test ScalarQuant.codewidth(q) == 4 && length(q) == 16 && eltype(q) == Float32
 end
 
 @testset "ScalarQuant: global quantization (SQgu4, SQgu8)" begin
@@ -313,7 +341,7 @@ end
 
         # every vector shares one scale, and dequantization is code * c + min
         @test db[1].E === db[n].E
-        @test db[3][1] ≈ Float32(db.Q[1, 3] & (bits == 8 ? 0xff : bits == 4 ? 0x0f : 0x03)) * db.E.c + db.E.min
+        @test db[3][1] ≈ Float32(db.Q.matrix[1, 3] & (bits == 8 ? 0xff : bits == 4 ? 0x0f : 0x03)) * db.E.c + db.E.min
 
         # rebuilt from the stored codes and the pair they were made with
         reb = ScalarQuant.GlobalQuantDatabase(bits, db.Q, mm)
@@ -346,6 +374,13 @@ end
 
     @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(3, X)
     @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(16, X)
+    # a dimension that does not fill its last byte used to be padded silently, and the mixed
+    # kernels then read the plain query past its end; it is rejected upfront now, as the
+    # per-column family always did
+    @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(4, rand(Float32, 7, 5))
+    @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(2, rand(Float32, 6, 5))
+    @test ScalarQuant.GlobalQuantDatabase(2, rand(Float32, 8, 5)) isa ScalarQuant.GlobalQuantDatabase{2}
+    @test_throws ArgumentError ScalarQuant.quantize(ScalarQuant.GlobalQuantDatabase(8, X), rand(Float32, dim + 1))
 
     # usable directly as an index's database
     db = ScalarQuant.GlobalQuantDatabase(8, X; minmax=mm)
@@ -364,4 +399,144 @@ end
         hits += length(intersect(Set(gold), Set(got)))
     end
     @test hits >= 0.7 * 20 * 5
+end
+
+@testset "ScalarQuant: the code storage is pluggable, and every backend yields the same codes (#87)" begin
+    # A quantized database is its parameters plus *some* database of code vectors. The same
+    # sequence of insertions through each backend must produce byte-identical codes, the same
+    # per-vector sums and the same distances, which makes the one-shot MatrixDatabase build the
+    # reference and every other backend a conformance check.
+    dim, n = 32, 48
+    X = randn(Float32, dim, n)
+    mm = extrema(X)
+    q = randn(Float32, dim)
+
+    function backends(codes::Matrix{UInt8}, dir)
+        nb = size(codes, 1)
+        Dict(
+            "matrix" => MatrixDatabase(codes),
+            "block" => BlockMatrixDatabase(nb, UInt8, 3),                     # 8 items per block: crosses boundaries
+            "vector" => VectorDatabase(type=Vector{UInt8}),
+            "mmap" => MMapMatrixDatabase(joinpath(dir, "codes-$nb-$(rand(UInt32)).mmapdb"), nb, UInt8; capacity_bits=3),
+        )
+    end
+
+    mktempdir() do dir
+        for bits in (2, 4, 8), family in (:global, :pervector)
+            ref = family == :global ? ScalarQuant.GlobalQuantDatabase(bits, X; minmax=mm) :
+                  bits == 8 ? ScalarQuant.SQu8.quantize(X) : bits == 4 ? ScalarQuant.SQu4.quantize(X) : ScalarQuant.SQu2.quantize(X)
+            @test ref isa ScalarQuant.QuantDatabase{bits}
+            @test ScalarQuant.isglobal(ref) == (family == :global)
+            @test ScalarQuant.codewidth(ref) == bits
+            @test ref.dim == dim
+            @test length(ref) == n
+
+            empty = Matrix{UInt8}(undef, size(ref.Q.matrix, 1), 0)
+            for (name, Q) in backends(empty, dir)
+                # start empty, in each backend, and grow one vector at a time
+                db = family == :global ? ScalarQuant.GlobalQuantDatabase(bits, Q, mm; dim) :
+                     ScalarQuant.QuantDatabase{bits}(ScalarQuant.SQMinC[], Q; dim)
+                @test length(db) == 0
+                @test eltype(db) == ScalarQuant.SQVec{bits}
+                if name == "matrix"
+                    @test_throws ErrorException push_item!(db, X[:, 1])       # a MatrixDatabase does not grow
+                    continue
+                end
+                for i in 1:(n ÷ 2)
+                    push_item!(db, X[:, i])
+                end
+                append_items!(db, X[:, (n ÷ 2 + 1):n])                       # the rest, as a matrix
+                @test length(db) == n
+                @test db == ref                                               # codes and parameters, byte for byte
+                @test db.Sa == ref.Sa && db.Saa == ref.Saa
+                for i in (1, n ÷ 2, n)
+                    @test collect(db[i].V) == collect(ref[i].V)
+                    @test db[i].E == ref[i].E
+                    for dist in (ScalarQuant.SqL2(), ScalarQuant.L1(), ScalarQuant.Cosine(), ScalarQuant.NormCosine())
+                        @test evaluate(dist, db[i], db[1]) == evaluate(dist, ref[i], ref[1])
+                    end
+                    for dist in (ScalarQuant.SqL2(), ScalarQuant.L1(), ScalarQuant.NormCosine())
+                        @test evaluate(dist, db[i], q) == evaluate(dist, ref[i], q)
+                    end
+                end
+                # an already quantized vector goes in as it is
+                push_item!(db, ref[3])
+                @test length(db) == n + 1 && collect(db[n + 1].V) == collect(ref[3].V)
+                @test_throws ArgumentError push_item!(db, randn(Float32, dim + 4))
+                # and a database is searched through the ordinary interface, whatever backs it
+                res = search(ExhaustiveSearch(ScalarQuant.SqL2(), db), GenericContext(), q, knnqueue(KnnSorted, 5))
+                resref = search(ExhaustiveSearch(ScalarQuant.SqL2(), ref), GenericContext(), q, knnqueue(KnnSorted, 5))
+                @test collect(IdView(res))[1:5] == collect(IdView(resref))[1:5]
+                Q isa MMapMatrixDatabase && close(Q)
+            end
+        end
+
+        # the global family refuses a vector quantized under other parameters
+        db = ScalarQuant.GlobalQuantDatabase(8, BlockMatrixDatabase(dim, UInt8), mm; dim)
+        other = ScalarQuant.GlobalQuantDatabase(8, X; minmax=(mm[1] - 1, mm[2] + 1))
+        @test_throws ArgumentError push_item!(db, other[1])
+        # an empty VectorDatabase cannot tell the dimension: `dim` is required
+        @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(8, VectorDatabase(type=Vector{UInt8}), mm)
+        # and the growable constructors validate the dimension the same way the batch ones do
+        @test_throws ArgumentError ScalarQuant.GlobalQuantDatabase(4, BlockMatrixDatabase(3, UInt8), mm; dim=7)
+    end
+end
+
+@testset "ScalarQuant: an mmap-backed quantized database survives the process (#87)" begin
+    dim, n = 16, 40
+    X = randn(Float32, dim, n)
+    mm = extrema(X)
+    mktempdir() do dir
+        path = joinpath(dir, "quant.mmapdb")
+        db = ScalarQuant.GlobalQuantDatabase(8, MMapMatrixDatabase(path, dim, UInt8; capacity_bits=3), mm; dim)
+        append_items!(db, MatrixDatabase(X))
+        @test length(db) == n
+        ref = ScalarQuant.GlobalQuantDatabase(8, X; minmax=mm)
+        @test db == ref
+        Sa, Saa = copy(db.Sa), copy(db.Saa)
+        close(db.Q)
+
+        # reopened with only the codes and the range: the sums are recomputed
+        re = ScalarQuant.GlobalQuantDatabase(8, MMapMatrixDatabase(path; read_only=true), mm)
+        @test length(re) == n && re.dim == dim
+        @test re == ref
+        @test re.Sa == Sa && re.Saa == Saa
+        res = search(ExhaustiveSearch(ScalarQuant.Cosine(), re), GenericContext(), re[7], knnqueue(KnnSorted, 3))
+        @test nearest(res).id == 7
+        close(re.Q)
+
+        # reopened with the sums the caller kept: nothing is recomputed, and it keeps growing
+        re2 = ScalarQuant.GlobalQuantDatabase(8, MMapMatrixDatabase(path), mm; Sa, Saa)
+        @test re2 == ref
+        push_item!(re2, X[:, 1])
+        @test length(re2) == n + 1 && collect(re2[n + 1].V) == collect(ref[1].V)
+        close(re2.Q)
+    end
+end
+
+@testset "ScalarQuant: a SearchGraph grows over a quantized database (#87)" begin
+    # the point of the pluggable storage: the graph inserts one item at a time, and the
+    # database quantizes each on the way in with the parameters it was created with
+    dim, n = 32, 600
+    X = randn(Float32, dim, n)
+    mm = extrema(X)
+    db = ScalarQuant.GlobalQuantDatabase(4, BlockMatrixDatabase(dim ÷ 2, UInt8), mm; dim)
+    G = SearchGraph(ScalarQuant.SqL2(), db)
+    ctx = SearchGraphContext(; reporters=[])
+    append_items!(G, ctx, MatrixDatabase(X))
+    @test length(G) == n
+    @test db == ScalarQuant.GlobalQuantDatabase(4, X; minmax=mm)
+
+    # searched with a Float32 query (the mixed kernel) and with a quantized one
+    seq = ExhaustiveSearch(ScalarQuant.SqL2(), db)
+    hits = 0
+    for j in 1:30
+        q = X[:, j] .+ 0.05f0 .* randn(Float32, dim)
+        gold = Set(IdView(search(seq, GenericContext(), q, knnqueue(KnnSorted, 10))))
+        got = Set(IdView(search(G, ctx, q, knnqueue(KnnSorted, 10))))
+        hits += length(intersect(gold, got))
+        gotq = search(G, ctx, ScalarQuant.quantize(db, q), knnqueue(KnnSorted, 10))
+        @test length(gotq) == 10
+    end
+    @test hits >= 0.8 * 300
 end

@@ -15,31 +15,9 @@ module SQgu2
 
 export quantize, quantize!, SqL2
 
-using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES
+using ..ScalarQuant: getminbatch, sqglobalscale, sqrange, Dist, @BATCHES, packcodes!, sqdiffcodes
 using Statistics: quantile
 using SIMD
-
-"Quantizes `v` into `vout` (four 2-bit codes packed per `UInt8`) using the global `min`/scale `c`; returns `vout`."
-function quant_global_u2!(vout::AbstractVector{UInt8}, v::AbstractVector, min::Float32, c::Float32)
-    m = length(v)
-    k = 1
-    j = 1
-    @inbounds while j <= m
-        x = zero(UInt8)
-        for p in 0:3
-            i = j + p
-            i > m && break
-            a = round((Float32(v[i]) - min) * c; digits=0)
-            x |= UInt8(clamp(a, 0, 3)) << 2p
-        end
-
-        vout[k] = x
-        j += 4
-        k += 1
-    end
-
-    vout
-end
 
 """
     quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
@@ -104,7 +82,7 @@ function quantize(X::AbstractMatrix;
 
     minbatch = getminbatch(n)
     @BATCHES minbatch for i in 1:n
-        quant_global_u2!(view(Q, :, i), view(X, :, i), min, c)
+        packcodes!(Val(2), view(Q, :, i), view(X, :, i), min, c)
     end
 
     Q
@@ -145,7 +123,7 @@ function quantize(v::AbstractVector;
     )
     vout = Vector{UInt8}(undef, cld(length(v), 4))
     min, max = sqrange(v, 3; minmax, quant, samplesize)
-    quant_global_u2!(vout, v, Float32(min), sqglobalscale(3, min, max))
+    packcodes!(Val(2), vout, v, Float32(min), sqglobalscale(3, min, max))
     vout
 end
 
@@ -160,97 +138,7 @@ encoded through it stays comparable.
 """
 function quantize!(vout::AbstractVector{UInt8}, v::AbstractVector, minmax)
     min, max = minmax
-    quant_global_u2!(vout, v, Float32(min), sqglobalscale(3, min, max))
-end
-
-
-
-
-### SIMD kernels.
-###
-### gu4.jl widens each byte into `Int32`/`UInt32` lanes, which is the natural thing to do
-### when a byte holds two codes. Here a byte holds *four*, so that layout would pay four
-### widenings-to-32-bits per byte and spend the whole register file on accumulators --
-### measurably worse per byte than the 4-bit kernel despite moving half the memory.
-###
-### These kernels accumulate in `Int16` lanes instead, which fits the arithmetic exactly:
-### a 2-bit code is in `0:3`, so a per-field product or squared difference is at most `9`
-### and a whole byte contributes at most `4 * 9 == 36` to its lane. That halves the lane
-### width, so one SIMD operation covers `N = 32` bytes instead of 16, and it collapses the
-### four per-field accumulators into a single `muladd` chain per chunk, leaving registers
-### free for `UNROLL = 4` independent chains.
-###
-### The catch of a narrow accumulator is overflow, so the loop runs in blocks of at most
-### `BLOCK` bytes and widens into a scalar `Int` at the end of each: `36 * (BLOCK / CHUNK)`
-### stays far below `typemax(Int16)`, and the widening happens once per 64KB rather than
-### once per byte. Every sketch this module is likely to see fits in a single block.
-
-const _U2_N = 32                    # bytes (== 128 codes) per SIMD operation
-const _U2_UNROLL = 4
-const _U2_CHUNK = _U2_N * _U2_UNROLL
-const _U2_BLOCK = 512 * _U2_CHUNK   # 512 iterations * 36 per lane == 18432 < typemax(Int16)
-
-"Accumulates, in `Int16` lanes, the per-field squared differences of the `N` bytes of `x`/`y` at `i`."
-@inline function _u2_sqdiff(x, y, i, acc::Vec{N,T}) where {N,T}
-    vx = vload(Vec{N,UInt8}, x, i)
-    vy = vload(Vec{N,UInt8}, y, i)
-    m = 0x03
-    d0 = convert(Vec{N,T}, vx & m)         - convert(Vec{N,T}, vy & m)
-    d1 = convert(Vec{N,T}, (vx >>> 2) & m) - convert(Vec{N,T}, (vy >>> 2) & m)
-    d2 = convert(Vec{N,T}, (vx >>> 4) & m) - convert(Vec{N,T}, (vy >>> 4) & m)
-    d3 = convert(Vec{N,T}, vx >>> 6)       - convert(Vec{N,T}, vy >>> 6)
-    muladd(d0, d0, muladd(d1, d1, muladd(d2, d2, muladd(d3, d3, acc))))
-end
-
-"Accumulates, in `Int16` lanes, the per-field products of the `N` bytes of `x`/`y` at `i`."
-@inline function _u2_dot(x, y, i, acc::Vec{N,T}) where {N,T}
-    vx = vload(Vec{N,UInt8}, x, i)
-    vy = vload(Vec{N,UInt8}, y, i)
-    m = 0x03
-    a0 = convert(Vec{N,T}, vx & m);         b0 = convert(Vec{N,T}, vy & m)
-    a1 = convert(Vec{N,T}, (vx >>> 2) & m); b1 = convert(Vec{N,T}, (vy >>> 2) & m)
-    a2 = convert(Vec{N,T}, (vx >>> 4) & m); b2 = convert(Vec{N,T}, (vy >>> 4) & m)
-    a3 = convert(Vec{N,T}, vx >>> 6);       b3 = convert(Vec{N,T}, vy >>> 6)
-    muladd(a0, b0, muladd(a1, b1, muladd(a2, b2, muladd(a3, b3, acc))))
-end
-
-"""
-    _u2_reduce(kernel, x, y) -> (Int, Int)
-
-Runs `kernel` (`_u2_sqdiff` or `_u2_dot`) over as much of `x`/`y` as SIMD can cover, and
-returns the accumulated total together with the index of the first byte it did *not*
-process -- the caller finishes those (fewer than 16) scalar-wise. It handles the blocking
-that keeps the `Int16` lanes from overflowing, the partially-unrolled remainder, and the
-half-width cleanup pass below.
-"""
-@inline function _u2_reduce(kernel::F, x, y) where {F}
-    n = length(x)
-    res = 0
-    i = 1
-
-    # One 32-lane Int32 accumulator, and no blocking. The earlier shape -- four Int16
-    # accumulators widened per block -- was chosen to halve the lane width and so cover 32
-    # bytes per operation, but measured slower than this (31.0ns against 18.2ns at 256 codes,
-    # scanning 32768 vectors): the four chains keep more live vector state than the FMA
-    # latency they hide, and widening every block costs more than it saves. Int32 lanes take
-    # at most 4*9 == 36 per step here, so ~59M steps would be needed to overflow -- no
-    # blocking is required at any size this package can index.
-    acc = zero(Vec{32,Int32})
-    @inbounds while i + 31 <= n
-        acc = kernel(x, y, i, acc)
-        i += 32
-    end
-    res += Int(sum(acc))
-
-    # Half-width cleanup: a 2-bit sketch of 64 hyperplanes is exactly 16 bytes, which the loop
-    # above cannot take, and leaving it to the caller's scalar tail meant decoding 64 fields by
-    # hand (~67ns against ~14ns here). At most 31 bytes can remain, so one pass suffices.
-    @inbounds if i + 15 <= n
-        res += Int(sum(kernel(x, y, i, zero(Vec{16,Int32}))))
-        i += 16
-    end
-
-    res, i
+    packcodes!(Val(2), vout, v, Float32(min), sqglobalscale(3, min, max))
 end
 
 
@@ -269,20 +157,7 @@ end
 
 function Dist.evaluate(::SqL2, x::AbstractArray{UInt8}, y::AbstractArray{UInt8})
     @boundscheck length(x) == length(y) || throw(DimensionMismatch("Byte arrays must be the same length"))
-
-    res, i = _u2_reduce(_u2_sqdiff, x, y)
-    n = length(x)
-
-    @inbounds while i <= n
-        x_val, y_val = x[i], y[i]
-        for p in 0:2:6
-            d = Int((x_val >>> p) & 0x03) - Int((y_val >>> p) & 0x03)
-            res += d * d
-        end
-        i += 1
-    end
-
-    Float32(res)
+    Float32(sqdiffcodes(Val(2), x, y))
 end
 
 end

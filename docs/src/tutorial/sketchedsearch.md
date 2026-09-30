@@ -93,6 +93,10 @@ data given to the constructor, so growing the collection means rebuilding it rat
 pushing into it. For a growing collection, bootstrap a [`SearchGraph`](@ref) from sketches
 instead (see [Multi-Bit Sketches](multibit_sketches.md)) and keep inserting into the graph.
 
+Its re-scoring pass is also what separates it from the [asymmetric graph](asymmetric.md) of
+the previous section: there the correction, when the estimator has one, happens inside the
+distance while the graph navigates, and no pass over the raw data follows the search.
+
 This closes the tutorial series. Sketches are the last of the compression strategies; for
 queries bounded by a distance rather than by a count, see
 [Radius Queries](radius_search.md), and for the full API, the [reference](../api.md).

@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export LocalSearchAlgorithm, SearchGraph, SearchGraphContext
+export LocalSearchAlgorithm, AbstractSearchGraph, SearchGraph, SearchGraphContext
 export index!, push_item!
 export BeamSearch, BeamSearchSpace, Callback
 export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, AdjacentStoredHints, matrixhints
@@ -23,6 +23,17 @@ A SearchGraph object controls when callbacks are fired using `callback_logbase` 
 
 """
 abstract type Callback end
+
+"""
+    abstract type AbstractSearchGraph <: AbstractSearchIndex end
+
+The graph indexes: a [`SearchGraph`](@ref), which inserts and searches with the objects as
+its database stores them, and the structures that specialize how the graph works with its
+data without changing the graph itself -- [`AsymmetricSearchGraph`](@ref), which stores a
+transformed form and works with the raw objects. Each is one way of working, fixed when the
+instance is built.
+"""
+abstract type AbstractSearchGraph <: AbstractSearchIndex end
 
 """
     abstract type NeighborhoodFilter end
@@ -149,7 +160,7 @@ struct SearchGraph{DIST<:PreMetric,
     DB<:AbstractDatabase,
     ADJ<:AbstractAdjList,
     HINTS,
-} <: AbstractSearchIndex
+} <: AbstractSearchGraph
     dist::DIST
     db::DB
     adj::ADJ
