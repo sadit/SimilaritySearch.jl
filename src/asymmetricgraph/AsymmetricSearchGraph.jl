@@ -1,62 +1,33 @@
 # This file is a part of SimilaritySearch.jl
+#
+# AsymmetricSearchGraph: the other AbstractSearchGraph, kept apart from SearchGraph's files
+# so each graph is maintained on its own. It wraps a SearchGraph and owns everything about
+# working with raw objects over a transformed storage: what the insertion loops query with
+# (InsertionSource), the callbacks' raw queries, and the interface that refuses the symmetric
+# operations. The estimator interface it navigates with is estimators.jl, included early.
 
-export AsymmetricSearchGraph, AbstractEstimator
-
-"""
-    encode(dist::PreMetric, obj)
-
-What an [`AsymmetricSearchGraph`](@ref) stores for the raw `obj` under `dist`: the form
-`dist` evaluates a raw query against. The default returns `obj` itself, for a storage that
-transforms what it stores on its own, as a [`ScalarQuant.QuantDatabase`](@ref) does under
-the scalar quantizers' distances. An [`AbstractEstimator`](@ref) whose codes the storage
-does not produce overrides it.
-"""
-encode(::PreMetric, obj) = obj
+export AsymmetricSearchGraph
 
 """
-    encodequery(dist::PreMetric, q)
+    InsertionSource(dist, db, items, offset)
 
-What an [`AsymmetricSearchGraph`](@ref) evaluates `dist` with on the query side for the raw
-`q`: the form `evaluate(dist, encodequery(dist, q), stored)` takes. The default returns `q`
-itself. An [`AbstractEstimator`](@ref) whose evaluation needs the query prepared once --
-rotated, projected, quantized on the query side -- overrides it, and the graph applies it
-once per query and once per inserted item (which is the query of its own neighborhood
-search), never per evaluation.
+What the insertion loops query the graph with, when that is not the database itself: object
+`i` is `encodequery(dist, items[i - offset])` when it was just appended (its raw form,
+prepared once for the query side of `dist`), and `db[i]` otherwise (what the database
+stores). It is how an [`AsymmetricSearchGraph`](@ref) inserts raw objects into a graph over
+their transformed storage; a `SearchGraph` always queries with the database. Indexing only;
+the loops never iterate it, and each object is read once, so the preparation runs once per
+inserted item.
 """
-encodequery(::PreMetric, q) = q
+struct InsertionSource{D<:PreMetric,DB<:AbstractDatabase,ITEMS<:AbstractDatabase}
+    dist::D
+    db::DB
+    items::ITEMS
+    offset::Int
+end
 
-"""
-    abstract type AbstractEstimator <: PreMetric end
-
-A distance that is an estimator: it evaluates a raw query against an *encoded* object, and
-may carry an error of its own. It is one plain type whose parameters are fields, so a graph
-and everything that gives its codes meaning serialize together; nothing in it is a closure.
-
-An estimator implements:
-
-- `encode(est, obj)`: what is stored for the raw `obj`, the code plus whatever the
-  estimator keeps with it (a norm, a correction term, a finer code);
-- `encodequery(est, q)`, when the query side needs preparing: what `evaluate` takes as its
-  query for the raw `q`. A rotation, for one -- applying it inside `evaluate` would cost
-  `D^2` per pair against the `D` of the estimate, so the graph applies it once per query
-  and once per inserted item. The default is the identity;
-- `evaluate(est, q, stored)`: the distance between the raw query `q` and a stored object,
-  in that order -- every index here evaluates its query first. It receives everything the model has -- the raw query, the encoded object with what was
-  kept beside the code, and the estimator's own parameters -- so a model that can bound its
-  error re-evaluates *inside* the evaluation when it must, and returns the distance it
-  stands behind. The graph only ever evaluates the distance; whether that was an estimate,
-  a corrected estimate or a re-evaluation is the estimator's business.
-- `evaluate(est, a, b)` between two **stored** objects as well: the neighborhood filters
-  (`SatNeighborhood` and its relatives) compare a new item's candidates among themselves to
-  decide which edges to keep, and those candidates are stored objects. That is the
-  symmetric estimate, code against code, and it only shapes the edges; the scalar
-  quantizers' distances already have it.
-
-The no-op estimator is a plain distance: `ScalarQuant.SqL2()` against an `SQVec` evaluates
-the query against the codes and nothing needs correcting. Any `PreMetric` works as the
-distance of an asymmetric graph; this type is the documented home for the ones that encode.
-"""
-abstract type AbstractEstimator <: PreMetric end
+Base.@propagate_inbounds Base.getindex(s::InsertionSource, i::Integer) =
+    i > s.offset ? encodequery(s.dist, s.items[i - s.offset]) : s.db[i]
 
 """
     AsymmetricSearchGraph(dist::PreMetric, db::AbstractDatabase; kwargs...)
@@ -135,9 +106,12 @@ G = AsymmetricSearchGraph(TwoLevel(c2, c8, 0.5f0), VectorDatabase(type=Tuple{SQV
 # Sketches and estimators
 `index!(idx, ctx, :bitsketch)` builds a `SearchGraph`'s topology from sketches and keeps the
 raw vectors: it is symmetric on the sketch side, code against code, which is the weaker
-estimate. This type is the path for the asymmetric estimators -- a raw query against a
-sketch, RaBitQ-style codes -- once written as an [`AbstractEstimator`](@ref): the graph only
-evaluates the distance, and everything the model needs travels in the code it encodes.
+estimate. This type is the path for the asymmetric estimators, a raw query against a code:
+the graph only evaluates the distance, and everything the model needs travels in the code it
+encodes. Two ship with the package: [`ScalarQuant.SQEncoder`](@ref), the scalar quantizers
+as a plain codification with no error model (an optional rotation in front), and the [`RaBitQ`](@ref) estimators, sign bits with
+a per-object error bound and, in `RaBitQ.RaBitQRefined`, a fallback re-evaluated inside the
+estimate when that bound cannot rule an object out.
 """
 struct AsymmetricSearchGraph{G<:SearchGraph} <: AbstractSearchGraph
     graph::G

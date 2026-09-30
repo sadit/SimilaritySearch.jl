@@ -149,7 +149,8 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   `@BATCHES`-based, lock-free per-batch buffers).
 - `searchgraph/` — `SearchGraph` itself: construction/insertion (`insertions.jl`), and
   `AbstractSearchGraph` with its other specialization, `AsymmetricSearchGraph`
-  (`asymmetric.jl`): a wrapper over a `SearchGraph` whose database stores a transformed
+  (`../asymmetricgraph/`, its own directory at the same level so the two graphs are
+  maintained apart): a wrapper over a `SearchGraph` whose database stores a transformed
   form (codes) while insertion and queries use the raw objects, evaluated raw-against-stored
   by the graph's distance. The way of working is a property of the instance, never a
   keyword on a call (issue #86, where an `insertion=` keyword on `append_items!` was tried
@@ -174,6 +175,27 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   rebuild-from-scratch (`rebuild.jl`), beam search (`beamsearch.jl`), neighborhood
   filters (`neighborhood.jl`), adjacency backends (`../adj/`), per-call state
   (`context.jl` → `SearchGraphContext`).
+- `asymmetricgraph/` — two files. `AsymmetricSearchGraph.jl` is the wrapper described above
+  (with `InsertionSource`, what the insertion loops query with, and `rawqueries`), included
+  right after `searchgraph/`. `estimators.jl` is the interface it navigates with --
+  `AbstractEstimator`, `encode`, `encodequery`, and the rotation an estimator lives in,
+  `rotate`/`rotationdim`/`rotationname` -- and is included right after `dist/`, **before**
+  `sq/`, because `ScalarQuant.SQEncoder` and `RaBitQ` implement it and `sq/` is included
+  before `proj/` (QuantSketch needs the quantizers). That order is also why the rotation
+  interface is a pair of top-level generic functions rather than something in `Projections`:
+  `ScalarQuant` calls `rotate(rot, v)` on whatever it was handed, and `proj/rotations.jl`
+  adds the methods for a square `RandomProjections` and `RandomizedHadamard` later.
+- `rabitq/` (`RaBitQ` submodule) — the RaBitQ estimator (Gao & Long, 2024) as
+  `AbstractEstimator`s: `RaBitQCosine`/`RaBitQL2` (sign bits of the rotated vector + `c`,
+  `‖o‖`, `err`; `_signeddot` is the SIMD kernel, 16-lane masks from shifts of the broadcast
+  word, 67 vs 269 ns per 384-d pair against the bit-at-a-time loop), and `refined.jl`'s
+  `RaBitQRefined(coarse, fallback; τ)` with `RaBitQExactFallback{T}` / `RaBitQVectorFallback`
+  (`AbstractFallback`), re-evaluated inside `evaluate` when `d̂ − err ≤ τ`;
+  `refinethreshold` reads a `τ` off a sample. Included last. It was the user's separate
+  package until 2026-09-30. Measured on ccnews: the bits alone reach 0.69 exhaustive; the
+  fallback pays in an exhaustive scan (227 → 63 ms/query at the same recall) but not through
+  an in-RAM graph, whose neighborhood filters compare candidates by the bits only. Numbers
+  on issue #86.
 - `intersections/` (`Intersections` submodule) — posting list intersection algorithms
   (`svs`, `bk`, `bkt`, `umerge`, `imerge`, `xmerge`, etc.).
 - `invertedfiles/` (`InvertedFiles` submodule) — general inverted index representation
@@ -199,6 +221,15 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   are. When timing any of this, pass distances and queries through a function barrier: a
   non-`const` global `q` or a `Module`-valued `mod.SqL2()` inside a closure adds 40-200 ns
   of dynamic dispatch per call and produced two wrong tables before it was caught.
+  `encoder.jl` is `SQEncoder` -- these quantizers as the encoder of an
+  `AsymmetricSearchGraph`, with an optional rotation in front; it goes through the
+  `AbstractEstimator` interface but is a codification with no error to exploit (the user's
+  framing, which is why it is not called an estimator; it was `RotatedSQ` until 2026-09-30),
+  plus `sqcodes` for its growable storage --
+  and the helpers every level named by a quantizer module shares (`_quantparams`,
+  `_quantcode`, `_rotatedsample`, `quantizer`), which `rabitq/` imports. On ccnews the
+  rotation moved recall by < 0.01 at every width (issue #86), which is why `nothing` is a
+  valid rotation.
 - `proj/` (`Projections` submodule) — `RandomProjections` (gaussian/QR),
   `HadamardProjection`, `PCAProjection`, the metric-hyperplane models (`DistantHyperplanes`,
   `AnchoredDistantHyperplanes`, `RandomHyperplanes`), and two encodings over them:
@@ -209,7 +240,11 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   signed margin `d(obj, b) - d(obj, a)` for the hyperplanes — with a shared sign
   convention, which is why `QuantSketch` at `nbits=1` reproduces `bitsketch` exactly.
   `sketchedsearch.jl` wraps the whole encode/index/rerank flow as `SketchedSearch`, an
-  ordinary (static, non-incremental) `AbstractSearchIndex`.
+  ordinary (static, non-incremental) `AbstractSearchIndex`. `rotations.jl` holds
+  `RandomizedHadamard` (a random sign per coordinate, then `HadamardProjection`, which is
+  the plain WHT scaled by `1/dim` and so deterministic -- a constant vector lands on one
+  coordinate -- rescaled by `√dim`) and the `rotate`/`rotationdim` methods for it and for a
+  square `RandomProjections`; `Rotation` is their union.
 - `selection/` (`Selection` submodule) — algorithms that pick a subset standing for the whole
   dataset, in two dual shapes: fixed-count (`fft`, `dnet`, `randsel`, `multirandsel`, returning
   a `CenterSelection`) and fixed-radius (`neardup`, returning a `NearDupSelection`). Both name
@@ -241,6 +276,12 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   estimator must accept that pair too.
 - `IdDist(id, dist)` is the fundamental `(identifier, distance)` pair type; `IdView`/
   `DistView` give zero-copy column-style views over collections of it.
+- **A level built on a quantizer or a rotation takes the thing, never a name for it.**
+  `SQEncoder(SQgu4, Projections.qr(dim, dim), X)` and
+  `RaBitQVectorFallback(SQu8, coarse)`: the ScalarQuant module says the family and the width
+  at once, the rotation object says how it rotates (or `nothing`), and `RaBitQCosine(rot)`
+  reads the dimension off the rotation. The user removed the `bits=`/`family=`/
+  `rotation=:qr` vocabulary on purpose ("no quiero usar más nombres"); don't bring it back.
 
 ## Parallelism: `@BATCHES` and `getminbatch`
 

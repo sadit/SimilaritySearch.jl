@@ -33,27 +33,6 @@ function append_items!(
 end
 
 """
-    InsertionSource(dist, db, items, offset)
-
-What the insertion loops query the graph with, when that is not the database itself: object
-`i` is `encodequery(dist, items[i - offset])` when it was just appended (its raw form,
-prepared once for the query side of `dist`), and `db[i]` otherwise (what the database
-stores). It is how an [`AsymmetricSearchGraph`](@ref) inserts raw objects into a graph over
-their transformed storage; a `SearchGraph` always queries with the database. Indexing only;
-the loops never iterate it, and each object is read once, so the preparation runs once per
-inserted item.
-"""
-struct InsertionSource{D<:PreMetric,DB<:AbstractDatabase,ITEMS<:AbstractDatabase}
-    dist::D
-    db::DB
-    items::ITEMS
-    offset::Int
-end
-
-Base.@propagate_inbounds Base.getindex(s::InsertionSource, i::Integer) =
-    i > s.offset ? encodequery(s.dist, s.items[i - s.offset]) : s.db[i]
-
-"""
     add_inform_message(index::SearchGraph, sp, ep) -> String
 
 The `add!` progress line, worded identically on both insertion paths (#66): the per-item

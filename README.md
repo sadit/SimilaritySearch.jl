@@ -63,6 +63,18 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   through `encode` what the storage receives and re-evaluates inside its own `evaluate` when its error
   model says it must, transparently to the graph; one serializable type, its parameters as fields.
   `ScalarQuant.Cosine` accepts a plain vector too.
+- **`RaBitQ` submodule.** The RaBitQ estimator (Gao & Long, 2024) over that graph: `RaBitQCosine`/`RaBitQL2`
+  store the sign bits of the rotated vector plus three scalars and evaluate a raw query against them with
+  an unbiased estimate and a per-object error bound (a SIMD signed sum, 67 ns per 384-d pair);
+  `RaBitQRefined` keeps a fallback beside the bits, `RaBitQExactFallback` (`Float32`/`Float16`) or
+  `RaBitQVectorFallback` (scalar-quantized), and re-evaluates from it inside the estimate when the bound
+  cannot rule an object out.
+- **`ScalarQuant.SQEncoder`.** The scalar quantizers as the encoder of an `AsymmetricSearchGraph`, with an
+  optional rotation in front: it uses the estimator interface but carries no error model, since a
+  codification has no error to exploit. Its quantizer is named by the module (`SQgu4`, `SQu8`, ...)
+  and its rotation by the object, `Projections.qr(dim, dim)`, the new `Projections.RandomizedHadamard`
+  (random signs and the Walsh-Hadamard transform, `dim log dim`), or `nothing`; on the SISAP 2025 `ccnews`
+  benchmark the rotation moved recall by less than 0.01 at every width and cost 30-50 µs per query.
 - **Faster quantized distances.** Per-column `SqL2`/`NormCosine` are computed from integer code
   sums rather than dequantizing coordinate by coordinate (up to 3.5x, and an order of magnitude
   more accurate), and the global `SQgu*` kernels vectorize the remainder they used to leave to

@@ -17,6 +17,8 @@ AsymmetricSearchGraph
 AbstractEstimator
 SimilaritySearch.encode
 SimilaritySearch.encodequery
+SimilaritySearch.rotate
+SimilaritySearch.rotationdim
 BKT
 PermutedSearchIndex
 distance
@@ -382,6 +384,41 @@ grows like any other.
 ScalarQuant.GlobalQuantDatabase
 ```
 
+### The quantizers as an encoder for the asymmetric graph (`SQEncoder`)
+
+Objects are quantized once and stored as codes, queries are kept in `Float32`, and the
+distances above evaluate one against the other; an optional rotation is applied to both
+sides first. It uses the `AbstractEstimator` interface the `AsymmetricSearchGraph` navigates
+with, but carries no error model. The quantizer is named by its module (`SQgu4`, `SQu8`, ...),
+the rotation by the object that applies it (`Projections.qr(dim, dim)`,
+`Projections.RandomizedHadamard(dim)`) or `nothing`.
+```@docs
+ScalarQuant.SQEncoder
+ScalarQuant.sqcodes
+ScalarQuant.quantizer
+```
+
+## RaBitQ (`RaBitQ` submodule)
+
+The RaBitQ estimator (Gao & Long, 2024) as an `AbstractEstimator`: sign bits of the rotated
+vector plus three scalars per object, an unbiased estimate of the cosine with a per-object
+error bound, and a two-level variant that keeps a fallback beside the bits and re-evaluates
+from it, inside the estimate, when the bound cannot rule an object out.
+```@docs
+RaBitQ
+RaBitQ.AbstractRaBitQ
+RaBitQ.RaBitQCode
+RaBitQ.RaBitQQuery
+RaBitQ.rabitqcodes
+RaBitQ.estimatecos
+RaBitQ.errorbound
+RaBitQ.RaBitQRefined
+RaBitQ.AbstractFallback
+RaBitQ.RaBitQExactFallback
+RaBitQ.RaBitQVectorFallback
+RaBitQ.refinethreshold
+```
+
 ## Random projections (`Projections` submodule)
 ```@docs
 Projections.RandomProjections
@@ -394,15 +431,19 @@ Projections.transform!
 Projections.bitsketch
 ```
 
-## Hadamard projection (`Projections.HadamardProjection`)
+## Hadamard projection (`Projections.HadamardProjection`) and the rotations
 
 A projection computed with the fast Walsh-Hadamard transform
 (via [Hadamard.jl](https://github.com/stevengj/Hadamard.jl)'s `fwht_natural!`) instead of a dense
 random matrix. Uses the same `outdim`/`indim`/`transform`/`transform!`/`bitsketch` generic
-functions documented above for `RandomProjections`.
+functions documented above for `RandomProjections`. `RandomizedHadamard` makes a random
+rotation of it (a random sign per coordinate first, and the norm preserved), and `Rotation`
+is what the estimators (`ScalarQuant.SQEncoder`, `RaBitQ`) take as theirs.
 
 ```@docs
 Projections.HadamardProjection
+Projections.RandomizedHadamard
+Projections.Rotation
 ```
 
 ## PCA projection (`Projections.PCAProjection`)
