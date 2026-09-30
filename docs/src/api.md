@@ -391,7 +391,7 @@ distances above evaluate one against the other; an optional rotation is applied 
 sides first. It uses the `AbstractEstimator` interface the `AsymmetricSearchGraph` navigates
 with, but carries no error model. The quantizer is named by its module (`SQgu4`, `SQu8`, ...),
 the rotation by the object that applies it (`Projections.qr(dim, dim)`,
-`Projections.RandomizedHadamard(dim)`) or `nothing`.
+`Projections.RandomizedHadamard(dim)`) or `nothing`, the default.
 ```@docs
 ScalarQuant.SQEncoder
 ScalarQuant.sqcodes

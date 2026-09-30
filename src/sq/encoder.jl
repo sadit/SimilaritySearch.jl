@@ -88,8 +88,10 @@ function _quantcode(::Val{B}, ::Nothing, r::AbstractVector{Float32}) where {B}
 end
 
 """
-    SQEncoder(quant::Module, rotation, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng)
-    SQEncoder(quant::Module, rotation, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing)
+    SQEncoder(quant::Module, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng)
+    SQEncoder(quant::Module, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing)
+    SQEncoder(quant::Module, rotation, X::AbstractMatrix; ...)
+    SQEncoder(quant::Module, rotation, dim::Integer; ...)
 
 The scalar quantizers as the encoder of an `AsymmetricSearchGraph`: an object is quantized
 once (after an optional rotation) and stored as its codes, a raw query is kept in `Float32`
@@ -104,9 +106,13 @@ on a sample of `X`'s rotated coordinates, or given as `minmax`) or `SQu8`, `SQu4
 (each code with its own range from its own extrema, which needs nothing beyond `dim`).
 
 `rotation` is the object that rotates, a [`SimilaritySearch.Projections.Rotation`](@ref) -- `Projections.qr(dim, dim)`
-or `Projections.RandomizedHadamard(dim)` -- or `nothing`, which quantizes the coordinates as they are. A
-rotation makes the coordinate marginal Gaussian, which is what a single global range rests
-on; on data that already has that marginal it changes nothing and costs its flops per query.
+or `Projections.RandomizedHadamard(dim)` -- or `nothing`, which quantizes the coordinates as
+they are and is **the default**: the forms without a `rotation` argument rotate nothing. A
+rotation gives every coordinate the same scale, which is what a single global range rests on;
+on data whose coordinates already share one (normalized embeddings: on SISAP 2025 `ccnews` a
+QR rotation moved recall@10 by less than 0.01 at every width) it changes nothing and costs its
+flops per query and per inserted item. Rotate when the coordinates' scales are uneven and the
+global family is wanted anyway; the per-vector family is the other remedy for uneven scales.
 
 `encode` rotates an object once and quantizes the rotated vector, `encodequery` rotates the
 query once and keeps it in `Float32`, and `evaluate` is `dist`, one of this module's (`SqL2`,
@@ -138,6 +144,9 @@ function SQEncoder(quant::Module, rot, X::AbstractMatrix;
     B, E = _quantparams(quant, () -> _rotatedsample(rot, X, samplesize, rng; unit=false))
     SQEncoder{B,typeof(rot),typeof(E),typeof(dist)}(rot, dim, E, dist)
 end
+
+SQEncoder(quant::Module, X::AbstractMatrix; kwargs...) = SQEncoder(quant, nothing, X; kwargs...)
+SQEncoder(quant::Module, dim::Integer; kwargs...) = SQEncoder(quant, nothing, dim; kwargs...)
 
 function SQEncoder(quant::Module, rot, dim::Integer; dist=SqL2(), minmax=nothing)
     dim = Int(dim)

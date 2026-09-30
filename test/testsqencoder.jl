@@ -47,6 +47,9 @@ qrrotation(rng, dim) = SimilaritySearch.Projections.qr(rng, Float32, dim, dim)
     @test_throws ArgumentError SQEncoder(SQ.SQgu8, qrrotation(rng, 32), X)                 # rotation and data disagree
     @test_throws ArgumentError SQEncoder(SQ.SQu8, SimilaritySearch.Projections.qr(rng, Float32, dim, 32), dim)   # a projection, not a rotation
     @test SQEncoder(SQ.SQgu8, nothing, dim; minmax=(-0.5, 0.5)) isa SQEncoder{8,Nothing,SQ.SQMinC}
+    # without a rotation argument nothing is rotated: the default
+    @test SQEncoder(SQ.SQgu8, X) isa SQEncoder{8,Nothing,SQ.SQMinC} && SQEncoder(SQ.SQu4, dim) isa SQEncoder{4,Nothing,Nothing}
+    @test encode(SQEncoder(SQ.SQgu8, dim; minmax=(-1, 1)), X[:, 1]).V == encode(SQEncoder(SQ.SQgu8, nothing, dim; minmax=(-1, 1)), X[:, 1]).V
     @test SQEncoder(SQ.SQu4, RandomizedHadamard(dim; rng), dim) isa SQEncoder{4,RandomizedHadamard,Nothing}
     @test sprint(show, SQEncoder(SQ.SQgu4, nothing, X)) == "SQEncoder(SQgu4, nothing, dim=$dim, dist=SimilaritySearch.ScalarQuant.SqL2())"
     @test sprint(show, SQEncoder(SQ.SQu2, qrrotation(rng, dim), dim)) == "SQEncoder(SQu2, RandomProjections, dim=$dim, dist=SimilaritySearch.ScalarQuant.SqL2())"

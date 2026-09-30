@@ -20,6 +20,7 @@ cheaper than discovering the breakage from a user, which is how the last one was
 """
 const VERSIONED_TUTORIALS = [
     "multibit_sketches.md",
+    "asymmetric.md",
     "sketchedsearch.md",
 ]
 

@@ -169,7 +169,9 @@ RaBitQ-style code -- is an `AbstractEstimator`: it says through `encode(est, obj
 storage receives and through `encodequery(est, q)` what a raw query becomes (a rotation,
 applied once per query rather than per evaluation), and inside its `evaluate` it bounds its
 error and re-evaluates when it must, transparently to the graph. One plain type with its parameters as fields, so the
-graph and what gives its codes meaning serialize together.
+graph and what gives its codes meaning serialize together. The two estimators that ship with
+the package, `ScalarQuant.SQEncoder` and `RaBitQ`, have their own section,
+[Asymmetric Search: raw queries against codes](asymmetric.md), after the sketches below.
 
 ## Bit Sketches: Binary Random Projections
 
