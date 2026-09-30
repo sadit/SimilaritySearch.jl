@@ -139,49 +139,15 @@ optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
 end
 
 """
-    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
+    matcherror(golddist, res, err::MaxMatchError) -> Float64
+    macromatcherror(golddists, reslist, err::MaxMatchError) -> Float64
 
-Per-query MatchError (see [`MaxMatchError`](@ref)): compares the distances actually returned in
-`res` against the exact gold distances `golddist` (both compared in ascending rank order),
-penalizing missing positions with `η`. `minspread` is the absolute floor added to the gold
-neighborhood's spread before normalizing by it, guarding against a degenerate (all-tied) gold
-neighborhood -- see [`MaxMatchError`](@ref). Internal function used by
-[`create_error_function`](@ref).
+The per-query and the macro [`matcherror`](@ref) with the parameters `p`, `η` and `minspread`
+taken from `err`, so a score can be computed outside the optimizer exactly as
+[`optimize_index!`](@ref) computes it: `bootstrapscore((g, r) -> matcherror(g, r, err), golddists, reslist)`.
 """
-function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
-    sortitems!(res)
-    _matcherror(golddist, DistView(res), length(res), p, η, minspread)
-end
-
-"""
-    matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
-
-MatchError of a radius-bounded search: scores only the items `res` holds *within its radius*,
-never its navigation reserve (see [`BallKnn`](@ref)), against the true ball's distances. Each ball
-member the search did not reach costs `η`, which is what makes this the radius counterpart of
-recall -- and why [`MaxMatchError`](@ref) is the only `ErrorFunction` that transfers to radius
-queries: [`MinRecall`](@ref) goes through `macrorecall`, which divides by the gold set's size, and
-a small radius routinely produces queries whose true ball is empty.
-"""
-function matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
-    _matcherror(golddist, DistView(res), ninside(res), p, η, minspread)
-end
-
-function _matcherror(golddist::AbstractVector{Float32}, dv, r::Integer, p::Real, η::Real, minspread::Real)::Float64
-    kp = length(golddist)
-    kp == 0 && return 0.0
-    dmin = r > 0 ? min(golddist[1], @inbounds(dv[1])) : golddist[1]
-    ρ = golddist[kp] - dmin + minspread + eps(Float32)
-
-    s = 0.0
-    @inbounds for i in 1:kp
-        δ = i <= r ? max(0f0, dv[i] - golddist[i]) / ρ : η
-        s += δ^p
-    end
-
-    s / kp
-end
-
+matcherror(golddist, res, err::MaxMatchError) = matcherror(golddist, res, err.p, err.η, err.minspread)
+macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddists, reslist, err.p, err.η, err.minspread)
 
 function setconfig! end
 
@@ -252,15 +218,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             nothing
         end
 
-        match = if golddists !== nothing
-            s = 0.0
-            for (i, r) in enumerate(knns)
-                s += matcherror(golddists[i], r, p, η, minspread)
-            end
-            s / m
-        else
-            nothing
-        end
+        match = golddists !== nothing ? macromatcherror(golddists, knns, p, η, minspread) : nothing
 
         if recall !== nothing && recall < 0.3
             @warn "OPT low recall> recall: $recall, #objects: $(length(index)), #queries: $(length(queries)), cov: $cov"

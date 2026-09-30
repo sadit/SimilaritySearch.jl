@@ -134,6 +134,40 @@ fix the connectivity first (e.g. via [`rebuild`](@ref)).
 
 ---
 
+## The scores outside the optimizer, with error bars
+
+Both goals are built on plain score functions you can call yourself. [`macrorecall`](@ref) is
+the mean over the queries of [`recallscore`](@ref), and [`macromatcherror`](@ref) the mean of
+[`matcherror`](@ref); `matcherror(g, r, err::MaxMatchError)` takes `p`, `η` and `minspread`
+from the goal, so a score computed by hand is exactly the one `optimize_index!` saw.
+
+A macro score is one number, and two indexes at 0.91 and 0.92 may or may not differ. The
+sample of queries is what it depends on, so [`bootstrapscore`](@ref) resamples the queries
+with replacement over the per-query scores ([`perqueryscores`](@ref), computed once) and
+returns the mean with its standard deviation and a percentile interval:
+
+```julia
+goldI, goldD = searchbatch(ExhaustiveSearch(dist, db), GenericContext(), queries, k)
+resI, _ = searchbatch(G, ctx, queries, k)
+bootstrapscore(recallscore, goldI, resI)
+# BootstrapScore(0.9155 ± 0.0089, 95% [0.898, 0.9325], 200 queries, 1000 resamples)
+
+knns = [search(G, ctx, queries[i], knnqueue(KnnSorted, k)) for i in eachindex(queries)]
+bootstrapscore((g, r) -> matcherror(g, r, MaxMatchError()), goldD, knns)
+```
+
+Two indexes on the **same** queries are compared paired, by bootstrapping the per-query
+differences, so every draw takes the same queries from both; an interval that excludes zero
+is the evidence that they differ at that level:
+
+```julia
+a = perqueryscores(recallscore, goldI, resA)
+b = perqueryscores(recallscore, goldI, resB)
+bootstrapscore(a .- b; nboot=10_000)
+```
+
+---
+
 Continue to [Quantization and Bit Sketches](quantization_and_bitsketches.md) for more on
 building the discretized proxy spaces (bit sketches, scalar quantization) where
 `MaxMatchError`'s tie-tolerance matters most.

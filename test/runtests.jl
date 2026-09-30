@@ -22,6 +22,7 @@ const TESTFILES = [
     "testmmapdb.jl",
     "testlog.jl",
     "testresults.jl",
+    "testscores.jl",
     "testsparse.jl",
     "testscalarquant.jl",
     "testspherical.jl",
