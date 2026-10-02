@@ -122,47 +122,68 @@ function macrorecall(goldlist::AbstractVector, reslist::AbstractVector)::Float64
 end
 
 """
-    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
+    matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue; exponent=1, maxdeviation=1, spreadfloor=1f-2) -> Float64
+    matcherror(golddist, res, err::MaxMatchError) -> Float64
 
-Per-query MatchError (see [`MaxMatchError`](@ref)): compares the distances actually returned in
-`res` against the exact gold distances `golddist` (both compared in ascending rank order),
-penalizing missing positions with `η`. `minspread` is the absolute floor added to the gold
-neighborhood's spread before normalizing by it, guarding against a degenerate (all-tied) gold
-neighborhood -- see [`MaxMatchError`](@ref). It is the per-query score behind
-[`MaxMatchError`](@ref); [`macromatcherror`](@ref) is its mean over the queries.
+Per-query MatchError (see [`MaxMatchError`](@ref)): the distances actually returned in `res`
+against the exact gold distances `golddist`, rank by rank, each position's excess measured in
+units of the gold neighborhood's own spread. For `k' = length(golddist)` gold distances
+`d*_1 ≤ … ≤ d*_k'` and the `r` returned distances `d_1 ≤ … ≤ d_r`:
+
+    spread      = d*_k' − min(d*_1, d_1) + spreadfloor + ε
+    deviation_i = min(max(0, d_i − d*_i) / spread, maxdeviation)   for i ≤ r
+    deviation_i = maxdeviation                                     for i > r   (a missing position)
+    matcherror  = mean(deviation_i ^ exponent  for i in 1:k')
+
+- `exponent`: `1` averages the deviations (an MAE), `2` squares them first, which forgives
+  small ones and amplifies large ones.
+- `maxdeviation`: the most one position can cost, and what a missing position costs: a
+  returned neighbor farther than `maxdeviation` spreads beyond its gold counterpart is as bad
+  as no neighbor at all. The score is therefore in `[0, maxdeviation ^ exponent]`, which is
+  what keeps its mean over queries meaningful: measured on SISAP 2025 `ccnews`, without this
+  cap ten queries whose gold neighbors were all exact duplicates at distance 0 (spread 0, the
+  search returning items at distance 1.4, 143 per position) made 85% of the mean over 10,500
+  queries, and the mean moved by its own size from one tuning run to the next.
+- `spreadfloor`: added to the spread so a gold neighborhood of tied distances (routine on
+  real data with near-duplicates) does not divide by `≈ε`; pick it on the scale of the
+  distance (`1f-2` suits a cosine-family distance in `[0, 2]`; `Hamming` over bits wants
+  about `1f0`).
+
+[`macromatcherror`](@ref) is its mean over the queries, and the third form takes the three
+parameters from a [`MaxMatchError`](@ref).
 """
-function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue, p::Real, η::Real, minspread::Real=1f-2)::Float64
+function matcherror(golddist::AbstractVector{Float32}, res::AbstractKnnQueue; exponent::Real=1, maxdeviation::Real=1, spreadfloor::Real=1f-2)::Float64
     sortitems!(res)
-    _matcherror(golddist, DistView(res), length(res), p, η, minspread)
+    _matcherror(golddist, DistView(res), length(res), exponent, maxdeviation, spreadfloor)
 end
 
 """
-    matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
+    matcherror(golddist::AbstractVector{Float32}, res::BallKnn; exponent=1, maxdeviation=1, spreadfloor=1f-2) -> Float64
 
 MatchError of a radius-bounded search: scores only the items `res` holds *within its radius*,
 never its navigation reserve (see [`BallKnn`](@ref)), against the true ball's distances. Each ball
-member the search did not reach costs `η`, which is what makes this the radius counterpart of
-recall -- and why [`MaxMatchError`](@ref) is the only `ErrorFunction` that transfers to radius
-queries: [`MinRecall`](@ref) goes through `macrorecall`, which divides by the gold set's size, and
-a small radius routinely produces queries whose true ball is empty.
+member the search did not reach costs `maxdeviation`, which is what makes this the radius
+counterpart of recall -- and why [`MaxMatchError`](@ref) is the only `ErrorFunction` that
+transfers to radius queries: [`MinRecall`](@ref) goes through `macrorecall`, which divides by the
+gold set's size, and a small radius routinely produces queries whose true ball is empty.
 """
-function matcherror(golddist::AbstractVector{Float32}, res::BallKnn, p::Real, η::Real, minspread::Real=1f-2)::Float64
-    _matcherror(golddist, DistView(res), ninside(res), p, η, minspread)
+function matcherror(golddist::AbstractVector{Float32}, res::BallKnn; exponent::Real=1, maxdeviation::Real=1, spreadfloor::Real=1f-2)::Float64
+    _matcherror(golddist, DistView(res), ninside(res), exponent, maxdeviation, spreadfloor)
 end
 
-function _matcherror(golddist::AbstractVector{Float32}, dv, r::Integer, p::Real, η::Real, minspread::Real)::Float64
-    kp = length(golddist)
-    kp == 0 && return 0.0
-    dmin = r > 0 ? min(golddist[1], @inbounds(dv[1])) : golddist[1]
-    ρ = golddist[kp] - dmin + minspread + eps(Float32)
+function _matcherror(golddist::AbstractVector{Float32}, returned, nreturned::Integer, exponent::Real, maxdeviation::Real, spreadfloor::Real)::Float64
+    ngold = length(golddist)
+    ngold == 0 && return 0.0
+    nearest = nreturned > 0 ? min(golddist[1], @inbounds(returned[1])) : golddist[1]
+    spread = golddist[ngold] - nearest + spreadfloor + eps(Float32)
 
-    s = 0.0
-    @inbounds for i in 1:kp
-        δ = i <= r ? max(0f0, dv[i] - golddist[i]) / ρ : η
-        s += δ^p
+    total = 0.0
+    @inbounds for i in 1:ngold
+        deviation = i <= nreturned ? min(max(0f0, returned[i] - golddist[i]) / spread, maxdeviation) : maxdeviation
+        total += deviation^exponent
     end
 
-    s / kp
+    total / ngold
 end
 
 
@@ -172,15 +193,15 @@ _column(x::AbstractMatrix, i, k) = view(x, 1:(k === nothing ? size(x, 1) : Int(k
 _column(x::AbstractVector, i, k) = x[i]
 
 """
-    macromatcherror(golddists, reslist, p::Real=1, η::Real=1, minspread::Real=1f-2) -> Float64
+    macromatcherror(golddists, reslist; exponent=1, maxdeviation=1, spreadfloor=1f-2) -> Float64
+    macromatcherror(golddists, reslist, err::MaxMatchError) -> Float64
 
 The mean of the per-query [`matcherror`](@ref) over the queries: the macro MatchError, the
 distance-based counterpart of [`macrorecall`](@ref), and what [`MaxMatchError`](@ref) scores
-a configuration by (`macromatcherror(golddists, reslist, err::MaxMatchError)` takes the
-parameters from `err`). `golddists` holds each query's exact gold distances in ascending
+a configuration by (the second form takes the parameters from `err`). `golddists` holds each query's exact gold distances in ascending
 order, as a vector with one vector per query or as a `(k, n)` matrix (the second output of
 [`searchbatch`](@ref) over an exact index), and `reslist` the result queues to score, one per
-query. `0` is a perfect match; it is unbounded above.
+query. `0` is a perfect match, `maxdeviation ^ exponent` the worst.
 
 # Examples
 
@@ -193,15 +214,15 @@ E = ExhaustiveSearch(Dist.SqL2(), X)
 goldI, goldD = searchbatch(E, GenericContext(), Q, 10)
 G = SearchGraph(Dist.SqL2(), X); ctx = SearchGraphContext(); index!(G, ctx)
 knns = [search(G, ctx, Q[i], knnqueue(KnnSorted, 10)) for i in 1:length(Q)]
-macromatcherror(goldD, knns)          # p = 1, η = 1: the MaxMatchError() defaults
+macromatcherror(goldD, knns)          # exponent 1, maxdeviation 1: the MaxMatchError() defaults
 ```
 """
-function macromatcherror(golddists, reslist, p::Real=1, η::Real=1, minspread::Real=1f-2)::Float64
+function macromatcherror(golddists, reslist; exponent::Real=1, maxdeviation::Real=1, spreadfloor::Real=1f-2)::Float64
     n = _ncolumns(reslist)
     _ncolumns(golddists) == n || throw(DimensionMismatch("macromatcherror: $(_ncolumns(golddists)) gold queries against $n results"))
     s = 0.0
     for i in 1:n
-        s += matcherror(_column(golddists, i, nothing), _column(reslist, i, nothing), p, η, minspread)
+        s += matcherror(_column(golddists, i, nothing), _column(reslist, i, nothing); exponent, maxdeviation, spreadfloor)
     end
     s / n
 end
@@ -213,11 +234,11 @@ end
 what [`bootstrapscore`](@ref) resamples. `gold` and `res` are each either a matrix with one
 column per query, cut to its first `k` rows when `k` is given (as [`macrorecall`](@ref)
 does), or a vector with one entry per query; `score` is any two-argument function --
-[`recallscore`](@ref), `(g, r) -> matcherror(g, r, p, η)`, or a user's.
+[`recallscore`](@ref), `(g, r) -> matcherror(g, r; exponent=2)`, or a user's.
 
 ```julia
 perqueryscores(recallscore, goldI, resI)                       # what macrorecall averages
-perqueryscores((g, r) -> matcherror(g, r, 1, 1), goldD, knns)   # what macromatcherror averages
+perqueryscores(matcherror, goldD, knns)                        # what macromatcherror averages
 ```
 """
 function perqueryscores(score, gold, res; k::Union{Nothing,Integer}=nothing)

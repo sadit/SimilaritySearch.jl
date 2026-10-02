@@ -48,29 +48,32 @@ For a query with `k' = min(k, |gold|)` true (gold) distances `d*_1 <= ... <= d*_
 `r` distances actually returned (both in ascending order), `MaxMatchError` computes:
 
 ```
-δ_i = max(0, d_i - d*_i) / ρ      for i <= r
-δ_i = η                           for i > r    (a missing position is penalized)
-ρ   = (d*_{k'} - min(d*_1, d_1)) + minspread + ε
-matcherror = mean(δ_i ^ p  for i in 1:k')
+spread      = (d*_{k'} - min(d*_1, d_1)) + spreadfloor + ε
+deviation_i = min(max(0, d_i - d*_i) / spread, maxdeviation)   for i <= r
+deviation_i = maxdeviation                                     for i > r    (a missing position)
+matcherror  = mean(deviation_i ^ exponent  for i in 1:k')
 ```
 
-`ρ` is the gold neighborhood's own *spread*, so a `maxerror` of `0.1` means "on average,
+`spread` is the gold neighborhood's own spread, so a `maxerror` of `0.1` means "on average,
 within 10% of this query's own neighborhood spread beyond where the true answer sits" --
 the same relative threshold is meaningful whether a query's neighbors happen to be tightly
-clustered or spread far apart. `0` is a perfect match; there's no upper cap, so a badly-off
-result keeps scoring as worse than a mildly-off one.
+clustered or spread far apart. `0` is a perfect match. A position never costs more than
+`maxdeviation` (default `1`), which is also what a missing position costs: a returned neighbor
+farther beyond its gold counterpart than a whole spread is as bad as no neighbor at all, and
+the score stays within `[0, maxdeviation ^ exponent]`. That bound is what makes the mean over
+queries usable: on `ccnews`, without it, ten queries whose gold neighbors were all exact
+duplicates at distance `0` made 85% of the mean over 10,500 held-out queries.
 
-`minspread` exists for exactly the degenerate case described above: if a query's gold
-neighbors are *all* tied (`d*_{k'} == d*_1`), the true spread is `0`, and without a real
-floor `ρ` would collapse to `≈eps(Float32)` -- inflating an ordinary, non-buggy distance
-difference by a factor of `10^6`-`10^7` and letting a single such query dominate a whole
-batch's mean error. `minspread` (default `1f-2`) restores a sane floor instead. **Pick it
+`spreadfloor` exists for the degenerate case described above: if a query's gold neighbors
+are *all* tied (`d*_{k'} == d*_1`), the true spread is `0`, and without a real floor `spread`
+would collapse to `≈eps(Float32)` -- inflating an ordinary, non-buggy distance difference by
+a factor of `10^6`-`10^7`. `spreadfloor` (default `1f-2`) restores a sane floor. **Pick it
 relative to your distance's own typical scale**: the default suits a `[0, 2]`-ranged
 cosine-family distance, but `Dist.Bits.Hamming` over `nbits`-bit codes wants something
 closer to `1f0` (one bit) -- see [`MaxMatchError`](@ref)'s docstring for the full detail.
 
 ```julia
-optimize_index!(G, ctx, MaxMatchError(; maxerror=0.05f0, minspread=1f-2))
+optimize_index!(G, ctx, MaxMatchError(; maxerror=0.05f0, spreadfloor=1f-2))
 ```
 
 ## Finding a `maxerror` with roughly the same bar as a `MinRecall` target
@@ -116,8 +119,8 @@ only loosely related objectives, so always re-check both `macrorecall` and mean
 |---|---|---|
 | Compares | result vs. gold **identifiers** (a set) | result vs. gold **distances**, rank by rank |
 | A tied-distance "wrong" answer | scores as a full miss | scores as a near-perfect match |
-| Threshold units | a recall fraction (`0`-`1`), directly interpretable | a fraction of each query's own neighborhood spread; needs calibration (see above) and a distance-appropriate `minspread` |
-| Degenerate inputs | none (set membership is always well-defined) | a fully tied gold neighborhood needs `minspread` to stay well-behaved |
+| Threshold units | a recall fraction (`0`-`1`), directly interpretable | a fraction of each query's own neighborhood spread; needs calibration (see above) and a distance-appropriate `spreadfloor` |
+| Degenerate inputs | none (set membership is always well-defined) | a fully tied gold neighborhood needs `spreadfloor` to stay well-behaved |
 | Best suited for | anything, especially when a "wrong" identifier really is a wrong answer | discretized/quantized proxy spaces with frequent ties (bit sketches, scalar quantization); real data with near-duplicate items |
 
 In repeated measurement against real, ~600k-row text embeddings (the investigation behind
@@ -138,7 +141,7 @@ fix the connectivity first (e.g. via [`rebuild`](@ref)).
 
 Both goals are built on plain score functions you can call yourself. [`macrorecall`](@ref) is
 the mean over the queries of [`recallscore`](@ref), and [`macromatcherror`](@ref) the mean of
-[`matcherror`](@ref); `matcherror(g, r, err::MaxMatchError)` takes `p`, `η` and `minspread`
+[`matcherror`](@ref); `matcherror(g, r, err::MaxMatchError)` takes `exponent`, `maxdeviation` and `spreadfloor`
 from the goal, so a score computed by hand is exactly the one `optimize_index!` saw.
 
 A macro score is one number, and two indexes at 0.91 and 0.92 may or may not differ. The

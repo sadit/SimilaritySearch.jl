@@ -45,6 +45,13 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   on SISAP 2025 `ccnews` against the hard threshold and a `softplus` hinge: the centered hinge lands at
   0.900-0.913 for a target of 0.9 and barely moves with `tradeoff`, `softplus` overshoots by two to three
   widths, and the cost is in nats, so the normalization by the initial population's maximum cost is gone.
+- **`matcherror` is bounded, and its parameters say what they are.** A position never costs more than
+  `maxdeviation` spreads, which is also what a missing position costs, so the per-query score lies in
+  `[0, maxdeviation ^ exponent]` and its mean over queries means something: on SISAP 2025 `ccnews`, without
+  the cap, ten queries whose gold neighbors were exact duplicates made 85% of the mean over 10,500 queries
+  and `MaxMatchError` tuned to the same configuration for any target. `p`, `η` and `minspread` are now
+  `exponent`, `maxdeviation` and `spreadfloor`, as keywords of `matcherror`, `macromatcherror` and
+  `MaxMatchError`.
 - **`ParetoRecall`, `ParetoRadius` and `OptRadius` are gone.** The first two were not Pareto fronts but a
   sum of squares with the cost normalized by the initial population's maximum, so the trade-off they picked
   depended on that population, and a trade-off chosen at construction did not carry over to the search: a

@@ -33,12 +33,21 @@ using Test, SimilaritySearch, Random, Statistics
         @test macromatcherror(goldD, exact) == 0.0                        # the exact result matches its own gold
         m = macromatcherror(goldD, knns)
         @test m > 0
-        @test m ≈ mean(matcherror(goldD[:, i], knns[i], 1, 1) for i in 1:nq)
+        @test m ≈ mean(matcherror(goldD[:, i], knns[i]) for i in 1:nq)
         @test macromatcherror(golddists, knns) == m                       # matrix or vector of gold distances
         @test macromatcherror(goldD, knns, MaxMatchError()) == m          # the parameters from the error function
-        @test matcherror(goldD[:, 1], knns[1], MaxMatchError(; p=2f0)) == matcherror(goldD[:, 1], knns[1], 2, 1)
-        @test macromatcherror(goldD, knns, 2, 1) < m                       # p = 2 suppresses the small deviations
-        @test mean(perqueryscores((g, r) -> matcherror(g, r, 1, 1), goldD, knns)) ≈ m
+        @test matcherror(goldD[:, 1], knns[1], MaxMatchError(; exponent=2f0)) == matcherror(goldD[:, 1], knns[1]; exponent=2)
+        @test macromatcherror(goldD, knns; exponent=2) < m                 # exponent 2 suppresses the small deviations
+        @test mean(perqueryscores(matcherror, goldD, knns)) ≈ m
+        # a position never costs more than maxdeviation: a gold of exact duplicates (spread 0) answered
+        # from far away is as bad as an empty answer, not 100x worse
+        far = knnqueue(KnnSorted, 3)
+        for i in 1:3; push_item!(far, IdDist(UInt32(i), 1f0)); end
+        @test matcherror(Float32[0, 0, 0], far) == 1.0
+        @test matcherror(Float32[0, 0, 0], far; maxdeviation=5) == 5.0
+        @test matcherror(Float32[0, 0, 0], far; maxdeviation=5, exponent=2) == 25.0
+        @test matcherror(Float32[0, 0, 0], knnqueue(KnnSorted, 3)) == 1.0    # nothing returned: every position missing
+        @test_throws ArgumentError MaxMatchError(; maxdeviation=0)
         @test_throws DimensionMismatch macromatcherror(goldD, knns[1:3])
     end
 

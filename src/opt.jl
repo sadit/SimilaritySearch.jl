@@ -120,7 +120,7 @@ function _checkgoal(name, tradeoff, width, transition)
 end
 
 """
-    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2, tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
+    MaxMatchError(; maxerror=0.1f0, exponent=1f0, maxdeviation=1f0, spreadfloor=1f-2, tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
 
 Optimization goal: the cheapest configuration whose *MatchError* stays at or below
 `maxerror`, and, above it, the one whose saving pays for the excess -- the same smooth hinge
@@ -135,19 +135,26 @@ For a query `q`, with `k' = min(k, |gold|)`, gold distances `d*_1 <= ... <= d*_k
 `r` distances actually returned `d_1 <= ... <= d_r` (both ascending):
 
 ```
-δ_i = max(0, d_i - d*_i) / ρ(q)     for i <= r
-δ_i = η                             for i > r   (missing position, penalized)
-ρ(q) = d*_k' - min(d*_1, d_1) + minspread + ε
-matcherror(q) = mean(δ_i .^ p for i in 1:k')
+spread(q)     = d*_k' - min(d*_1, d_1) + spreadfloor + ε
+deviation_i   = min(max(0, d_i - d*_i) / spread(q), maxdeviation)   for i <= r
+deviation_i   = maxdeviation                                        for i > r   (missing position)
+matcherror(q) = mean(deviation_i .^ exponent for i in 1:k')
 ```
 
-`ρ(q)` is the *spread* of the gold neighborhood (not just its outer radius), so `maxerror`
+`spread(q)` is the *spread* of the gold neighborhood (not just its outer radius), so `maxerror`
 reads as a fraction of that spread regardless of how dense or sparse this particular query's
 neighborhood is — e.g. `maxerror=0.1` means "on average, within 10% of the neighborhood's own
-spread beyond where results should be". `0` is a perfect match; the error is unbounded above
-(no artificial cap), so a badly-off result keeps registering as worse than a mildly-off one.
+spread beyond where results should be". `0` is a perfect match. A position never costs more
+than `maxdeviation`, what a missing position costs: a returned neighbor farther beyond its
+gold counterpart than that many spreads is as bad as none, and the score stays in
+`[0, maxdeviation ^ exponent]`. That cap is what keeps the mean over queries, and everything
+built on it (the goal, its `width`, [`bootstrapscore`](@ref)), meaningful: measured on SISAP
+2025 `ccnews` without it, ten queries whose gold neighbors were all exact duplicates at
+distance 0 (spread `0`, the search returning items at distance 1.4: 143 per position) made
+85% of the mean over 10,500 held-out queries, the mean moved by its own size from one tuning
+run to the next, and two different `maxerror` targets tuned to the same configuration.
 
-`min(d*_1, d_1)` in `ρ(q)` is a deliberate robustness choice: a returned distance below the
+`min(d*_1, d_1)` in `spread(q)` is a deliberate robustness choice: a returned distance below the
 gold's own minimum is impossible in theory under a consistent distance function, and in
 practice is usually floating-point noise between the exhaustive (gold) pass and the evaluated
 index — rather than failing on it (which floating-point noise would trigger often), the range
@@ -155,25 +162,25 @@ just absorbs it. A `d_1` far enough below `d*_1` to not be explained by floating
 is instead a sign of a real bug (e.g. a distance function inconsistent with the one used for
 the gold standard); this is not currently asserted/validated, only documented here.
 
-`minspread` guards against a genuinely degenerate query: with `k=1`, or whenever the gold
+`spreadfloor` guards against a genuinely degenerate query: with `k=1`, or whenever the gold
 neighborhood's `k'` distances are all tied (routine on real data with near-duplicate/
 syndicated items -- e.g. ~2% of queries on a real ccnews slice), the *true* spread
-`d*_k' - min(d*_1, d_1)` is exactly `0`, and without a real floor `ρ(q)` collapses to `≈ε`
-(machine epsilon) -- dividing by that inflates any ordinary, non-buggy distance mismatch by a
-factor of `~10^6-10^7`, so a single such query can swamp a whole batch's mean error. `minspread`
-should be picked relative to the typical scale of the distance function in use (e.g. `1f-2` is
-reasonable for a `[0, 2]`-ranged cosine-family distance, but Hamming over `nbits` codes wants
-something more like `1f0`, one bit); the default is not universally correct, tune it to your
-distance.
+`d*_k' - min(d*_1, d_1)` is exactly `0`, and without a real floor `spread(q)` collapses to
+`≈ε` (machine epsilon) -- dividing by that inflates any ordinary, non-buggy distance mismatch
+by a factor of `~10^6-10^7`. `spreadfloor` should be picked relative to the typical scale of
+the distance function in use (e.g. `1f-2` is reasonable for a `[0, 2]`-ranged cosine-family
+distance, but Hamming over `nbits` codes wants something more like `1f0`, one bit); the
+default is not universally correct, tune it to your distance. `maxdeviation` is the second
+guard, for the queries the floor does not rescue.
 
 # Keyword Arguments
-- `maxerror`: MatchError threshold (0 is perfect, unbounded above) required to be considered
-  as fast as possible.
-- `p`: aggregation exponent, `1` for a linear (MAE-like) error, `2` for a quadratic (MSD-like)
-  error that suppresses small per-position deviations and amplifies large ones (including
-  missing positions, already at `δ_i=η`).
-- `η`: penalty assigned to a missing position (the algorithm returned fewer than `k'` items).
-- `minspread`: absolute floor added to the gold neighborhood's spread `ρ(q)`, so a fully
+- `maxerror`: the target MatchError (`0` is perfect, `maxdeviation ^ exponent` the worst).
+- `exponent`: the exponent applied to each position's deviation before averaging: `1` for a
+  linear (MAE-like) error, `2` for a quadratic (MSD-like) one that suppresses small
+  deviations and amplifies large ones (missing positions, already at `maxdeviation`).
+- `maxdeviation`: the most one position can cost, in spreads, and what a missing position
+  (the algorithm returned fewer than `k'` items) costs.
+- `spreadfloor`: absolute floor added to the gold neighborhood's spread, so a fully
   degenerate (zero-spread) query doesn't blow up the aggregate error; see above.
 - `tradeoff`: the cost factor accepted per 0.01 of match error near `maxerror`; must be finite
   and `> 1` (see [`MinRecall`](@ref)).
@@ -186,21 +193,22 @@ distance.
 # Examples
 
 ```julia
-optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
+optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, exponent=2f0))
 ```
 """
 @kwdef struct MaxMatchError <: ErrorFunction
     maxerror::Float32 = 0.1f0
-    p::Float32 = 1f0
-    η::Float32 = 1f0
-    minspread::Float32 = 1f-2
+    exponent::Float32 = 1f0
+    maxdeviation::Float32 = 1f0
+    spreadfloor::Float32 = 1f-2
     tradeoff::Float64 = 1.5
     width::Union{Nothing,Float32} = nothing
     transition::Tuple{Float32,Float32} = (-1f0, 1f0)
 
-    function MaxMatchError(maxerror, p, η, minspread, tradeoff, width, transition)
+    function MaxMatchError(maxerror, exponent, maxdeviation, spreadfloor, tradeoff, width, transition)
         _checkgoal("MaxMatchError", tradeoff, width, transition)
-        new(Float32(maxerror), Float32(p), Float32(η), Float32(minspread), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
+        maxdeviation > 0 || throw(ArgumentError("MaxMatchError: maxdeviation=$maxdeviation must be positive"))
+        new(Float32(maxerror), Float32(exponent), Float32(maxdeviation), Float32(spreadfloor), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
     end
 end
 
@@ -259,12 +267,12 @@ end
     matcherror(golddist, res, err::MaxMatchError) -> Float64
     macromatcherror(golddists, reslist, err::MaxMatchError) -> Float64
 
-The per-query and the macro [`matcherror`](@ref) with the parameters `p`, `η` and `minspread`
-taken from `err`, so a score can be computed outside the optimizer exactly as
+The per-query and the macro [`matcherror`](@ref) with `exponent`, `maxdeviation` and
+`spreadfloor` taken from `err`, so a score can be computed outside the optimizer exactly as
 [`optimize_index!`](@ref) computes it: `bootstrapscore((g, r) -> matcherror(g, r, err), golddists, reslist)`.
 """
-matcherror(golddist, res, err::MaxMatchError) = matcherror(golddist, res, err.p, err.η, err.minspread)
-macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddists, reslist, err.p, err.η, err.minspread)
+matcherror(golddist, res, err::MaxMatchError) = matcherror(golddist, res; exponent=err.exponent, maxdeviation=err.maxdeviation, spreadfloor=err.spreadfloor)
+macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddists, reslist; exponent=err.exponent, maxdeviation=err.maxdeviation, spreadfloor=err.spreadfloor)
 
 function setconfig! end
 
@@ -326,15 +334,14 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
 end
 
 """
-    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p=1f0, η=1f0, minspread=1f-2)
+    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; exponent=1f0, maxdeviation=1f0, spreadfloor=1f-2)
 
 Builds and returns a performance-evaluation closure that runs `queries` against `index` under
 a candidate configuration and reports its cost (visited nodes), radius, recall (against
 `gold`, if given), MatchError (against `golddists`, if given — see [`MaxMatchError`](@ref),
-`p`/`η`/`minspread` are its aggregation exponent, missing-position penalty, and degenerate-query
-spread floor) and search time. Internal function used by [`optimize_index!`](@ref).
+`exponent`/`maxdeviation`/`spreadfloor` are its parameters) and search time. Internal function used by [`optimize_index!`](@ref).
 """
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p::Float32=1f0, η::Float32=1f0, minspread::Float32=1f-2)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; exponent::Float32=1f0, maxdeviation::Float32=1f0, spreadfloor::Float32=1f-2)
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
@@ -375,7 +382,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         end
 
         match, matchstd = if golddists !== nothing
-            pq = perqueryscores((g, r) -> matcherror(g, r, p, η, minspread), golddists, knns)
+            pq = perqueryscores((g, r) -> matcherror(g, r; exponent, maxdeviation, spreadfloor), golddists, knns)
             mean(pq), std(pq) / sqrt(m)
         else
             nothing, nothing
@@ -566,7 +573,7 @@ function optimize_index!(
     end
 
     getperformance = if kind isa MaxMatchError
-        create_error_function(index, ctx, gold, golddists, knns, queries; p=kind.p, η=kind.η, minspread=kind.minspread)
+        create_error_function(index, ctx, gold, golddists, knns, queries; exponent=kind.exponent, maxdeviation=kind.maxdeviation, spreadfloor=kind.spreadfloor)
     else
         create_error_function(index, ctx, gold, golddists, knns, queries)
     end

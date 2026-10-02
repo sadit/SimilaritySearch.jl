@@ -259,7 +259,10 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   on top of the index interface.
 - `perf.jl` — the scores: `recallscore`/`macrorecall` (identifiers), `matcherror`/
   `macromatcherror` (distances; `matcherror` lived in `opt.jl` as an optimizer internal until
-  #92), `perqueryscores` (the per-query vector a macro score averages) and `bootstrapscore`
+  #92; its parameters are `exponent`, `maxdeviation`, `spreadfloor` as keywords, and a
+  position never costs more than `maxdeviation` -- the cap was added for 1.6 after ten
+  duplicate-neighborhood queries made 85% of the ccnews mean; don't remove it, the mean over
+  queries and everything built on it needs the per-query score bounded), `perqueryscores` (the per-query vector a macro score averages) and `bootstrapscore`
   (resamples *queries* over that vector, computed once; a paired comparison of two results is
   the bootstrap of their per-query differences). `MinRecall`/`MaxMatchError` in `opt.jl` are
   built on these, not the other way round.
