@@ -74,37 +74,60 @@ using Test, SimilaritySearch, Random, Statistics
     end
 end
 
-@testset "the goals' objective: a smooth hinge on the target over the log cost" begin
+@testset "the goals' objective: a finite-support hinge on the target over the log cost" begin
     using SimilaritySearch: goalvalue
     g = MinRecall(0.9; tradeoff=1.5, width=0.02)
     rate = log(1.5) / 0.01
-    @test goalvalue(g, 100, 0.999) ≈ log(100) atol=0.01                      # far above the target: the cost alone
-    @test goalvalue(g, 100, 0.5) ≈ log(100) + rate * 0.4 rtol=1e-6            # far below: linear in the shortfall
-    @test goalvalue(g, 200, 0.5) - goalvalue(g, 100, 0.5) ≈ log(2)            # and the cost still counts there
-    vals = [goalvalue(g, 100, r) for r in 0.80:0.001:1.0]
-    @test issorted(vals; rev=true) && maximum(abs, diff(vals)) < 0.05        # decreasing in recall, without a jump
-    @test goalvalue(g, 50, 0.899) < goalvalue(g, 100, 0.95)                   # a hair below, at half the cost, wins
-    h = MinRecall(0.9; tradeoff=1.5, width=1e-4)                              # a tiny width is the hard constraint
-    @test goalvalue(h, 100, 0.95) ≈ log(100) atol=1e-6
-    @test goalvalue(h, 100, 0.85) ≈ log(100) + rate * 0.05 rtol=1e-6
-    e = MaxMatchError(; maxerror=0.1f0, tradeoff=2.0, width=0.01)             # match error: the excess over maxerror
-    @test goalvalue(e, 100, 0.01) ≈ log(100) atol=1e-3
+    @test goalvalue(g, 100, 0.95) == log(100)                                  # beyond the zone: the cost alone, exactly
+    @test goalvalue(g, 100, 0.92) == log(100)                                  # one width above the target: still zero
+    @test goalvalue(g, 100, 0.9) ≈ log(100) + rate * 0.02 / 4 rtol=1e-6        # at the target: width / 4 (the goal stores Float32)
+    @test goalvalue(g, 100, 0.5) ≈ log(100) + rate * 0.4 rtol=1e-6             # far below: linear in the shortfall
+    @test goalvalue(g, 200, 0.5) - goalvalue(g, 100, 0.5) ≈ log(2)             # and the cost still counts there
+    vals = [goalvalue(g, 100, r) for r in 0.80:0.0005:1.0]
+    @test issorted(vals; rev=true) && maximum(abs, diff(vals)) < 0.03         # decreasing in recall, no jump
+    slopes = diff(vals) ./ 0.0005
+    @test maximum(abs, diff(slopes)) < rate * 0.05                             # and no jump in the slope either (C¹)
+    @test goalvalue(g, 50, 0.899) < goalvalue(g, 100, 0.95)                    # a hair below, at half the cost, wins
+    h = MinRecall(0.9; tradeoff=1.5, width=1e-4)                               # a tiny width is the hard constraint
+    @test goalvalue(h, 100, 0.95) == log(100)
+    @test goalvalue(h, 100, 0.85) ≈ log(100) + rate * 0.05 rtol=1e-3
+    # the transition zone, as multipliers of the width
+    below = MinRecall(0.9; tradeoff=1.5, width=0.02, transition=(0, 2))
+    above = MinRecall(0.9; tradeoff=1.5, width=0.02, transition=(-2, 0))
+    @test goalvalue(below, 100, 0.9) == log(100)                               # (0, 2) charges nothing at the target
+    @test goalvalue(below, 100, 0.89) > log(100) && goalvalue(below, 100, 0.89) < goalvalue(g, 100, 0.89)
+    @test goalvalue(above, 100, 0.9) ≈ log(100) + rate * 0.02 rtol=1e-6        # (-2, 0) charges a full width at the target
+    @test goalvalue(above, 100, 0.94) == log(100)                              # and nothing from two widths above
+    @test goalvalue(below, 100, 0.5) ≈ goalvalue(g, 100, 0.5) - rate * 0.02 && goalvalue(above, 100, 0.5) ≈ goalvalue(g, 100, 0.5) + rate * 0.02
+    hard = MinRecall(0.9; tradeoff=1.5, width=0.02, transition=(0, 0))         # lo == hi: a plain threshold at the target
+    @test goalvalue(hard, 100, 0.9) == log(100)
+    @test goalvalue(hard, 100, 0.89) ≈ log(100) + rate * 0.01 rtol=1e-6
+    asym = MinRecall(0.9; tradeoff=1.5, width=0.02, transition=(-1, 3))        # any pair: still C¹, zero before, linear after
+    avals = [goalvalue(asym, 100, r) for r in 0.80:0.0005:1.0]
+    @test issorted(avals; rev=true) && maximum(abs, diff(diff(avals) ./ 0.0005)) < rate * 0.05
+    @test goalvalue(asym, 100, 0.93) == log(100) && goalvalue(asym, 100, 0.5) ≈ goalvalue(g, 100, 0.5) - rate * 0.02
+    # match error: the shortfall is the excess over maxerror
+    e = MaxMatchError(; maxerror=0.1f0, tradeoff=2.0, width=0.01)
+    @test goalvalue(e, 100, 0.05) == log(100)
     @test goalvalue(e, 100, 0.3) ≈ log(100) + log(2.0) / 0.01 * 0.2 rtol=1e-6
     @test goalvalue(e, 100, 0.0) < goalvalue(e, 101, 0.0)                     # increasing in the cost
     # constructors keep the positional target, validate the knobs, and leave the width to resolve
-    @test MinRecall(0.95).minrecall == 0.95f0 && MinRecall(0.95).width === nothing && MinRecall(0.95).tradeoff == 1.5
-    @test MinRecall(; minrecall=0.8, tradeoff=2).tradeoff == 2.0
+    @test MinRecall(0.95).minrecall == 0.95f0 && MinRecall(0.95).width === nothing && MinRecall(0.95).tradeoff == 1.5 && MinRecall(0.95).transition == (-1f0, 1f0)
+    @test MinRecall(; minrecall=0.8, tradeoff=2, transition=(-2, 0)).transition == (-2f0, 0f0)
     @test_throws ArgumentError MinRecall(0.9; tradeoff=1.0)
     @test_throws ArgumentError MinRecall(0.9; tradeoff=Inf)
+    @test_throws ArgumentError MinRecall(0.9; transition=(1, 0))               # lo > hi
+    @test_throws ArgumentError MinRecall(0.9; transition=(-Inf, 1))
     @test_throws ArgumentError MaxMatchError(; width=0.0)
+    @test_throws ArgumentError MaxMatchError(; transition=(2, 1))
     @test_throws ArgumentError goalvalue(MinRecall(0.9), 100, 0.95)            # unresolved width
-    @test goalvalue(MinRecall(0.9), 100, 0.95; width=0.02) ≈ goalvalue(g, 100, 0.95)   # the goal stores its width as Float32
-    # through optimize_index!, with an explicit width and with the resolved one
+    @test goalvalue(MinRecall(0.9), 100, 0.95; width=0.02) ≈ goalvalue(g, 100, 0.95)
+    # through optimize_index!, with an explicit width, with the resolved one, and with other zones
     rng = Xoshiro(11)
     X = MatrixDatabase(rand(rng, Float32, 8, 2000)); Q = MatrixDatabase(rand(rng, Float32, 8, 64))
     G = SearchGraph(Dist.SqL2(), X); gctx = SearchGraphContext(; reporters=[]); index!(G, gctx)
-    optimize_index!(G, gctx, MinRecall(0.8; width=0.05); queries=Q)
-    @test G.algo[] isa BeamSearch
-    optimize_index!(G, gctx, MaxMatchError(; maxerror=0.05f0); queries=Q)
-    @test G.algo[] isa BeamSearch
+    for kind in (MinRecall(0.8; width=0.05), MinRecall(0.8; transition=(0, 2)), MinRecall(0.8; transition=(-2, 0)), MaxMatchError(; maxerror=0.05f0))
+        optimize_index!(G, gctx, kind; queries=Q)
+        @test G.algo[] isa BeamSearch
+    end
 end

@@ -23,23 +23,55 @@ all; `MaxMatchError` is the same idea with the scale read off each query's own n
 abstract type ErrorFunction end
 
 """
-    MinRecall(minrecall=0.9f0; tradeoff=1.5, width=nothing) <: ErrorFunction
+    MinRecall(minrecall=0.9f0; tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
 
 Optimization goal: the cheapest configuration whose recall (against a gold standard computed
 with exhaustive search) reaches `minrecall`, and, below it, the one whose saving pays for its
 shortfall. The value minimized is [`goalvalue`](@ref),
 
-    log(visits) + tradeoffrate · width · softplus((minrecall − recall) / width)
+    log(visits) + tradeoffrate · hinge(minrecall − recall)
 
 a smooth hinge on the target rather than a threshold. Far above `minrecall` only the cost
 counts; far below, every unit of recall missing costs `tradeoffrate = log(tradeoff) / 0.01`
-nats of cost, and the cost still counts; within `width` of the target, the scale of the
-measurement's own noise, the transition is smooth, so a configuration a hair below the target
-is priced at that hair instead of discarded, and the ranking does not flip with the noise of
-the recall estimate. (The threshold it replaces ranked anything below the target behind
-anything above it, whatever the costs, and with 64 tuning queries the estimate's standard
-error is about 0.04, so the test was a coin toss for every configuration within that of the
-target.)
+nats of cost, and the cost still counts; across a transition zone on the scale of the
+measurement's own noise, `width`, the hinge is quadratic, so a configuration a hair short of
+the target is priced at that hair instead of discarded, and the ranking does not flip with
+the noise of the recall estimate. (The threshold it replaces ranked anything below the
+target behind anything above it, whatever the costs, and with 64 tuning queries the
+estimate's standard error is about 0.04, so the test was a coin toss for every configuration
+within that of the target.) The hinge has finite support: it is exactly zero before the
+transition zone, so the goal never pushes the recall further above the target than that
+zone reaches -- a `softplus` hinge was measured to overshoot the target by two to three
+widths, growing with `tradeoff`, because its tail never reaches zero.
+
+# Arguments
+- `minrecall`: the target recall (0-1).
+- `tradeoff`: the cost factor accepted per 1% of recall near the target: `1.5` reads "up to 50%
+  more visits for each 1% of recall". Must be finite and `> 1`. Above the slope of the
+  cost-against-recall front -- 10-20 nats per unit of recall on typical graphs, a cost that
+  doubles between recall 0.90 and 0.95 -- the minimum is the one a hard constraint would pick;
+  `1.5` is 40. With the default zone the result barely moves between `1.2` and `3` (measured
+  on SISAP 2025 `ccnews`: recall 0.900-0.913 for a target of 0.9).
+- `width`: the unit of the transition zone, in recall units. `nothing` (the default) derives
+  it from the data in [`optimize_index!`](@ref): the standard error of the macro recall over
+  the tuning queries, as the median over the initial population of
+  `std(per-query recall) / sqrt(numqueries)`, so the zone spans exactly what the measurement
+  cannot tell apart. A small explicit `width` shrinks the zone to a hard threshold.
+- `transition`: the transition zone `(lo, hi)`, as multipliers of `width`, in shortfall
+  units `s = minrecall − recall` (positive below the target). The hinge charges nothing for
+  `s ≤ lo · width`, a quadratic across the zone, and the shortfall itself, up to a constant,
+  from `hi · width` on; it is continuous with a continuous derivative for any `lo ≤ hi`, and
+  `lo == hi` is a hard threshold at `lo · width`. Measured on SISAP 2025 `ccnews`, a target of
+  0.9, 64 or 256 tuning queries, `width` derived:
+
+  | `transition` | zone, in widths | at the target | tuned recall lands |
+  |---|---|---|---|
+  | `(-1, 1)`, the default | one width on each side | `width / 4` | within a width above the target: 0.900-0.913 |
+  | `(0, 2)` | starts at the target | `0` | like a hard threshold, at or a little under the target with few queries: 0.877-0.901 |
+  | `(-2, 0)` | ends at the target | `width` (already linear) | one to two widths above: for a target that is a floor to hold on unseen queries |
+
+  Any other pair works the same way: `(-0.5, 0.5)` trusts the measurement more than its own
+  standard error, `(-1, 3)` is lenient below the target and strict above it.
 
 # Arguments
 - `minrecall`: the target recall (0-1).
@@ -59,30 +91,36 @@ target.)
 
 ```julia
 optimize_index!(index, ctx, MinRecall(0.95))
-optimize_index!(index, ctx, MinRecall(0.95; tradeoff=3.0))     # a shortfall is cheaper to accept
+optimize_index!(index, ctx, MinRecall(0.95; tradeoff=3.0))        # a shortfall is cheaper to accept
+optimize_index!(index, ctx, MinRecall(0.95; transition=(-2, 0)))  # 0.95 is a floor, land above it
 ```
 """
 @kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
     tradeoff::Float64 = 1.5
     width::Union{Nothing,Float32} = nothing
+    transition::Tuple{Float32,Float32} = (-1f0, 1f0)
 
-    function MinRecall(minrecall, tradeoff, width)
-        _checkgoal("MinRecall", tradeoff, width)
-        new(Float32(minrecall), Float64(tradeoff), width === nothing ? nothing : Float32(width))
+    function MinRecall(minrecall, tradeoff, width, transition)
+        _checkgoal("MinRecall", tradeoff, width, transition)
+        new(Float32(minrecall), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
     end
 end
 
-MinRecall(minrecall::Real; tradeoff::Real=1.5, width=nothing) = MinRecall(minrecall, tradeoff, width)
+MinRecall(minrecall::Real; tradeoff::Real=1.5, width=nothing, transition=(-1, 1)) = MinRecall(minrecall, tradeoff, width, transition)
 
-function _checkgoal(name, tradeoff, width)
+_transition(t) = (Float32(t[1]), Float32(t[2]))
+
+function _checkgoal(name, tradeoff, width, transition)
     tradeoff > 1 && isfinite(tradeoff) || throw(ArgumentError("$name: tradeoff=$tradeoff must be a finite number above 1"))
     width === nothing || width > 0 || throw(ArgumentError("$name: width=$width must be positive"))
+    length(transition) == 2 && all(isfinite, transition) && transition[1] <= transition[2] ||
+        throw(ArgumentError("$name: transition=$transition must be a pair (lo, hi) of finite width multipliers with lo <= hi"))
     nothing
 end
 
 """
-    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2, tradeoff=1.5, width=nothing) <: ErrorFunction
+    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2, tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
 
 Optimization goal: the cheapest configuration whose *MatchError* stays at or below
 `maxerror`, and, above it, the one whose saving pays for the excess -- the same smooth hinge
@@ -139,9 +177,11 @@ distance.
   degenerate (zero-spread) query doesn't blow up the aggregate error; see above.
 - `tradeoff`: the cost factor accepted per 0.01 of match error near `maxerror`; must be finite
   and `> 1` (see [`MinRecall`](@ref)).
-- `width`: the half-width of the smooth transition, in match-error units; `nothing` derives it
+- `width`: the unit of the hinge's transition zone, in match-error units; `nothing` derives it
   in `optimize_index!` as the standard error of the macro match error over the tuning queries
   (the median over the initial population of `std(per-query matcherror) / sqrt(numqueries)`).
+- `transition`: the zone `(lo, hi)` as multipliers of `width`, placed on `maxerror` (see
+  [`MinRecall`](@ref); here the shortfall is `matcherror − maxerror`).
 
 # Examples
 
@@ -156,10 +196,11 @@ optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
     minspread::Float32 = 1f-2
     tradeoff::Float64 = 1.5
     width::Union{Nothing,Float32} = nothing
+    transition::Tuple{Float32,Float32} = (-1f0, 1f0)
 
-    function MaxMatchError(maxerror, p, η, minspread, tradeoff, width)
-        _checkgoal("MaxMatchError", tradeoff, width)
-        new(Float32(maxerror), Float32(p), Float32(η), Float32(minspread), Float64(tradeoff), width === nothing ? nothing : Float32(width))
+    function MaxMatchError(maxerror, p, η, minspread, tradeoff, width, transition)
+        _checkgoal("MaxMatchError", tradeoff, width, transition)
+        new(Float32(maxerror), Float32(p), Float32(η), Float32(minspread), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
     end
 end
 
@@ -170,30 +211,48 @@ end
 The number [`optimize_index!`](@ref) minimizes for a configuration that visited `visits`
 objects per query and measured the given quality:
 
-    log(visits) + tradeoffrate · width · softplus(shortfall / width)
+    log(visits) + tradeoffrate · hinge(shortfall)
 
 with `tradeoffrate = log(kind.tradeoff) / 0.01` and `shortfall` how far the quality falls
 short of the goal's target, `minrecall − recall` or `matcherror − maxerror`. The cost is in
 nats, so a difference of `log(2)` is "twice the visits" at any scale and no normalization is
-needed; the hinge `width · softplus(s / width)` is about `0` for `s ≪ −width`, about `s` for
-`s ≫ width`, and smooth in between. `width` must be resolved: given to the goal, passed here,
-or derived by `optimize_index!` from the initial population before the first ranking.
+needed. The hinge has finite support: with the transition zone `a = lo · width` to
+`b = hi · width` from `kind.transition`, it is exactly `0` before the zone, a quadratic
+across it, and the shortfall up to a constant beyond it, continuous with a continuous
+derivative:
+
+    hinge(s) = 0                        for s ≤ a
+             = (s − a)² / (2 (b − a))   for a < s < b
+             = s − (a + b) / 2          for s ≥ b
+
+For the default `(-1, 1)` that is `(s + width)² / (4 width)` across `[−width, width]` and
+`s` beyond.
+
+`width` must be resolved: given to the goal, passed here, or derived by `optimize_index!`
+from the initial population before the first ranking.
 """
 goalvalue(kind::MinRecall, visits::Real, recall::Real; width=kind.width) =
-    _goalvalue(visits, kind.minrecall - recall, kind.tradeoff, width)
+    _goalvalue(visits, kind.minrecall - recall, kind.tradeoff, width, kind.transition)
 goalvalue(kind::MaxMatchError, visits::Real, matcherror::Real; width=kind.width) =
-    _goalvalue(visits, matcherror - kind.maxerror, kind.tradeoff, width)
+    _goalvalue(visits, matcherror - kind.maxerror, kind.tradeoff, width, kind.transition)
 
-function _goalvalue(visits::Real, shortfall::Real, tradeoff::Real, width)::Float64
+function _goalvalue(visits::Real, shortfall::Real, tradeoff::Real, width, transition)::Float64
     width === nothing && throw(ArgumentError("goalvalue: the goal's width is unresolved; give it to the goal or let optimize_index! derive it"))
     rate = log(tradeoff) / 0.01
-    log(max(Float64(visits), 1.0)) + rate * _softhinge(Float64(shortfall), Float64(width))
+    log(max(Float64(visits), 1.0)) + rate * _hinge(Float64(shortfall), Float64(width), transition)
 end
 
-"`width * softplus(s / width)`: about 0 for `s ≪ -width`, about `s` for `s ≫ width`, smooth in between."
-function _softhinge(s::Float64, width::Float64)::Float64
-    x = s / width
-    x > 30 ? s : width * log1p(exp(x))
+"""
+The finite-support hinge over the zone `[lo · width, hi · width]`: `0` before it, a quadratic
+across it, the shortfall up to a constant after it, with a continuous derivative. `lo == hi`
+is a plain threshold at `lo · width`.
+"""
+function _hinge(s::Float64, width::Float64, transition)::Float64
+    a = Float64(transition[1]) * width
+    b = Float64(transition[2]) * width
+    s <= a && return 0.0
+    s >= b && return s - (a + b) / 2
+    (s - a)^2 / (2 * (b - a))
 end
 
 """

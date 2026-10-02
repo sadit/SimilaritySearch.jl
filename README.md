@@ -36,11 +36,15 @@ removing any that worked before. Patch releases inside a series are fixes and pe
 - **The goals minimize a smooth objective.** `MinRecall(t)` and `MaxMatchError(e)` used to rank any configuration
   below the target behind any configuration above it, whatever the costs: blind to a configuration a hair
   short at a fraction of the cost, and a coin toss within the noise of the recall estimate (0.04 with 64
-  tuning queries). They now minimize `goalvalue`, the log cost plus a smooth hinge on the target, with
-  two knobs: `tradeoff`, the cost factor accepted per 1% of quality near the target (default `1.5`), and
-  `width`, the transition's half-width, derived by default from the quality's standard error over the
-  tuning queries. The cost is in nats, so the normalization by the initial population's maximum cost is
-  gone with it.
+  tuning queries). They now minimize `goalvalue`, the log cost plus a finite-support hinge on the target,
+  with three knobs: `tradeoff`, the cost factor accepted per 1% of quality near the target (default `1.5`);
+  `width`, the hinge's half-width, derived by default from the quality's standard error over the tuning
+  queries; and `transition`, the hinge's zone as multipliers of `width` (`(-1, 1)`, the default, lands within
+  a width above the target; `(0, 2)` lands like a hard threshold; `(-2, 0)` treats the target as a floor;
+  any other pair, asymmetric included, works). Measured
+  on SISAP 2025 `ccnews` against the hard threshold and a `softplus` hinge: the centered hinge lands at
+  0.900-0.913 for a target of 0.9 and barely moves with `tradeoff`, `softplus` overshoots by two to three
+  widths, and the cost is in nats, so the normalization by the initial population's maximum cost is gone.
 - **`ParetoRecall`, `ParetoRadius` and `OptRadius` are gone.** The first two were not Pareto fronts but a
   sum of squares with the cost normalized by the initial population's maximum, so the trade-off they picked
   depended on that population, and a trade-off chosen at construction did not carry over to the search: a

@@ -264,9 +264,15 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   the bootstrap of their per-query differences). `MinRecall`/`MaxMatchError` in `opt.jl` are
   built on these, not the other way round.
 - `opt.jl` — the goals `MinRecall`/`MaxMatchError` minimize `goalvalue` = `log(visits) +
-  rate · softhinge(shortfall)` with `rate = log(tradeoff)/0.01` and the hinge's `width` the
-  quality's standard error over the tuning queries (resolved once from the initial
-  population's median in `inspect_population`). This replaced, in 1.6, a hard threshold
+  rate · hinge(shortfall)` with `rate = log(tradeoff)/0.01`, a **finite-support** hinge (zero
+  before the transition zone, quadratic across it, linear after; `transition = (lo, hi)` are
+  multipliers of `width` placing the zone on the target: `(-1, 1)` centered, `(0, 2)` below,
+  `(-2, 0)` above, `lo == hi` a hard threshold) and the hinge's `width` the quality's standard error over the
+  tuning queries (resolved once from the initial population's median in
+  `inspect_population`). Finite support is deliberate: a `softplus` hinge, measured on ccnews,
+  overshot the target by two to three widths because its tail never reaches zero; the
+  centered one lands at 0.900-0.913 for a target of 0.9 and is nearly flat in `tradeoff`
+  between 1.2 and 3 (tables in the session scratch, 2026-10-02). This replaced, in 1.6, a hard threshold
   (`quality fails ? 1 + shortfall : visited/M`) that was blind within the measurement noise,
   ranked a feasible configuration behind an infeasible one whenever `visited/M > 1` (`M` was
   the initial population's maximum, which later mutations exceed), and whose selection
