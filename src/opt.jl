@@ -2,6 +2,7 @@
 
 using SearchModels, Random
 using StatsBase
+using Statistics: median, std
 import SearchModels: combine, mutate
 export OptimizeParameters, optimize_index!, MinRecall, MaxMatchError
 
@@ -22,29 +23,71 @@ all; `MaxMatchError` is the same idea with the scale read off each query's own n
 abstract type ErrorFunction end
 
 """
-    MinRecall(; minrecall=0.9f0) <: ErrorFunction
+    MinRecall(minrecall=0.9f0; tradeoff=1.5, width=nothing) <: ErrorFunction
 
-Optimization goal that favors the fastest configuration among those achieving at least
-`minrecall` recall (measured against a gold standard computed with exhaustive search).
+Optimization goal: the cheapest configuration whose recall (against a gold standard computed
+with exhaustive search) reaches `minrecall`, and, below it, the one whose saving pays for its
+shortfall. The value minimized is [`goalvalue`](@ref),
 
-# Keyword Arguments
-- `minrecall`: minimum recall (0-1) required to be considered as fast as possible.
+    log(visits) + tradeoffrate · width · softplus((minrecall − recall) / width)
+
+a smooth hinge on the target rather than a threshold. Far above `minrecall` only the cost
+counts; far below, every unit of recall missing costs `tradeoffrate = log(tradeoff) / 0.01`
+nats of cost, and the cost still counts; within `width` of the target, the scale of the
+measurement's own noise, the transition is smooth, so a configuration a hair below the target
+is priced at that hair instead of discarded, and the ranking does not flip with the noise of
+the recall estimate. (The threshold it replaces ranked anything below the target behind
+anything above it, whatever the costs, and with 64 tuning queries the estimate's standard
+error is about 0.04, so the test was a coin toss for every configuration within that of the
+target.)
+
+# Arguments
+- `minrecall`: the target recall (0-1).
+- `tradeoff`: the cost factor accepted per 1% of recall near the target: `1.5` reads "up to 50%
+  more visits for each 1% of recall". Must be finite and `> 1`. Above the slope of the
+  cost-against-recall front -- 10-20 nats per unit of recall on typical graphs, a cost that
+  doubles between recall 0.90 and 0.95 -- the minimum is the one a hard constraint would pick;
+  `1.5` is 40.
+- `width`: the half-width of the smooth transition, in recall units. `nothing` (the default)
+  derives it from the data in [`optimize_index!`](@ref): the standard error of the macro recall
+  over the tuning queries, as the median over the initial population of
+  `std(per-query recall) / sqrt(numqueries)`, so the objective is flat exactly where the
+  measurement cannot tell configurations apart. A small explicit `width` recovers a hard
+  threshold.
 
 # Examples
 
 ```julia
 optimize_index!(index, ctx, MinRecall(0.95))
+optimize_index!(index, ctx, MinRecall(0.95; tradeoff=3.0))     # a shortfall is cheaper to accept
 ```
 """
 @kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
+    tradeoff::Float64 = 1.5
+    width::Union{Nothing,Float32} = nothing
+
+    function MinRecall(minrecall, tradeoff, width)
+        _checkgoal("MinRecall", tradeoff, width)
+        new(Float32(minrecall), Float64(tradeoff), width === nothing ? nothing : Float32(width))
+    end
+end
+
+MinRecall(minrecall::Real; tradeoff::Real=1.5, width=nothing) = MinRecall(minrecall, tradeoff, width)
+
+function _checkgoal(name, tradeoff, width)
+    tradeoff > 1 && isfinite(tradeoff) || throw(ArgumentError("$name: tradeoff=$tradeoff must be a finite number above 1"))
+    width === nothing || width > 0 || throw(ArgumentError("$name: width=$width must be positive"))
+    nothing
 end
 
 """
-    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2) <: ErrorFunction
+    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2, tradeoff=1.5, width=nothing) <: ErrorFunction
 
-Optimization goal that favors the fastest configuration among those whose *MatchError* stays
-at or below `maxerror`. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
+Optimization goal: the cheapest configuration whose *MatchError* stays at or below
+`maxerror`, and, above it, the one whose saving pays for the excess -- the same smooth hinge
+as [`MinRecall`](@ref), [`goalvalue`](@ref) with `matcherror − maxerror` as the shortfall and
+`width` in match-error units. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
 as sets), MatchError compares the *distances* of the returned neighbors against the distances
 of the true neighbors at the same rank, so a substitute neighbor tied in distance with the gold
 one scores as a perfect match even if its identifier differs (relevant e.g. under `Hamming`,
@@ -94,6 +137,11 @@ distance.
 - `η`: penalty assigned to a missing position (the algorithm returned fewer than `k'` items).
 - `minspread`: absolute floor added to the gold neighborhood's spread `ρ(q)`, so a fully
   degenerate (zero-spread) query doesn't blow up the aggregate error; see above.
+- `tradeoff`: the cost factor accepted per 0.01 of match error near `maxerror`; must be finite
+  and `> 1` (see [`MinRecall`](@ref)).
+- `width`: the half-width of the smooth transition, in match-error units; `nothing` derives it
+  in `optimize_index!` as the standard error of the macro match error over the tuning queries
+  (the median over the initial population of `std(per-query matcherror) / sqrt(numqueries)`).
 
 # Examples
 
@@ -106,6 +154,46 @@ optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
     p::Float32 = 1f0
     η::Float32 = 1f0
     minspread::Float32 = 1f-2
+    tradeoff::Float64 = 1.5
+    width::Union{Nothing,Float32} = nothing
+
+    function MaxMatchError(maxerror, p, η, minspread, tradeoff, width)
+        _checkgoal("MaxMatchError", tradeoff, width)
+        new(Float32(maxerror), Float32(p), Float32(η), Float32(minspread), Float64(tradeoff), width === nothing ? nothing : Float32(width))
+    end
+end
+
+"""
+    goalvalue(kind::MinRecall, visits::Real, recall::Real; width=kind.width) -> Float64
+    goalvalue(kind::MaxMatchError, visits::Real, matcherror::Real; width=kind.width) -> Float64
+
+The number [`optimize_index!`](@ref) minimizes for a configuration that visited `visits`
+objects per query and measured the given quality:
+
+    log(visits) + tradeoffrate · width · softplus(shortfall / width)
+
+with `tradeoffrate = log(kind.tradeoff) / 0.01` and `shortfall` how far the quality falls
+short of the goal's target, `minrecall − recall` or `matcherror − maxerror`. The cost is in
+nats, so a difference of `log(2)` is "twice the visits" at any scale and no normalization is
+needed; the hinge `width · softplus(s / width)` is about `0` for `s ≪ −width`, about `s` for
+`s ≫ width`, and smooth in between. `width` must be resolved: given to the goal, passed here,
+or derived by `optimize_index!` from the initial population before the first ranking.
+"""
+goalvalue(kind::MinRecall, visits::Real, recall::Real; width=kind.width) =
+    _goalvalue(visits, kind.minrecall - recall, kind.tradeoff, width)
+goalvalue(kind::MaxMatchError, visits::Real, matcherror::Real; width=kind.width) =
+    _goalvalue(visits, matcherror - kind.maxerror, kind.tradeoff, width)
+
+function _goalvalue(visits::Real, shortfall::Real, tradeoff::Real, width)::Float64
+    width === nothing && throw(ArgumentError("goalvalue: the goal's width is unresolved; give it to the goal or let optimize_index! derive it"))
+    rate = log(tradeoff) / 0.01
+    log(max(Float64(visits), 1.0)) + rate * _softhinge(Float64(shortfall), Float64(width))
+end
+
+"`width * softplus(s / width)`: about 0 for `s ≪ -width`, about `s` for `s ≫ width`, smooth in between."
+function _softhinge(s::Float64, width::Float64)::Float64
+    x = s / width
+    x > 30 ? s : width * log1p(exp(x))
 end
 
 """
@@ -213,18 +301,26 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             (min=rmin, mean=mean(cov), max=rmax)
         end
 
-        recall = if gold !== nothing
+        # the macro scores and their standard errors over the tuning queries; the goals' smooth
+        # hinge takes its width from the latter when the goal did not fix one
+        recall, recallstd = if gold !== nothing
             for (i, r) in enumerate(knns)
                 empty!(R[i])
                 union!(R[i], IdView(r))
             end
 
-            macrorecall(gold, R)
+            pq = perqueryscores(recallscore, gold, R)
+            mean(pq), std(pq) / sqrt(m)
         else
-            nothing
+            nothing, nothing
         end
 
-        match = golddists !== nothing ? macromatcherror(golddists, knns, p, η, minspread) : nothing
+        match, matchstd = if golddists !== nothing
+            pq = perqueryscores((g, r) -> matcherror(g, r, p, η, minspread), golddists, knns)
+            mean(pq), std(pq) / sqrt(m)
+        else
+            nothing, nothing
+        end
 
         if recall !== nothing && recall < 0.3
             @warn "OPT low recall> recall: $recall, #objects: $(length(index)), #queries: $(length(queries)), cov: $cov"
@@ -245,7 +341,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 
         visited = distance_stats(ctx, before)
         verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, match: $match, length: $(length(index)), radius: $radius, visited: $visited"
-        (; visited, radius, recall, match, searchtime, conf)
+        (; visited, radius, recall, recallstd, match, matchstd, searchtime, conf)
     end
 end
 
@@ -276,7 +372,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Arguments
 - `index`: the index to be optimized
 - `ctx`: index ctx (caches and general hyperparameters)
-- `kind`: The kind of optimization to apply, it can be `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time), or `MaxMatchError(; maxerror)` (a smoother, distance-based alternative to `MinRecall`, see [`MaxMatchError`](@ref))
+- `kind`: the goal, [`MinRecall`](@ref)`(r)` with `r` the target recall (0-1) or [`MaxMatchError`](@ref)`(; maxerror)`, its distance-based counterpart; both minimize [`goalvalue`](@ref), the log cost plus a smooth hinge on the target
 
 # Keyword arguments
 
@@ -394,12 +490,19 @@ function optimize_index!(
         end
     end
 
-    M = Ref(0.0) # max cost
+    # the goal's hinge width: given, or the standard error of the quality measurement over the
+    # tuning queries, read off the initial population once (its median, so one odd
+    # configuration does not set it) -- the objective is flat where the measurement is blind
+    width = Ref{Union{Nothing,Float64}}(kind.width === nothing ? nothing : Float64(kind.width))
     function inspect_population(space, params, population)
-        if M[] == 0.0
-            for (c, p) in population
-                M[] = max(p.visited.max, M[])
+        if width[] === nothing
+            stds = Float64[]
+            for (c, perf) in population
+                s = kind isa MinRecall ? perf.recallstd : perf.matchstd
+                s === nothing || isnan(s) || push!(stds, s)
             end
+            width[] = isempty(stds) ? 1e-3 : max(median(stds), 1e-4)
+            verbose(ctx) && @inform ctx "== goal width resolved to $(width[]) (standard error of the quality over $(length(queries)) tuning queries)"
         end
     end
 
@@ -410,17 +513,9 @@ function optimize_index!(
     end
 
     function getcost(p)
-        p = last(p)
-        cost = p.visited.mean / M[]
-        if kind isa MinRecall
-            #p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
-            #p.recall < kind.minrecall ? 2f0 - p.recall : cost
-            p.recall < kind.minrecall ? 1 + max(kind.minrecall - p.recall, 0) : cost
-        elseif kind isa MaxMatchError
-            p.match > kind.maxerror ? 1 + max(p.match - kind.maxerror, 0) : cost
-        else
-            error("unknown optimization goal $kind")
-        end
+        perf = last(p)
+        quality = kind isa MinRecall ? perf.recall : perf.match
+        goalvalue(kind, perf.visited.mean, quality; width=width[])
     end
 
     function sort_by_best(space, params, population)

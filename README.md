@@ -31,6 +31,24 @@ The precise definitions of these functions and the complete set of functions and
 The package follows semantic versioning; a series (`1.5.x`, `1.4.x`, ...) adds features without
 removing any that worked before. Patch releases inside a series are fixes and performance work.
 
+## 1.6
+
+- **The goals minimize a smooth objective.** `MinRecall(t)` and `MaxMatchError(e)` used to rank any configuration
+  below the target behind any configuration above it, whatever the costs: blind to a configuration a hair
+  short at a fraction of the cost, and a coin toss within the noise of the recall estimate (0.04 with 64
+  tuning queries). They now minimize `goalvalue`, the log cost plus a smooth hinge on the target, with
+  two knobs: `tradeoff`, the cost factor accepted per 1% of quality near the target (default `1.5`), and
+  `width`, the transition's half-width, derived by default from the quality's standard error over the
+  tuning queries. The cost is in nats, so the normalization by the initial population's maximum cost is
+  gone with it.
+- **`ParetoRecall`, `ParetoRadius` and `OptRadius` are gone.** The first two were not Pareto fronts but a
+  sum of squares with the cost normalized by the initial population's maximum, so the trade-off they picked
+  depended on that population, and a trade-off chosen at construction did not carry over to the search: a
+  better graph is both more accurate and faster at a fixed beam. `OptRadius` targeted a covering radius within
+  a tolerance, which could not be set without a prior look at the distances; `MaxMatchError` is the same idea
+  with the scale read off each query's own neighborhood. `MinRecall` and `MaxMatchError` remain; a
+  bi-objective goal will return as a smooth, explicitly weighted combination.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
@@ -75,13 +93,6 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   and its rotation by the object, `Projections.qr(dim, dim)`, the new `Projections.RandomizedHadamard`
   (random signs and the Walsh-Hadamard transform, `dim log dim`), or `nothing`; on the SISAP 2025 `ccnews`
   benchmark the rotation moved recall by less than 0.01 at every width and cost 30-50 µs per query.
-- **`ParetoRecall`, `ParetoRadius` and `OptRadius` are gone.** The first two were not Pareto fronts but a
-  sum of squares with the cost normalized by the initial population's maximum, so the trade-off they picked
-  depended on that population, and a trade-off chosen at construction did not carry over to the search: a
-  better graph is both more accurate and faster at a fixed beam. `OptRadius` targeted a covering radius within
-  a tolerance, which could not be set without a prior look at the distances; `MaxMatchError` is the same idea
-  with the scale read off each query's own neighborhood. `MinRecall` and `MaxMatchError` remain; a
-  bi-objective goal will return as a smooth, explicitly weighted combination.
 - **Scores with error bars.** `bootstrapscore(recallscore, gold, res)` resamples the queries and returns the
   macro score with its standard deviation and a percentile interval, over any per-query score;
   `perqueryscores` gives the vector it draws from, and the bootstrap of the per-query differences of two

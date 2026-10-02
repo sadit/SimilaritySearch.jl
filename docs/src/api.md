@@ -215,6 +215,8 @@ BeamSearchSpace
 OptimizeParameters
 optimize_index!
 MinRecall
+MaxMatchError
+SimilaritySearch.goalvalue
 ```
 
 ### Neighborhood computation and refinement

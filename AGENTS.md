@@ -263,6 +263,15 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   (resamples *queries* over that vector, computed once; a paired comparison of two results is
   the bootstrap of their per-query differences). `MinRecall`/`MaxMatchError` in `opt.jl` are
   built on these, not the other way round.
+- `opt.jl` — the goals `MinRecall`/`MaxMatchError` minimize `goalvalue` = `log(visits) +
+  rate · softhinge(shortfall)` with `rate = log(tradeoff)/0.01` and the hinge's `width` the
+  quality's standard error over the tuning queries (resolved once from the initial
+  population's median in `inspect_population`). This replaced, in 1.6, a hard threshold
+  (`quality fails ? 1 + shortfall : visited/M`) that was blind within the measurement noise,
+  ranked a feasible configuration behind an infeasible one whenever `visited/M > 1` (`M` was
+  the initial population's maximum, which later mutations exceed), and whose selection
+  carried a winner's-curse bias. Don't bring back a threshold or a population-normalized cost;
+  `ParetoRecall`/`ParetoRadius`/`OptRadius` were removed in the same step (see README 1.6).
 
 ## Conventions worth knowing before writing code
 

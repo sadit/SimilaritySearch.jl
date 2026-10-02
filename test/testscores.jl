@@ -73,3 +73,38 @@ using Test, SimilaritySearch, Random, Statistics
         @info "scores over $nq queries: recall $(round(br.mean; digits=3)) ± $(round(br.std; digits=3)) [$(round(br.lo; digits=3)), $(round(br.hi; digits=3))]; match error $(round(bm.mean; digits=4)) ± $(round(bm.std; digits=4))"
     end
 end
+
+@testset "the goals' objective: a smooth hinge on the target over the log cost" begin
+    using SimilaritySearch: goalvalue
+    g = MinRecall(0.9; tradeoff=1.5, width=0.02)
+    rate = log(1.5) / 0.01
+    @test goalvalue(g, 100, 0.999) ≈ log(100) atol=0.01                      # far above the target: the cost alone
+    @test goalvalue(g, 100, 0.5) ≈ log(100) + rate * 0.4 rtol=1e-6            # far below: linear in the shortfall
+    @test goalvalue(g, 200, 0.5) - goalvalue(g, 100, 0.5) ≈ log(2)            # and the cost still counts there
+    vals = [goalvalue(g, 100, r) for r in 0.80:0.001:1.0]
+    @test issorted(vals; rev=true) && maximum(abs, diff(vals)) < 0.05        # decreasing in recall, without a jump
+    @test goalvalue(g, 50, 0.899) < goalvalue(g, 100, 0.95)                   # a hair below, at half the cost, wins
+    h = MinRecall(0.9; tradeoff=1.5, width=1e-4)                              # a tiny width is the hard constraint
+    @test goalvalue(h, 100, 0.95) ≈ log(100) atol=1e-6
+    @test goalvalue(h, 100, 0.85) ≈ log(100) + rate * 0.05 rtol=1e-6
+    e = MaxMatchError(; maxerror=0.1f0, tradeoff=2.0, width=0.01)             # match error: the excess over maxerror
+    @test goalvalue(e, 100, 0.01) ≈ log(100) atol=1e-3
+    @test goalvalue(e, 100, 0.3) ≈ log(100) + log(2.0) / 0.01 * 0.2 rtol=1e-6
+    @test goalvalue(e, 100, 0.0) < goalvalue(e, 101, 0.0)                     # increasing in the cost
+    # constructors keep the positional target, validate the knobs, and leave the width to resolve
+    @test MinRecall(0.95).minrecall == 0.95f0 && MinRecall(0.95).width === nothing && MinRecall(0.95).tradeoff == 1.5
+    @test MinRecall(; minrecall=0.8, tradeoff=2).tradeoff == 2.0
+    @test_throws ArgumentError MinRecall(0.9; tradeoff=1.0)
+    @test_throws ArgumentError MinRecall(0.9; tradeoff=Inf)
+    @test_throws ArgumentError MaxMatchError(; width=0.0)
+    @test_throws ArgumentError goalvalue(MinRecall(0.9), 100, 0.95)            # unresolved width
+    @test goalvalue(MinRecall(0.9), 100, 0.95; width=0.02) ≈ goalvalue(g, 100, 0.95)   # the goal stores its width as Float32
+    # through optimize_index!, with an explicit width and with the resolved one
+    rng = Xoshiro(11)
+    X = MatrixDatabase(rand(rng, Float32, 8, 2000)); Q = MatrixDatabase(rand(rng, Float32, 8, 64))
+    G = SearchGraph(Dist.SqL2(), X); gctx = SearchGraphContext(; reporters=[]); index!(G, gctx)
+    optimize_index!(G, gctx, MinRecall(0.8; width=0.05); queries=Q)
+    @test G.algo[] isa BeamSearch
+    optimize_index!(G, gctx, MaxMatchError(; maxerror=0.05f0); queries=Q)
+    @test G.algo[] isa BeamSearch
+end
