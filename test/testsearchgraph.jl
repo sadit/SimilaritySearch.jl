@@ -158,40 +158,6 @@ end
     #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
 
 
-    #=@testset "AutoBS with ParetoRadius" begin
-        graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
-        ctx = SearchGraphContext(
-            neighborhood = Neighborhood(filter=SatNeighborhood()),
-            hyperparameters_callback = OptimizeParameters(OptRadius()),
-            parallel_block = 8
-        )
-        #ctx = getcontext(graph)
-        try
-            append_items!(graph, ctx, db)
-        catch err
-            display(err.errors[1])
-            exit(0)
-        end
-        @test n == length(db) == length(graph)
-        @info "---- starting ParetoRadius optimization ---"
-        optimize_index!(graph, ctx, ParetoRadius())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6  # we don't expect high quality results on ParetoRadius
-
-        @info "---- starting ParetoRecall optimization ---"
-        optimize_index!(graph, ctx, ParetoRecall())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6
-    end
-    =#
 
 end
 
@@ -307,7 +273,6 @@ end
     # the recall-based goals cannot: macrorecall divides by the gold ball's size, and a small
     # radius routinely leaves a query with an empty ball
     @test_throws ArgumentError optimize_index!(graph, ctx, MinRecall(0.9); radius)
-    @test_throws ArgumentError optimize_index!(graph, ctx, ParetoRecall(); radius)
 end
 
 @testset "matcherror scores the ball, not the navigation reserve" begin

@@ -3,15 +3,21 @@
 using SearchModels, Random
 using StatsBase
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius, MaxMatchError
+export OptimizeParameters, optimize_index!, MinRecall, MaxMatchError
 
 """
     abstract type ErrorFunction end
 
 Abstract type for the optimization goals (`kind` argument) accepted by [`optimize_index!`](@ref).
 It determines how candidate hyperparameter configurations are scored/compared while
-autotuning the index. Concrete subtypes are [`MinRecall`](@ref), [`OptRadius`](@ref),
-[`ParetoRecall`](@ref), [`ParetoRadius`](@ref), and [`MaxMatchError`](@ref).
+autotuning the index. Concrete subtypes are [`MinRecall`](@ref) and [`MaxMatchError`](@ref).
+
+Three goals were removed in 1.6. `ParetoRecall`/`ParetoRadius` were a weighted sum of squares
+normalized by the initial population's maximum cost, not a Pareto front, and the trade-off
+they picked at construction did not carry over to the search; a bi-objective goal, when it
+returns, will be a smooth, explicitly weighted combination. `OptRadius` targeted a covering
+radius within a tolerance, which asked for a look at the distances beforehand to be set at
+all; `MaxMatchError` is the same idea with the scale read off each query's own neighborhood.
 """
 abstract type ErrorFunction end
 
@@ -33,42 +39,6 @@ optimize_index!(index, ctx, MinRecall(0.95))
 @kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
 end
-
-"""
-    OptRadius(; tol=0.1) <: ErrorFunction
-
-Optimization goal that favors the fastest configuration among those whose search radius
-falls within a `tol`-sized tolerance band, without relying on a computed gold standard.
-
-# Keyword Arguments
-- `tol`: relative tolerance used to bucket configurations by their achieved search radius.
-
-# Examples
-
-```julia
-optimize_index!(index, ctx, OptRadius(; tol=0.05))
-```
-"""
-@kwdef struct OptRadius <: ErrorFunction
-    tol::Float32 = 0.1
-end
-
-"""
-    ParetoRecall <: ErrorFunction
-
-Optimization goal that searches for a good trade-off between speed and recall (measured
-against a gold standard computed with exhaustive search), without requiring a fixed minimum
-recall.
-"""
-struct ParetoRecall <: ErrorFunction end
-
-"""
-    ParetoRadius <: ErrorFunction
-
-Optimization goal that searches for a good trade-off between speed and the achieved search
-radius, without relying on a computed gold standard.
-"""
-struct ParetoRadius <: ErrorFunction end
 
 """
     MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2) <: ErrorFunction
@@ -280,8 +250,6 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 end
 
 
-_kfun(x) = 1.0 - 1.0 / (1.0 + x)
-
 """
     optimize_index!(
         index::AbstractSearchIndex,
@@ -308,7 +276,7 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Arguments
 - `index`: the index to be optimized
 - `ctx`: index ctx (caches and general hyperparameters)
-- `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()`, `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time), or `MaxMatchError(; maxerror)` (a smoother, distance-based alternative to `MinRecall`, see [`MaxMatchError`](@ref))
+- `kind`: The kind of optimization to apply, it can be `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time), or `MaxMatchError(; maxerror)` (a smoother, distance-based alternative to `MinRecall`, see [`MaxMatchError`](@ref))
 
 # Keyword arguments
 
@@ -391,7 +359,7 @@ function optimize_index!(
         [BallKnn(radius, kmin) for _ in 1:length(queries)]
     end
 
-    if kind isa ParetoRecall || kind isa MinRecall || kind isa MaxMatchError
+    if kind isa MinRecall || kind isa MaxMatchError
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, ctx, queries, knns)
@@ -427,12 +395,10 @@ function optimize_index!(
     end
 
     M = Ref(0.0) # max cost
-    R = Ref(0.0) # radius
     function inspect_population(space, params, population)
         if M[] == 0.0
             for (c, p) in population
                 M[] = max(p.visited.max, M[])
-                R[] = max(p.radius.max, R[])
             end
         end
     end
@@ -446,32 +412,19 @@ function optimize_index!(
     function getcost(p)
         p = last(p)
         cost = p.visited.mean / M[]
-        if kind isa ParetoRecall
-            cost^2 + (1.0 - p.recall)^2
-        elseif kind isa ParetoRadius
-            _kfun(cost) + _kfun(p.radius.mean / R[])
-        elseif kind isa MinRecall
+        if kind isa MinRecall
             #p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
             #p.recall < kind.minrecall ? 2f0 - p.recall : cost
             p.recall < kind.minrecall ? 1 + max(kind.minrecall - p.recall, 0) : cost
         elseif kind isa MaxMatchError
             p.match > kind.maxerror ? 1 + max(p.match - kind.maxerror, 0) : cost
-        elseif kind isa OptRadius
-            r = p.radius.mean / R[]
-            round(r / kind.tol, digits=0)
         else
             error("unknown optimization goal $kind")
         end
     end
 
     function sort_by_best(space, params, population)
-        if kind isa OptRadius
-            sort!(population, by=getcost)
-            sort!(view(population, 1:params.bsize), by=p -> p.second.visited.mean)
-        else
-            sort!(population, by=getcost)
-        end
-
+        sort!(population, by=getcost)
         population
     end
 

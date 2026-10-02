@@ -215,9 +215,6 @@ BeamSearchSpace
 OptimizeParameters
 optimize_index!
 MinRecall
-OptRadius
-ParetoRecall
-ParetoRadius
 ```
 
 ### Neighborhood computation and refinement
