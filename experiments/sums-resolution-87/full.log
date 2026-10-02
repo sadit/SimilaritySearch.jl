@@ -1,0 +1,93 @@
+[ Info: ccnews: train (384, 603664); norms mean=1.0 std=4.2047677e-8
+[ Info: ccnews global 8 bits: quantized in 2.1s range=(-0.21240728, 0.20443274)
+[ Info:   itest done in 16.4s
+[ Info:   otest done in 14.7s
+[ Info: ccnews pervector 8 bits: quantized in 0.8s
+[ Info:   itest done in 15.8s
+[ Info:   otest done in 14.9s
+[ Info: ccnews global 4 bits: quantized in 0.7s range=(-0.12768272, 0.13082555)
+[ Info:   itest done in 20.0s
+[ Info:   otest done in 18.7s
+[ Info: ccnews pervector 4 bits: quantized in 0.8s
+[ Info:   itest done in 19.5s
+[ Info:   otest done in 18.4s
+[ Info: ccnews global 2 bits: quantized in 0.8s range=(-0.0740491, 0.07923126)
+[ Info:   itest done in 21.1s
+[ Info:   otest done in 20.1s
+[ Info: ccnews pervector 2 bits: quantized in 1.2s
+[ Info:   itest done in 20.7s
+[ Info:   otest done in 19.7s
+[ Info: yahooaq: train (384, 670164); norms mean=1.0 std=4.2689216e-8
+[ Info: yahooaq global 8 bits: quantized in 0.3s range=(-0.1956365, 0.21655844)
+[ Info:   itest done in 16.9s
+[ Info:   otest done in 16.3s
+[ Info: yahooaq pervector 8 bits: quantized in 0.2s
+[ Info:   itest done in 16.4s
+[ Info:   otest done in 16.2s
+[ Info: yahooaq global 4 bits: quantized in 0.1s range=(-0.13243578, 0.12418233)
+[ Info:   itest done in 20.7s
+[ Info:   otest done in 20.7s
+[ Info: yahooaq pervector 4 bits: quantized in 0.2s
+[ Info:   itest done in 20.4s
+[ Info:   otest done in 20.5s
+[ Info: yahooaq global 2 bits: quantized in 0.1s range=(-0.07421182, 0.078114524)
+[ Info:   itest done in 21.8s
+[ Info:   otest done in 22.2s
+[ Info: yahooaq pervector 2 bits: quantized in 0.2s
+[ Info:   itest done in 21.8s
+[ Info:   otest done in 21.8s
+[ Info: gooaq: train (384, 3001496); norms mean=1.0 std=4.1567503e-8
+[ Info: gooaq global 8 bits: quantized in 0.9s range=(-0.20461074, 0.22235832)
+[ Info:   itest done in 45.2s
+[ Info:   otest done in 44.6s
+[ Info: gooaq pervector 8 bits: quantized in 0.7s
+[ Info:   itest done in 43.4s
+[ Info:   otest done in 43.3s
+[ Info: gooaq global 4 bits: quantized in 0.6s range=(-0.12665538, 0.1304126)
+[ Info:   itest done in 56.0s
+[ Info:   otest done in 56.0s
+[ Info: gooaq pervector 4 bits: quantized in 0.7s
+[ Info:   itest done in 55.0s
+[ Info:   otest done in 54.9s
+[ Info: gooaq global 2 bits: quantized in 0.7s range=(-0.07435019, 0.07892908)
+[ Info:   itest done in 59.0s
+[ Info:   otest done in 59.0s
+[ Info: gooaq pervector 2 bits: quantized in 0.6s
+[ Info:   itest done in 58.3s
+[ Info:   otest done in 58.6s
+| ccnews | itest | global | 8 | 0.9899 | 0.9509 | 0.9805 | 0.9907 | 0.9510 | 0.9806 | 0.9907 |
+| ccnews | otest | global | 8 | 0.9888 | 0.9613 | 0.9874 | 0.9899 | 0.9614 | 0.9875 | 0.9903 |
+| ccnews | itest | pervector | 8 | 0.9847 | 0.9676 | 0.9774 | 0.9856 | 0.9675 | 0.9774 | 0.9829 |
+| ccnews | otest | pervector | 8 | 0.9911 | 0.9775 | 0.9905 | 0.9922 | 0.9773 | 0.9907 | 0.9924 |
+| ccnews | itest | global | 4 | 0.9203 | 0.8023 | 0.8961 | 0.9281 | 0.8023 | 0.8962 | 0.9326 |
+| ccnews | otest | global | 4 | 0.8949 | 0.7876 | 0.8862 | 0.9082 | 0.7876 | 0.8863 | 0.9098 |
+| ccnews | itest | pervector | 4 | 0.9080 | 0.7656 | 0.8926 | 0.9138 | 0.7656 | 0.8926 | 0.9228 |
+| ccnews | otest | pervector | 4 | 0.8946 | 0.7415 | 0.8907 | 0.9013 | 0.7416 | 0.8908 | 0.9080 |
+| ccnews | itest | global | 2 | 0.7702 | 0.6230 | 0.7409 | 0.7826 | 0.6229 | 0.7408 | 0.8203 |
+| ccnews | otest | global | 2 | 0.7072 | 0.5614 | 0.6978 | 0.7279 | 0.5616 | 0.6979 | 0.7680 |
+| ccnews | itest | pervector | 2 | 0.6079 | 0.3332 | 0.6125 | 0.6490 | 0.3330 | 0.6122 | 0.6512 |
+| ccnews | otest | pervector | 2 | 0.5027 | 0.1770 | 0.5395 | 0.5678 | 0.1770 | 0.5395 | 0.5713 |
+| yahooaq | itest | global | 8 | 0.9848 | 0.9708 | 0.9897 | 0.9913 | 0.9708 | 0.9897 | 0.9863 |
+| yahooaq | otest | global | 8 | 0.9808 | 0.9698 | 0.9890 | 0.9909 | 0.9698 | 0.9890 | 0.9828 |
+| yahooaq | itest | pervector | 8 | 0.9935 | 0.9811 | 0.9929 | 0.9936 | 0.9811 | 0.9929 | 0.9946 |
+| yahooaq | otest | pervector | 8 | 0.9931 | 0.9825 | 0.9931 | 0.9935 | 0.9825 | 0.9931 | 0.9945 |
+| yahooaq | itest | global | 4 | 0.8984 | 0.7930 | 0.8939 | 0.9145 | 0.7931 | 0.8939 | 0.9169 |
+| yahooaq | otest | global | 4 | 0.8941 | 0.7911 | 0.8931 | 0.9146 | 0.7911 | 0.8931 | 0.9121 |
+| yahooaq | itest | pervector | 4 | 0.9076 | 0.7626 | 0.9047 | 0.9139 | 0.7626 | 0.9047 | 0.9249 |
+| yahooaq | otest | pervector | 4 | 0.9030 | 0.7607 | 0.8996 | 0.9095 | 0.7607 | 0.8996 | 0.9218 |
+| yahooaq | itest | global | 2 | 0.7225 | 0.5740 | 0.7089 | 0.7421 | 0.5740 | 0.7087 | 0.7891 |
+| yahooaq | otest | global | 2 | 0.7103 | 0.5652 | 0.7034 | 0.7332 | 0.5651 | 0.7033 | 0.7811 |
+| yahooaq | itest | pervector | 2 | 0.5125 | 0.1660 | 0.5532 | 0.5800 | 0.1660 | 0.5532 | 0.5847 |
+| yahooaq | otest | pervector | 2 | 0.4995 | 0.1592 | 0.5385 | 0.5654 | 0.1592 | 0.5385 | 0.5762 |
+| gooaq | itest | global | 8 | 0.9948 | 0.9653 | 0.9895 | 0.9949 | 0.9653 | 0.9895 | 0.9959 |
+| gooaq | otest | global | 8 | 0.9884 | 0.9538 | 0.9855 | 0.9896 | 0.9538 | 0.9855 | 0.9897 |
+| gooaq | itest | pervector | 8 | 0.9958 | 0.9810 | 0.9924 | 0.9959 | 0.9810 | 0.9924 | 0.9968 |
+| gooaq | otest | pervector | 8 | 0.9930 | 0.9720 | 0.9904 | 0.9935 | 0.9720 | 0.9904 | 0.9936 |
+| gooaq | itest | global | 4 | 0.9455 | 0.8144 | 0.9039 | 0.9477 | 0.8144 | 0.9039 | 0.9540 |
+| gooaq | otest | global | 4 | 0.9029 | 0.7502 | 0.8706 | 0.9097 | 0.7502 | 0.8706 | 0.9131 |
+| gooaq | itest | pervector | 4 | 0.9392 | 0.7693 | 0.9041 | 0.9413 | 0.7693 | 0.9041 | 0.9492 |
+| gooaq | otest | pervector | 4 | 0.8964 | 0.7018 | 0.8722 | 0.9012 | 0.7018 | 0.8722 | 0.9070 |
+| gooaq | itest | global | 2 | 0.8433 | 0.6807 | 0.7931 | 0.8470 | 0.6807 | 0.7931 | 0.8794 |
+| gooaq | otest | global | 2 | 0.7351 | 0.5583 | 0.6954 | 0.7456 | 0.5583 | 0.6953 | 0.7804 |
+| gooaq | itest | pervector | 2 | 0.7054 | 0.3827 | 0.6951 | 0.7334 | 0.3827 | 0.6951 | 0.7085 |
+| gooaq | otest | pervector | 2 | 0.5387 | 0.1875 | 0.5462 | 0.5860 | 0.1875 | 0.5462 | 0.5839 |
