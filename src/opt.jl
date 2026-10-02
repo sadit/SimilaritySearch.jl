@@ -152,6 +152,42 @@ macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddi
 function setconfig! end
 
 """
+    qid(index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer) -> UInt32
+
+The identifier of the `i`-th query *inside `index`*, or `0` when the query does not live
+there. It is what tells an optimization run whether it is working with **internal** queries
+(objects taken from the index's own database) or **external** ones, which behave differently
+enough that the distinction has to be explicit:
+
+An internal query is a vertex of the graph. The descent can stand on it at distance 0 and
+read its whole adjacency in one expansion -- and that adjacency is, by construction,
+approximately the answer. No external query is ever handed its result that way, so tuning
+against internal queries without accounting for it produces parameters sized for a problem
+nobody will pose: measured on two SISAP 2025 benchmarks, `bsize` and `Δ` came out at the
+cheap end of their ranges and recall@10 against real queries fell from 0.90 to 0.69.
+
+The identity check on `parent` is what makes this exact: a `SubDatabase` over *this* index's
+database carries the ids in `map`, and a view over anything else is external, as is any other
+container. It also means a caller who wants to tune with chosen objects of the database --
+the least connected ones, say -- only has to pass `SubDatabase(database(index), ids)`.
+"""
+function qid end
+
+@inline qid(::AbstractSearchIndex, ::AbstractDatabase, ::Integer) = zero(UInt32)
+@inline qid(index::AbstractSearchIndex, q::SubDatabase, i::Integer) =
+    q.parent === database(index) ? UInt32(@inbounds q.map[i]) : zero(UInt32)
+
+"""
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, qID::Integer, res::AbstractKnnQueue)
+
+Fallback for index types that do not act on the internal/external distinction: the `qID` is
+dropped and the plain single-query method runs. `SearchGraph` overrides it (see
+`src/searchgraph/optbs.jl`) to keep an internal query from being its own route.
+"""
+runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::Integer, res::AbstractKnnQueue) =
+    runconfig(conf, index, ctx, q, res)
+
+"""
     runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
 
 Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)` methods
@@ -166,7 +202,7 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
     @BEGINBATCH
         bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
-        runconfig(conf, index, bctx, queries[i], reuse!(knns[i]))
+        runconfig(conf, index, bctx, queries[i], qid(index, queries, i), reuse!(knns[i]))
     end
     end
     knns
@@ -365,11 +401,22 @@ function optimize_index!(
         # `IdDistView`, not `c` itself -- read `DistView(c)` from `c` afterwards, not from what
         # `sortitems!` returns.
         if radius === nothing
-            gold = [idset(c) for c in knns]
+            # An internal query is in its own gold, at distance 0. It is also masked out of the
+            # search that is being scored (see `runconfig` for `SearchGraph`), so leaving it in
+            # the gold would cap recall at (k-1)/k -- 0.9 for the default k, which would put
+            # the 0.97 construction target out of reach. Both sides drop it, and `recallscore`
+            # normalizes by `length(gold)`, so nothing else has to change. `qid` is 0 for
+            # external queries, which match no identifier and lose nothing.
+            gold = map(enumerate(knns)) do (i, c)
+                g = idset(c)
+                delete!(g, qid(index, queries, i))
+                g
+            end
+
             if kind isa MaxMatchError
-                golddists = map(knns) do c
-                    sortitems!(c)
-                    collect(DistView(c))
+                golddists = map(enumerate(knns)) do (i, c)
+                    id = qid(index, queries, i)
+                    Float32[p.dist for p in sortitems!(c) if p.id != id]
                 end
             end
         else
