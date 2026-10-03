@@ -25,6 +25,14 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
     goldI, goldD = searchbatch(E, GenericContext(), Q, k)
     gold = [Set(goldI[:, j]) for j in 1:length(Q)]
 
+    @testset "neardup is validated, on the distance's own scale" begin
+        @test Neighborhood().neardup == typemin(Float32)
+        @test Neighborhood(; neardup=0).neardup == 0f0
+        @test Neighborhood(; neardup=-1f0).neardup == -1f0                   # a negated similarity evaluates below zero
+        @test_throws ArgumentError Neighborhood(; neardup=NaN32)
+        @test_throws ArgumentError Neighborhood(; neardup=Inf32)
+    end
+
     @testset "the default is untouched: no members" begin
         G = SearchGraph(dist, X); ctx = SearchGraphContext(; reporters=[]); index!(G, ctx)
         @test isempty(G.members) && length(G) == n
@@ -34,6 +42,10 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
         @test collect(expand(G, Q[1], res)) == before                        # nothing to add
         @test expand!(G, Q[1], res) === res && collect(IdDistView(res)) == before
         @test sprint(show, G.members) == "Members(0 members in 0 clusters)"
+        # a graph stored before 1.6, read back field by field, has no members by construction
+        old = SearchGraph(dist, X, G.adj, G.hints, G.algo, G.len)
+        @test isempty(old.members) && length(old) == n
+        @test collect(IdView(search(old, ctx, Q[1], knnqueue(KnnSorted, k)))) == collect(IdView(search(G, ctx, Q[1], knnqueue(KnnSorted, k))))
     end
 
     for parallel_block in (1, 64)

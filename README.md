@@ -52,6 +52,10 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   Members count in `length`, `optimize_index!` expands before scoring and masks a query's whole cluster,
   `rebuild` keeps them. On SISAP 2025 `ccnews`, 27% exact duplicates: 30% fewer edges, the build 37% faster,
   recall up on every query and from 0.72 to 0.86 on the queries with ten copies in the database. Off by default.
+  `SearchGraph` gained the field `members` for it: a graph stored before 1.6 and read back field by field
+  is rebuilt with `SearchGraph(dist, db, adj, hints, algo, len)`, which fills the field with an empty
+  `Members`, the only value a pre-1.6 graph can hold. `neardup` is validated: `typemin(Float32)` (off) or a
+  finite distance, negative included, since the distance hacks that search farthest objects evaluate below zero.
 - **`matcherror` is bounded, and its parameters say what they are.** A position never costs more than
   `maxdeviation` spreads, which is also what a missing position costs, so the per-query score lies in
   `[0, maxdeviation ^ exponent]` and its mean over queries means something: on SISAP 2025 `ccnews`, without

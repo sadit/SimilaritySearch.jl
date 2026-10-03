@@ -59,7 +59,14 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
   representative, no edge towards it, never visited by a search, which answers with one
   representative per cluster; [`expand`](@ref)/[`expand!`](@ref) give back the raw neighbors.
   `0f0` folds exact duplicates, a small positive value near ones (distances re-evaluated on
-  expansion); the default, `typemin(Float32)`, disables it and every object is a node.
+  expansion); the default, `typemin(Float32)` (`-Inf32`), disables it and every object is a node.
+  The threshold is on the scale of the distance in use, whatever that is: a function that is not
+  a metric is legal here -- `Dist.Hacks.NegativeDistanceHack` and `SimilarityFromDistance` turn a
+  distance into a negated or an inverted similarity so that the graph finds *farthest* objects --
+  so a negative `neardup` is a valid threshold and is not rejected. What is rejected is `NaN`,
+  which compares false with everything and would silently disable the mechanism, and `+Inf`,
+  which would fold every object into the first node: `neardup` must be `typemin(Float32)` or
+  finite.
   Measured on SISAP 2025 `ccnews`, where 27% of the points are exact duplicates: without it the
   duplicates of a point form a clique the search walks through, and the queries with ten copies
   in the database reach recall 0.72-0.75 against 0.86-0.96 overall (see the `SearchGraph`
@@ -74,6 +81,13 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     minsize::Int32 = Int32(2)
     neardup::Float32 = typemin(Float32)
     filter::NFILTER = SatNeighborhood()
+
+    function Neighborhood(logbase, minsize, neardup, filter::NFILTER) where {NFILTER<:NeighborhoodFilter}
+        nd = Float32(neardup)
+        nd == typemin(Float32) || isfinite(nd) ||
+            throw(ArgumentError("Neighborhood: neardup=$neardup must be typemin(Float32), which disables near-duplicate members, or a finite distance on the scale of the distance function (negative included)"))
+        new{NFILTER}(Float32(logbase), Int32(minsize), nd, filter)
+    end
 end
 
 function Base.show(io::IO, n::Neighborhood)
@@ -194,6 +208,18 @@ This function only creates the skeleton struct and you need to call `index!` to 
 function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), members=Members())
     SearchGraph(dist, db, adj, hints, algo, len, members)
 end
+
+"""
+    SearchGraph(dist, db, adj, hints, algo, len) -> SearchGraph
+
+The fields of a graph as they were before 1.6, without `members`: the constructor for a
+graph stored by an earlier version and read back field by field (the package ships no
+serializer of its own; `JLD2` and friends reconstruct a struct from its fields). A graph
+built before 1.6 has no near-duplicate members by construction, so an empty [`Members`](@ref)
+is what the missing field holds.
+"""
+SearchGraph(dist::PreMetric, db::AbstractDatabase, adj::AbstractAdjList, hints, algo::Base.RefValue{BeamSearch}, len::Base.RefValue{Int64}) =
+    SearchGraph(dist, db, adj, hints, algo, len, Members())
 
 ismember(G::SearchGraph, id::Integer) = ismember(G.members, id)
 representative(G::SearchGraph, id::Integer) = representative(G.members, id)
