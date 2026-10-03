@@ -54,7 +54,16 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
 ## Parameters
 - `logbase=2`: logarithmic base to determine the number of neighbors to retrieve
 - `minsize=2`: minimum number of elements to retrieve
-- `neardup=typemin(Float32)`: distance to identify an element as duplicate (neardups could be ignored from neighborhoods)
+- `neardup=typemin(Float32)`: the near-duplicate distance. An object whose nearest indexed object
+  lies within it becomes a *member* of that object's cluster instead of a node: one edge to the
+  representative, no edge towards it, never visited by a search, which answers with one
+  representative per cluster; [`expand`](@ref)/[`expand!`](@ref) give back the raw neighbors.
+  `0f0` folds exact duplicates, a small positive value near ones (distances re-evaluated on
+  expansion); the default, `typemin(Float32)`, disables it and every object is a node.
+  Measured on SISAP 2025 `ccnews`, where 27% of the points are exact duplicates: without it the
+  duplicates of a point form a clique the search walks through, and the queries with ten copies
+  in the database reach recall 0.72-0.75 against 0.86-0.96 overall (see the `SearchGraph`
+  tutorial's section on near duplicates).
 - `filter=SatNeighborhood()`: strategy to reduce the number of neighbors
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
@@ -118,6 +127,8 @@ end
 
 ### Basic operations on the index
 
+include("members.jl")
+
 """
     SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[],
                   algo=Ref(BeamSearch()), len=Ref(zero(Int64))) -> SearchGraph
@@ -170,18 +181,23 @@ struct SearchGraph{DIST<:PreMetric,
     # its result. `length(index)` reads `len[]`, so that cost landed in every search.
     algo::Base.RefValue{BeamSearch}
     len::Base.RefValue{Int64}
+    members::Members     # near-duplicate members, see `Members` and `Neighborhood`'s `neardup`
 end
 
 """
 
-    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), members=Members())
 
 Creates a SearchGraph index structure with the given distance and dataset.
 This function only creates the skeleton struct and you need to call `index!` to index the given dataset or populate it with `append_items!`
 """
-function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
-    SearchGraph(dist, db, adj, hints, algo, len)
+function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), members=Members())
+    SearchGraph(dist, db, adj, hints, algo, len, members)
 end
+
+ismember(G::SearchGraph, id::Integer) = ismember(G.members, id)
+representative(G::SearchGraph, id::Integer) = representative(G.members, id)
+members(G::SearchGraph, id::Integer) = members(G.members, id)
 
 
 function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
@@ -192,6 +208,7 @@ function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
     println(io, prefix, "algo: ", index.algo[])
     println(io, prefix, "adj: ", typeof(index.adj))
     println(io, prefix, "hints: ", typeof(index.hints), ", length: ", length(index.hints))
+    isempty(index.members) || println(io, prefix, "members: ", index.members)
     show(io, index.db; prefix, indent)
 end
 
@@ -272,3 +289,4 @@ include("callbacks.jl")
 include("rebuild.jl")
 include("staticindexing.jl")
 include("insertions.jl")
+include("expand.jl")

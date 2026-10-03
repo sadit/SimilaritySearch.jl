@@ -175,6 +175,23 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   rebuild-from-scratch (`rebuild.jl`), beam search (`beamsearch.jl`), neighborhood
   filters (`neighborhood.jl`), adjacency backends (`../adj/`), per-call state
   (`context.jl` → `SearchGraphContext`).
+- `searchgraph/members.jl`, `searchgraph/expand.jl` — near-duplicate **members**
+  (`Neighborhood(neardup=ϵ)`, off by default): an object whose nearest indexed object is
+  within `ϵ` is not a node but a member of that object's cluster -- adjacency `[representative]`,
+  nothing links to it, `enqueue_item!` skips it as a hint, so `search` answers with
+  representatives and `expand`/`expand!` (any result form, distances re-evaluated) give the
+  raw neighbors back. `SearchGraph.members::Members` holds both maps. The rules that keep it
+  consistent: `find_neighborhood!` returns a single unresolved twin for a near duplicate
+  (`isnearduplicate`); the insertion block settles them serially with union-find
+  (`resolvemembers!`: a component's representative is an outside representative if any of
+  its objects points to one, else its smallest *node* -- never a twin, which has no
+  neighborhood), empties the members' adjacency before the reverse links, replaces settled
+  members in the block's adjacencies by their representatives, and attaches them after;
+  `rebuild` masks each object from its own search (`selfid`), or under `neardup` every object
+  would be its own twin and every node would end up empty (found live). `optimize_index!`
+  masks a query's whole cluster and expands results before scoring. Measured on ccnews (27%
+  exact duplicates): 30% fewer edges, build 37% faster, recall up everywhere and 0.72 → 0.86
+  on the queries with ten copies in the database.
 - `asymmetricgraph/` — two files. `AsymmetricSearchGraph.jl` is the wrapper described above
   (with `InsertionSource`, what the insertion loops query with, and `rawqueries`), included
   right after `searchgraph/`. `estimators.jl` is the interface it navigates with --

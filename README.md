@@ -45,6 +45,13 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   on SISAP 2025 `ccnews` against the hard threshold and a `softplus` hinge: the centered hinge lands at
   0.900-0.913 for a target of 0.9 and barely moves with `tradeoff`, `softplus` overshoots by two to three
   widths, and the cost is in nats, so the normalization by the initial population's maximum cost is gone.
+- **Near duplicates fold into members.** `Neighborhood(neardup=ϵ)` makes an object whose nearest indexed object
+  lies within `ϵ` a member of that object's cluster instead of a node: one edge to the representative, nothing
+  linking to it, never visited. `search` answers with representatives, one per cluster, and the second stage,
+  `expand`/`expand!`, gives the raw neighbors back on any result form, each member with its evaluated distance.
+  Members count in `length`, `optimize_index!` expands before scoring and masks a query's whole cluster,
+  `rebuild` keeps them. On SISAP 2025 `ccnews`, 27% exact duplicates: 30% fewer edges, the build 37% faster,
+  recall up on every query and from 0.72 to 0.86 on the queries with ten copies in the database. Off by default.
 - **`matcherror` is bounded, and its parameters say what they are.** A position never costs more than
   `maxdeviation` spreads, which is also what a missing position costs, so the per-query score lies in
   `[0, maxdeviation ^ exponent]` and its mean over queries means something: on SISAP 2025 `ccnews`, without

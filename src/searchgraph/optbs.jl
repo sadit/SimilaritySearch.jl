@@ -166,7 +166,11 @@ those links, so recall stays measurable while the shortcut is gone.
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, qID::Integer, res::AbstractKnnQueue)
     @reset bs.maxvisits = 2 * index.algo[].maxvisits
     vstate = getvstate(length(index), ctx)
-    qID > 0 && visit!(vstate, UInt64(qID))
+    if qID > 0
+        visit!(vstate, UInt64(qID))
+        r = representative(index, qID)       # a member query: its representative is the same trivial route
+        r != qID && visit!(vstate, UInt64(r))
+    end
     search(bs, index, ctx, q, res, index.hints, vstate)
 end
 

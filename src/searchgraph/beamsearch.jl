@@ -11,6 +11,9 @@ It helps to evaluate, mark as visited, and enqueue in the result set.
 """
 @inline function enqueue_item!(index::SearchGraph, ctx, q, obj, res, objID, vstate)
     check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
+    # a hint that is a near-duplicate member is not a node: nothing links to it, it links only
+    # to its representative, and the search answers with representatives (see `Members`)
+    isempty(index.members) || !ismember(index, objID) || return res
     d = evaluate(distance(index), q, obj)
     push_item!(res, objID, d)
     add_distance_evaluations!(ctx, 1)

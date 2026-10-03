@@ -124,6 +124,17 @@ end
 @inline database(g::AsymmetricSearchGraph) = database(g.graph)
 @inline distance(g::AsymmetricSearchGraph) = distance(g.graph)
 @inline Base.length(g::AsymmetricSearchGraph) = length(g.graph)
+ismember(g::AsymmetricSearchGraph, id::Integer) = ismember(g.graph, id)
+representative(g::AsymmetricSearchGraph, id::Integer) = representative(g.graph, id)
+members(g::AsymmetricSearchGraph, id::Integer) = members(g.graph, id)
+# the expansion evaluates raw against stored, so the raw query is prepared once, as in `search`
+expand(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue) = expand(g.graph, encodequery(distance(g), q), res)
+expand(g::AsymmetricSearchGraph, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = expand(g.graph, encodequery(distance(g), q), ids, dists)
+expand!(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue) = expand!(g.graph, encodequery(distance(g), q), res)
+expand!(g::AsymmetricSearchGraph, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = expand!(g.graph, encodequery(distance(g), q), ids, dists)
+expand!(g::AsymmetricSearchGraph, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) =
+    expand!(g.graph, VectorDatabase([encodequery(distance(g), q) for q in Q]), knns, dists)
+_expand!(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue) = _expand!(g.graph, encodequery(distance(g), q), res)
 
 function Base.show(io::IO, g::AsymmetricSearchGraph; prefix="", indent="  ")
     println(io, prefix, "AsymmetricSearchGraph (raw objects in, stored as `encode(dist, obj)`):")

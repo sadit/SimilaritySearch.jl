@@ -328,6 +328,8 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
         bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
         runconfig(conf, index, bctx, queries[i], qid(index, queries, i), reuse!(knns[i]))
+        # the raw neighbors behind the representatives, counted as the search cost they are
+        add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i]))
     end
     end
     knns
@@ -537,16 +539,20 @@ function optimize_index!(
             # the 0.97 construction target out of reach. Both sides drop it, and `recallscore`
             # normalizes by `length(gold)`, so nothing else has to change. `qid` is 0 for
             # external queries, which match no identifier and lose nothing.
+            # (and its whole near-duplicate cluster: the representative of a member query sits at
+            # distance 0 and is the same trivial route, so it is masked from the search as well)
             gold = map(enumerate(knns)) do (i, c)
                 g = idset(c)
-                delete!(g, qid(index, queries, i))
+                id = qid(index, queries, i)
+                id == 0 || foreach(x -> delete!(g, x), clusterids(index, id))
                 g
             end
 
             if kind isa MaxMatchError
                 golddists = map(enumerate(knns)) do (i, c)
                     id = qid(index, queries, i)
-                    Float32[p.dist for p in sortitems!(c) if p.id != id]
+                    cluster = id == 0 ? () : Set{UInt32}(clusterids(index, id))
+                    Float32[p.dist for p in sortitems!(c) if !(p.id in cluster)]
                 end
             end
         else

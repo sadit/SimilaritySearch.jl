@@ -21,20 +21,32 @@ Searches for `item`'s neighborhood in the index, i.e., if `item` were in the ind
 
 # Keyword Arguments
 - `hints`: Search hints
+- `selfid`: the id of `item` when it is already a node of the index (`rebuild`), masked from the
+  search so that it is not its own nearest neighbor -- nor, under `neardup`, its own twin
 """
-function find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnnQueue, blockrange; hints=index.hints)
+function find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::SearchGraphContext, item, tmp::AbstractKnnQueue, blockrange; hints=index.hints, selfid::Integer=0)
     n = length(index)
    
     if n > 0
         vstate = getvstate(length(index), ctx)
+        selfid > 0 && visit!(vstate, UInt64(selfid))
         search(index.algo[], index, ctx, item, tmp, hints, vstate)
     end
 
-    for i in blockrange  # interblock neighbors
-        #@show i => typeof(item) => typeof(database(index, i))
+    for i in blockrange  # interblock neighbors: the block's earlier objects, not yet linked
         d = evaluate(distance(index), item, database(index, i))
-        d <= ctx.neighborhood.neardup && continue  # avoids self reference and nearest dup in the same block for simplicity
         push_item!(tmp, i, d)
+    end
+
+    # a near duplicate (its nearest candidate within `neardup`) becomes a member of that
+    # candidate's cluster, not a node: one entry, the twin, and the caller settles it (see
+    # `isnearduplicate` and `resolvemembers!`). The default `neardup`, typemin, never fires.
+    if length(tmp) > 0
+        p = sortitems!(tmp)[1]
+        if p.dist <= ctx.neighborhood.neardup
+            push_item!(out, p.id, p.dist)
+            return out
+        end
     end
 
     # The bootstrap regime is handled here, once, instead of by every filter: with a single

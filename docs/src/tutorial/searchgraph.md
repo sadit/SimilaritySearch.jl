@@ -146,6 +146,61 @@ The traversal algorithm governing graph navigation is stored in `G.algo` (defaul
 
 Hyperparameter tuning via [`optimize_index!`](@ref) adjusts the beam parameters in-place to achieve the requested accuracy.
 
+
+---
+
+## Near duplicates: one node per cluster, two stages per query
+
+Real collections repeat themselves. On the SISAP 2025 `ccnews` embeddings 27% of the
+603,664 points are exact duplicates of another point, in 45,833 clusters, 1,816 of them with
+ten or more copies and the largest with 1,555. A graph that gives every copy its own node
+pays for it twice: the SAT filter cannot tell twins apart, so the copies of a point keep
+each other and grow into a clique that a search walks through member by member, and the
+queries that land on such a point reach recall 0.72-0.75 while the rest of the queries
+reach 0.86-0.96.
+
+`Neighborhood(neardup=ϵ)` folds them. An object whose nearest indexed object lies within `ϵ`
+becomes a **member** of that object's cluster instead of a node: its adjacency is the single
+edge to the representative, nothing links to it, and the search never visits it. The first
+stage of a query therefore answers with representatives, at most one per cluster, in the
+same `(ids, dists)` matrices or queue as always; the second stage, [`expand`](@ref) or
+[`expand!`](@ref), gives the raw neighbors back, each member with its own distance to the
+query, evaluated by the index's distance -- with `ϵ > 0` the members of a cluster are not
+at the same distance, and that is the point of evaluating them.
+
+```julia
+ctx = SearchGraphContext(; neighborhood=Neighborhood(; neardup=0f0))   # exact duplicates
+G = SearchGraph(dist, db)
+index!(G, ctx)
+length(G)                                 # every object counts, members included
+length(G.members)                         # how many are members
+members(G, representative(G, i))          # the cluster object i belongs to
+
+res = search(G, ctx, q, knnqueue(KnnSorted, 10))      # stage 1: 10 clusters
+for p in expand(G, q, res)                             # an iterator over the raw neighbors, nothing modified
+    println(p.id, " ", p.dist)
+end
+expand!(G, q, res)                                     # in place: the 10 nearest raw neighbors
+
+knns, dists = searchbatch(G, ctx, queries, 10)
+expand!(G, queries, knns, dists)                       # every column, in parallel
+macrorecall(gold, knns)                                # against an exhaustive gold, which holds the duplicates
+```
+
+Both stages are regular results, so anything that takes a queue or the matrices keeps
+working, and `expand!` respects the result's own rule: a `KnnSorted` keeps its `k` nearest,
+a `RadiusSorted` what falls within its radius. `optimize_index!` expands before scoring and
+masks the whole cluster of an internal query, not only its id, since a member query's
+representative sits at distance 0 and is the same trivial route. `rebuild` keeps the
+members, resolving them again from scratch.
+
+`neardup` is off by default (`typemin(Float32)`): a graph over data without repeats loses
+nothing by it, and a graph over data with repeats gains the clusters, fewer edges and a
+faster build (ccnews: 30% fewer edges, the build 37% faster, recall up on every query and
+most on the duplicated ones). Pick `ϵ` on the scale of your distance: `0f0` folds exact
+copies only; a small positive value folds near copies, which the expansion then tells apart
+by their evaluated distances.
+
 ---
 
 In the next section, [Radius Queries: Range-Bounded Search](radius_search.md), we examine how to retrieve all neighbors within a distance threshold $r$ rather than a fixed count $k$.

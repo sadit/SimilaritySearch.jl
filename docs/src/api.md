@@ -230,6 +230,21 @@ KCentersNeighborhood
 find_neighborhood!
 ```
 
+### Near duplicates: members, `expand` and `expand!`
+
+A graph built with `Neighborhood(neardup=ϵ)` keeps one node per cluster of near duplicates
+and makes the rest *members* of it: never visited, never answered by `search`, which returns
+representatives. `expand` and `expand!` are the second stage, from `k` clusters to the raw
+neighbors, on any result form.
+```@docs
+Members
+members
+representative
+ismember
+expand
+expand!
+```
+
 ### Hints (entry points for approximate search)
 ```@docs
 RandomHints
