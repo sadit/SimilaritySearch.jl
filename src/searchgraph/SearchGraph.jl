@@ -45,6 +45,27 @@ on the very first insertion, one candidate on the second) itself, so a filter ne
 abstract type NeighborhoodFilter end
 
 """
+    NEARDUP_NUMERICAL_ZERO
+
+The floor a non-negative `neardup` is raised to: what counts as "distance zero" once
+floating-point arithmetic has had its say. The distance between two bit-identical vectors is
+often not `0f0`, so a literal `neardup=0` folds only the pairs that happened to round there.
+Measured on SISAP 2025 `ccnews` and `yahooaq` (384-dim Float32 under `CastF32.NormCosine`),
+half of the bit-identical pairs evaluate to exactly `0f0`, a sixth come out negative, and the
+error never exceeds 6 ulps -- so a radius-0 threshold misses about a third of them, the
+positive third, since the comparison is `<=`.
+
+`1f-5` is an order of magnitude above that largest observed error and three to four orders
+below any real distance on those datasets (median neighborhood spread 0.081 and 0.096), so it
+separates cleanly. It is a constant, not a derived bound: a distance whose own scale sits near
+`1f-5` would be mis-served by it, and deriving the floor from the distance, the numeric type
+and the dimension is the general answer. Integer code distances need none of this --
+`src/sq/dist.jl` makes the equal-scale path exact, so identical codes give exactly `0f0`.
+"""
+const NEARDUP_NUMERICAL_ZERO = 1f-5
+
+
+"""
     Neighborhood(; logbase=2, minsize=2, neardup=typemin(Float32), filter=SatNeighborhood())
     
 Determines the size of the neighborhood; it is adjusted as a callback exponentially.
@@ -60,13 +81,19 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
   representative per cluster; [`expand`](@ref)/[`expand!`](@ref) give back the raw neighbors.
   `0f0` folds exact duplicates, a small positive value near ones (distances re-evaluated on
   expansion); the default, `typemin(Float32)` (`-Inf32`), disables it and every object is a node.
-  The threshold is on the scale of the distance in use, whatever that is: a function that is not
-  a metric is legal here -- `Dist.Hacks.NegativeDistanceHack` and `SimilarityFromDistance` turn a
-  distance into a negated or an inverted similarity so that the graph finds *farthest* objects --
-  so a negative `neardup` is a valid threshold and is not rejected. What is rejected is `NaN`,
-  which compares false with everything and would silently disable the mechanism, and `+Inf`,
-  which would fold every object into the first node: `neardup` must be `typemin(Float32)` or
-  finite.
+  The threshold is on the scale of the distance in use, and a value that is not `typemin` is
+  raised to [`NEARDUP_NUMERICAL_ZERO`](@ref), since the distance between two identical objects is
+  often not exactly `0f0` and a literal zero would fold only the pairs that rounded there. The
+  default is left exactly as it is: raising `typemin` would turn a mechanism that never fires
+  into one that fires on every single-entry neighborhood.
+  Rejected are `NaN`, which compares false with everything and would silently disable the
+  mechanism; `+Inf`, which would fold every object into the first node; and any negative
+  threshold. A negative one is rejected because the distances that reach below zero are the ones
+  wrapped to search for *farthest* objects -- `Dist.Hacks.NegativeDistanceHack`, range
+  `(-Inf, 0]`, and `SimilarityFromDistance`, range `(0, 1]` -- and under either of them identical
+  objects land at the end of the range that means *farthest*, so folding near duplicates would
+  fold what by construction never resembles anything. In such a graph `neardup` is not applicable
+  at any threshold, and the default disables it.
   Measured on SISAP 2025 `ccnews`, where 27% of the points are exact duplicates: without it the
   duplicates of a point form a clique the search walks through, and the queries with ten copies
   in the database reach recall 0.72-0.75 against 0.86-0.96 overall (see the `SearchGraph`
@@ -84,8 +111,13 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
 
     function Neighborhood(logbase, minsize, neardup, filter::NFILTER) where {NFILTER<:NeighborhoodFilter}
         nd = Float32(neardup)
-        nd == typemin(Float32) || isfinite(nd) ||
-            throw(ArgumentError("Neighborhood: neardup=$neardup must be typemin(Float32), which disables near-duplicate members, or a finite distance on the scale of the distance function (negative included)"))
+        if nd != typemin(Float32)
+            isfinite(nd) ||
+                throw(ArgumentError("Neighborhood: neardup=$neardup must be typemin(Float32), which disables near-duplicate members, or a finite non-negative distance on the scale of the distance function"))
+            nd >= 0 ||
+                throw(ArgumentError("Neighborhood: neardup=$neardup is negative; a distance evaluating below zero is one wrapped to find farthest objects (NegativeDistanceHack, SimilarityFromDistance), where identical objects are the farthest of all and near-duplicate members do not apply -- leave neardup at its default, typemin(Float32), for such a graph"))
+            nd = max(nd, NEARDUP_NUMERICAL_ZERO)   # a literal 0 does not survive floating point
+        end
         new{NFILTER}(Float32(logbase), Int32(minsize), nd, filter)
     end
 end
