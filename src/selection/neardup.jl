@@ -29,7 +29,10 @@ out -- and they report the same `centers`/`assign`/`assigndist` under the same n
 - `ϵ`: the radius below which two objects count as duplicates of each other. It must not be
   negative -- every distance would exceed it, so nothing would ever be collapsed -- and a negative
   value is rejected rather than silently returning every object as its own center. `ϵ = 0` is
-  meaningful: it collapses exact duplicates only. To pick one from the data rather than by hand,
+  meaningful -- it collapses exact duplicates only -- and is raised to
+  [`NEARDUP_NUMERICAL_ZERO`](@ref), since two identical objects often do not evaluate to exactly
+  `0f0` and a literal zero would collapse only the pairs that happened to round there. To pick one
+  from the data rather than by hand,
   sample the distance distribution first with [`distsample`](@ref) and take a low quantile of it:
 
   ```julia
@@ -99,7 +102,9 @@ function neardup(idx::AbstractSearchIndex, ctx::AbstractContext, X::AbstractData
     k::Int=8, blocksize::Int=256, filterblocks=true)
 
     ϵ >= 0 || throw(ArgumentError("neardup needs a non-negative ϵ, got $ϵ; see its docstring for how to estimate one with distsample"))
-    ϵ = convert(Float32, ϵ)
+    # a literal 0 does not survive floating point: two identical objects often do not evaluate to
+    # 0f0, so the radius is raised to what counts as zero (see NEARDUP_NUMERICAL_ZERO)
+    ϵ = max(convert(Float32, ϵ), NEARDUP_NUMERICAL_ZERO)
     n = length(X)
     n == 0 && return NearDupSelection(idx, UInt32[], UInt32[], Float32[], 0f0, ϵ, 0, 0)
 

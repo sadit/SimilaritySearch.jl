@@ -27,6 +27,7 @@ using Random: shuffle!, shuffle
 
 # explicitly import internal/unexported names used by the algorithms
 import ..SimilaritySearch:
+    NEARDUP_NUMERICAL_ZERO,
     AbstractReporter,
     InformativeLog,
     INFORM,
