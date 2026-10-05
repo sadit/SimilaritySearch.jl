@@ -567,6 +567,43 @@ function optimize_index!(
                     Float32[p.dist for p in sortitems!(c) if !(p.id in masked)]
                 end
             end
+
+            # The mask can take everything: with k=10, a query whose cluster holds 11 or more
+            # has no gold left. That is not a hard case to score, it is a query whose k nearest
+            # are all copies of itself, which says nothing about search quality. Left in, the
+            # two goals break differently and only one breaks loudly. `MinRecall`:
+            # `recallscore` normalizes by `length(gold)`, so an empty gold is 0/0; the `NaN`
+            # reaches the mean, every comparison against it is false, and the solver stops
+            # being able to order its population -- it returns an arbitrary configuration,
+            # silently. `MaxMatchError`: `matcherror` returns 0.0 for `ngold == 0` before
+            # looking at what came back, so the query scores as a perfect match whatever the
+            # configuration did; constant across the population, so orderings survive, but it
+            # scales the mean by (m - d)/m and a `maxerror` of 0.1 really asks for 0.109.
+            # Measured on SISAP 2025 ccnews, where 7.9% of the objects sit in such a cluster:
+            # with 64 tuning queries, 99.5% of runs drew at least one, 5.07 on average, and the
+            # spread of a rebuilt cell grew 4.6x (float32) and 10.5x (sqgu8) against the same
+            # configurations without folding, while a configuration that folds nothing stayed
+            # put. Both goals drop them, which also keeps the two tuning on the same queries so
+            # they remain comparable.
+            # `matcherror`'s `ngold == 0` branch is left alone: for a radius workload an empty
+            # ball is a real answer rather than a masked-away one.
+            keep = findall(!isempty, gold)
+            if isempty(keep)
+                # Nothing to drop them in favour of. Restoring the gold removes the `NaN`;
+                # keeping the mask is what stops this from becoming the bias the masking exists
+                # to prevent, at the price of a constant zero recall -- order-preserving, and
+                # no signal at all, which is what the warning says.
+                @warn "optimize_index!: every tuning query's gold is its own near-duplicate cluster, so there is no signal to tune on and the cheapest configuration will win; pass `queries` from outside the index (objects of the database re-wrapped do not count -- they are internal again)" numqueries=length(gold)
+                gold = map(idset, knns)
+            elseif length(keep) < length(gold)
+                verbose(ctx) && @inform ctx "dropping $(length(gold) - length(keep)) of $(length(gold)) tuning queries whose gold is entirely their own cluster"
+                queries = queries isa SubDatabase ?
+                    SubDatabase(queries.parent, queries.map[keep]) : SubDatabase(queries, keep)
+                qmask = qmask[keep]
+                knns = knns[keep]
+                gold = gold[keep]
+                golddists === nothing || (golddists = golddists[keep])
+            end
         else
             # the exhaustive pass filled every BallKnn with the *true* ball (plus a reserve, which
             # is not part of the gold); `gold` stays nothing, as recall is not computed here
