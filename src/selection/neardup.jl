@@ -30,7 +30,7 @@ out -- and they report the same `centers`/`assign`/`assigndist` under the same n
   negative -- every distance would exceed it, so nothing would ever be collapsed -- and a negative
   value is rejected rather than silently returning every object as its own center. `ϵ = 0` is
   meaningful -- it collapses exact duplicates only -- and is raised to
-  [`NEARDUP_NUMERICAL_ZERO`](@ref), since two identical objects often do not evaluate to exactly
+  [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), since two identical objects often do not evaluate to exactly
   `0f0` and a literal zero would collapse only the pairs that happened to round there. To pick one
   from the data rather than by hand,
   sample the distance distribution first with [`distsample`](@ref) and take a low quantile of it:

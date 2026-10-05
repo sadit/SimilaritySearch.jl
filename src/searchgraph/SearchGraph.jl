@@ -62,7 +62,7 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
   `0f0` folds exact duplicates, a small positive value near ones (distances re-evaluated on
   expansion); the default, `typemin(Float32)` (`-Inf32`), disables it and every object is a node.
   The threshold is on the scale of the distance in use, and a value that is not `typemin` is
-  raised to [`NEARDUP_NUMERICAL_ZERO`](@ref), since the distance between two identical objects is
+  raised to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), since the distance between two identical objects is
   often not exactly `0f0` and a literal zero would fold only the pairs that rounded there. The
   default is left exactly as it is: raising `typemin` would turn a mechanism that never fires
   into one that fires on every single-entry neighborhood.

@@ -201,6 +201,27 @@ most on the duplicated ones). Pick `ϵ` on the scale of your distance: `0f0` fol
 copies only; a small positive value folds near copies, which the expansion then tells apart
 by their evaluated distances.
 
+`0f0` is not taken literally, and it cannot be: two bit-identical vectors usually do not
+evaluate to `0f0`. Measured on `ccnews` and `yahooaq` under `CastF32.NormCosine`, half of the
+bit-identical pairs land on exactly `0f0`, a sixth come out *negative*, and the rest sit a few
+ulps above it, never more than six. Since the test is `d <= ϵ`, a literal radius of zero folds
+the first two groups and leaves the positive third as nodes -- about a third of the exact
+duplicates missed. So a non-negative `ϵ` is raised to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO)
+(`1f-5`), an order of magnitude above that arithmetic noise and three to four orders below any
+real distance on such data (the median neighborhood spread there is 0.08-0.10). Integer code
+distances need none of this: identical codes give exactly `0f0`.
+
+The default is left exactly as it is, and that matters more than it looks: raising `typemin`
+to the floor would turn a mechanism that never fires into one that fires on every single-entry
+neighborhood of a graph whose distances run at or below zero.
+
+A negative `ϵ` is rejected. The distances that evaluate below zero are the ones wrapped to
+search for *farthest* objects -- `Dist.Hacks.NegativeDistanceHack`, range `(-Inf, 0]`, and
+`SimilarityFromDistance`, range `(0, 1]` -- and under either of them identical objects land at
+the end of the range that means farthest, so folding near duplicates would fold what by
+construction never resembles anything. In such a graph `neardup` does not apply at any
+threshold; leave it at its default.
+
 ---
 
 In the next section, [Radius Queries: Range-Bounded Search](radius_search.md), we examine how to retrieve all neighbors within a distance threshold $r$ rather than a fixed count $k$.
