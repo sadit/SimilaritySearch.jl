@@ -277,39 +277,50 @@ macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddi
 function setconfig! end
 
 """
-    qid(index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer) -> UInt32
+    tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase) -> Vector{Vector{UInt32}}
 
-The identifier of the `i`-th query *inside `index`*, or `0` when the query does not live
-there. It is what tells an optimization run whether it is working with **internal** queries
-(objects taken from the index's own database) or **external** ones, which behave differently
-enough that the distinction has to be explicit:
+What each tuning query must not be answered with: the identifiers that are removed from the
+gold *and* marked visited before the descent, empty for a query that does not live in `index`.
+One vector, built once, read by both sides -- which is the point. The two sides used to derive
+it separately, the search from `(q, representative(q))` and the gold from `clusterids(q)`, and
+they agreed only because a member is never visited anyway. That is a property of another part
+of the system holding the two in step; here they agree by construction, and what to mask
+becomes a decision taken in one place rather than a shape that emerges from two.
 
-An internal query is a vertex of the graph. The descent can stand on it at distance 0 and
-read its whole adjacency in one expansion -- and that adjacency is, by construction,
-approximately the answer. No external query is ever handed its result that way, so tuning
-against internal queries without accounting for it produces parameters sized for a problem
-nobody will pose: measured on two SISAP 2025 benchmarks, `bsize` and `Δ` came out at the
-cheap end of their ranges and recall@10 against real queries fell from 0.90 to 0.69.
+The distinction it carries is between **internal** queries (objects of the index's own
+database) and **external** ones. An internal query is a vertex of the graph: the descent can
+stand on it at distance 0 and read its whole adjacency in one expansion, and that adjacency is
+approximately the answer. No external query is handed its result that way, so tuning against
+internal queries without accounting for it sizes `bsize` and `Δ` for a problem nobody poses --
+measured on two SISAP 2025 benchmarks, both came out at the cheap end of their ranges and
+recall@10 against real queries fell from 0.90 to 0.69.
 
-The identity check on `parent` is what makes this exact: a `SubDatabase` over *this* index's
-database carries the ids in `map`, and a view over anything else is external, as is any other
-container. It also means a caller who wants to tune with chosen objects of the database --
-the least connected ones, say -- only has to pass `SubDatabase(database(index), ids)`.
+Under near-duplicate folding the vertex alone is not enough: a member's representative sits at
+distance 0 and is the same trivial route, so the whole cluster goes in. Masking the members
+themselves costs nothing -- the search never visits them -- but it keeps the gold and the
+search reading the same list.
+
+The identity check on `parent` is what makes membership exact: a `SubDatabase` over *this*
+index's database carries the ids in `map`; a view over anything else is external, as is any
+other container. A caller who wants to tune with chosen objects of the database -- the least
+connected ones, say -- passes `SubDatabase(database(index), ids)` and gets the masking.
 """
-function qid end
+tuningmask(::AbstractSearchIndex, queries::AbstractDatabase) =
+    [UInt32[] for _ in 1:length(queries)]
 
-@inline qid(::AbstractSearchIndex, ::AbstractDatabase, ::Integer) = zero(UInt32)
-@inline qid(index::AbstractSearchIndex, q::SubDatabase, i::Integer) =
-    q.parent === database(index) ? UInt32(@inbounds q.map[i]) : zero(UInt32)
+function tuningmask(index::AbstractSearchIndex, queries::SubDatabase)
+    queries.parent === database(index) && return [UInt32[clusterids(index, id)...] for id in queries.map]
+    [UInt32[] for _ in 1:length(queries)]
+end
 
 """
-    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, qID::Integer, res::AbstractKnnQueue)
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
 
-Fallback for index types that do not act on the internal/external distinction: the `qID` is
+Fallback for index types that do not act on the internal/external distinction: the mask is
 dropped and the plain single-query method runs. `SearchGraph` overrides it (see
 `src/searchgraph/optbs.jl`) to keep an internal query from being its own route.
 """
-runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::Integer, res::AbstractKnnQueue) =
+runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::AbstractVector{UInt32}, res::AbstractKnnQueue) =
     runconfig(conf, index, ctx, q, res)
 
 """
@@ -320,14 +331,14 @@ Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)
 mirroring [`searchbatch!`](@ref). Internal function used by [`create_error_function`](@ref).
 """
 function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
-                    queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
+                    queries::AbstractDatabase, qmask::AbstractVector, knns::AbstractVector{<:AbstractKnnQueue})
     m = length(queries)
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
-        runconfig(conf, index, bctx, queries[i], qid(index, queries, i), reuse!(knns[i]))
+        runconfig(conf, index, bctx, queries[i], qmask[i], reuse!(knns[i]))
         # the raw neighbors behind the representatives, counted as the search cost they are
         add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i]))
     end
@@ -343,7 +354,7 @@ a candidate configuration and reports its cost (visited nodes), radius, recall (
 `gold`, if given), MatchError (against `golddists`, if given — see [`MaxMatchError`](@ref),
 `exponent`/`maxdeviation`/`spreadfloor` are its parameters) and search time. Internal function used by [`optimize_index!`](@ref).
 """
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; exponent::Float32=1f0, maxdeviation::Float32=1f0, spreadfloor::Float32=1f-2)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries, qmask; exponent::Float32=1f0, maxdeviation::Float32=1f0, spreadfloor::Float32=1f-2)
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
@@ -353,7 +364,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         empty!(cov)
         before = copy(ctx.costdists)
 
-        searchtime = @elapsed runconfig(conf, index, ctx, queries, knns)
+        searchtime = @elapsed runconfig(conf, index, ctx, queries, qmask, knns)
         searchtime /= m
 
         for r in knns
@@ -505,6 +516,10 @@ function optimize_index!(
         verbose(ctx) && @inform ctx "using $(length(queries)) given as hyperparameter"
     end
 
+    # one list per query of what it must not be answered with, read by the gold and by the
+    # search alike (see `tuningmask`); empty throughout for external queries
+    qmask = tuningmask(index, queries)
+
     gold = nothing
     golddists = nothing
 
@@ -533,26 +548,23 @@ function optimize_index!(
         # `IdDistView`, not `c` itself -- read `DistView(c)` from `c` afterwards, not from what
         # `sortitems!` returns.
         if radius === nothing
-            # An internal query is in its own gold, at distance 0. It is also masked out of the
-            # search that is being scored (see `runconfig` for `SearchGraph`), so leaving it in
-            # the gold would cap recall at (k-1)/k -- 0.9 for the default k, which would put
-            # the 0.97 construction target out of reach. Both sides drop it, and `recallscore`
-            # normalizes by `length(gold)`, so nothing else has to change. `qid` is 0 for
-            # external queries, which match no identifier and lose nothing.
-            # (and its whole near-duplicate cluster: the representative of a member query sits at
-            # distance 0 and is the same trivial route, so it is masked from the search as well)
+            # An internal query is in its own gold, at distance 0, and so is the rest of its
+            # near-duplicate cluster. It is masked out of the search being scored too (see
+            # `runconfig` for `SearchGraph`), so leaving it in the gold would cap recall at
+            # (k-1)/k -- 0.9 for the default k, which would put the 0.97 construction target out
+            # of reach. Both sides drop exactly what `qmask` lists, and `recallscore` normalizes
+            # by `length(gold)`, so nothing else has to change. The mask is empty for external
+            # queries, which match no identifier and lose nothing.
             gold = map(enumerate(knns)) do (i, c)
                 g = idset(c)
-                id = qid(index, queries, i)
-                id == 0 || foreach(x -> delete!(g, x), clusterids(index, id))
+                foreach(x -> delete!(g, x), qmask[i])
                 g
             end
 
             if kind isa MaxMatchError
                 golddists = map(enumerate(knns)) do (i, c)
-                    id = qid(index, queries, i)
-                    cluster = id == 0 ? () : Set{UInt32}(clusterids(index, id))
-                    Float32[p.dist for p in sortitems!(c) if !(p.id in cluster)]
+                    masked = Set{UInt32}(qmask[i])
+                    Float32[p.dist for p in sortitems!(c) if !(p.id in masked)]
                 end
             end
         else
@@ -579,9 +591,9 @@ function optimize_index!(
     end
 
     getperformance = if kind isa MaxMatchError
-        create_error_function(index, ctx, gold, golddists, knns, queries; exponent=kind.exponent, maxdeviation=kind.maxdeviation, spreadfloor=kind.spreadfloor)
+        create_error_function(index, ctx, gold, golddists, knns, queries, qmask; exponent=kind.exponent, maxdeviation=kind.maxdeviation, spreadfloor=kind.spreadfloor)
     else
-        create_error_function(index, ctx, gold, golddists, knns, queries)
+        create_error_function(index, ctx, gold, golddists, knns, queries, qmask)
     end
 
     function getcost(p)
