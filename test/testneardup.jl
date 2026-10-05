@@ -35,6 +35,49 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
         @test_throws ArgumentError Neighborhood(; neardup=Inf32)
     end
 
+    @testset "a tuning query whose gold is all its own cluster is dropped" begin
+        # With k=10, an object sitting in a cluster of 11 or more has its entire gold masked
+        # away once optimize_index! removes its cluster, and recallscore divides by
+        # length(gold). The NaN reaches the mean, every comparison against it is false, and the
+        # solver returns an arbitrary configuration without raising. Measured on SISAP 2025
+        # ccnews, 7.9% of objects are such a case and 99.5% of tuning runs drew at least one.
+        rng2 = Xoshiro(13)
+        base = rand(rng2, Float32, dim, 20)
+        X2 = MatrixDatabase(hcat((repeat(view(base, :, i:i), 1, 20) for i in 1:20)...))  # 20 clusters of 20
+        ctx2 = SearchGraphContext(; reporters=[], neighborhood=Neighborhood(; neardup=0))
+        G2 = SearchGraph(dist, X2)
+        index!(G2, ctx2)
+        @test !isempty(G2.members)                       # every object but one per cluster folds
+        # every internal query is degenerate here: it must still come back with a usable
+        # configuration rather than a NaN-ordered draw, and it must not take index! down
+        optimize_index!(G2, ctx2, MinRecall(0.9f0))
+        @test G2.algo[] isa BeamSearch && isfinite(G2.algo[].Δ) && G2.algo[].bsize > 0
+        # with external queries there is no cluster to mask, so it tunes as usual
+        Q2 = VectorDatabase([rand(rng2, Float32, dim) for _ in 1:32])
+        optimize_index!(G2, ctx2, MinRecall(0.9f0); queries=Q2)
+        @test G2.algo[] isa BeamSearch && isfinite(G2.algo[].Δ) && G2.algo[].bsize > 0
+    end
+
+    @testset "only the degenerate tuning queries are dropped, the rest still tune" begin
+        # The realistic shape, and the one the fix is for: a few clusters larger than k among
+        # many ordinary points, so some internal queries lose their whole gold and most do not.
+        # `rng` makes the draw reproducible and the reporter makes the drop observable.
+        rng3 = Xoshiro(29)
+        big = rand(rng3, Float32, dim, 6)
+        X3 = MatrixDatabase(hcat(rand(rng3, Float32, dim, 400),
+                                 (repeat(view(big, :, i:i), 1, 15) for i in 1:6)...))
+        buf = IOBuffer()
+        ctx3 = SearchGraphContext(; verbose=true, reporters=InformativeLog(buf; dt=0),
+                                  neighborhood=Neighborhood(; neardup=0))
+        G3 = SearchGraph(dist, X3)
+        index!(G3, ctx3)
+        take!(buf)
+        optimize_index!(G3, ctx3, MinRecall(0.9f0); numqueries=64, rng=Xoshiro(5))
+        msg = String(take!(buf))
+        @test occursin("dropping", msg) && occursin("tuning queries", msg)
+        @test G3.algo[] isa BeamSearch && isfinite(G3.algo[].Δ) && G3.algo[].bsize > 0
+    end
+
     @testset "a twin whose distance rounds just above zero still folds" begin
         # The bug the floor fixes: two bit-identical vectors do not reliably evaluate to 0f0.
         # Measured on SISAP 2025 ccnews and yahooaq, about half of such pairs land on a positive

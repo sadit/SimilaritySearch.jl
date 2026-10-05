@@ -149,27 +149,29 @@ end
 
 Runs a single query `q` search using the candidate configuration `bs` (with `maxvisits` doubled with respect to `index`'s current algorithm). Internal function, used while evaluating candidate configurations during optimization.
 """
+const EMPTY_MASK = UInt32[]
+
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnnQueue)
-    runconfig(bs, index, ctx, q, zero(UInt32), res)
+    runconfig(bs, index, ctx, q, EMPTY_MASK, res)
 end
 
 """
-    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, qID::Integer, res::AbstractKnnQueue)
+    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
 
-As above, and marks `qID` visited before descending when it is nonzero, i.e. when `q` is an
-object of this index ([`qid`](@ref)). A stored object reached at distance 0 exposes its whole
-adjacency -- approximately its own nearest neighbors -- in a single expansion, which is the
-answer handed over for free; a query from outside has to earn those neighbors through their
-own links. Masking the vertex, and only it, leaves every gold neighbor reachable through
-those links, so recall stays measurable while the shortcut is gone.
+As above, and marks every identifier in `mask` visited before descending -- what
+[`tuningmask`](@ref) listed for this query, empty when it comes from outside the index. A
+stored object reached at distance 0 exposes its whole adjacency, approximately its own nearest
+neighbors, in a single expansion: the answer handed over for free, which a query from outside
+has to earn through links. Under folding its cluster is the same shortcut, since a member's
+representative also sits at distance 0. Masking those, and nothing else, leaves every gold
+neighbor reachable through ordinary links, so recall stays measurable while the shortcut is
+gone.
 """
-function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, qID::Integer, res::AbstractKnnQueue)
+function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
     @reset bs.maxvisits = 2 * index.algo[].maxvisits
     vstate = getvstate(length(index), ctx)
-    if qID > 0
-        visit!(vstate, UInt64(qID))
-        r = representative(index, qID)       # a member query: its representative is the same trivial route
-        r != qID && visit!(vstate, UInt64(r))
+    for id in mask
+        visit!(vstate, UInt64(id))
     end
     search(bs, index, ctx, q, res, index.hints, vstate)
 end
