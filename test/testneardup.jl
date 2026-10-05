@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 using Test, SimilaritySearch, Random, Statistics
-using SimilaritySearch: evaluate
+using SimilaritySearch: evaluate, isnearduplicate, NEARDUP_NUMERICAL_ZERO
 
 "Ids of the `k` nearest neighbors of every query, through the ordinary search interface."
 knn_ids(index, ctx, queries, k) = [Int32.(collect(IdView(search(index, ctx, q, knnqueue(KnnSorted, k))))) for q in queries]
@@ -25,12 +25,29 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
     goldI, goldD = searchbatch(E, GenericContext(), Q, k)
     gold = [Set(goldI[:, j]) for j in 1:length(Q)]
 
-    @testset "neardup is validated, on the distance's own scale" begin
-        @test Neighborhood().neardup == typemin(Float32)
-        @test Neighborhood(; neardup=0).neardup == 0f0
-        @test Neighborhood(; neardup=-1f0).neardup == -1f0                   # a negated similarity evaluates below zero
+    @testset "neardup is floored at numerical zero, and may not be negative" begin
+        @test Neighborhood().neardup == typemin(Float32)                     # disabled stays exactly disabled
+        @test Neighborhood(; neardup=0).neardup == NEARDUP_NUMERICAL_ZERO    # a literal 0 does not survive floating point
+        @test Neighborhood(; neardup=1f-9).neardup == NEARDUP_NUMERICAL_ZERO
+        @test Neighborhood(; neardup=0.25f0).neardup == 0.25f0               # above the floor, left alone
+        @test_throws ArgumentError Neighborhood(; neardup=-1f0)              # a farthest-object search: not applicable
         @test_throws ArgumentError Neighborhood(; neardup=NaN32)
         @test_throws ArgumentError Neighborhood(; neardup=Inf32)
+    end
+
+    @testset "a twin whose distance rounds just above zero still folds" begin
+        # The bug the floor fixes: two bit-identical vectors do not reliably evaluate to 0f0.
+        # Measured on SISAP 2025 ccnews and yahooaq, about half of such pairs land on a positive
+        # value of a few ulps, which a literal radius of 0 rejects since the test is `<=`.
+        ctx = SearchGraphContext(; reporters=[], neighborhood=Neighborhood(; neardup=0))
+        for d in (0f0, 3.5762787f-7, 7.1525574f-7, NEARDUP_NUMERICAL_ZERO)   # the observed range, 3 and 6 ulps
+            res = knnqueue(KnnSorted, 1)
+            push_item!(res, IdDist(UInt32(1), d))
+            @test isnearduplicate(ctx, res)
+        end
+        res = knnqueue(KnnSorted, 1)
+        push_item!(res, IdDist(UInt32(1), 1f-3))                             # a real distance is not a twin
+        @test !isnearduplicate(ctx, res)
     end
 
     @testset "the default is untouched: no members" begin

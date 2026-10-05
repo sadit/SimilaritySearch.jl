@@ -235,7 +235,9 @@ find_neighborhood!
 A graph built with `Neighborhood(neardup=ϵ)` keeps one node per cluster of near duplicates
 and makes the rest *members* of it: never visited, never answered by `search`, which returns
 representatives. `expand` and `expand!` are the second stage, from `k` clusters to the raw
-neighbors, on any result form.
+neighbors, on any result form. A non-negative `ϵ` -- here and in [`neardup`](@ref) -- is raised
+to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), since two identical objects usually do not evaluate to exactly
+`0f0`; a negative one is rejected.
 ```@docs
 Members
 members
@@ -243,6 +245,7 @@ representative
 ismember
 expand
 expand!
+SimilaritySearch.NEARDUP_NUMERICAL_ZERO
 ```
 
 ### Hints (entry points for approximate search)

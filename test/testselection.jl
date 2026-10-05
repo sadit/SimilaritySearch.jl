@@ -228,6 +228,15 @@ end
         @test length(R.centers) == length(Y)      # nothing is an exact duplicate here
         @test R.covering == 0f0
 
+        # ... and it is raised to what counts as zero, because two identical objects do not
+        # reliably evaluate to 0f0: half of the bit-identical pairs measured on SISAP 2025
+        # ccnews and yahooaq land a few ulps above it, which a literal radius rejects
+        @test R.epsilon == SimilaritySearch.NEARDUP_NUMERICAL_ZERO
+        W = rand(Float32, dim, 10)
+        Z = MatrixDatabase(hcat(W, W[:, 1:5]))
+        R = neardup(DIST, Z, 0f0; blocksize=8, reporters=[])
+        @test length(R.centers) == 10             # the five copies collapse onto their originals
+
         R = neardup(DIST, MatrixDatabase(rand(Float32, dim, 0)), ϵ; reporters=[])
         @test isempty(R.centers)
         @test isempty(R.assign)
