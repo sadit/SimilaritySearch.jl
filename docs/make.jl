@@ -42,7 +42,10 @@ makedocs(;
         ]
     ],
     doctest=false,
-    warnonly=true  #Documenter.except(:missing_docs, :missing_docs)
+    # `missing_docs` stays a warning on purpose: what it counts is internal documentation, and
+    # its place is the code. Everything else fails the build, so a broken cross-reference cannot
+    # reach the published site again.
+    warnonly=[:missing_docs]
 )
 
 deploydocs(;

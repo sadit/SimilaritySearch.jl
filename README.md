@@ -33,6 +33,26 @@ removing any that worked before. Patch releases inside a series are fixes and pe
 
 ## 1.6
 
+### Migrating from 1.5: three goals were removed
+
+This series removes three optimization goals. A minor release does not normally remove anything,
+so the exception is stated here instead of left for a reader to find.
+
+- `ParetoRecall(r)` and `ParetoRadius(r)` are replaced by **`MinRecall(r)`**. Neither computed a
+  Pareto front. Both were a weighted sum of squares, and the cost term was normalized by the
+  maximum of the initial population, so the trade-off they selected changed with that population.
+  `MinRecall` minimizes `goalvalue`: the log cost plus a smooth hinge on the target. Its
+  `tradeoff` keyword states the cost factor you accept per 1% of quality near the target. Use it
+  to say what the Pareto goals were trying to say.
+- `OptRadius(tol)` is replaced by **`MaxMatchError(; maxerror)`**. `OptRadius` targeted a covering
+  radius within a tolerance, and you could not choose that tolerance without looking at the
+  distances first. `MaxMatchError` keeps the idea and reads the scale from each query's own
+  neighborhood, so `maxerror` is a fraction of that neighborhood's spread and carries from one
+  dataset to another. The tutorial section *`MaxMatchError`: A Distance-Based Alternative to
+  `MinRecall`* shows how to calibrate one against a `MinRecall` target you already know.
+
+### What is new
+
 - **The goals minimize a smooth objective.** `MinRecall(t)` and `MaxMatchError(e)` used to rank any configuration
   below the target behind any configuration above it, whatever the costs: blind to a configuration a hair
   short at a fraction of the cost, and a coin toss within the noise of the recall estimate (0.04 with 64

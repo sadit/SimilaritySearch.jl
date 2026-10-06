@@ -168,6 +168,7 @@ MinRecall
 MaxMatchError
 SimilaritySearch.goalvalue
 ErrorFunction
+LocalSearchAlgorithm
 ```
 
 ### Neighborhood computation and refinement
@@ -284,4 +285,5 @@ IdDistView
 knn_matrices
 PQueue.heapify!
 PQueue.ninside
+PQueue.heapfix_up!
 ```
