@@ -1,0 +1,15 @@
+held-out 10500, fully tied gold 858
+default (every object a node): built in 49.9 s, construction left BeamSearch(bsize=15, Δ=1.12, maxvisits=3616)
+default (every object a node): edges 13047120, max degree 1597, members 0 (0.0%), degree-1 nodes 1904
+    bsize=8 Δ=1.0: stage 1 recall 0.8611 (visits 534) | expanded recall 0.8611 (+0 member evaluations/query, 823.8 ms total) | tied-gold queries: 0.686 -> 0.686, failed 96 -> 96
+    bsize=16 Δ=1.2: stage 1 recall 0.9564 (visits 1209) | expanded recall 0.9564 (+0 member evaluations/query, 1.3 ms total) | tied-gold queries: 0.723 -> 0.723, failed 43 -> 43
+    tuned in 1.0 s to BeamSearch(bsize=10, Δ=1.05, maxvisits=4458): expanded recall 0.9067
+members, neardup=0: built in 18.7 s, construction left BeamSearch(bsize=2, Δ=1.075, maxvisits=2156)
+members, neardup=0: edges 8281318, max degree 273, members 117762 (19.5%), degree-1 nodes 120646
+    bsize=8 Δ=1.0: stage 1 recall 0.6818 (visits 529) | expanded recall 0.8640 (+18 member evaluations/query, 10.4 ms total) | tied-gold queries: 0.126 -> 0.836, failed 34 -> 49
+    bsize=16 Δ=1.2: stage 1 recall 0.7678 (visits 1234) | expanded recall 0.9592 (+19 member evaluations/query, 8.8 ms total) | tied-gold queries: 0.132 -> 0.856, failed 0 -> 15
+    tuned in 1.2 s to BeamSearch(bsize=4, Δ=1.155, maxvisits=7256): expanded recall 0.9094
+Precompiling packages...
+   8919.1 ms  ✓ SimilaritySearch
+  1 dependency successfully precompiled in 9 seconds. 97 already precompiled.
+exit 0
