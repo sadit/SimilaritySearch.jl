@@ -12,11 +12,16 @@ when this file was added, `quantization_and_bitsketches.md` had been shipping
 `ExhaustiveSearch(Dist.SqL2(), db_sq)` over a quantized database, which raises a MethodError,
 because `doctest=false` and nothing ever ran it.
 
-A page can only be listed here if its blocks are **self-contained**: much of this series is
-narrative and reuses variables across pages (the Dice example in
+A page can only be listed here if **every** one of its blocks is self-contained: much of this
+series is narrative and reuses variables across pages (the Dice example in
 `quantization_and_bitsketches.md` says outright that it continues the quickstart's dataset),
 and those cannot be executed in isolation. Add a page when it is written or revised; that is
 cheaper than discovering the breakage from a user, which is how the last one was found.
+
+A mostly narrative page is not shut out. Any block, on any tutorial page, that carries the
+marker is checked the same way, so a self-contained example does not need its whole page to
+qualify. The marker is therefore the claim, and listing the page only says that the claim is
+made by all of its blocks.
 """
 const VERSIONED_TUTORIALS = [
     "multibit_sketches.md",
@@ -48,6 +53,15 @@ end
     marker = "# SimilaritySearch v$(v.major).$(v.minor)"
     docs = joinpath(@__DIR__, "..", "docs", "src", "tutorial")
 
+    "runs `code` in a module of its own, as a reader pasting it would, and says which block it was"
+    function check(page, i, code)
+        @test strip(first(split(code, "\n"))) == marker   # names the version it was written for
+        mod = Module(Symbol("TutorialBlock_", replace(page, "." => "_"), "_", i))
+        Core.eval(mod, :(using SimilaritySearch, Test))
+        @test (include_string(mod, code); true)
+    end
+
+    # a listed page is self-contained throughout: every block carries the marker and runs
     for page in VERSIONED_TUTORIALS
         path = joinpath(docs, page)
         @test isfile(path)
@@ -55,12 +69,19 @@ end
         @test !isempty(blocks)
 
         for (i, code) in enumerate(blocks)
-            first_line = strip(first(split(code, "\n")))
-            @test first_line == marker      # names the version it was written for
-            # and still runs: each block in its own module, as a reader would paste it
-            mod = Module(Symbol("TutorialBlock_", replace(page, "." => "_"), "_", i))
-            Core.eval(mod, :(using SimilaritySearch, Test))
-            @test (include_string(mod, code); true)
+            check(page, i, code)
+        end
+    end
+
+    # elsewhere the marker is opt-in per block, so a page that is mostly narrative can still
+    # have its self-contained examples checked. A block carrying the marker is making the same
+    # claim a listed page makes, and is held to it; an unmarked block continues an earlier one
+    # and cannot be run alone.
+    for page in sort(readdir(docs))
+        (endswith(page, ".md") && page ∉ VERSIONED_TUTORIALS) || continue
+        for (i, code) in enumerate(julia_blocks(joinpath(docs, page)))
+            startswith(strip(first(split(code, "\n"))), "# SimilaritySearch v") || continue
+            check(page, i, code)
         end
     end
 end

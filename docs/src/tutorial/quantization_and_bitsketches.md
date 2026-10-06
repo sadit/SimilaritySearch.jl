@@ -111,7 +111,7 @@ the parameters it was created with. A `SearchGraph` can therefore build over it 
 time, and a `MMapMatrixDatabase` keeps the codes on disk across processes:
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch, SimilaritySearch.ScalarQuant
 
 X = randn(Float32, 64, 10_000)
@@ -150,7 +150,7 @@ A query can be passed raw to either graph. The symmetric one also accepts it as 
 `quantize(database(G), q)`.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch, SimilaritySearch.ScalarQuant
 
 X = randn(Float32, 64, 10_000)

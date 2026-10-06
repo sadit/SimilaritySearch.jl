@@ -28,8 +28,9 @@ The precise definitions of these functions and the complete set of functions and
 
 # What each release series brings
 
-The package follows semantic versioning; a series (`1.5.x`, `1.4.x`, ...) adds features without
+The package follows semantic versioning; a series (`1.6.x`, `1.5.x`, ...) adds features without
 removing any that worked before. Patch releases inside a series are fixes and performance work.
+1.6 is the one exception, and it is stated below.
 
 ## 1.6
 
@@ -114,7 +115,7 @@ so the exception is stated here instead of left for a reader to find.
   `SearchGraph` gained the field `members` for it: a graph stored before 1.6 and read back field by field
   is rebuilt with `SearchGraph(dist, db, adj, hints, algo, len)`, which fills the field with an empty
   `Members`, the only value a pre-1.6 graph can hold. `neardup` is validated: `typemin(Float32)` (off) or a
-  finite distance, negative included, since the distance hacks that search farthest objects evaluate below zero.
+  finite non-negative distance, raised to the numerical zero described above.
 - **`matcherror` is bounded, and its parameters say what they are.** A position never costs more than
   `maxdeviation` spreads, which is also what a missing position costs, so the per-query score lies in
   `[0, maxdeviation ^ exponent]` and its mean over queries means something: on SISAP 2025 `ccnews`, without
