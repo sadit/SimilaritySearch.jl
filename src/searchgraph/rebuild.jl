@@ -60,7 +60,8 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     search_algo = let bs = g.algo[]
         @set bs.maxvisits = BeamSearch().maxvisits
     end
-    search_g = SearchGraph(distance(g), database(g), g.adj, g.hints, Ref(search_algo), Ref(n))
+    search_g = SearchGraph(distance(g), database(g), g.adj, g.hints, Ref(search_algo), Ref(n), g.members)
+    twin = zeros(UInt32, n)   # near duplicates are settled again from scratch, after the loop
 
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGIN
@@ -78,8 +79,13 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     @LOOP for objID in 1:n
         reuse!(tmp)
         reuse!(N)
-        find_neighborhood!(N, search_g, bctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)))
-        direct[objID] = collect(IdView(N))
+        find_neighborhood!(N, search_g, bctx, database(g, objID), tmp, 1:-1; hints=first(neighbors(g.adj, objID)), selfid=objID)
+        if isnearduplicate(bctx, N)
+            twin[objID] = first(IdView(N))
+            direct[objID] = UInt32[]
+        else
+            direct[objID] = collect(IdView(N))
+        end
         # @info length(direct[objID]) neighbors_length(g.adj, objID)
 
         progress !== nothing && next!(progress)
@@ -87,13 +93,16 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     end
 
     adj = AdjList(direct)
+    G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(search_algo), Ref(length(g)), Members())
+    settled = resolvemembers!(G, 1, n, twin)        # empties the members' adjacency before the reverse links
     @BATCHES getminbatch(ctx, length(direct)) scheduler=ctx.scheduler for nodeID in eachindex(direct)
         connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
             relID != nodeID
         end
     end
-
-    G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(search_algo), Ref(length(g)))
+    for (id, rep) in settled
+        setmember!(G, id, rep)
+    end
 
     execute_callbacks!(G, ctx, force=true)
 

@@ -31,6 +31,105 @@ The precise definitions of these functions and the complete set of functions and
 The package follows semantic versioning; a series (`1.5.x`, `1.4.x`, ...) adds features without
 removing any that worked before. Patch releases inside a series are fixes and performance work.
 
+## 1.6
+
+### Migrating from 1.5: three goals were removed
+
+This series removes three optimization goals. A minor release does not normally remove anything,
+so the exception is stated here instead of left for a reader to find.
+
+- `ParetoRecall(r)` and `ParetoRadius(r)` are replaced by **`MinRecall(r)`**. Neither computed a
+  Pareto front. Both were a weighted sum of squares, and the cost term was normalized by the
+  maximum of the initial population, so the trade-off they selected changed with that population.
+  `MinRecall` minimizes `goalvalue`: the log cost plus a smooth hinge on the target. Its
+  `tradeoff` keyword states the cost factor you accept per 1% of quality near the target. Use it
+  to say what the Pareto goals were trying to say.
+- `OptRadius(tol)` is replaced by **`MaxMatchError(; maxerror)`**. `OptRadius` targeted a covering
+  radius within a tolerance, and you could not choose that tolerance without looking at the
+  distances first. `MaxMatchError` keeps the idea and reads the scale from each query's own
+  neighborhood, so `maxerror` is a fraction of that neighborhood's spread and carries from one
+  dataset to another. The tutorial section *`MaxMatchError`: A Distance-Based Alternative to
+  `MinRecall`* shows how to calibrate one against a `MinRecall` target you already know.
+
+### What is new
+
+- **The goals minimize a smooth objective.** `MinRecall(t)` and `MaxMatchError(e)` used to rank any configuration
+  below the target behind any configuration above it, whatever the costs: blind to a configuration a hair
+  short at a fraction of the cost, and a coin toss within the noise of the recall estimate (0.04 with 64
+  tuning queries). They now minimize `goalvalue`, the log cost plus a finite-support hinge on the target,
+  with three knobs: `tradeoff`, the cost factor accepted per 1% of quality near the target (default `1.5`);
+  `width`, the hinge's half-width, derived by default from the quality's standard error over the tuning
+  queries; and `transition`, the hinge's zone as multipliers of `width` (`(-1, 1)`, the default, lands within
+  a width above the target; `(0, 2)` lands like a hard threshold; `(-2, 0)` treats the target as a floor;
+  any other pair, asymmetric included, works). Measured
+  on SISAP 2025 `ccnews` against the hard threshold and a `softplus` hinge: the centered hinge lands at
+  0.900-0.913 for a target of 0.9 and barely moves with `tradeoff`, `softplus` overshoots by two to three
+  widths, and the cost is in nats, so the normalization by the initial population's maximum cost is gone.
+- **The queries that tune an index are declared, not inferred.** An internal query -- an object the
+  index already stores -- is a vertex of the graph: a search reaches it at distance 0 and reads its
+  adjacency list in one step, and that list is close to the answer. An external query has to reach
+  its neighbors through ordinary links. Tuning with internal queries without accounting for this
+  picks parameters for an easier problem: measured on two SISAP 2025 benchmarks, `bsize` and `Δ`
+  came out at the cheap end of their ranges and recall@10 against real queries fell from 0.90 to
+  0.69. Internal queries are now masked, from the search and from the gold alike. Which ones are
+  internal is said by `queries_identifiers`, beside `queries`: the first says what to search with,
+  the second says where those objects are stored. A query is masked if and only if its identifier
+  is given; the previous rule, which read it from the container's type, is gone, and
+  `optimize_index!` warns on the one shape that rule used to cover. Giving both is what a quantized
+  index needs, since its database holds codes and an identifier alone cannot produce a raw query
+  object. `numqueries` now means how many queries one optimization uses, whatever the source: a
+  draw from a pool of identifiers when one is named, a sample of the index when not. Insertions set
+  a pool aside once (`TUNINGPOOLSIZE`) so that the optimizations the construction callback runs are
+  scored on the same population, and so that `SearchGraph` and `AsymmetricSearchGraph` tune the same
+  way, which matters whenever the two are compared. See the tutorial section
+  *Choosing the queries that tune an index*.
+- **A tuning query whose own cluster empties its gold is dropped.** With `k=10`, an object in a
+  near-duplicate cluster of 11 or more has nothing left after its cluster is masked, and
+  `recallscore` divides by the gold's size. The `NaN` reached the mean, every comparison against it
+  was false, and the solver returned an arbitrary configuration without raising. On SISAP 2025
+  `ccnews`, 7.9% of the objects are such a case, so 99.5% of tuning runs drew at least one; the
+  spread of a rebuilt cell grew 4.6x for float32 and 10.5x for a quantized one against the same
+  configurations without folding. `MaxMatchError` failed the other way, scoring those queries as a
+  perfect match, which preserved orderings but scaled its mean. Both goals drop them, so the two
+  still tune on the same queries. When every query is degenerate the masking is given up with a
+  warning instead, since raising would take `index!` down with it.
+- **`neardup` is a numerical zero, and negative radii are rejected.** Two bit-identical vectors
+  usually do not evaluate to `0f0`: on SISAP 2025 `ccnews` and `yahooaq` half of such pairs do, a
+  sixth come out negative, and the error never exceeds 6 ulps, so a literal radius of zero missed
+  about a third of the exact duplicates. A non-negative `neardup` is raised to
+  `NEARDUP_NUMERICAL_ZERO` (`1f-5`), an order of magnitude above that error and three to four orders
+  below any real distance on those datasets; `typemin(Float32)` stays exactly as it is, since
+  raising it would turn a mechanism that never fires into one that fires on every single-entry
+  neighborhood. A negative radius is no longer accepted: the distances that evaluate below zero are
+  the ones wrapped to find farthest objects, and under those identical objects are the farthest of
+  all, so folding near duplicates there folds what by construction never resembles anything.
+  `Selection.neardup`'s own `ϵ` takes the same floor.
+- **Near duplicates fold into members.** `Neighborhood(neardup=ϵ)` makes an object whose nearest indexed object
+  lies within `ϵ` a member of that object's cluster instead of a node: one edge to the representative, nothing
+  linking to it, never visited. `search` answers with representatives, one per cluster, and the second stage,
+  `expand`/`expand!`, gives the raw neighbors back on any result form, each member with its evaluated distance.
+  Members count in `length`, `optimize_index!` expands before scoring and masks a query's whole cluster,
+  `rebuild` keeps them. On SISAP 2025 `ccnews`, 27% exact duplicates: 30% fewer edges, the build 37% faster,
+  recall up on every query and from 0.72 to 0.86 on the queries with ten copies in the database. Off by default.
+  `SearchGraph` gained the field `members` for it: a graph stored before 1.6 and read back field by field
+  is rebuilt with `SearchGraph(dist, db, adj, hints, algo, len)`, which fills the field with an empty
+  `Members`, the only value a pre-1.6 graph can hold. `neardup` is validated: `typemin(Float32)` (off) or a
+  finite distance, negative included, since the distance hacks that search farthest objects evaluate below zero.
+- **`matcherror` is bounded, and its parameters say what they are.** A position never costs more than
+  `maxdeviation` spreads, which is also what a missing position costs, so the per-query score lies in
+  `[0, maxdeviation ^ exponent]` and its mean over queries means something: on SISAP 2025 `ccnews`, without
+  the cap, ten queries whose gold neighbors were exact duplicates made 85% of the mean over 10,500 queries
+  and `MaxMatchError` tuned to the same configuration for any target. `p`, `η` and `minspread` are now
+  `exponent`, `maxdeviation` and `spreadfloor`, as keywords of `matcherror`, `macromatcherror` and
+  `MaxMatchError`.
+- **`ParetoRecall`, `ParetoRadius` and `OptRadius` are gone.** The first two were not Pareto fronts but a
+  sum of squares with the cost normalized by the initial population's maximum, so the trade-off they picked
+  depended on that population, and a trade-off chosen at construction did not carry over to the search: a
+  better graph is both more accurate and faster at a fixed beam. `OptRadius` targeted a covering radius within
+  a tolerance, which could not be set without a prior look at the distances; `MaxMatchError` is the same idea
+  with the scale read off each query's own neighborhood. `MinRecall` and `MaxMatchError` remain; a
+  bi-objective goal will return as a smooth, explicitly weighted combination.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a

@@ -111,6 +111,13 @@ D.centers[D.assign[7]]        # Center index covering object 7
 D.assigndist[7]               # Distance to covering center (always ≤ ϵ)
 ```
 
+$\epsilon$ must not be negative. The value $\epsilon = 0$ means "exact duplicates only", and it is raised to
+[`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO) (`1f-5`), because two bit-identical vectors usually do not
+evaluate to exactly `0f0`: on the SISAP 2025 `ccnews` and `yahooaq` embeddings, half of such
+pairs do, a sixth evaluate negative, and the rest land a few ulps above zero. A literal radius
+of zero would therefore group only the pairs that happened to round there. The same floor
+applies to a graph's `Neighborhood(neardup=ϵ)`, so both notions of "radius zero" agree.
+
 To automatically select $\epsilon$ from empirical data, sample the pairwise distance distribution using [`distsample`](@ref):
 
 ```julia

@@ -2,79 +2,130 @@
 
 using SearchModels, Random
 using StatsBase
+using Statistics: median, std
 import SearchModels: combine, mutate
-export OptimizeParameters, optimize_index!, MinRecall, OptRadius, ParetoRecall, ParetoRadius, MaxMatchError
+export OptimizeParameters, optimize_index!, MinRecall, MaxMatchError
 
 """
     abstract type ErrorFunction end
 
 Abstract type for the optimization goals (`kind` argument) accepted by [`optimize_index!`](@ref).
 It determines how candidate hyperparameter configurations are scored/compared while
-autotuning the index. Concrete subtypes are [`MinRecall`](@ref), [`OptRadius`](@ref),
-[`ParetoRecall`](@ref), [`ParetoRadius`](@ref), and [`MaxMatchError`](@ref).
+autotuning the index. Concrete subtypes are [`MinRecall`](@ref) and [`MaxMatchError`](@ref).
+
+Three goals were removed in 1.6. `ParetoRecall`/`ParetoRadius` were a weighted sum of squares
+normalized by the initial population's maximum cost, not a Pareto front, and the trade-off
+they picked at construction did not carry over to the search; a bi-objective goal, when it
+returns, will be a smooth, explicitly weighted combination. `OptRadius` targeted a covering
+radius within a tolerance, which asked for a look at the distances beforehand to be set at
+all; `MaxMatchError` is the same idea with the scale read off each query's own neighborhood.
 """
 abstract type ErrorFunction end
 
 """
-    MinRecall(; minrecall=0.9f0) <: ErrorFunction
+    MinRecall(minrecall=0.9f0; tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
 
-Optimization goal that favors the fastest configuration among those achieving at least
-`minrecall` recall (measured against a gold standard computed with exhaustive search).
+Optimization goal: the cheapest configuration whose recall (against a gold standard computed
+with exhaustive search) reaches `minrecall`, and, below it, the one whose saving pays for its
+shortfall. The value minimized is [`goalvalue`](@ref),
 
-# Keyword Arguments
-- `minrecall`: minimum recall (0-1) required to be considered as fast as possible.
+    log(visits) + tradeoffrate · hinge(minrecall − recall)
+
+a smooth hinge on the target rather than a threshold. Far above `minrecall` only the cost
+counts; far below, every unit of recall missing costs `tradeoffrate = log(tradeoff) / 0.01`
+nats of cost, and the cost still counts; across a transition zone on the scale of the
+measurement's own noise, `width`, the hinge is quadratic, so a configuration a hair short of
+the target is priced at that hair instead of discarded, and the ranking does not flip with
+the noise of the recall estimate. (The threshold it replaces ranked anything below the
+target behind anything above it, whatever the costs, and with 64 tuning queries the
+estimate's standard error is about 0.04, so the test was a coin toss for every configuration
+within that of the target.) The hinge has finite support: it is exactly zero before the
+transition zone, so the goal never pushes the recall further above the target than that
+zone reaches -- a `softplus` hinge was measured to overshoot the target by two to three
+widths, growing with `tradeoff`, because its tail never reaches zero.
+
+# Arguments
+- `minrecall`: the target recall (0-1).
+- `tradeoff`: the cost factor accepted per 1% of recall near the target: `1.5` reads "up to 50%
+  more visits for each 1% of recall". Must be finite and `> 1`. Above the slope of the
+  cost-against-recall front -- 10-20 nats per unit of recall on typical graphs, a cost that
+  doubles between recall 0.90 and 0.95 -- the minimum is the one a hard constraint would pick;
+  `1.5` is 40. With the default zone the result barely moves between `1.2` and `3` (measured
+  on SISAP 2025 `ccnews`: recall 0.900-0.913 for a target of 0.9).
+- `width`: the unit of the transition zone, in recall units. `nothing` (the default) derives
+  it from the data in [`optimize_index!`](@ref): the standard error of the macro recall over
+  the tuning queries, as the median over the initial population of
+  `std(per-query recall) / sqrt(numqueries)`, so the zone spans exactly what the measurement
+  cannot tell apart. A small explicit `width` shrinks the zone to a hard threshold.
+- `transition`: the transition zone `(lo, hi)`, as multipliers of `width`, in shortfall
+  units `s = minrecall − recall` (positive below the target). The hinge charges nothing for
+  `s ≤ lo · width`, a quadratic across the zone, and the shortfall itself, up to a constant,
+  from `hi · width` on; it is continuous with a continuous derivative for any `lo ≤ hi`, and
+  `lo == hi` is a hard threshold at `lo · width`. Measured on SISAP 2025 `ccnews`, a target of
+  0.9, 64 or 256 tuning queries, `width` derived:
+
+  | `transition` | zone, in widths | at the target | tuned recall lands |
+  |---|---|---|---|
+  | `(-1, 1)`, the default | one width on each side | `width / 4` | within a width above the target: 0.900-0.913 |
+  | `(0, 2)` | starts at the target | `0` | like a hard threshold, at or a little under the target with few queries: 0.877-0.901 |
+  | `(-2, 0)` | ends at the target | `width` (already linear) | one to two widths above: for a target that is a floor to hold on unseen queries |
+
+  Any other pair works the same way: `(-0.5, 0.5)` trusts the measurement more than its own
+  standard error, `(-1, 3)` is lenient below the target and strict above it.
+
+# Arguments
+- `minrecall`: the target recall (0-1).
+- `tradeoff`: the cost factor accepted per 1% of recall near the target: `1.5` reads "up to 50%
+  more visits for each 1% of recall". Must be finite and `> 1`. Above the slope of the
+  cost-against-recall front -- 10-20 nats per unit of recall on typical graphs, a cost that
+  doubles between recall 0.90 and 0.95 -- the minimum is the one a hard constraint would pick;
+  `1.5` is 40.
+- `width`: the half-width of the smooth transition, in recall units. `nothing` (the default)
+  derives it from the data in [`optimize_index!`](@ref): the standard error of the macro recall
+  over the tuning queries, as the median over the initial population of
+  `std(per-query recall) / sqrt(numqueries)`, so the objective is flat exactly where the
+  measurement cannot tell configurations apart. A small explicit `width` recovers a hard
+  threshold.
 
 # Examples
 
 ```julia
 optimize_index!(index, ctx, MinRecall(0.95))
+optimize_index!(index, ctx, MinRecall(0.95; tradeoff=3.0))        # a shortfall is cheaper to accept
+optimize_index!(index, ctx, MinRecall(0.95; transition=(-2, 0)))  # 0.95 is a floor, land above it
 ```
 """
 @kwdef struct MinRecall <: ErrorFunction
     minrecall::Float32 = 0.9f0
+    tradeoff::Float64 = 1.5
+    width::Union{Nothing,Float32} = nothing
+    transition::Tuple{Float32,Float32} = (-1f0, 1f0)
+
+    function MinRecall(minrecall, tradeoff, width, transition)
+        _checkgoal("MinRecall", tradeoff, width, transition)
+        new(Float32(minrecall), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
+    end
+end
+
+MinRecall(minrecall::Real; tradeoff::Real=1.5, width=nothing, transition=(-1, 1)) = MinRecall(minrecall, tradeoff, width, transition)
+
+_transition(t) = (Float32(t[1]), Float32(t[2]))
+
+function _checkgoal(name, tradeoff, width, transition)
+    tradeoff > 1 && isfinite(tradeoff) || throw(ArgumentError("$name: tradeoff=$tradeoff must be a finite number above 1"))
+    width === nothing || width > 0 || throw(ArgumentError("$name: width=$width must be positive"))
+    length(transition) == 2 && all(isfinite, transition) && transition[1] <= transition[2] ||
+        throw(ArgumentError("$name: transition=$transition must be a pair (lo, hi) of finite width multipliers with lo <= hi"))
+    nothing
 end
 
 """
-    OptRadius(; tol=0.1) <: ErrorFunction
+    MaxMatchError(; maxerror=0.1f0, exponent=1f0, maxdeviation=1f0, spreadfloor=1f-2, tradeoff=1.5, width=nothing, transition=(-1, 1)) <: ErrorFunction
 
-Optimization goal that favors the fastest configuration among those whose search radius
-falls within a `tol`-sized tolerance band, without relying on a computed gold standard.
-
-# Keyword Arguments
-- `tol`: relative tolerance used to bucket configurations by their achieved search radius.
-
-# Examples
-
-```julia
-optimize_index!(index, ctx, OptRadius(; tol=0.05))
-```
-"""
-@kwdef struct OptRadius <: ErrorFunction
-    tol::Float32 = 0.1
-end
-
-"""
-    ParetoRecall <: ErrorFunction
-
-Optimization goal that searches for a good trade-off between speed and recall (measured
-against a gold standard computed with exhaustive search), without requiring a fixed minimum
-recall.
-"""
-struct ParetoRecall <: ErrorFunction end
-
-"""
-    ParetoRadius <: ErrorFunction
-
-Optimization goal that searches for a good trade-off between speed and the achieved search
-radius, without relying on a computed gold standard.
-"""
-struct ParetoRadius <: ErrorFunction end
-
-"""
-    MaxMatchError(; maxerror=0.1f0, p=1f0, η=1f0, minspread=1f-2) <: ErrorFunction
-
-Optimization goal that favors the fastest configuration among those whose *MatchError* stays
-at or below `maxerror`. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
+Optimization goal: the cheapest configuration whose *MatchError* stays at or below
+`maxerror`, and, above it, the one whose saving pays for the excess -- the same smooth hinge
+as [`MinRecall`](@ref), [`goalvalue`](@ref) with `matcherror − maxerror` as the shortfall and
+`width` in match-error units. Unlike [`MinRecall`](@ref) (which compares result and gold *identifiers*
 as sets), MatchError compares the *distances* of the returned neighbors against the distances
 of the true neighbors at the same rank, so a substitute neighbor tied in distance with the gold
 one scores as a perfect match even if its identifier differs (relevant e.g. under `Hamming`,
@@ -84,19 +135,26 @@ For a query `q`, with `k' = min(k, |gold|)`, gold distances `d*_1 <= ... <= d*_k
 `r` distances actually returned `d_1 <= ... <= d_r` (both ascending):
 
 ```
-δ_i = max(0, d_i - d*_i) / ρ(q)     for i <= r
-δ_i = η                             for i > r   (missing position, penalized)
-ρ(q) = d*_k' - min(d*_1, d_1) + minspread + ε
-matcherror(q) = mean(δ_i .^ p for i in 1:k')
+spread(q)     = d*_k' - min(d*_1, d_1) + spreadfloor + ε
+deviation_i   = min(max(0, d_i - d*_i) / spread(q), maxdeviation)   for i <= r
+deviation_i   = maxdeviation                                        for i > r   (missing position)
+matcherror(q) = mean(deviation_i .^ exponent for i in 1:k')
 ```
 
-`ρ(q)` is the *spread* of the gold neighborhood (not just its outer radius), so `maxerror`
+`spread(q)` is the *spread* of the gold neighborhood (not just its outer radius), so `maxerror`
 reads as a fraction of that spread regardless of how dense or sparse this particular query's
 neighborhood is — e.g. `maxerror=0.1` means "on average, within 10% of the neighborhood's own
-spread beyond where results should be". `0` is a perfect match; the error is unbounded above
-(no artificial cap), so a badly-off result keeps registering as worse than a mildly-off one.
+spread beyond where results should be". `0` is a perfect match. A position never costs more
+than `maxdeviation`, what a missing position costs: a returned neighbor farther beyond its
+gold counterpart than that many spreads is as bad as none, and the score stays in
+`[0, maxdeviation ^ exponent]`. That cap is what keeps the mean over queries, and everything
+built on it (the goal, its `width`, [`bootstrapscore`](@ref)), meaningful: measured on SISAP
+2025 `ccnews` without it, ten queries whose gold neighbors were all exact duplicates at
+distance 0 (spread `0`, the search returning items at distance 1.4: 143 per position) made
+85% of the mean over 10,500 held-out queries, the mean moved by its own size from one tuning
+run to the next, and two different `maxerror` targets tuned to the same configuration.
 
-`min(d*_1, d_1)` in `ρ(q)` is a deliberate robustness choice: a returned distance below the
+`min(d*_1, d_1)` in `spread(q)` is a deliberate robustness choice: a returned distance below the
 gold's own minimum is impossible in theory under a consistent distance function, and in
 practice is usually floating-point noise between the exhaustive (gold) pass and the evaluated
 index — rather than failing on it (which floating-point noise would trigger often), the range
@@ -104,87 +162,170 @@ just absorbs it. A `d_1` far enough below `d*_1` to not be explained by floating
 is instead a sign of a real bug (e.g. a distance function inconsistent with the one used for
 the gold standard); this is not currently asserted/validated, only documented here.
 
-`minspread` guards against a genuinely degenerate query: with `k=1`, or whenever the gold
+`spreadfloor` guards against a genuinely degenerate query: with `k=1`, or whenever the gold
 neighborhood's `k'` distances are all tied (routine on real data with near-duplicate/
 syndicated items -- e.g. ~2% of queries on a real ccnews slice), the *true* spread
-`d*_k' - min(d*_1, d_1)` is exactly `0`, and without a real floor `ρ(q)` collapses to `≈ε`
-(machine epsilon) -- dividing by that inflates any ordinary, non-buggy distance mismatch by a
-factor of `~10^6-10^7`, so a single such query can swamp a whole batch's mean error. `minspread`
-should be picked relative to the typical scale of the distance function in use (e.g. `1f-2` is
-reasonable for a `[0, 2]`-ranged cosine-family distance, but Hamming over `nbits` codes wants
-something more like `1f0`, one bit); the default is not universally correct, tune it to your
-distance.
+`d*_k' - min(d*_1, d_1)` is exactly `0`, and without a real floor `spread(q)` collapses to
+`≈ε` (machine epsilon) -- dividing by that inflates any ordinary, non-buggy distance mismatch
+by a factor of `~10^6-10^7`. `spreadfloor` should be picked relative to the typical scale of
+the distance function in use (e.g. `1f-2` is reasonable for a `[0, 2]`-ranged cosine-family
+distance, but Hamming over `nbits` codes wants something more like `1f0`, one bit); the
+default is not universally correct, tune it to your distance. `maxdeviation` is the second
+guard, for the queries the floor does not rescue.
 
 # Keyword Arguments
-- `maxerror`: MatchError threshold (0 is perfect, unbounded above) required to be considered
-  as fast as possible.
-- `p`: aggregation exponent, `1` for a linear (MAE-like) error, `2` for a quadratic (MSD-like)
-  error that suppresses small per-position deviations and amplifies large ones (including
-  missing positions, already at `δ_i=η`).
-- `η`: penalty assigned to a missing position (the algorithm returned fewer than `k'` items).
-- `minspread`: absolute floor added to the gold neighborhood's spread `ρ(q)`, so a fully
+- `maxerror`: the target MatchError (`0` is perfect, `maxdeviation ^ exponent` the worst).
+- `exponent`: the exponent applied to each position's deviation before averaging: `1` for a
+  linear (MAE-like) error, `2` for a quadratic (MSD-like) one that suppresses small
+  deviations and amplifies large ones (missing positions, already at `maxdeviation`).
+- `maxdeviation`: the most one position can cost, in spreads, and what a missing position
+  (the algorithm returned fewer than `k'` items) costs.
+- `spreadfloor`: absolute floor added to the gold neighborhood's spread, so a fully
   degenerate (zero-spread) query doesn't blow up the aggregate error; see above.
+- `tradeoff`: the cost factor accepted per 0.01 of match error near `maxerror`; must be finite
+  and `> 1` (see [`MinRecall`](@ref)).
+- `width`: the unit of the hinge's transition zone, in match-error units; `nothing` derives it
+  in `optimize_index!` as the standard error of the macro match error over the tuning queries
+  (the median over the initial population of `std(per-query matcherror) / sqrt(numqueries)`).
+- `transition`: the zone `(lo, hi)` as multipliers of `width`, placed on `maxerror` (see
+  [`MinRecall`](@ref); here the shortfall is `matcherror − maxerror`).
 
 # Examples
 
 ```julia
-optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, p=2f0))
+optimize_index!(index, ctx, MaxMatchError(; maxerror=0.1f0, exponent=2f0))
 ```
 """
 @kwdef struct MaxMatchError <: ErrorFunction
     maxerror::Float32 = 0.1f0
-    p::Float32 = 1f0
-    η::Float32 = 1f0
-    minspread::Float32 = 1f-2
+    exponent::Float32 = 1f0
+    maxdeviation::Float32 = 1f0
+    spreadfloor::Float32 = 1f-2
+    tradeoff::Float64 = 1.5
+    width::Union{Nothing,Float32} = nothing
+    transition::Tuple{Float32,Float32} = (-1f0, 1f0)
+
+    function MaxMatchError(maxerror, exponent, maxdeviation, spreadfloor, tradeoff, width, transition)
+        _checkgoal("MaxMatchError", tradeoff, width, transition)
+        maxdeviation > 0 || throw(ArgumentError("MaxMatchError: maxdeviation=$maxdeviation must be positive"))
+        new(Float32(maxerror), Float32(exponent), Float32(maxdeviation), Float32(spreadfloor), Float64(tradeoff), width === nothing ? nothing : Float32(width), _transition(transition))
+    end
+end
+
+"""
+    goalvalue(kind::MinRecall, visits::Real, recall::Real; width=kind.width) -> Float64
+    goalvalue(kind::MaxMatchError, visits::Real, matcherror::Real; width=kind.width) -> Float64
+
+The number [`optimize_index!`](@ref) minimizes for a configuration that visited `visits`
+objects per query and measured the given quality:
+
+    log(visits) + tradeoffrate · hinge(shortfall)
+
+with `tradeoffrate = log(kind.tradeoff) / 0.01` and `shortfall` how far the quality falls
+short of the goal's target, `minrecall − recall` or `matcherror − maxerror`. The cost is in
+nats, so a difference of `log(2)` is "twice the visits" at any scale and no normalization is
+needed. The hinge has finite support: with the transition zone `a = lo · width` to
+`b = hi · width` from `kind.transition`, it is exactly `0` before the zone, a quadratic
+across it, and the shortfall up to a constant beyond it, continuous with a continuous
+derivative:
+
+    hinge(s) = 0                        for s ≤ a
+             = (s − a)² / (2 (b − a))   for a < s < b
+             = s − (a + b) / 2          for s ≥ b
+
+For the default `(-1, 1)` that is `(s + width)² / (4 width)` across `[−width, width]` and
+`s` beyond.
+
+`width` must be resolved: given to the goal, passed here, or derived by `optimize_index!`
+from the initial population before the first ranking.
+"""
+goalvalue(kind::MinRecall, visits::Real, recall::Real; width=kind.width) =
+    _goalvalue(visits, kind.minrecall - recall, kind.tradeoff, width, kind.transition)
+goalvalue(kind::MaxMatchError, visits::Real, matcherror::Real; width=kind.width) =
+    _goalvalue(visits, matcherror - kind.maxerror, kind.tradeoff, width, kind.transition)
+
+function _goalvalue(visits::Real, shortfall::Real, tradeoff::Real, width, transition)::Float64
+    width === nothing && throw(ArgumentError("goalvalue: the goal's width is unresolved; give it to the goal or let optimize_index! derive it"))
+    rate = log(tradeoff) / 0.01
+    log(max(Float64(visits), 1.0)) + rate * _hinge(Float64(shortfall), Float64(width), transition)
+end
+
+"""
+The finite-support hinge over the zone `[lo · width, hi · width]`: `0` before it, a quadratic
+across it, the shortfall up to a constant after it, with a continuous derivative. `lo == hi`
+is a plain threshold at `lo · width`.
+"""
+function _hinge(s::Float64, width::Float64, transition)::Float64
+    a = Float64(transition[1]) * width
+    b = Float64(transition[2]) * width
+    s <= a && return 0.0
+    s >= b && return s - (a + b) / 2
+    (s - a)^2 / (2 * (b - a))
 end
 
 """
     matcherror(golddist, res, err::MaxMatchError) -> Float64
     macromatcherror(golddists, reslist, err::MaxMatchError) -> Float64
 
-The per-query and the macro [`matcherror`](@ref) with the parameters `p`, `η` and `minspread`
-taken from `err`, so a score can be computed outside the optimizer exactly as
+The per-query and the macro [`matcherror`](@ref) with `exponent`, `maxdeviation` and
+`spreadfloor` taken from `err`, so a score can be computed outside the optimizer exactly as
 [`optimize_index!`](@ref) computes it: `bootstrapscore((g, r) -> matcherror(g, r, err), golddists, reslist)`.
 """
-matcherror(golddist, res, err::MaxMatchError) = matcherror(golddist, res, err.p, err.η, err.minspread)
-macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddists, reslist, err.p, err.η, err.minspread)
+matcherror(golddist, res, err::MaxMatchError) = matcherror(golddist, res; exponent=err.exponent, maxdeviation=err.maxdeviation, spreadfloor=err.spreadfloor)
+macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddists, reslist; exponent=err.exponent, maxdeviation=err.maxdeviation, spreadfloor=err.spreadfloor)
 
 function setconfig! end
 
 """
-    qid(index::AbstractSearchIndex, queries::AbstractDatabase, i::Integer) -> UInt32
+    tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase, ids) -> Vector{Vector{UInt32}}
 
-The identifier of the `i`-th query *inside `index`*, or `0` when the query does not live
-there. It is what tells an optimization run whether it is working with **internal** queries
-(objects taken from the index's own database) or **external** ones, which behave differently
-enough that the distinction has to be explicit:
+What each tuning query must not be answered with: the identifiers that are removed from the
+gold *and* marked visited before the descent, empty for a query that does not live in `index`.
+One vector, built once, read by both sides -- which is the point. The two sides used to derive
+it separately, the search from `(q, representative(q))` and the gold from `clusterids(q)`, and
+they agreed only because a member is never visited anyway. That is a property of another part
+of the system holding the two in step; here they agree by construction, and what to mask
+becomes a decision taken in one place rather than a shape that emerges from two.
 
-An internal query is a vertex of the graph. The descent can stand on it at distance 0 and
-read its whole adjacency in one expansion -- and that adjacency is, by construction,
-approximately the answer. No external query is ever handed its result that way, so tuning
-against internal queries without accounting for it produces parameters sized for a problem
-nobody will pose: measured on two SISAP 2025 benchmarks, `bsize` and `Δ` came out at the
-cheap end of their ranges and recall@10 against real queries fell from 0.90 to 0.69.
+The distinction it carries is between **internal** queries (objects of the index's own
+database) and **external** ones. An internal query is a vertex of the graph: the descent can
+stand on it at distance 0 and read its whole adjacency in one expansion, and that adjacency is
+approximately the answer. No external query is handed its result that way, so tuning against
+internal queries without accounting for it sizes `bsize` and `Δ` for a problem nobody poses --
+measured on two SISAP 2025 benchmarks, both came out at the cheap end of their ranges and
+recall@10 against real queries fell from 0.90 to 0.69.
 
-The identity check on `parent` is what makes this exact: a `SubDatabase` over *this* index's
-database carries the ids in `map`, and a view over anything else is external, as is any other
-container. It also means a caller who wants to tune with chosen objects of the database --
-the least connected ones, say -- only has to pass `SubDatabase(database(index), ids)`.
+Under near-duplicate folding the vertex alone is not enough: a member's representative sits at
+distance 0 and is the same trivial route, so the whole cluster goes in. Masking the members
+themselves costs nothing -- the search never visits them -- but it keeps the gold and the
+search reading the same list.
+
+`ids` names where the queries live inside the index, and `nothing` says they live outside it.
+That is the whole rule: **queries are masked if and only if their identifiers are given.** It
+used to be inferred as well, from a `SubDatabase` whose `parent` was this index's database, and
+that inference is gone. It read the container's type to decide a question about provenance, it
+could not express the quantized case at all -- a code database cannot be pointed at to name a
+raw object -- and it failed silently in the direction that hurts: objects of the index arriving
+in any other container were taken for external and tuned against as if they were.
+
+A caller tuning with chosen objects of the database -- the least connected ones, say -- passes
+them with their `ids`. `optimize_index!` warns when it is handed a view of the index's own
+database without them, since that is the one case where the old inference would have masked.
 """
-function qid end
+tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase, ids) =
+    [UInt32[clusterids(index, id)...] for id in ids]
 
-@inline qid(::AbstractSearchIndex, ::AbstractDatabase, ::Integer) = zero(UInt32)
-@inline qid(index::AbstractSearchIndex, q::SubDatabase, i::Integer) =
-    q.parent === database(index) ? UInt32(@inbounds q.map[i]) : zero(UInt32)
+tuningmask(::AbstractSearchIndex, queries::AbstractDatabase, ::Nothing) =
+    [UInt32[] for _ in 1:length(queries)]
 
 """
-    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, qID::Integer, res::AbstractKnnQueue)
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
 
-Fallback for index types that do not act on the internal/external distinction: the `qID` is
+Fallback for index types that do not act on the internal/external distinction: the mask is
 dropped and the plain single-query method runs. `SearchGraph` overrides it (see
 `src/searchgraph/optbs.jl`) to keep an internal query from being its own route.
 """
-runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::Integer, res::AbstractKnnQueue) =
+runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::AbstractVector{UInt32}, res::AbstractKnnQueue) =
     runconfig(conf, index, ctx, q, res)
 
 """
@@ -195,29 +336,30 @@ Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)
 mirroring [`searchbatch!`](@ref). Internal function used by [`create_error_function`](@ref).
 """
 function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
-                    queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
+                    queries::AbstractDatabase, qmask::AbstractVector, knns::AbstractVector{<:AbstractKnnQueue})
     m = length(queries)
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
-        runconfig(conf, index, bctx, queries[i], qid(index, queries, i), reuse!(knns[i]))
+        runconfig(conf, index, bctx, queries[i], qmask[i], reuse!(knns[i]))
+        # the raw neighbors behind the representatives, counted as the search cost they are
+        add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i]))
     end
     end
     knns
 end
 
 """
-    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p=1f0, η=1f0, minspread=1f-2)
+    create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; exponent=1f0, maxdeviation=1f0, spreadfloor=1f-2)
 
 Builds and returns a performance-evaluation closure that runs `queries` against `index` under
 a candidate configuration and reports its cost (visited nodes), radius, recall (against
 `gold`, if given), MatchError (against `golddists`, if given — see [`MaxMatchError`](@ref),
-`p`/`η`/`minspread` are its aggregation exponent, missing-position penalty, and degenerate-query
-spread floor) and search time. Internal function used by [`optimize_index!`](@ref).
+`exponent`/`maxdeviation`/`spreadfloor` are its parameters) and search time. Internal function used by [`optimize_index!`](@ref).
 """
-function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries; p::Float32=1f0, η::Float32=1f0, minspread::Float32=1f-2)
+function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext, gold, golddists, knns, queries, qmask; exponent::Float32=1f0, maxdeviation::Float32=1f0, spreadfloor::Float32=1f-2)
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
@@ -227,7 +369,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
         empty!(cov)
         before = copy(ctx.costdists)
 
-        searchtime = @elapsed runconfig(conf, index, ctx, queries, knns)
+        searchtime = @elapsed runconfig(conf, index, ctx, queries, qmask, knns)
         searchtime /= m
 
         for r in knns
@@ -243,18 +385,26 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             (min=rmin, mean=mean(cov), max=rmax)
         end
 
-        recall = if gold !== nothing
+        # the macro scores and their standard errors over the tuning queries; the goals' smooth
+        # hinge takes its width from the latter when the goal did not fix one
+        recall, recallstd = if gold !== nothing
             for (i, r) in enumerate(knns)
                 empty!(R[i])
                 union!(R[i], IdView(r))
             end
 
-            macrorecall(gold, R)
+            pq = perqueryscores(recallscore, gold, R)
+            mean(pq), std(pq) / sqrt(m)
         else
-            nothing
+            nothing, nothing
         end
 
-        match = golddists !== nothing ? macromatcherror(golddists, knns, p, η, minspread) : nothing
+        match, matchstd = if golddists !== nothing
+            pq = perqueryscores((g, r) -> matcherror(g, r; exponent, maxdeviation, spreadfloor), golddists, knns)
+            mean(pq), std(pq) / sqrt(m)
+        else
+            nothing, nothing
+        end
 
         if recall !== nothing && recall < 0.3
             @warn "OPT low recall> recall: $recall, #objects: $(length(index)), #queries: $(length(queries)), cov: $cov"
@@ -275,12 +425,10 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
 
         visited = distance_stats(ctx, before)
         verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, match: $match, length: $(length(index)), radius: $radius, visited: $visited"
-        (; visited, radius, recall, match, searchtime, conf)
+        (; visited, radius, recall, recallstd, match, matchstd, searchtime, conf)
     end
 end
 
-
-_kfun(x) = 1.0 - 1.0 / (1.0 + x)
 
 """
     optimize_index!(
@@ -308,12 +456,34 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Arguments
 - `index`: the index to be optimized
 - `ctx`: index ctx (caches and general hyperparameters)
-- `kind`: The kind of optimization to apply, it can be `ParetoRecall()`, `ParetoRadius()`, `MinRecall(r)` where `r` is the expected recall (0-1, 1 being the best quality but at cost of the search time), or `MaxMatchError(; maxerror)` (a smoother, distance-based alternative to `MinRecall`, see [`MaxMatchError`](@ref))
+- `kind`: the goal, [`MinRecall`](@ref)`(r)` with `r` the target recall (0-1) or [`MaxMatchError`](@ref)`(; maxerror)`, its distance-based counterpart; both minimize [`goalvalue`](@ref), the log cost plus a smooth hinge on the target
 
 # Keyword arguments
 
 - `space`: defines the search space
-- `queries`: the set of queries to be used to measure performances, a validation set. It can be an `AbstractDatabase` or nothing.
+- `queries`: the set of queries to be used to measure performances, a validation set. It can be
+  an `AbstractDatabase` or nothing.
+- `queries_identifiers`: where those queries live inside `index`, which is what makes them
+  *internal* and so what gets masked from both the gold and the search (see [`tuningmask`](@ref)).
+  Four combinations, and the fourth is the one the other three cannot express:
+
+  | `queries` | `queries_identifiers` | what happens |
+  |:--|:--|:--|
+  | `nothing` | `nothing` | `numqueries` ids sampled at random; the queries are those objects |
+  | `nothing` | ids | the queries are `database(index)[ids]` |
+  | objects | `nothing` | external, unless they are a `SubDatabase` of this index's own database |
+  | objects | ids | taken on trust: these objects *are* those ids, and are masked as internal |
+
+  The last row is what a quantized index needs. `database(index)` holds codes, so raw tuning
+  objects cannot be named by position in it; handing over the pair is the only way to tune with
+  raw queries that the index still knows to mask. It is what an `AsymmetricSearchGraph` has to
+  do, since tuning it with external queries measures a different problem and tuning it with its
+  own stored codes measures the symmetric one.
+
+  Note on folding: a held-out set of ids is fixed in name but not in effect. With a `neardup`
+  radius the mask takes each query's whole cluster, and a query whose cluster swallows its gold
+  is dropped (see the empty-gold handling below), so the same list yields fewer usable queries
+  on a heavily duplicated collection than on a clean one.
 - `ksearch`: the number of neighbors to retrieve for `queries` (k-NN workloads only; ignored when `radius` is given)
 - `radius`: tune for radius-bounded (epsilon-ball) queries of this radius instead of k-NN queries.
   The gold standard becomes each query's true ball -- of whatever size, empty included -- and
@@ -323,7 +493,13 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
   `BeamSearch`, so the result also governs later k-NN searches on the index.
 - `kmin`: navigation reserve used while tuning (see [`BallKnn`](@ref)); pass the value the radius
   searches themselves will use, since a configuration is only tuned relative to it
-- `numqueries`: if `queries===nothing` then a sample of the already indexed database is used, `numqueries` is the size of the sample.
+- `numqueries`: how many queries one optimization uses, whatever the source -- a sample of the
+  already indexed database when none is given, or a draw from the pool when `queries` or
+  `queries_identifiers` name one. A pool smaller than this is used whole, and
+  `numqueries=length(queries)` is how a given set is used whole on purpose. Drawing rather than
+  using everything matters because this also runs from a construction callback, once every so
+  many insertions: the whole pool each time would cost its size times the number of callbacks,
+  and identifiers the pool names may not be inserted yet, which are dropped for that call.
 - `rng`: random number generator used to draw the sample of queries when `queries===nothing`.
 - `initialpopulation`: the initial sample for the optimization procedure
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
@@ -350,6 +526,7 @@ function optimize_index!(
     kind::ErrorFunction=MinRecall(0.9);
     space::AbstractSolutionSpace=optimization_space(index),
     queries=nothing,
+    queries_identifiers=nothing,
     ksearch=10,
     radius=nothing,
     kmin::Int=8,
@@ -365,13 +542,58 @@ function optimize_index!(
 )
 
     db = database(index)
-    if queries === nothing
-        verbose(ctx) && @inform ctx "using $numqueries random queries from the dataset"
-        sample = rand(rng, 1:length(index), numqueries) |> unique
-        queries = SubDatabase(db, sample)
-    else
-        verbose(ctx) && @inform ctx "using $(length(queries)) given as hyperparameter"
+    # `queries` says what to search with, `queries_identifiers` says where those objects live
+    # inside the index -- which is what makes them internal, and so what gets masked. The two
+    # are independent because for a quantized index they have to be: `database(index)` holds
+    # codes, so raw tuning objects cannot be named by position in it, and the pair (raw
+    # vectors, their ids) is the only way to say "these are internal, and here they are".
+    qids = queries_identifiers === nothing ? nothing : UInt32.(queries_identifiers)
+    if queries !== nothing && qids !== nothing && length(queries) != length(qids)
+        throw(ArgumentError("optimize_index!: $(length(queries)) queries against $(length(qids)) queries_identifiers; they are the same objects named two ways and must match one to one"))
     end
+
+    # The inference this replaces -- a SubDatabase over the index's own database counting as
+    # internal by itself -- is gone, and this is the one shape where it used to fire. Silently
+    # dropping the masking there would tune against a query that is its own vertex, which is
+    # the bias the masking exists to prevent, so it is said rather than inferred.
+    if qids === nothing && queries isa SubDatabase && queries.parent === db
+        @warn "optimize_index!: the queries are a view of this index's own database but arrive without queries_identifiers, so they count as external and are not masked -- a query that is its own vertex reads its own adjacency at distance 0. Pass queries_identifiers (its `map`) to declare them internal."
+    end
+
+    # A held-out pool is named once and drawn from on every call, because this runs from a
+    # construction callback as well: the index grows under it, so an identifier the pool names
+    # may not be inserted yet, and using the whole pool each time would cost its size times the
+    # number of callbacks. What `numqueries` means is therefore how many queries one
+    # optimization uses, whatever the source -- the pool when there is one, the index itself
+    # when there is not. Passing `numqueries=length(queries)` uses a given set whole.
+    if qids !== nothing
+        live = findall(id -> id <= length(index), qids)
+        if length(live) < length(qids)
+            verbose(ctx) && @inform ctx "$(length(qids) - length(live)) of $(length(qids)) pool identifiers are not inserted yet"
+            qids = qids[live]
+            queries === nothing || (queries = SubDatabase(queries, live))
+        end
+        isempty(qids) && (qids = nothing; queries = nothing)   # nothing of it exists yet
+    end
+
+    if queries === nothing && qids === nothing
+        verbose(ctx) && @inform ctx "using $numqueries random queries from the dataset"
+        qids = unique(rand(rng, UInt32(1):UInt32(length(index)), numqueries))
+        queries = SubDatabase(db, qids)
+    else
+        pool = queries === nothing ? length(qids) : length(queries)
+        if pool > numqueries
+            pick = unique(rand(rng, 1:pool, numqueries))
+            qids === nothing || (qids = qids[pick])
+            queries === nothing || (queries = SubDatabase(queries, pick))
+        end
+        queries === nothing && (queries = SubDatabase(db, qids))
+        verbose(ctx) && @inform ctx "using $(length(queries)) of a pool of $pool" * (qids === nothing ? " (external)" : ", declared internal by their identifiers")
+    end
+
+    # one list per query of what it must not be answered with, read by the gold and by the
+    # search alike (see `tuningmask`); empty throughout for external queries
+    qmask = tuningmask(index, queries, qids)
 
     gold = nothing
     golddists = nothing
@@ -391,7 +613,7 @@ function optimize_index!(
         [BallKnn(radius, kmin) for _ in 1:length(queries)]
     end
 
-    if kind isa ParetoRecall || kind isa MinRecall || kind isa MaxMatchError
+    if kind isa MinRecall || kind isa MaxMatchError
         db = @view db[1:length(index)]
         seq = ExhaustiveSearch(distance(index), db)
         searchbatch!(seq, ctx, queries, knns)
@@ -401,23 +623,61 @@ function optimize_index!(
         # `IdDistView`, not `c` itself -- read `DistView(c)` from `c` afterwards, not from what
         # `sortitems!` returns.
         if radius === nothing
-            # An internal query is in its own gold, at distance 0. It is also masked out of the
-            # search that is being scored (see `runconfig` for `SearchGraph`), so leaving it in
-            # the gold would cap recall at (k-1)/k -- 0.9 for the default k, which would put
-            # the 0.97 construction target out of reach. Both sides drop it, and `recallscore`
-            # normalizes by `length(gold)`, so nothing else has to change. `qid` is 0 for
-            # external queries, which match no identifier and lose nothing.
+            # An internal query is in its own gold, at distance 0, and so is the rest of its
+            # near-duplicate cluster. It is masked out of the search being scored too (see
+            # `runconfig` for `SearchGraph`), so leaving it in the gold would cap recall at
+            # (k-1)/k -- 0.9 for the default k, which would put the 0.97 construction target out
+            # of reach. Both sides drop exactly what `qmask` lists, and `recallscore` normalizes
+            # by `length(gold)`, so nothing else has to change. The mask is empty for external
+            # queries, which match no identifier and lose nothing.
             gold = map(enumerate(knns)) do (i, c)
                 g = idset(c)
-                delete!(g, qid(index, queries, i))
+                foreach(x -> delete!(g, x), qmask[i])
                 g
             end
 
             if kind isa MaxMatchError
                 golddists = map(enumerate(knns)) do (i, c)
-                    id = qid(index, queries, i)
-                    Float32[p.dist for p in sortitems!(c) if p.id != id]
+                    masked = Set{UInt32}(qmask[i])
+                    Float32[p.dist for p in sortitems!(c) if !(p.id in masked)]
                 end
+            end
+
+            # The mask can take everything: with k=10, a query whose cluster holds 11 or more
+            # has no gold left. That is not a hard case to score, it is a query whose k nearest
+            # are all copies of itself, which says nothing about search quality. Left in, the
+            # two goals break differently and only one breaks loudly. `MinRecall`:
+            # `recallscore` normalizes by `length(gold)`, so an empty gold is 0/0; the `NaN`
+            # reaches the mean, every comparison against it is false, and the solver stops
+            # being able to order its population -- it returns an arbitrary configuration,
+            # silently. `MaxMatchError`: `matcherror` returns 0.0 for `ngold == 0` before
+            # looking at what came back, so the query scores as a perfect match whatever the
+            # configuration did; constant across the population, so orderings survive, but it
+            # scales the mean by (m - d)/m and a `maxerror` of 0.1 really asks for 0.109.
+            # Measured on SISAP 2025 ccnews, where 7.9% of the objects sit in such a cluster:
+            # with 64 tuning queries, 99.5% of runs drew at least one, 5.07 on average, and the
+            # spread of a rebuilt cell grew 4.6x (float32) and 10.5x (sqgu8) against the same
+            # configurations without folding, while a configuration that folds nothing stayed
+            # put. Both goals drop them, which also keeps the two tuning on the same queries so
+            # they remain comparable.
+            # `matcherror`'s `ngold == 0` branch is left alone: for a radius workload an empty
+            # ball is a real answer rather than a masked-away one.
+            keep = findall(!isempty, gold)
+            if isempty(keep)
+                # Nothing to drop them in favour of. Restoring the gold removes the `NaN`;
+                # keeping the mask is what stops this from becoming the bias the masking exists
+                # to prevent, at the price of a constant zero recall -- order-preserving, and
+                # no signal at all, which is what the warning says.
+                @warn "optimize_index!: every tuning query's gold is its own near-duplicate cluster, so there is no signal to tune on and the cheapest configuration will win; pass `queries` from outside the index (objects of the database re-wrapped do not count -- they are internal again)" numqueries=length(gold)
+                gold = map(idset, knns)
+            elseif length(keep) < length(gold)
+                verbose(ctx) && @inform ctx "dropping $(length(gold) - length(keep)) of $(length(gold)) tuning queries whose gold is entirely their own cluster"
+                queries = queries isa SubDatabase ?
+                    SubDatabase(queries.parent, queries.map[keep]) : SubDatabase(queries, keep)
+                qmask = qmask[keep]
+                knns = knns[keep]
+                gold = gold[keep]
+                golddists === nothing || (golddists = golddists[keep])
             end
         else
             # the exhaustive pass filled every BallKnn with the *true* ball (plus a reserve, which
@@ -426,52 +686,36 @@ function optimize_index!(
         end
     end
 
-    M = Ref(0.0) # max cost
-    R = Ref(0.0) # radius
+    # the goal's hinge width: given, or the standard error of the quality measurement over the
+    # tuning queries, read off the initial population once (its median, so one odd
+    # configuration does not set it) -- the objective is flat where the measurement is blind
+    width = Ref{Union{Nothing,Float64}}(kind.width === nothing ? nothing : Float64(kind.width))
     function inspect_population(space, params, population)
-        if M[] == 0.0
-            for (c, p) in population
-                M[] = max(p.visited.max, M[])
-                R[] = max(p.radius.max, R[])
+        if width[] === nothing
+            stds = Float64[]
+            for (c, perf) in population
+                s = kind isa MinRecall ? perf.recallstd : perf.matchstd
+                s === nothing || isnan(s) || push!(stds, s)
             end
+            width[] = isempty(stds) ? 1e-3 : max(median(stds), 1e-4)
+            verbose(ctx) && @inform ctx "== goal width resolved to $(width[]) (standard error of the quality over $(length(queries)) tuning queries)"
         end
     end
 
     getperformance = if kind isa MaxMatchError
-        create_error_function(index, ctx, gold, golddists, knns, queries; p=kind.p, η=kind.η, minspread=kind.minspread)
+        create_error_function(index, ctx, gold, golddists, knns, queries, qmask; exponent=kind.exponent, maxdeviation=kind.maxdeviation, spreadfloor=kind.spreadfloor)
     else
-        create_error_function(index, ctx, gold, golddists, knns, queries)
+        create_error_function(index, ctx, gold, golddists, knns, queries, qmask)
     end
 
     function getcost(p)
-        p = last(p)
-        cost = p.visited.mean / M[]
-        if kind isa ParetoRecall
-            cost^2 + (1.0 - p.recall)^2
-        elseif kind isa ParetoRadius
-            _kfun(cost) + _kfun(p.radius.mean / R[])
-        elseif kind isa MinRecall
-            #p.recall < kind.minrecall ? 3.0 - 2 * p.recall : cost
-            #p.recall < kind.minrecall ? 2f0 - p.recall : cost
-            p.recall < kind.minrecall ? 1 + max(kind.minrecall - p.recall, 0) : cost
-        elseif kind isa MaxMatchError
-            p.match > kind.maxerror ? 1 + max(p.match - kind.maxerror, 0) : cost
-        elseif kind isa OptRadius
-            r = p.radius.mean / R[]
-            round(r / kind.tol, digits=0)
-        else
-            error("unknown optimization goal $kind")
-        end
+        perf = last(p)
+        quality = kind isa MinRecall ? perf.recall : perf.match
+        goalvalue(kind, perf.visited.mean, quality; width=width[])
     end
 
     function sort_by_best(space, params, population)
-        if kind isa OptRadius
-            sort!(population, by=getcost)
-            sort!(view(population, 1:params.bsize), by=p -> p.second.visited.mean)
-        else
-            sort!(population, by=getcost)
-        end
-
+        sort!(population, by=getcost)
         population
     end
 

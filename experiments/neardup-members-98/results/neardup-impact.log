@@ -1,0 +1,18 @@
+exact-duplicate clusters: 45833, covering 164988 points (27.33%); sizes >= 10: 1816; largest: 1555,1121,1081,954,748,696,633,502
+held-out queries: 10500; fully tied gold: 858; all gold at distance 0: 828
+baseline (ties keep): built in 48.8 s, construction left BeamSearch(bsize=11, Δ=1.155, maxvisits=4872)
+  baseline (ties keep): edges 13126006, mean degree 21.7, max degree 1614, degree-1 nodes 1926 (0.32%), mean degree of duplicate nodes 28.1
+    bsize=8 Δ=1.0: recall 0.8628, visits 544 | tied-gold queries (858): recall 0.724, failed (recall 0) 70 | all-zero-gold queries (828): recall 0.722, failed 67
+    bsize=16 Δ=1.2: recall 0.9585, visits 1212 | tied-gold queries (858): recall 0.745, failed (recall 0) 51 | all-zero-gold queries (828): recall 0.739, failed 51
+neardup=0 knob: built in 41.2 s, construction left BeamSearch(bsize=16, Δ=1.155, maxvisits=7856)
+  neardup=0 knob: edges 11190216, mean degree 18.5, max degree 1511, degree-1 nodes 1768 (0.29%), mean degree of duplicate nodes 15.9
+    bsize=8 Δ=1.0: recall 0.8645, visits 551 | tied-gold queries (858): recall 0.648, failed (recall 0) 56 | all-zero-gold queries (828): recall 0.644, failed 53
+    bsize=16 Δ=1.2: recall 0.9529, visits 1223 | tied-gold queries (858): recall 0.664, failed (recall 0) 40 | all-zero-gold queries (828): recall 0.659, failed 39
+tie rule (option 3): built in 30.9 s, construction left BeamSearch(bsize=18, Δ=1.155, maxvisits=4782)
+  tie rule (option 3): edges 9123798, mean degree 15.1, max degree 1579, degree-1 nodes 120863 (20.02%), mean degree of duplicate nodes 7.7
+    bsize=8 Δ=1.0: recall 0.8894, visits 557 | tied-gold queries (858): recall 0.859, failed (recall 0) 52 | all-zero-gold queries (828): recall 0.855, failed 51
+    bsize=16 Δ=1.2: recall 0.9767, visits 1232 | tied-gold queries (858): recall 0.892, failed (recall 0) 15 | all-zero-gold queries (828): recall 0.888, failed 15
+Precompiling packages...
+   8778.0 ms  ✓ SimilaritySearch
+  1 dependency successfully precompiled in 9 seconds. 97 already precompiled.
+exit 0

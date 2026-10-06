@@ -44,6 +44,7 @@ on the very first insertion, one candidate on the second) itself, so a filter ne
 """
 abstract type NeighborhoodFilter end
 
+
 """
     Neighborhood(; logbase=2, minsize=2, neardup=typemin(Float32), filter=SatNeighborhood())
     
@@ -54,7 +55,29 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
 ## Parameters
 - `logbase=2`: logarithmic base to determine the number of neighbors to retrieve
 - `minsize=2`: minimum number of elements to retrieve
-- `neardup=typemin(Float32)`: distance to identify an element as duplicate (neardups could be ignored from neighborhoods)
+- `neardup=typemin(Float32)`: the near-duplicate distance. An object whose nearest indexed object
+  lies within it becomes a *member* of that object's cluster instead of a node: one edge to the
+  representative, no edge towards it, never visited by a search, which answers with one
+  representative per cluster; [`expand`](@ref)/[`expand!`](@ref) give back the raw neighbors.
+  `0f0` folds exact duplicates, a small positive value near ones (distances re-evaluated on
+  expansion); the default, `typemin(Float32)` (`-Inf32`), disables it and every object is a node.
+  The threshold is on the scale of the distance in use, and a value that is not `typemin` is
+  raised to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), since the distance between two identical objects is
+  often not exactly `0f0` and a literal zero would fold only the pairs that rounded there. The
+  default is left exactly as it is: raising `typemin` would turn a mechanism that never fires
+  into one that fires on every single-entry neighborhood.
+  Rejected are `NaN`, which compares false with everything and would silently disable the
+  mechanism; `+Inf`, which would fold every object into the first node; and any negative
+  threshold. A negative one is rejected because the distances that reach below zero are the ones
+  wrapped to search for *farthest* objects -- `Dist.Hacks.NegativeDistanceHack`, range
+  `(-Inf, 0]`, and `SimilarityFromDistance`, range `(0, 1]` -- and under either of them identical
+  objects land at the end of the range that means *farthest*, so folding near duplicates would
+  fold what by construction never resembles anything. In such a graph `neardup` is not applicable
+  at any threshold, and the default disables it.
+  Measured on SISAP 2025 `ccnews`, where 27% of the points are exact duplicates: without it the
+  duplicates of a point form a clique the search walks through, and the queries with ten copies
+  in the database reach recall 0.72-0.75 against 0.86-0.96 overall (see the `SearchGraph`
+  tutorial's section on near duplicates).
 - `filter=SatNeighborhood()`: strategy to reduce the number of neighbors
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
@@ -65,6 +88,18 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     minsize::Int32 = Int32(2)
     neardup::Float32 = typemin(Float32)
     filter::NFILTER = SatNeighborhood()
+
+    function Neighborhood(logbase, minsize, neardup, filter::NFILTER) where {NFILTER<:NeighborhoodFilter}
+        nd = Float32(neardup)
+        if nd != typemin(Float32)
+            isfinite(nd) ||
+                throw(ArgumentError("Neighborhood: neardup=$neardup must be typemin(Float32), which disables near-duplicate members, or a finite non-negative distance on the scale of the distance function"))
+            nd >= 0 ||
+                throw(ArgumentError("Neighborhood: neardup=$neardup is negative; a distance evaluating below zero is one wrapped to find farthest objects (NegativeDistanceHack, SimilarityFromDistance), where identical objects are the farthest of all and near-duplicate members do not apply -- leave neardup at its default, typemin(Float32), for such a graph"))
+            nd = max(nd, NEARDUP_NUMERICAL_ZERO)   # a literal 0 does not survive floating point
+        end
+        new{NFILTER}(Float32(logbase), Int32(minsize), nd, filter)
+    end
 end
 
 function Base.show(io::IO, n::Neighborhood)
@@ -118,6 +153,8 @@ end
 
 ### Basic operations on the index
 
+include("members.jl")
+
 """
     SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[],
                   algo=Ref(BeamSearch()), len=Ref(zero(Int64))) -> SearchGraph
@@ -170,18 +207,35 @@ struct SearchGraph{DIST<:PreMetric,
     # its result. `length(index)` reads `len[]`, so that cost landed in every search.
     algo::Base.RefValue{BeamSearch}
     len::Base.RefValue{Int64}
+    members::Members     # near-duplicate members, see `Members` and `Neighborhood`'s `neardup`
 end
 
 """
 
-    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
+    SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), members=Members())
 
 Creates a SearchGraph index structure with the given distance and dataset.
 This function only creates the skeleton struct and you need to call `index!` to index the given dataset or populate it with `append_items!`
 """
-function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)))
-    SearchGraph(dist, db, adj, hints, algo, len)
+function SearchGraph(dist::PreMetric, db::AbstractDatabase; adj=AdjList(UInt32), hints=UInt32[], algo=Ref(BeamSearch()), len=Ref(zero(Int64)), members=Members())
+    SearchGraph(dist, db, adj, hints, algo, len, members)
 end
+
+"""
+    SearchGraph(dist, db, adj, hints, algo, len) -> SearchGraph
+
+The fields of a graph as they were before 1.6, without `members`: the constructor for a
+graph stored by an earlier version and read back field by field (the package ships no
+serializer of its own; `JLD2` and friends reconstruct a struct from its fields). A graph
+built before 1.6 has no near-duplicate members by construction, so an empty [`Members`](@ref)
+is what the missing field holds.
+"""
+SearchGraph(dist::PreMetric, db::AbstractDatabase, adj::AbstractAdjList, hints, algo::Base.RefValue{BeamSearch}, len::Base.RefValue{Int64}) =
+    SearchGraph(dist, db, adj, hints, algo, len, Members())
+
+ismember(G::SearchGraph, id::Integer) = ismember(G.members, id)
+representative(G::SearchGraph, id::Integer) = representative(G.members, id)
+members(G::SearchGraph, id::Integer) = members(G.members, id)
 
 
 function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
@@ -192,6 +246,7 @@ function Base.show(io::IO, index::SearchGraph; prefix="", indent="  ")
     println(io, prefix, "algo: ", index.algo[])
     println(io, prefix, "adj: ", typeof(index.adj))
     println(io, prefix, "hints: ", typeof(index.hints), ", length: ", length(index.hints))
+    isempty(index.members) || println(io, prefix, "members: ", index.members)
     show(io, index.db; prefix, indent)
 end
 
@@ -272,3 +327,4 @@ include("callbacks.jl")
 include("rebuild.jl")
 include("staticindexing.jl")
 include("insertions.jl")
+include("expand.jl")

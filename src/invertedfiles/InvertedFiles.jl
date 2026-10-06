@@ -18,6 +18,17 @@ export InvertedFileContext, getcontext, DictInvertedFile
 include("sortedintset.jl")
 include("plists.jl")
 
+"""
+    InvertedFileContext(; verbose, reporters, observers, maxbatches, parallel_block, scheduler, ...)
+
+The context an inverted file is searched and built with. It holds what a query needs besides the
+index itself: the logging channels, the batching parameters, the per-batch cost counters, and the
+scratch buffers that a posting-list merge reuses instead of allocating.
+
+It plays the same role for an inverted file that `SearchGraphContext` plays for a graph. Use
+[`getcontext`](@ref SimilaritySearch.InvertedFiles.getcontext) to obtain one that matches a given
+index, since the buffers depend on the key type the index uses.
+"""
 struct InvertedFileContext{A,B} <: AbstractContext
     verbose::Bool
     reporters::Vector{AbstractReporter}
@@ -62,6 +73,13 @@ include("invfile.jl")
 include("fastpath.jl")
 include("invfilesearch.jl")
 
+"""
+    getcontext(invfile::AbstractInvertedFile; kwargs...) -> InvertedFileContext
+
+A context whose buffers match `invfile`. The scratch buffers a merge reuses are typed by the
+index's key type, so building the context from the index is safer than building it by hand. The
+keyword arguments are those of [`InvertedFileContext`](@ref SimilaritySearch.InvertedFiles.InvertedFileContext).
+"""
 getcontext(invfile::AbstractInvertedFile; kwargs...) = InvertedFileContext(; kwargs...)
 getcontext(invfile::InvertedFile{<:Any, <:AdjDict{K}}; kwargs...) where K = InvertedFileContext(; keytype=K, kwargs...)
 getcontext(; kwargs...) = InvertedFileContext(; kwargs...)

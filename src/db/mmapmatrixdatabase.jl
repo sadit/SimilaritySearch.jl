@@ -60,7 +60,7 @@ persisted in a small header at the start of the file, so it survives closing and
 
 `push_item!`/`append_items!` update `n` in memory (so `length(db)` is correct right away within the
 same process) and write the new columns into the mapped data, but do **not** msync those bytes or
-persist/fsync the advanced `n` into the header -- that is exactly what [`flush`](@ref) does, and it
+persist/fsync the advanced `n` into the header -- that is exactly what `flush` does, and it
 is the caller's responsibility to call it whenever *it* considers durability to matter (once per
 batch, on a timer, before a deliberate checkpoint, ...), not something either mutating function does
 on your behalf. `close`/the finalizer call `flush` once as a last-resort safety net, but garbage
@@ -76,7 +76,7 @@ Please see [`AbstractDatabase`](@ref) for general usage.
 
 Concurrent `push_item!`/`append_items!` calls from multiple threads on the *same* database are **not**
 safe without external synchronization (e.g. a lock); they race on `n` and on the growth/remap logic.
-[`flush`](@ref) is in the same category and for the same reason -- it reads `db.n`/`db.data`, both of
+`flush` is in the same category and for the same reason -- it reads `db.n`/`db.data`, both of
 which a concurrent `push_item!`/`append_items!` mutates -- so calling it from a different thread than
 the one doing the writing, without synchronization, is exactly as unsafe as two writers would be; it is
 not a read-only operation just because it doesn't add an object.
@@ -217,7 +217,7 @@ end
 """
     close(db::MMapMatrixDatabase)
 
-Flushes (see [`flush`](@ref)), then unmaps and closes the underlying file. Idempotent --
+Flushes (see `flush`), then unmaps and closes the underlying file. Idempotent --
 calling it more than once (or letting the finalizer run afterwards) is safe.
 """
 Base.close(db::MMapMatrixDatabase) = _mmap_matrix_db_finalize!(db)
@@ -257,7 +257,7 @@ end
 Appends `v` as a new object at the end of `db`, growing (extending and remapping) the underlying
 file when the current capacity is exceeded. `length(db)` reflects `v` immediately, but nothing is
 made durable by this call -- see the type docstring's "Durability" section, and call
-[`flush`](@ref) when that matters to you.
+`flush` when that matters to you.
 """
 function push_item!(db::MMapMatrixDatabase{Dim,NumType}, v::AbstractVector) where {Dim,NumType}
     db.read_only && error("MMapMatrixDatabase: cannot push_item! on a read_only database")
@@ -273,7 +273,7 @@ end
 
 Appends every object in `B` (e.g., an iterator of vectors, such as `eachcol` of a matrix) to the end
 of `db`, growing the underlying file as needed. `length(db)` reflects every item of `B` immediately,
-but as with [`push_item!`](@ref), nothing is made durable by this call -- call [`flush`](@ref) when
+but as with [`push_item!`](@ref), nothing is made durable by this call -- call `flush` when
 that matters to you.
 """
 function append_items!(db::MMapMatrixDatabase{Dim,NumType}, B) where {Dim,NumType}

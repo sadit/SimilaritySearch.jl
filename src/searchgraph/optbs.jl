@@ -69,6 +69,7 @@ mutable struct OptimizeParameters <: Callback
     maxpopulation::Int
     ksearch::Int32
     queries
+    queries_identifiers
     numqueries::Int32
     space::BeamSearchSpace
 end
@@ -120,10 +121,11 @@ function OptimizeParameters(kind=MinRecall(0.9);
     maxpopulation=initialpopulation,
     ksearch=10,
     queries=nothing,
+    queries_identifiers=nothing,
     numqueries=32,
     space::BeamSearchSpace=BeamSearchSpace()
 )
-    OptimizeParameters(kind, initialpopulation, maxiters, bsize, mutbsize, crossbsize, maxpopulation, ksearch, queries, numqueries, space)
+    OptimizeParameters(kind, initialpopulation, maxiters, bsize, mutbsize, crossbsize, maxpopulation, ksearch, queries, queries_identifiers, numqueries, space)
 end
 
 """
@@ -145,28 +147,85 @@ function setconfig!(bs::BeamSearch, index::SearchGraph, perf)
 end
 
 """
+    TUNINGPOOLSIZE
+
+How many identifiers [`tuningpool`](@ref) sets aside. Each optimization draws `numqueries` of
+them, so the pool is what gives successive callbacks different queries instead of a fresh
+random draw every time.
+"""
+const TUNINGPOOLSIZE = 1024
+
+"""
+    tuningpool(ctx::SearchGraphContext, lo::Integer, hi::Integer, objectfor=nothing) -> SearchGraphContext
+
+The context an insertion runs its callbacks with: the same one, except that an
+[`OptimizeParameters`](@ref) left to sample its own queries is handed a fixed pool of
+identifiers drawn once from `lo:hi`, the range this insertion is about to fill. A callback
+given queries or identifiers of its own keeps them.
+
+`objectfor` is what the two insertion paths differ by, and all they differ by. A `SearchGraph`
+leaves it `nothing`: the identifiers are enough, since the objects they name are in
+`database(index)` and that is what the distance takes. An `AsymmetricSearchGraph` passes
+`k -> encodequery(distance(g), items[k - offset])`, because its database holds codes -- naming
+an identifier there would hand the query side something it does not take.
+
+The identifiers are the point, not an extra. The objects pooled here are being inserted, so
+they are in the index, and a query that is its own vertex reads its own adjacency at distance
+0 -- approximately the answer, handed over for free. Pooling them without saying where they
+live tunes against a problem nobody poses; on two SISAP 2025 benchmarks that cost recall@10
+against real queries 0.90 -> 0.69 (see [`tuningmask`](@ref)).
+
+Why a pool rather than a fresh draw per callback: the callbacks fire repeatedly while the index
+fills, and a new sample each time scores successive optimizations on different populations, so
+their results are not comparable to each other. It also makes the symmetric and asymmetric
+paths tune the same way, which matters whenever the two are compared -- otherwise the tuning
+procedure varies alongside the thing under study.
+
+Identifiers the graph has not reached yet are skipped by that call, which is routine: the pool
+names the range up front and the index arrives at it gradually.
+"""
+function tuningpool(ctx::SearchGraphContext, lo::Integer, hi::Integer, objectfor=nothing)
+    cb = ctx.hyperparameters_callback
+    (cb isa OptimizeParameters && cb.queries === nothing && cb.queries_identifiers === nothing &&
+     hi >= lo) || return ctx
+    pick = unique(rand(lo:hi, min(TUNINGPOOLSIZE, hi - lo + 1)))
+    queries = objectfor === nothing ? nothing : VectorDatabase([objectfor(k) for k in pick])
+    cb2 = OptimizeParameters(cb.kind; cb.initialpopulation, cb.maxiters, cb.bsize, cb.mutbsize,
+                             cb.crossbsize, cb.maxpopulation, cb.ksearch, queries,
+                             queries_identifiers=UInt32.(pick), cb.numqueries, cb.space)
+    @set ctx.hyperparameters_callback = cb2
+end
+
+const EMPTY_MASK = UInt32[]
+
+"""
     runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnnQueue)
 
 Runs a single query `q` search using the candidate configuration `bs` (with `maxvisits` doubled with respect to `index`'s current algorithm). Internal function, used while evaluating candidate configurations during optimization.
 """
+
 function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, res::AbstractKnnQueue)
-    runconfig(bs, index, ctx, q, zero(UInt32), res)
+    runconfig(bs, index, ctx, q, EMPTY_MASK, res)
 end
 
 """
-    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, qID::Integer, res::AbstractKnnQueue)
+    runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
 
-As above, and marks `qID` visited before descending when it is nonzero, i.e. when `q` is an
-object of this index ([`qid`](@ref)). A stored object reached at distance 0 exposes its whole
-adjacency -- approximately its own nearest neighbors -- in a single expansion, which is the
-answer handed over for free; a query from outside has to earn those neighbors through their
-own links. Masking the vertex, and only it, leaves every gold neighbor reachable through
-those links, so recall stays measurable while the shortcut is gone.
+As above, and marks every identifier in `mask` visited before descending -- what
+[`tuningmask`](@ref) listed for this query, empty when it comes from outside the index. A
+stored object reached at distance 0 exposes its whole adjacency, approximately its own nearest
+neighbors, in a single expansion: the answer handed over for free, which a query from outside
+has to earn through links. Under folding its cluster is the same shortcut, since a member's
+representative also sits at distance 0. Masking those, and nothing else, leaves every gold
+neighbor reachable through ordinary links, so recall stays measurable while the shortcut is
+gone.
 """
-function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, qID::Integer, res::AbstractKnnQueue)
+function runconfig(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
     @reset bs.maxvisits = 2 * index.algo[].maxvisits
     vstate = getvstate(length(index), ctx)
-    qID > 0 && visit!(vstate, UInt64(qID))
+    for id in mask
+        visit!(vstate, UInt64(id))
+    end
     search(bs, index, ctx, q, res, index.hints, vstate)
 end
 
@@ -187,6 +246,7 @@ function execute_callback!(index::SearchGraph, ctx::SearchGraphContext, opt::Opt
         opt.space,
         ksearch,
         opt.queries,
+        opt.queries_identifiers,
         opt.numqueries,
         opt.initialpopulation,
         params)

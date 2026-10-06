@@ -33,7 +33,7 @@ set_distance_evaluate(t, intersection::Integer, size1::Integer, size2::Integer):
 """
     has_exact_fastpath(dist::PreMetric)::Bool
 
-Whether the score computed while merging posting lists (via [`set_distance_evaluate`](@ref)) is
+Whether the score computed while merging posting lists (via `set_distance_evaluate`) is
 already the exact `dist` value. When `false`, `search_invfile` instead evaluates `dist` directly
 against the objects stored in the index's `db` for every merge candidate — see
 `FallbackInvFileOutput` in `invfilesearch.jl`; raise `t` above the default `1` to bound how many such

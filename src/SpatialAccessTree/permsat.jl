@@ -1,5 +1,12 @@
 # This file is part of SimilaritySearch.jl
 
+"""
+    satpermutation!(π, sat::Sat) -> π
+
+Fill `π` with the identifiers of `sat` in breadth-first order from the root. Objects close in
+the tree end close in `π`, which is what makes the permutation useful for storing the database
+in an order that follows the tree.
+"""
 function satpermutation!(π, sat::Sat)
     p = 1
     π[p] = sat.root
@@ -20,6 +27,12 @@ function satpermutation!(π, sat::Sat)
     π
 end
 
+"""
+    satpermutation(sat::Sat) -> Vector{UInt32}
+
+The breadth-first order of `sat`'s identifiers, allocating the result. See
+[`satpermutation!`](@ref SimilaritySearch.SpatialAccessTree.satpermutation!).
+"""
 satpermutation(sat::Sat) = satpermutation!(Vector{UInt32}(undef, length(sat)), sat)
 
 """

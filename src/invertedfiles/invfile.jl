@@ -6,7 +6,7 @@ export AbstractInvertedFile, InvertedFile
 """
     abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
-Abstract inverted file; the concrete data structure is [`InvertedFile`](@ref).
+Abstract inverted file; the concrete data structure is [`InvertedFile`](@ref SimilaritySearch.InvertedFiles.InvertedFile).
 """
 abstract type AbstractInvertedFile <: AbstractSearchIndex end
 
@@ -26,7 +26,7 @@ Base.length(idx::AbstractInvertedFile) = idx.len[]
 A general-purpose inverted index: a sparse matrix-like representation mapping component
 dimensions (or set elements/tokens) to identifiers (`AdjType`'s element type is `UInt32`, plain
 token/set membership; other concrete adjacency element types, e.g. a compressed encoding, can be
-added by extending [`getcontainer`](@ref), `internal_push!`, and [`sort_postinglist!`](@ref)). It
+added by extending `getcontainer`, `internal_push!`, and [`sort_postinglist!`](@ref)). It
 always keeps the original indexed object in `db`.
 
 # Fields
@@ -120,7 +120,7 @@ Iterator over the plain ids/keys in `obj`, for callers that only need to know *w
 are present (e.g. `InvertedFile` building/re-sorting/searching its posting lists, which never
 need a weight: the handful of distances with an exact fast path score from intersection size
 and set sizes alone, and any other distance is evaluated directly against the full objects
-kept in `db` -- see [`InvertedFile`](@ref)). Dense `Vector`s are not accepted directly --
+kept in `db` -- see [`InvertedFile`](@ref SimilaritySearch.InvertedFiles.InvertedFile)). Dense `Vector`s are not accepted directly --
 convert to a `SparseVector` first (e.g. via `SparseArrays.sparse`) so the reduction to
 non-zero components is explicit in the caller's code.
 """

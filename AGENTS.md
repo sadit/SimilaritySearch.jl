@@ -175,6 +175,23 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   rebuild-from-scratch (`rebuild.jl`), beam search (`beamsearch.jl`), neighborhood
   filters (`neighborhood.jl`), adjacency backends (`../adj/`), per-call state
   (`context.jl` → `SearchGraphContext`).
+- `searchgraph/members.jl`, `searchgraph/expand.jl` — near-duplicate **members**
+  (`Neighborhood(neardup=ϵ)`, off by default): an object whose nearest indexed object is
+  within `ϵ` is not a node but a member of that object's cluster -- adjacency `[representative]`,
+  nothing links to it, `enqueue_item!` skips it as a hint, so `search` answers with
+  representatives and `expand`/`expand!` (any result form, distances re-evaluated) give the
+  raw neighbors back. `SearchGraph.members::Members` holds both maps. The rules that keep it
+  consistent: `find_neighborhood!` returns a single unresolved twin for a near duplicate
+  (`isnearduplicate`); the insertion block settles them serially with union-find
+  (`resolvemembers!`: a component's representative is an outside representative if any of
+  its objects points to one, else its smallest *node* -- never a twin, which has no
+  neighborhood), empties the members' adjacency before the reverse links, replaces settled
+  members in the block's adjacencies by their representatives, and attaches them after;
+  `rebuild` masks each object from its own search (`selfid`), or under `neardup` every object
+  would be its own twin and every node would end up empty (found live). `optimize_index!`
+  masks a query's whole cluster and expands results before scoring. Measured on ccnews (27%
+  exact duplicates): 30% fewer edges, build 37% faster, recall up everywhere and 0.72 → 0.86
+  on the queries with ten copies in the database.
 - `asymmetricgraph/` — two files. `AsymmetricSearchGraph.jl` is the wrapper described above
   (with `InsertionSource`, what the insertion loops query with, and `rawqueries`), included
   right after `searchgraph/`. `estimators.jl` is the interface it navigates with --
@@ -259,10 +276,28 @@ words, `|H| = nbits = 64`). Unexplained; don't treat a green 1.12 run as evidenc
   on top of the index interface.
 - `perf.jl` — the scores: `recallscore`/`macrorecall` (identifiers), `matcherror`/
   `macromatcherror` (distances; `matcherror` lived in `opt.jl` as an optimizer internal until
-  #92), `perqueryscores` (the per-query vector a macro score averages) and `bootstrapscore`
+  #92; its parameters are `exponent`, `maxdeviation`, `spreadfloor` as keywords, and a
+  position never costs more than `maxdeviation` -- the cap was added for 1.6 after ten
+  duplicate-neighborhood queries made 85% of the ccnews mean; don't remove it, the mean over
+  queries and everything built on it needs the per-query score bounded), `perqueryscores` (the per-query vector a macro score averages) and `bootstrapscore`
   (resamples *queries* over that vector, computed once; a paired comparison of two results is
   the bootstrap of their per-query differences). `MinRecall`/`MaxMatchError` in `opt.jl` are
   built on these, not the other way round.
+- `opt.jl` — the goals `MinRecall`/`MaxMatchError` minimize `goalvalue` = `log(visits) +
+  rate · hinge(shortfall)` with `rate = log(tradeoff)/0.01`, a **finite-support** hinge (zero
+  before the transition zone, quadratic across it, linear after; `transition = (lo, hi)` are
+  multipliers of `width` placing the zone on the target: `(-1, 1)` centered, `(0, 2)` below,
+  `(-2, 0)` above, `lo == hi` a hard threshold) and the hinge's `width` the quality's standard error over the
+  tuning queries (resolved once from the initial population's median in
+  `inspect_population`). Finite support is deliberate: a `softplus` hinge, measured on ccnews,
+  overshot the target by two to three widths because its tail never reaches zero; the
+  centered one lands at 0.900-0.913 for a target of 0.9 and is nearly flat in `tradeoff`
+  between 1.2 and 3 (tables in the session scratch, 2026-10-02). This replaced, in 1.6, a hard threshold
+  (`quality fails ? 1 + shortfall : visited/M`) that was blind within the measurement noise,
+  ranked a feasible configuration behind an infeasible one whenever `visited/M > 1` (`M` was
+  the initial population's maximum, which later mutations exceed), and whose selection
+  carried a winner's-curse bias. Don't bring back a threshold or a population-normalized cost;
+  `ParetoRecall`/`ParetoRadius`/`OptRadius` were removed in the same step (see README 1.6).
 
 ## Conventions worth knowing before writing code
 
@@ -444,3 +479,27 @@ Key facts an agent must know before editing anything here:
 Recent history favors concise, single-focus commits explaining *why* a change was made,
 not a line-by-line what — see `git log --oneline` for the house style. Don't commit or
 push unless explicitly asked to.
+
+## Writing the documentation
+
+The tutorial pages are read mostly by people whose first language is not English. Write for
+them. This is about the prose only; code examples stay as they are.
+
+- **Short sentences.** One idea each. Split anything past about 25 words. A sentence with two
+  subordinate clauses is two sentences.
+- **No idioms and no analogies.** Write what the thing does. "under the hood", "out of the
+  box", "rule of thumb", "sweet spot", "pays off", "for free", "think of it as" and the like
+  have no place here: a reader translating word by word gets nothing from them, and a reader
+  who knows the idiom learns nothing either.
+- **No contractions.** "does not", not "doesn't".
+- **Few parenthetical asides.** An em-dash aside is a sentence the reader must hold open while
+  reading another. Prefer a second sentence, or a list.
+- **Define a term before using it**, and then use the same word for it every time. Do not
+  alternate between synonyms for the same concept.
+- **Name the subject.** Prefer "the optimizer masks the query" over "the query is masked".
+- **State the measurement, not the impression.** "recall fell from 0.90 to 0.69 on two SISAP
+  2025 benchmarks", not "recall dropped a lot".
+
+Two numbers worth checking after an edit: sentences over 30 words, and em-dashes. Both were
+counted across `docs/src/tutorial/` while this rule was written, and both should go down, not
+up.

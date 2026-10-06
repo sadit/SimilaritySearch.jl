@@ -158,40 +158,6 @@ end
     #@test_call target_modules=(@__MODULE__,) searchbatch(graph, ctx, queries, ksearch)
 
 
-    #=@testset "AutoBS with ParetoRadius" begin
-        graph = SearchGraph(; dist, algo=BeamSearch(bsize=2))
-        ctx = SearchGraphContext(
-            neighborhood = Neighborhood(filter=SatNeighborhood()),
-            hyperparameters_callback = OptimizeParameters(OptRadius()),
-            parallel_block = 8
-        )
-        #ctx = getcontext(graph)
-        try
-            append_items!(graph, ctx, db)
-        catch err
-            display(err.errors[1])
-            exit(0)
-        end
-        @test n == length(db) == length(graph)
-        @info "---- starting ParetoRadius optimization ---"
-        optimize_index!(graph, ctx, ParetoRadius())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRadius:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6  # we don't expect high quality results on ParetoRadius
-
-        @info "---- starting ParetoRecall optimization ---"
-        optimize_index!(graph, ctx, ParetoRecall())
-        searchtime = @elapsed knns = searchbatch(graph, ctx, queries, ksearch)
-        @test size(knns) == (ksearch, m) == size(gold_knns)
-        recall = macrorecall(gold_knns, knns)
-        @info "ParetoRecall:> queries per second: ", m/searchtime, ", recall:", recall
-        @info graph.algo
-        @test recall >= 0.6
-    end
-    =#
 
 end
 
@@ -307,7 +273,6 @@ end
     # the recall-based goals cannot: macrorecall divides by the gold ball's size, and a small
     # radius routinely leaves a query with an empty ball
     @test_throws ArgumentError optimize_index!(graph, ctx, MinRecall(0.9); radius)
-    @test_throws ArgumentError optimize_index!(graph, ctx, ParetoRecall(); radius)
 end
 
 @testset "matcherror scores the ball, not the navigation reserve" begin
@@ -321,7 +286,7 @@ end
     for (i, d) in enumerate((0.1f0, 0.2f0, 0.3f0))
         push_item!(perfect, i, d)
     end
-    @test SimilaritySearch.matcherror(golddist, perfect, 1f0, 1f0, 1f-2) == 0.0
+    @test SimilaritySearch.matcherror(golddist, perfect) == 0.0
 
     # same three ball members, plus reserve items *outside* the radius: the reserve must not
     # change the score, and must not be mistaken for ball members that were found
@@ -330,17 +295,17 @@ end
         push_item!(withreserve, i, d)
     end
     @test length(withreserve) > length(SimilaritySearch.ballview(withreserve))
-    @test SimilaritySearch.matcherror(golddist, withreserve, 1f0, 1f0, 1f-2) == 0.0
+    @test SimilaritySearch.matcherror(golddist, withreserve) == 0.0
 
-    # a search that reached only one of the three ball members pays η for each one it missed
+    # a search that reached only one of the three ball members pays maxdeviation for each one it missed
     partial = SimilaritySearch.BallKnn(1.0f0, 4)
     for (i, d) in enumerate((0.1f0, 4f0, 5f0, 6f0))
         push_item!(partial, i, d)
     end
     @test SimilaritySearch.ninside(partial) == 1
-    @test SimilaritySearch.matcherror(golddist, partial, 1f0, 1f0, 1f-2) ≈ 2/3
+    @test SimilaritySearch.matcherror(golddist, partial) ≈ 2/3
     # an empty true ball is free: there was nothing to find
-    @test SimilaritySearch.matcherror(Float32[], partial, 1f0, 1f0, 1f-2) == 0.0
+    @test SimilaritySearch.matcherror(Float32[], partial) == 0.0
 end
 
 @testset "BallKnn keeps a navigation reserve outside the ball" begin
@@ -425,13 +390,15 @@ end
 end
 
 @testset "MaxMatchError doesn't blow up on degenerate (zero-spread) gold neighborhoods" begin
-    # Regression test: matcherror's ρ(q) used to add only eps(Float32) as a floor over the
-    # gold neighborhood's own spread, so a fully degenerate query (its k gold neighbors all
-    # tied at the same distance -- routine with duplicate points, or near-duplicate items on
-    # real data) made ρ(q) collapse to ≈eps(Float32); dividing by that inflated an ordinary,
-    # non-buggy distance mismatch (here: 0.001, well within normal floating-point/approximate-
-    # search noise) by a factor of ~10^6-10^7, letting a single such query dominate a whole
-    # batch's mean MatchError. `minspread` now floors ρ(q) at something meaningful instead.
+    # Regression test, twice over. matcherror's spread used to add only eps(Float32) as a floor
+    # over the gold neighborhood's own spread, so a fully degenerate query (its k gold neighbors
+    # all tied at the same distance -- routine with duplicate points, or near-duplicate items on
+    # real data) made the spread collapse to ≈eps(Float32); dividing by that inflated an
+    # ordinary, non-buggy distance mismatch (here: 0.001, well within floating-point/approximate-
+    # search noise) by ~10^6-10^7, letting one such query dominate a whole batch's mean.
+    # `spreadfloor` floors the spread at something meaningful, and `maxdeviation` bounds what a
+    # position can cost even when the floor does not rescue it (1.6: on ccnews, ten exact-
+    # duplicate neighborhoods answered from far away made 85% of the mean over 10,500 queries).
     ctx = GenericContext()
     res = knnqueue(ctx, 3)
     push_item!(res, 1, 1.001f0)
@@ -439,8 +406,9 @@ end
     push_item!(res, 3, 1.001f0)
     golddist = Float32[1.0, 1.0, 1.0]  # fully tied -- true spread is exactly 0
 
-    @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 0f0) > 100      # old behavior: blows up
-    @test SimilaritySearch.matcherror(golddist, res, 1f0, 1f0, 1f-2) < 1       # fixed: bounded, sane
+    @test SimilaritySearch.matcherror(golddist, res; spreadfloor=0f0, maxdeviation=Inf32) > 100   # no floor, no cap: blows up
+    @test SimilaritySearch.matcherror(golddist, res; spreadfloor=0f0) == 1.0                      # the cap alone holds it at maxdeviation
+    @test SimilaritySearch.matcherror(golddist, res) ≈ 0.1 atol=1e-3                              # the floor makes the mismatch what it is: 0.001 over a floor of 0.01
 end
 
 @testset "index!(...; :bitsketch)" begin

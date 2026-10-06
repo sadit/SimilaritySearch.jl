@@ -13,7 +13,7 @@ export QuantDatabase
 An [`AbstractDatabase`](@ref) of vectors quantized to `B` bits per coordinate (2, 4 or 8):
 the packed codes live in *any* database of `UInt8` vectors, `Q::DB`, next to what
 dequantizes them, `E::P`, which is either one [`SQMinC`](@ref) per vector (`P` a
-`Vector{SQMinC}`: the **per-vector** family, [`SQu8Database`](@ref ScalarQuant.SQu8.SQu8Database)
+`Vector{SQMinC}`: the **per-vector** family, [`SQu8Database`](@ref SimilaritySearch.ScalarQuant.SQu8.SQu8Database)
 and its siblings) or a single one shared by the whole database (`P == SQMinC`: the
 **global** family, [`GlobalQuantDatabase`](@ref)). Indexing yields an [`SQVec`](@ref),
 so every distance in this module applies to both families alike. See the module
@@ -31,7 +31,7 @@ that quantize a matrix.
   a `SearchGraph` can be built over a quantized database one item at a time;
 - [`MMapMatrixDatabase`](@ref): grows too, on disk, and outlives the process. Reopen the
   file and hand it back to the constructor with the parameters to get the same database;
-- a [`VectorDatabase`](@ref) of `Vector{UInt8}`, or anything else indexable: whatever a
+- a [`VectorDatabase`](@ref SimilaritySearch.VectorDatabase) of `Vector{UInt8}`, or anything else indexable: whatever a
   custom store needs.
 
 A constructor that quantizes a matrix takes `storage`, a function from the `Matrix{UInt8}`

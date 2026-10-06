@@ -66,7 +66,7 @@ dataset (via [`transform`](@ref)) and to every later query (via
 # Arguments
 - `X`/`db`: the dataset to fit against; dense forms accept an `AbstractMatrix` (columns
   are objects) or a [`MatrixDatabase`](@ref); sparse forms accept a `SparseMatrixCSC`
-  (columns are objects) or a [`Special.Sparse.SparseDatabase`](@ref).
+  (columns are objects) or a `Special.Sparse.SparseDatabase`.
 
 # Keyword Arguments
 - `pad`: dense only. When `true` (the default), pads the embedded dimension up to the
@@ -291,7 +291,7 @@ transform(se::SphericalEmbedding, db::MatrixDatabase; kwargs...) = MatrixDatabas
 
 Sparse-vector version of [`transform`](@ref): scales the stored nonzero entries of `x` by
 `1/se.maxnorm` and appends one explicit `(outdim(se), residual)` entry, reusing
-[`Special.Sparse`](@ref)'s existing distance machinery unchanged (the appended index is
+`Special.Sparse`'s existing distance machinery unchanged (the appended index is
 always the largest, so the result stays sorted). `se` must have been fitted without
 padding (`se.pad == 0`, the default for sparse inputs).
 """
@@ -317,7 +317,7 @@ end
     transform(se::SphericalEmbedding, x::SparseArrays.SparseVector) -> SparseArrays.SparseVector
 
 Version of [`transform`](@ref) for a plain `SparseArrays.SparseVector` (as opposed to
-[`Special.Sparse.SparseVecView`](@ref)); same semantics.
+`Special.Sparse.SparseVecView`); same semantics.
 """
 function transform(se::SphericalEmbedding, x::SparseVector)
     se.pad == 0 || throw(ArgumentError("SphericalEmbedding.transform: sparse inputs require pad=0 (got pad=$(se.pad))"))

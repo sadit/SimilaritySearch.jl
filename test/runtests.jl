@@ -33,6 +33,7 @@ const TESTFILES = [
     "testselection.jl",
     "testadj.jl",
     "testsearchgraph.jl",
+    "testneardup.jl",
     "testquantgraph.jl",
     "testsqencoder.jl",
     "testrabitq.jl",

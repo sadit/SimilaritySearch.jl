@@ -4,9 +4,9 @@ CurrentModule = SimilaritySearch
 
 # Sketched Search: the Whole Pipeline as an Index
 
-Searching with sketches is always the same four steps: encode the dataset, index the codes,
-retrieve more candidates than asked for under the cheap sketch distance, and re-score those
-candidates with the real one. Written by hand it is a handful of lines --
+Searching with sketches always follows the same four steps. Encode the dataset. Index the codes.
+Retrieve more candidates than requested, under the cheap sketch distance. Re-score those
+candidates with the real distance. Written by hand it is a handful of lines --
 [`Projections.SketchedSearch`](@ref) exists because every one of those lines is a place to be
 silently wrong:
 
@@ -24,10 +24,10 @@ notice in an approximate search.
 
 `SketchedSearch` is an ordinary [`AbstractSearchIndex`](@ref): [`search`](@ref) and
 [`searchbatch`](@ref) work on it unchanged, and the identifiers it returns are indices into
-the **original** database, with true distances -- so swapping it in is the whole experiment.
+the **original** database, with true distances. Replacing one index by the other is therefore the whole experiment.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 const P = SimilaritySearch.Projections
 
@@ -50,7 +50,7 @@ end
 Compare against the exact answer to see what the sketch stage costs:
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 const P = SimilaritySearch.Projections
 
@@ -79,23 +79,23 @@ end
 | `factor` | how many times `k` candidates the sketch stage retrieves before re-scoring | time in the re-scoring pass |
 | `index` | how the sketches themselves are indexed; defaults to [`Projections.exhaustivesketchindex`](@ref) | build time vs sketch-stage speed |
 
-`factor` is the recall knob: the sketch stage is fast but lossy, so it is asked for more
-candidates than needed and the exact distance settles the final order among them. `factor=1`
+`factor` controls the recall. The sketch stage is fast but loses information, so it is asked for
+more candidates than needed. The exact distance then settles the final order among them. `factor=1`
 disables the widening but still re-scores, so the distances stay exact even then.
 
 ---
 
 ## What it is not
 
-`SketchedSearch` is built once over a fixed database and is **not incremental**. Its encoder's
-quantization range -- and, for the hyperplane models, its anchors -- are fitted on exactly the
-data given to the constructor, so growing the collection means rebuilding it rather than
-pushing into it. For a growing collection, bootstrap a [`SearchGraph`](@ref) from sketches
+`SketchedSearch` is built once over a fixed database and is **not incremental**. The quantization range of its encoder is fitted on exactly the data given to the constructor.
+For the hyperplane models, the anchors are fitted the same way. Growing the collection therefore
+requires rebuilding the index, and not pushing into it. For a growing collection, bootstrap a [`SearchGraph`](@ref) from sketches
 instead (see [Multi-Bit Sketches](multibit_sketches.md)) and keep inserting into the graph.
 
-Its re-scoring pass is also what separates it from the [asymmetric graph](asymmetric.md) of
-the previous section: there the correction, when the estimator has one, happens inside the
-distance while the graph navigates, and no pass over the raw data follows the search.
+The re-scoring pass is also what separates it from the [asymmetric graph](asymmetric.md) of the
+previous section. In that graph the correction happens inside the distance while the graph
+navigates, when the estimator has a correction at all. No pass over the raw data follows the
+search.
 
 This closes the tutorial series. Sketches are the last of the compression strategies; for
 queries bounded by a distance rather than by a count, see

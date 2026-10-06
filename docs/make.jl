@@ -20,6 +20,7 @@ makedocs(;
             "tutorial/distances.md",
             "tutorial/searchgraph.md",
             "tutorial/matcherror.md",
+            "tutorial/tuning_queries.md",
             "tutorial/radius_search.md",
             "tutorial/operations.md",
             "tutorial/bichromatic.md",
@@ -32,10 +33,19 @@ makedocs(;
             "tutorial/asymmetric.md",
             "tutorial/sketchedsearch.md",
         ],
-        "API" => "api.md"
+        "API" => [
+            "api.md",
+            "api_distances.md",
+            "api_quantization.md",
+            "api_invertedfiles.md",
+            "api_trees.md",
+        ]
     ],
     doctest=false,
-    warnonly=true  #Documenter.except(:missing_docs, :missing_docs)
+    # `missing_docs` stays a warning on purpose: what it counts is internal documentation, and
+    # its place is the code. Everything else fails the build, so a broken cross-reference cannot
+    # reach the published site again.
+    warnonly=[:missing_docs]
 )
 
 deploydocs(;

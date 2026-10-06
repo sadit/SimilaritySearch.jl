@@ -72,6 +72,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
         ksearch = neighborhoodsize(ctx.neighborhood, ep)
         # qcache width is sized from ctx.maxbatches (see index!), derived from actual buffer size
         minbatch = getminbatch(ep - spb + 1; maxbatches=size(qcache_ids, 2) ÷ 2)
+        twin = zeros(UInt32, ep - spb + 1)   # per block object: the twin it is a near duplicate of, or 0
 
         @BATCHES minbatch scheduler=ctx.scheduler begin
         @BEGINBATCH
@@ -84,14 +85,25 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             reuse!(tmp)
             reuse!(neighbors_)
             find_neighborhood!(neighbors_, index, bctx, item, tmp, R)
-            add!(index.adj, objID, IdView(neighbors_))
+            if isnearduplicate(bctx, neighbors_)
+                twin[objID - spb + 1] = first(IdView(neighbors_))   # settled below, once the block is done
+            else
+                add!(index.adj, objID, IdView(neighbors_))
+            end
         end
         end
 
+        # near duplicates: resolved serially (twins inside the block may themselves be members
+        # of each other), their adjacency emptied so the reverse links skip them, and attached
+        # to their representatives afterwards
+        settled = resolvemembers!(index, spb, ep, twin)
         OBSERVE(ctx, :add!, index, sp, ep)
         @inform ctx add_inform_message(index, sp, ep)
         # connecting neighbors
         connect_reverse_links!(index.adj, sp, ep; scheduler=ctx.scheduler)
+        for (id, rep) in settled
+            setmember!(index, id, rep)
+        end
         index.len[] = ep
 
         # apply callbacks
@@ -119,6 +131,9 @@ index!(index::SearchGraph, ctx::SearchGraphContext) = _index!(index, ctx, databa
 function _index!(index::SearchGraph, ctx::SearchGraphContext, objects)
     n = length(database(index))
     @assert n > 0
+    # one tuning pool for this insertion, drawn from the range it is about to fill, so every
+    # callback scores on the same population instead of a fresh sample (see `tuningpool`)
+    ctx = tuningpool(ctx, length(index) + 1, n)
 
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
         qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2
@@ -175,6 +190,16 @@ Arguments:
     push_db && push_item!(index.db, item)
     find_neighborhood!(neighbors_, index, ctx, item, tmp, 1:-1)
     n = Int32(index.len[] + 1)
+    if isnearduplicate(ctx, neighbors_)
+        # a member: the single edge to its representative, no reverse link, nothing to search
+        # through; the twin is a node because the search never answers with members
+        setmember!(index, n, representative(index, first(IdView(neighbors_))))
+        OBSERVE(ctx, :add!, index, n, n)
+        @inform ctx add_inform_message(index, n, n)
+        index.len[] = n
+        execute_callbacks!(index, ctx)
+        return index
+    end
     add!(index.adj, n, IdView(neighbors_))
     OBSERVE(ctx, :add!, index, n, n)
     @inform ctx add_inform_message(index, n, n)

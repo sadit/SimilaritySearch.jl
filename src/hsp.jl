@@ -4,8 +4,23 @@ export hsp_queries
 
 iterate_hsp_(h::Vector{T}) where {T<:Integer} = h
 iterate_hsp_(h::AbstractKnnQueue) = IdView(h)
+# the kept neighbors with their distance to the center, when the neighborhood carries them
+iterate_hsp_pairs_(h::Vector{T}) where {T<:Integer} = (IdDist(UInt32(i), NaN32) for i in h)
+iterate_hsp_pairs_(h::AbstractKnnQueue) = IdDistView(h)
 
-function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0)
+"""
+    hsp_should_push(hsp_neighborhood, dist, db, center, point_id, dist_center_point; factor=1f0, neardup=typemin(Float32)) -> Bool
+
+Whether the candidate `point_id`, at `dist_center_point` from the center, survives the HSP
+rule against the neighbors already kept: it is dropped when a kept neighbor is strictly
+closer to it than the center is. `neardup` adds the tie rule for near duplicates of the
+center: a kept neighbor within `neardup` of the center -- a twin, for which every candidate
+is exactly as close as to the center -- drops candidates that are *at least* as close to it,
+so a twin keeps nothing else and the duplicates of a point do not grow into a clique (see
+[`Neighborhood`](@ref)'s `neardup`). The default never fires, so callers outside the graph
+are unchanged.
+"""
+function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase, center, point_id::UInt32, dist_center_point::Float32; factor::Float32=1.0f0, neardup::Float32=typemin(Float32))
     @inbounds point = db[point_id]
     #=if factor == 1.0f0
         @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
@@ -27,11 +42,12 @@ function hsp_should_push(hsp_neighborhood, dist::PreMetric, db::AbstractDatabase
     # with the center as given (raw, in an asymmetric graph) against the stored point. An
     # estimator therefore evaluates two kinds of pairs: raw against stored to navigate and
     # to place the center, and stored against stored for this rule between candidates.
-    @inbounds for hsp_objID in iterate_hsp_(hsp_neighborhood)
-        hsp_obj = db[hsp_objID]
+    @inbounds for h in iterate_hsp_pairs_(hsp_neighborhood)
+        hsp_obj = db[h.id]
         dist_point_hsp = evaluate(dist, point, hsp_obj)
         # f * dist_point_hsp < dist_center_point && return false
         dist_point_hsp < dist_center_point && return false #  <= does not guarantee connectivity in all cases, but the insertion algorithm ensures that
+        h.dist <= neardup && dist_point_hsp <= dist_center_point && return false   # the tie rule, for a twin of the center
     end
 
     true
@@ -115,7 +131,7 @@ function hsp_proximal_neighborhood_filter!(hsp::AbstractKnnQueue, dist::PreMetri
                 push_item!(hsp, p)
                 prob *= neardupcaptureprob # workaround for very large number of duplicates
             end
-        elseif hsp_should_push(hsp, dist, db, center, p.id, p.dist)
+        elseif hsp_should_push(hsp, dist, db, center, p.id, p.dist; neardup)
             push_item!(hsp, p)
         end
     end

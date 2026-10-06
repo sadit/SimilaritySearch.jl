@@ -12,7 +12,7 @@ The [`QuantDatabase`](@ref) of vectors quantized to `bits` bits per coordinate (
 under **one** `min`/scale pair shared by the whole dataset, keeping that pair -- and the
 per-vector code sums -- alongside the codes.
 
-That is the difference from calling [`SQgu8.quantize`](@ref ScalarQuant.SQgu8.quantize)
+That is the difference from calling [`SQgu8.quantize`](@ref SimilaritySearch.ScalarQuant.SQgu8.quantize)
 directly, which hands back a bare `Matrix{UInt8}` and leaves `minmax` to the caller. Without
 the parameters a stored matrix of codes cannot be dequantized at all, so it can only ever be
 compared against other codes from the same run; with them, a query may stay in its original

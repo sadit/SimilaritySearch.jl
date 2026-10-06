@@ -10,7 +10,7 @@ fall outside the ball**.
 
 That reserve is what makes a graph search work at all. A greedy/beam search needs two things from
 its result container: something to start from ([`nearest`](@ref)) and a threshold that *shrinks*
-as the search improves ([`maximum`](@ref), the k-th distance). A plain radius container gives
+as the search improves (`maximum`, the k-th distance). A plain radius container gives
 neither when the query's neighborhood starts outside the ball: it rejects every candidate, stays
 empty -- so `nearest` reads out of bounds, which is the segfault of #67 -- and its `maximum` is
 the constant `radius`, turning the admission test into an absolute one, so a beam that starts

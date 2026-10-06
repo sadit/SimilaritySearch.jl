@@ -10,7 +10,7 @@ Distance functions are organized within the `Dist` module and its specialized su
 
 | Submodule | Target Object Domain | Representative Distance Functions |
 | :--- | :--- | :--- |
-| `Dist` | Real-valued dense or sparse vectors ($\mathbb{R}^d$) | [`L1`](@ref Dist.L1), [`L2`](@ref Dist.L2), [`SqL2`](@ref Dist.SqL2), [`LInfty`](@ref Dist.LInfty), [`Lp`](@ref Dist.Lp), [`Cosine`](@ref Dist.Cosine), [`Angle`](@ref Dist.Angle) |
+| `Dist` | Real-valued dense or sparse vectors ($\mathbb{R}^d$) | [`L1`](@ref SimilaritySearch.Dist.L1), [`L2`](@ref SimilaritySearch.Dist.L2), [`SqL2`](@ref SimilaritySearch.Dist.SqL2), [`LInfty`](@ref SimilaritySearch.Dist.LInfty), [`Lp`](@ref SimilaritySearch.Dist.Lp), [`Cosine`](@ref SimilaritySearch.Dist.Cosine), [`Angle`](@ref SimilaritySearch.Dist.Angle) |
 | `Dist.Sets` | Sets, represented as **sorted** vectors of distinct comparable elements | `Jaccard`, `Dice`, `Intersection`, `CosineSet`, `RogersTanimoto` |
 | `Dist.Seqs` | Ordered sequences (strings, token arrays) | `Levenshtein`, `DamerauLevenshtein`, `LCS`, `CommonPrefix`, `Hamming` |
 | `Dist.Bits` | Binary vectors and bit strings (`Unsigned`, `BitVector`) | `Hamming`, `RogersTanimoto` |
@@ -60,7 +60,7 @@ evaluate(Dist.L2(), u, w)      # 2.0
 evaluate(Dist.Cosine(), u, w)  # 2.0 -- diametrically opposed directions
 ```
 
-When vectors are normalized such that $\|u\|_2 = 1$, [`Dist.NormCosine`](@ref Dist.NormCosine) and [`Dist.NormAngle`](@ref Dist.NormAngle) provide optimized evaluations by omitting the denominator normalization.
+When vectors are normalized such that $\|u\|_2 = 1$, [`Dist.NormCosine`](@ref SimilaritySearch.Dist.NormCosine) and [`Dist.NormAngle`](@ref SimilaritySearch.Dist.NormAngle) provide optimized evaluations by omitting the denominator normalization.
 
 ---
 
@@ -104,7 +104,7 @@ evaluate(Dist.Sets.CosineSet(), a, b)    # 0.0
 evaluate(Dist.Sets.Jaccard(), a, c)      # 1.0 -- disjoint sets: {2, 3, 5} ∩ {97} = ∅
 ```
 
-The distance between $60$ and $90$ is `0.0` because set metrics evaluate support rather than multiplicity. For [`RogersTanimoto`](@ref Dist.Sets.RogersTanimoto), the size of the underlying universe $\sigma$ (the total number of primes considered) must be specified to account for mutual non-occurrences.
+The distance between $60$ and $90$ is `0.0` because set metrics evaluate support rather than multiplicity. For [`RogersTanimoto`](@ref SimilaritySearch.Dist.Sets.RogersTanimoto), the size of the underlying universe $\sigma$ (the total number of primes considered) must be specified to account for mutual non-occurrences.
 
 Building an exact search index on this set space:
 
@@ -149,10 +149,10 @@ evaluate(Dist.Seqs.CommonPrefix(), a, b)  # 0.75 -- length normalized prefix mis
 
 While $60$ and $90$ have identical set representations ($d_{\text{Jaccard}} = 0.0$), their factorization sequences differ ($d_{\text{Levenshtein}} = 1.0$). 
 
-For sequences of equal length, [`Dist.Seqs.Hamming`](@ref Dist.Seqs.Hamming) evaluates coordinate-wise mismatches without allowing insertions or deletions.
+For sequences of equal length, [`Dist.Seqs.Hamming`](@ref SimilaritySearch.Dist.Seqs.Hamming) evaluates coordinate-wise mismatches without allowing insertions or deletions.
 
-[`Dist.Seqs.DamerauLevenshtein`](@ref Dist.Seqs.DamerauLevenshtein) extends
-[`Dist.Seqs.Levenshtein`](@ref Dist.Seqs.Levenshtein) with a fourth edit operation,
+[`Dist.Seqs.DamerauLevenshtein`](@ref SimilaritySearch.Dist.Seqs.DamerauLevenshtein) extends
+[`Dist.Seqs.Levenshtein`](@ref SimilaritySearch.Dist.Seqs.Levenshtein) with a fourth edit operation,
 transposing two *adjacent* elements, which is useful for typo-like swaps:
 
 ```julia
@@ -160,22 +160,22 @@ evaluate(Dist.Seqs.Levenshtein(), "form", "from")        # 2.0 -- two substituti
 evaluate(Dist.Seqs.DamerauLevenshtein(), "form", "from")  # 1.0 -- one transposition
 ```
 
-This is the restricted (Optimal String Alignment) variant, so it is a `SemiMetric` rather
-than a `Metric`: it does not satisfy the triangle inequality, and should not be paired with
-indexes that rely on it (e.g. pivot-based pruning).
+This is the restricted variant, also called Optimal String Alignment. It is a `SemiMetric` and
+not a `Metric`, because it does not satisfy the triangle inequality. Do not pair it with indexes
+that rely on that inequality, such as pivot-based pruning.
 
-`Levenshtein` and `DamerauLevenshtein` (and `LCS`, which wraps `Levenshtein`) accept
-`String`/`SubString` directly, Unicode included, with no need to `collect` into a
-`Vector{Char}` first -- a dedicated method walks each string character-by-character via
-Julia's string-iteration protocol instead of integer-indexing it:
+`Levenshtein` and `DamerauLevenshtein` accept `String` and `SubString` directly, Unicode
+included. `LCS`, which wraps `Levenshtein`, does the same. There is no need to `collect` into a
+`Vector{Char}` first. A dedicated method walks each string character by character, through the
+string-iteration protocol of Julia, instead of indexing it by integer:
 
 ```julia
 evaluate(Dist.Seqs.Levenshtein(), "héllo", "hallo")  # 1.0
 ```
 
-(Passing a general array input, e.g. `Vector{Int32}` as in the factorization example
-above, still uses the plain integer-indexing method; that one requires `a[i]` to be O(1)
-and character-aligned, which a raw `String` is not for non-ASCII text.)
+A general array input still uses the plain integer-indexing method. `Vector{Int32}`, as in the
+factorization example above, is such an input. That method requires `a[i]` to be O(1) and
+character-aligned. A raw `String` is neither, for non-ASCII text.
 
 ---
 
@@ -250,7 +250,7 @@ d: 1.0      1.0       1.0 (All neighbors tie at distance 1.0)
 ### Practical Recommendation
 
 - **Continuous vector spaces ($\mathbb{R}^d$, embeddings)**: Use [`SearchGraph`](@ref) for sub-linear approximate nearest neighbor search, or [`ExhaustiveSearch`](@ref) for baseline validation.
-- **Discrete, combinatorial, or set spaces (Jaccard, Levenshtein, Hamming)**: Use [`ExhaustiveSearch`](@ref) or inverted indexes ([`InvertedFile`](@ref)). Do not use `SearchGraph` for discrete metrics with high tie frequencies.
+- **Discrete, combinatorial, or set spaces (Jaccard, Levenshtein, Hamming)**: Use [`ExhaustiveSearch`](@ref) or inverted indexes ([`InvertedFile`](@ref SimilaritySearch.InvertedFiles.InvertedFile)). Do not use `SearchGraph` for discrete metrics with high tie frequencies.
 - **Integer-valued metrics queried with a small radius (dictionary lookup, spelling correction)**: [`BKT`](@ref), a BK-tree, is exact and prunes whole subtrees per distance evaluation — the plateau that stalls a graph search is exactly what it buckets on. It needs an integer-valued `Dist.Metric` (`Levenshtein`, `Hamming`; *not* `DamerauLevenshtein`, which is a `SemiMetric`), and it only pays off while the search radius stays small next to the spread of the distance distribution: a large `k` over data with no near neighbors visits the whole tree.
 
 ---
