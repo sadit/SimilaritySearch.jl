@@ -27,7 +27,7 @@ notice in an approximate search.
 the **original** database, with true distances. Replacing one index by the other is therefore the whole experiment.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 const P = SimilaritySearch.Projections
 
@@ -50,7 +50,7 @@ end
 Compare against the exact answer to see what the sketch stage costs:
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 const P = SimilaritySearch.Projections
 

@@ -31,7 +31,7 @@ Both encodings are a function of the same real-valued vector,
 single API, instead of comparing two encoders that were written independently.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 const P = SimilaritySearch.Projections
 
@@ -62,7 +62,7 @@ it back, which is far cheaper than building it under the original distance. The 
 keyword decides how many bits each hyperplane's value survives with:
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch
 
 X = randn(Float32, 64, 2_000)

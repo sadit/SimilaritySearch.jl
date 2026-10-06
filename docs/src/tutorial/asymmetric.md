@@ -71,7 +71,7 @@ the graph grows is [`ScalarQuant.sqcodes`](@ref)`(enc)`. That is a `QuantDatabas
 and it takes the encoder's codes without changing them:
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch, SimilaritySearch.ScalarQuant
 using SimilaritySearch.ScalarQuant: SQEncoder, sqcodes
 
@@ -157,7 +157,7 @@ The per-vector family fails at 2 bits. On `ccnews` it reaches 0.65 of exhaustive
 0.82, with or without a rotation.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch, SimilaritySearch.ScalarQuant
 using SimilaritySearch.ScalarQuant: SQEncoder, sqcodes
 using SimilaritySearch: encodequery
@@ -204,7 +204,7 @@ Here the rotation is **required**: `RaBitQCosine(rotation)`. The estimate is unb
 bound holds only because the sign vector is taken in a uniformly random basis.
 
 ```julia
-# SimilaritySearch v1.5
+# SimilaritySearch v1.6
 using SimilaritySearch, SimilaritySearch.RaBitQ, SimilaritySearch.ScalarQuant
 using SimilaritySearch: encode
 const P = SimilaritySearch.Projections
