@@ -7,7 +7,7 @@ CurrentModule = SimilaritySearch
 The [previous section](quantization_and_bitsketches.md) built *bit* sketches: each hyperplane
 of a fitted model contributes one bit, recording which side of it an object falls on. Fitting
 those hyperplanes is the expensive part of the construction, and a sign bit discards most of
-what they computed -- it says *which side*, never *how far*.
+what they computed. It records *which side*, and never *how far*.
 
 [`Projections.QuantSketch`](@ref) keeps that distance instead, at 2, 4 or 8 bits per
 hyperplane. The model is **not** resized: the same `nbits` hyperplanes are fitted either way,
@@ -26,10 +26,9 @@ Both encodings are a function of the same real-valued vector,
 | rotations ([`Projections.RandomProjections`](@ref), [`Projections.HadamardProjection`](@ref), [`Projections.PCAProjection`](@ref)) | the projected coordinate |
 | metric hyperplanes ([`Projections.DistantHyperplanes`](@ref), [`Projections.AnchoredDistantHyperplanes`](@ref), [`Projections.RandomHyperplanes`](@ref)) | the signed margin $d(x, b) - d(x, a)$ |
 
-`bitsketch` keeps the sign of that value; `QuantSketch` quantizes it. The sign convention is
-shared, which is why a `QuantSketch` of width 1 reproduces [`Projections.bitsketch`](@ref)
-exactly -- a sweep over 1, 2, 4 and 8 bits runs through a single API instead of comparing two
-independently written encoders.
+`bitsketch` keeps the sign of that value; `QuantSketch` quantizes it. The sign convention is shared. A `QuantSketch` of width 1 therefore reproduces
+[`Projections.bitsketch`](@ref) exactly. A sweep over 1, 2, 4 and 8 bits then runs through a
+single API, instead of comparing two encoders that were written independently.
 
 ```julia
 # SimilaritySearch v1.5
@@ -50,9 +49,9 @@ for width in (1, 2, 4, 8)
 end
 ```
 
-At width 1 the codes are `UInt64` words compared with `Dist.Bits.Hamming`; at 2, 4 and 8 they
-are packed `UInt8` codes compared with the matching `ScalarQuant.SQgu*.SqL2`, which reads them
-without dequantizing anything.
+At width 1 the codes are `UInt64` words, compared with `Dist.Bits.Hamming`. At widths 2, 4 and 8
+they are packed `UInt8` codes, compared with the matching `ScalarQuant.SQgu*.SqL2`. That kernel
+reads them without dequantizing anything.
 
 ---
 
@@ -94,10 +93,9 @@ range, so there is nothing to compare wider codes with.
 ## Choosing between more hyperplanes and more bits
 
 Both spend memory, and they are not interchangeable. A wider code refines the resolution of a
-hyperplane that has already been fitted; a new hyperplane adds an independent direction. The
-useful question is which is scarce: if recall stops improving as `nbits` grows, the model has
-run out of informative directions and `width` is where the remaining error is; if the sketch
-is already coarse in *direction*, more hyperplanes come first.
+hyperplane that has already been fitted; a new hyperplane adds an independent direction. The useful question is which resource is scarce. If recall stops improving as `nbits` grows, the
+model has no more informative directions, and the remaining error is in `width`. If the sketch
+is already coarse in *direction*, add hyperplanes first.
 
 Everything on this page compared code against code: the sketch of the query against the
 sketches stored, which is the **symmetric** mode and the cheapest one. The next section,

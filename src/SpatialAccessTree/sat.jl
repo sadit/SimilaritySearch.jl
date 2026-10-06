@@ -1,14 +1,46 @@
 # This file is part of SimilaritySearch.jl
 
 abstract type AbstractSortSat end
+
+"""
+    RandomSortSat()
+
+Order the children of a node at random. This is the default for [`Sat`](@ref SimilaritySearch.SpatialAccessTree.Sat).
+"""
 struct RandomSortSat <: AbstractSortSat end
+
+"""
+    ProximalSortSat()
+
+Order the children of a node by distance to it, nearest first. This is the classical
+construction of a spatial access tree.
+"""
 struct ProximalSortSat <: AbstractSortSat end
+
+"""
+    DistalSortSat()
+
+Order the children of a node by distance to it, farthest first. This is the more recent
+construction, and it produces different covering radii than `ProximalSortSat`.
+"""
 struct DistalSortSat <: AbstractSortSat end
 
 abstract type AbstractInitialPartition end
 
+"""
+    SatInitialPartition()
+
+Build one tree from one root. This is the plain spatial access tree.
+"""
 struct SatInitialPartition <: AbstractInitialPartition end
 
+"""
+    RandomInitialPartition(; nparts=max(4, Threads.nthreads()), shuffle=false)
+
+Split the dataset into `nparts` parts at random and build one tree over each one, which gives a
+forest instead of a single tree. The parts are built in parallel, and a query visits all of them.
+`shuffle` randomizes the order of the objects before the split.
+"""
 struct RandomInitialPartition <: AbstractInitialPartition
     nparts::Int
     shuffle::Bool
@@ -24,7 +56,7 @@ end
         cov::Vector{Float32}
     end
 
-Spatial Access Tree data structure. Please see [`Sat`](@ref) constructor for the
+Spatial Access Tree data structure. Please see [`Sat`](@ref SimilaritySearch.SpatialAccessTree.Sat) constructor for the
 high level entry point, and [`index!`](@ref) to build the tree once constructed.
 
 `cov[i]` is always non-negative: for an internal node (`children[i] !== nothing`) it is the

@@ -18,7 +18,7 @@ component is `>= 0` exactly when [`bitsketch`](@ref) would set its bit to `1`):
   [`PCAProjection`](@ref)): the projected coordinates themselves, i.e. `transform!`. The
   magnitude says how far the object sits from the hyperplane normal to that direction.
 - **metric hyperplanes** ([`DistantHyperplanes`](@ref),
-  [`AnchoredDistantHyperplanes`](@ref), [`RandomHyperplanes`](@ref)): the *signed margin*
+  [`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes), [`RandomHyperplanes`](@ref)): the *signed margin*
   of `obj` against each hyperplane `(a, b)`, `d(obj, b) - d(obj, a)`, which is positive
   when `obj` is closer to `a` (the side those models encode as bit `1`) and whose
   magnitude says how decisively so.
@@ -57,12 +57,11 @@ sketchvalues(model, obj) = sketchvalues!(Vector{Float32}(undef, outdim(model)), 
     hyperplanewidths(model) -> Vector{Float32}
 
 The separation `d(a, b)` between the two anchors of every hyperplane of a metric
-hyperplane model ([`DistantHyperplanes`](@ref), [`AnchoredDistantHyperplanes`](@ref),
+hyperplane model ([`DistantHyperplanes`](@ref), [`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes),
 [`RandomHyperplanes`](@ref)). By the triangle inequality the margin of any object against
 hyperplane `i` (see [`sketchvalues!`](@ref)) lies in `[-w[i], w[i]]`, so dividing by `w`
 puts every component of the sketch on the same, dimensionless `[-1, 1]` scale -- which is
-what makes a *single global* quantization range (the [`SQgu2`](@ref
-ScalarQuant.SQgu2)/[`SQgu4`](@ref ScalarQuant.SQgu4)/[`SQgu8`](@ref ScalarQuant.SQgu8)
+what makes a *single global* quantization range (the [`SQgu2`](@ref SimilaritySearch.ScalarQuant.SQgu2)/[`SQgu4`](@ref SimilaritySearch.ScalarQuant.SQgu4)/[`SQgu8`](@ref SimilaritySearch.ScalarQuant.SQgu8)
 family, and hence their SIMD code-space distances) meaningful across hyperplanes built
 from anchor pairs that are, individually, arbitrarily far apart or close together. See
 [`QuantSketch`](@ref)'s `normalize` keyword.
@@ -85,8 +84,7 @@ An `NBITS`-per-component sketch encoder: it wraps any sketch `model` that
 [`sketchvalues!`](@ref) understands and, instead of keeping one *sign* bit per component
 the way [`bitsketch`](@ref) does, keeps an `NBITS`-wide unsigned code per component,
 quantized with the global (database-wide) scalar quantizers
-[`SQgu2`](@ref ScalarQuant.SQgu2)/[`SQgu4`](@ref ScalarQuant.SQgu4)/[`SQgu8`](@ref
-ScalarQuant.SQgu8).
+[`SQgu2`](@ref SimilaritySearch.ScalarQuant.SQgu2)/[`SQgu4`](@ref SimilaritySearch.ScalarQuant.SQgu4)/[`SQgu8`](@ref SimilaritySearch.ScalarQuant.SQgu8).
 
 The point is that a sign bit throws away *how far* an object sits from each hyperplane:
 an object hugging a hyperplane and one far across it get the same bit, so Hamming

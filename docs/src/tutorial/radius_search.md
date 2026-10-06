@@ -83,17 +83,16 @@ search(G, ctx, X[1], res)         # kmin defaults to 8
 println("Found ", length(res), " elements within radius 0.05 using SearchGraph")
 ```
 
-A graph search cannot be driven by a radius container on its own. Such a container rejects
-every candidate outside the ball, so it is still **empty** when the beam needs somewhere to
-start, and its covering radius is the constant `r` rather than a threshold that tightens as
-the search improves -- a beam that starts outside the ball would have no admissible child and
-would stop on its first expansion. (Both failure modes were real: until v1.5 this call
+A graph search cannot be driven by a radius container on its own. Such a container rejects every candidate outside the ball. It is therefore still **empty** when
+the beam needs a starting point. Its covering radius is the constant `r`, and not a threshold
+that tightens as the search improves. A beam that starts outside the ball would have no
+admissible child and would stop on its first expansion. (Both failure modes were real: until v1.5 this call
 segfaulted whenever no entry point fell inside the ball, which is the normal case for a small
 radius.)
 
-The search therefore navigates with an internal container that keeps the ball **plus a reserve
-of at least `kmin` nearest items, even when those fall outside it**, and copies only the
-in-ball part into your `RadiusSorted`/`RadiusHeap`. The reserve is what restores both a
+The search therefore navigates with an internal container. That container keeps the ball **and a
+reserve of at least `kmin` nearest items, even when those fall outside the ball**. Only the part
+inside the ball is copied into your `RadiusSorted` or `RadiusHeap`. The reserve is what restores both a
 starting point and a shrinking threshold; it never reaches the result.
 
 ```julia
@@ -106,9 +105,9 @@ search(G, ctx, X[1], res; kmin=32)
 !!! warning "The graph answer is approximate"
     Over a `SearchGraph` the result is a **subset** of the true ball, and its completeness is
     governed by the same `BeamSearch` parameters as a `k`-NN search. `ExhaustiveSearch` stays
-    exact. This matters for algorithms that read a cardinality rather than a ranking --
-    `dbscan`, for one, decides whether a point is a core point by counting its
-    $\epsilon$-neighbors, and an incomplete ball can silently demote a core point to noise.
+    exact. This matters for algorithms that read a cardinality rather than a ranking. `dbscan` is one of
+them. It decides whether a point is a core point by counting its $\epsilon$-neighbors. An
+incomplete ball can turn a core point into noise, and nothing reports the error.
 
 ---
 
@@ -116,7 +115,7 @@ search(G, ctx, X[1], res; kmin=32)
 
 An index tuned for `k`-NN is not tuned for balls, and until v1.5 there was no way to tune for
 them at all. [`optimize_index!`](@ref) takes a `radius` keyword: the gold standard becomes each
-query's true ball -- of whatever size, empty included -- and candidate configurations are
+query's true ball, of whatever size and empty included. Candidate configurations are
 scored against it.
 
 ```julia
@@ -125,8 +124,8 @@ optimize_index!(G, ctx, MaxMatchError(; maxerror=0.01f0); radius=0.05f0, kmin=8)
 
 [`MaxMatchError`](@ref) is the only goal that applies. It compares distances rank by rank and
 charges a fixed penalty for each ball member the search failed to reach, which is exactly ball
-incompleteness; the recall-based goals go through `macrorecall`, which divides by the size of
-the gold set, and a small radius routinely leaves queries whose true ball is empty. Passing
+incompleteness. The recall-based goals use `macrorecall`, which divides by the size of the gold
+set. A small radius routinely leaves queries whose true ball is empty. Passing
 `MinRecall` together with `radius` raises an `ArgumentError` rather than dividing by zero.
 
 ---

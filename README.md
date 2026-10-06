@@ -45,6 +45,45 @@ removing any that worked before. Patch releases inside a series are fixes and pe
   on SISAP 2025 `ccnews` against the hard threshold and a `softplus` hinge: the centered hinge lands at
   0.900-0.913 for a target of 0.9 and barely moves with `tradeoff`, `softplus` overshoots by two to three
   widths, and the cost is in nats, so the normalization by the initial population's maximum cost is gone.
+- **The queries that tune an index are declared, not inferred.** An internal query -- an object the
+  index already stores -- is a vertex of the graph: a search reaches it at distance 0 and reads its
+  adjacency list in one step, and that list is close to the answer. An external query has to reach
+  its neighbors through ordinary links. Tuning with internal queries without accounting for this
+  picks parameters for an easier problem: measured on two SISAP 2025 benchmarks, `bsize` and `Δ`
+  came out at the cheap end of their ranges and recall@10 against real queries fell from 0.90 to
+  0.69. Internal queries are now masked, from the search and from the gold alike. Which ones are
+  internal is said by `queries_identifiers`, beside `queries`: the first says what to search with,
+  the second says where those objects are stored. A query is masked if and only if its identifier
+  is given; the previous rule, which read it from the container's type, is gone, and
+  `optimize_index!` warns on the one shape that rule used to cover. Giving both is what a quantized
+  index needs, since its database holds codes and an identifier alone cannot produce a raw query
+  object. `numqueries` now means how many queries one optimization uses, whatever the source: a
+  draw from a pool of identifiers when one is named, a sample of the index when not. Insertions set
+  a pool aside once (`TUNINGPOOLSIZE`) so that the optimizations the construction callback runs are
+  scored on the same population, and so that `SearchGraph` and `AsymmetricSearchGraph` tune the same
+  way, which matters whenever the two are compared. See the tutorial section
+  *Choosing the queries that tune an index*.
+- **A tuning query whose own cluster empties its gold is dropped.** With `k=10`, an object in a
+  near-duplicate cluster of 11 or more has nothing left after its cluster is masked, and
+  `recallscore` divides by the gold's size. The `NaN` reached the mean, every comparison against it
+  was false, and the solver returned an arbitrary configuration without raising. On SISAP 2025
+  `ccnews`, 7.9% of the objects are such a case, so 99.5% of tuning runs drew at least one; the
+  spread of a rebuilt cell grew 4.6x for float32 and 10.5x for a quantized one against the same
+  configurations without folding. `MaxMatchError` failed the other way, scoring those queries as a
+  perfect match, which preserved orderings but scaled its mean. Both goals drop them, so the two
+  still tune on the same queries. When every query is degenerate the masking is given up with a
+  warning instead, since raising would take `index!` down with it.
+- **`neardup` is a numerical zero, and negative radii are rejected.** Two bit-identical vectors
+  usually do not evaluate to `0f0`: on SISAP 2025 `ccnews` and `yahooaq` half of such pairs do, a
+  sixth come out negative, and the error never exceeds 6 ulps, so a literal radius of zero missed
+  about a third of the exact duplicates. A non-negative `neardup` is raised to
+  `NEARDUP_NUMERICAL_ZERO` (`1f-5`), an order of magnitude above that error and three to four orders
+  below any real distance on those datasets; `typemin(Float32)` stays exactly as it is, since
+  raising it would turn a mechanism that never fires into one that fires on every single-entry
+  neighborhood. A negative radius is no longer accepted: the distances that evaluate below zero are
+  the ones wrapped to find farthest objects, and under those identical objects are the farthest of
+  all, so folding near duplicates there folds what by construction never resembles anything.
+  `Selection.neardup`'s own `ϵ` takes the same floor.
 - **Near duplicates fold into members.** `Neighborhood(neardup=ϵ)` makes an object whose nearest indexed object
   lies within `ϵ` a member of that object's cluster instead of a node: one edge to the representative, nothing
   linking to it, never visited. `search` answers with representatives, one per cluster, and the second stage,

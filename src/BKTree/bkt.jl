@@ -11,7 +11,7 @@ subtree by the *exact* integer distance to that pivot, so a query prunes a whole
 with a single distance evaluation.
 
 The structure is built once with [`index!`](@ref); it does not support incremental
-insertion (like [`Sat`](@ref), and unlike [`SearchGraph`](@ref)).
+insertion (like [`Sat`](@ref SimilaritySearch.SpatialAccessTree.Sat), and unlike [`SearchGraph`](@ref)).
 
 # Why integer-valued distances only
 

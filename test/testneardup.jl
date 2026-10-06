@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 using Test, SimilaritySearch, Random, Statistics
-using SimilaritySearch: evaluate, isnearduplicate, NEARDUP_NUMERICAL_ZERO
+using SimilaritySearch: evaluate, isnearduplicate, NEARDUP_NUMERICAL_ZERO, tuningmask
 
 "Ids of the `k` nearest neighbors of every query, through the ordinary search interface."
 knn_ids(index, ctx, queries, k) = [Int32.(collect(IdView(search(index, ctx, q, knnqueue(KnnSorted, k))))) for q in queries]
@@ -76,6 +76,55 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
         msg = String(take!(buf))
         @test occursin("dropping", msg) && occursin("tuning queries", msg)
         @test G3.algo[] isa BeamSearch && isfinite(G3.algo[].Δ) && G3.algo[].bsize > 0
+    end
+
+    @testset "queries and their identifiers are independent, and folding reads both" begin
+        # A quantized index stores codes, so raw tuning objects cannot be named by position in
+        # database(index). Handing over the objects *and* their ids is the only way to tune with
+        # raw queries the index still knows to mask -- what an AsymmetricSearchGraph needs.
+        ids = UInt32[3, 7, 11]
+        raw = VectorDatabase([copy(X[i]) for i in ids])     # same objects, not a view of the db
+
+        plain = SearchGraph(dist, X); index!(plain, SearchGraphContext(; reporters=[]))
+        @test tuningmask(plain, raw, nothing) == [UInt32[], UInt32[], UInt32[]]   # unnamed: external
+        @test tuningmask(plain, raw, ids) == [[i] for i in ids]                   # named: internal
+        # pointing is no longer enough: a view of the index's own database used to count as
+        # internal by itself, and that inference is gone -- the rule is the identifiers
+        @test tuningmask(plain, SubDatabase(X, ids), nothing) == [UInt32[], UInt32[], UInt32[]]
+        @test_logs (:warn,) match_mode=:any optimize_index!(plain,
+            SearchGraphContext(; reporters=[]), MinRecall(0.9f0); queries=SubDatabase(X, ids))
+
+        # and under folding the mask is the whole cluster either way, so a held-out set of ids
+        # is fixed in name but not in effect: what it masks grows with the duplication
+        ctx4 = SearchGraphContext(; reporters=[], neighborhood=Neighborhood(; neardup=0))
+        W = rand(Xoshiro(3), Float32, dim, 12)
+        Xd = MatrixDatabase(hcat(W, W[:, 1:4]))             # 1..12 unique, 13..16 copies of 1..4
+        folded = SearchGraph(dist, Xd); index!(folded, ctx4)
+        m = tuningmask(folded, VectorDatabase([Xd[1]]), UInt32[1])
+        @test length(m[1]) == (ismember(folded, 13) || ismember(folded, 1) ? 2 : 1)
+        @test UInt32(1) in m[1] && UInt32(13) in m[1]       # the twin travels with it
+
+        @test_throws ArgumentError optimize_index!(plain, SearchGraphContext(; reporters=[]),
+            MinRecall(0.9f0); queries=raw, queries_identifiers=UInt32[3, 7])
+    end
+
+    @testset "a held-out pool is drawn from, and skips what is not inserted yet" begin
+        # The shape an AsymmetricSearchGraph needs: a fixed set of raw objects with their ids,
+        # named once and drawn from on every optimization -- including the ones the construction
+        # callback fires while the index is still filling, where part of the pool does not exist.
+        Xp = MatrixDatabase(rand(Xoshiro(2), Float32, dim, 3000))
+        pool = UInt32.(1:1024)
+        raw = VectorDatabase([Xp[i] for i in pool])
+        buf = IOBuffer()
+        ctxp = SearchGraphContext(; verbose=true, reporters=InformativeLog(buf; dt=0),
+            hyperparameters_callback=OptimizeParameters(MinRecall(0.9f0);
+                queries=raw, queries_identifiers=pool, numqueries=64))
+        Gp = SearchGraph(dist, Xp)
+        index!(Gp, ctxp)
+        lines = split(String(take!(buf)), "\n")
+        @test count(l -> occursin("of a pool of", l), lines) > 1        # drawn, every callback
+        @test count(l -> occursin("not inserted yet", l), lines) > 0    # and the early ones skip
+        @test Gp.algo[] isa BeamSearch && Gp.algo[].bsize > 0
     end
 
     @testset "a twin whose distance rounds just above zero still folds" begin

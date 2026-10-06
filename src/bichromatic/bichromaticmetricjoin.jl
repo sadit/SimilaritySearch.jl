@@ -7,7 +7,7 @@
 
 Metric (similarity) join between dataset `A` (indexed as `idxA`) and dataset `B`, when neither the
 number of matches per `b` nor a join radius is known ahead of time. `k` is a deliberately overestimated
-guess passed to a single [`searchbatch`](@ref) call; the real work is deciding, per candidate pair
+guess passed to a single [`searchbatch`](@ref SimilaritySearch.searchbatch) call; the real work is deciding, per candidate pair
 `(a, b)`, whether it is close enough to actually count as a match -- i.e. picking a cutoff radius, and
 picking it per `a` rather than a single global one, since different regions of `A` can have very
 different local density.

@@ -20,6 +20,7 @@ makedocs(;
             "tutorial/distances.md",
             "tutorial/searchgraph.md",
             "tutorial/matcherror.md",
+            "tutorial/tuning_queries.md",
             "tutorial/radius_search.md",
             "tutorial/operations.md",
             "tutorial/bichromatic.md",
@@ -32,7 +33,13 @@ makedocs(;
             "tutorial/asymmetric.md",
             "tutorial/sketchedsearch.md",
         ],
-        "API" => "api.md"
+        "API" => [
+            "api.md",
+            "api_distances.md",
+            "api_quantization.md",
+            "api_invertedfiles.md",
+            "api_trees.md",
+        ]
     ],
     doctest=false,
     warnonly=true  #Documenter.except(:missing_docs, :missing_docs)
