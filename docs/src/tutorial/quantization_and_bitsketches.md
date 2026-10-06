@@ -4,11 +4,15 @@ CurrentModule = SimilaritySearch
 
 # Quantization and Bit Sketches
 
-In large-scale similarity search, storing millions of high-dimensional vectors in standard single-precision floating-point format (`Float32`) presents memory and bandwidth bottlenecks. `SimilaritySearch.jl` provides three compression and acceleration strategies:
+Storing millions of high-dimensional vectors as `Float32` uses a large amount of memory and
+bandwidth. `SimilaritySearch.jl` provides three strategies that reduce both:
 
 1. **Scalar Quantization ([`ScalarQuant`](@ref))**: Maps continuous floating-point coordinates to low-bit integer representations using column-wise affine scaling.
 2. **Projection-Based Bit Sketches ([`Projections.bitsketch`](@ref))**: Projects high-dimensional continuous vectors onto binary signatures via a random ([`Projections.RandomProjections`](@ref), [`Projections.HadamardProjection`](@ref)) or data-fitted ([`Projections.PCAProjection`](@ref)) rotation (SimHash / Locality Sensitive Hashing), enabling fast Hamming distance evaluations.
-3. **Hyperplane Bit Sketches ([`Projections.DistantHyperplanes`](@ref), [`Projections.RandomHyperplanes`](@ref))**: Encode objects of *any* metric space -- not just floating-point vectors -- by which side of a set of hyperplanes, defined directly through the space's own distance function, they fall on.
+3. **Hyperplane Bit Sketches ([`Projections.DistantHyperplanes`](@ref),
+   [`Projections.RandomHyperplanes`](@ref))**: Encode objects of *any* metric space, not only
+   floating-point vectors. Each bit records which side of a hyperplane the object falls on. The
+   hyperplanes are defined through the distance function of the space itself.
 
 ---
 
@@ -23,11 +27,13 @@ The `ScalarQuant` module provides multiple bit-depth representations:
 - **`SQu4` (4-bit)**: Compresses by 8$\times$.
 - **`SQu2` (2-bit)**: Compresses by 16$\times$.
 
-Each of them keeps one `min`/scale pair *per column*, in `E`, next to the packed codes in `Q`.
-Those two fields are everything a database is, so a stored one can be rebuilt without the
-original matrix -- `SQu8Database(E, Q)` quantizes nothing and recomputes what it derives. That
-matters at scale: re-quantizing a 64 x 730,320 projection to recover 46.7 MB of codes would
-first rebuild 187 MB of `Float32`.
+Each of them keeps one `min` and scale pair *per column*, in `E`, next to the packed codes in
+`Q`. Those two fields are everything a database contains. A stored database can therefore be
+rebuilt without the original matrix: `SQu8Database(E, Q)` quantizes nothing and recomputes what
+it derives.
+
+This matters at scale. Re-quantizing a 64 x 730,320 projection to recover 46.7 MB of codes would
+first rebuild 187 MB of `Float32` values.
 
 ### Example: Quantization and Search with `SQu8`
 
@@ -59,15 +65,17 @@ queries_db = MatrixDatabase(queries)
 knns = searchbatch(idx, ctx, queries_db, 10)
 ```
 
-Scalar quantization substantially reduces memory footprint while maintaining high fidelity in nearest-neighbor rankings through asymmetric distance computation.
+Scalar quantization reduces the memory footprint. Asymmetric distance computation keeps the
+nearest-neighbor ranking close to the exact one.
 
 ### Global quantization, stored parameters, and raw queries
 
-The `SQgu2`/`SQgu4`/`SQgu8` variants share **one** `min`/scale pair across the whole dataset.
-That makes their kernels cheaper -- a shared scale cancels in a difference, so codes are
-compared as integers -- but `quantize` hands back a bare `Matrix{UInt8}` and leaves the pair
-with the caller. Codes stored without it cannot be dequantized at all, and can only ever be
-compared against codes from the same run.
+The `SQgu2`, `SQgu4` and `SQgu8` variants share **one** `min` and scale pair across the whole
+dataset. Their kernels are cheaper for that reason: a shared scale cancels in a difference, so
+codes are compared as integers.
+
+`quantize` returns a bare `Matrix{UInt8}` and leaves the pair to the caller. Codes stored without
+the pair cannot be dequantized. They can only be compared against codes from the same run.
 
 `GlobalQuantDatabase` keeps the pair, and the per-vector code sums:
 
@@ -87,17 +95,19 @@ cidx = ExhaustiveSearch(ScalarQuant.Cosine(), gdb)
 cres = search(cidx, GenericContext(), ScalarQuant.quantize(gdb, qg), knnqueue(KnnSorted, 10))
 ```
 
-Indexing it yields the same `SQVec` the per-column quantizers produce -- a globally quantized
-vector *is* a per-column one whose scale happens to be shared -- so every distance in
-`ScalarQuant` applies, and each takes its best path: an exact integer pass between two stored
-vectors, and the mixed kernels against a plain `Float32` query.
+Indexing it yields the same `SQVec` that the per-column quantizers produce. A globally quantized
+vector *is* a per-column one whose scale is shared. Every distance in `ScalarQuant` therefore
+applies, and each one takes its best path: an exact integer pass between two stored vectors, and
+a mixed kernel against a plain `Float32` query.
 
 ### Growing a quantized database
 
-Both families are a `QuantDatabase`: the parameters plus *some* database of code vectors,
-which is `MatrixDatabase` when a matrix is quantized in one shot and can be any other one.
-Start from an empty growable storage and the database quantizes each vector on the way in
-with the parameters it was created with, so a `SearchGraph` builds over it one item at a
+Both families are a `QuantDatabase`: the parameters plus some database of code vectors. That
+inner database is a `MatrixDatabase` when a matrix is quantized in one call, and it can be any
+other database.
+
+Start from an empty growable storage. The database then quantizes each vector as it arrives, with
+the parameters it was created with. A `SearchGraph` can therefore build over it one item at a
 time, and a `MMapMatrixDatabase` keeps the codes on disk across processes:
 
 ```julia
@@ -118,20 +128,26 @@ pdb = ScalarQuant.SQu4.SQu4Database(ScalarQuant.SQMinC[], BlockMatrixDatabase(32
 push_item!(pdb, X[:, 1])
 ```
 
-`GlobalQuantDatabase(8, MMapMatrixDatabase(path), mm)` reopens a database whose codes were
-pushed into an mmap file; `E` and, if kept, the sums `Sa`/`Saa` travel with it, and a
-`Sa`/`Saa` handed back skips the one pass over the codes that otherwise recomputes them.
+`GlobalQuantDatabase(8, MMapMatrixDatabase(path), mm)` reopens a database whose codes were pushed
+into an mmap file. `E` travels with it, and so do the sums `Sa` and `Saa` if they were kept.
+Giving those sums back skips the single pass over the codes that would otherwise recompute
+them.
 
 ### Symmetric and asymmetric graphs over quantized storage
 
-A graph stored as codes can work in two ways, and the way is a property of the instance. A
-`SearchGraph` over a `QuantDatabase` is the **symmetric** graph: it inserts and searches
-with the objects as the database stores them, codes against codes on both sides, through
-the exact integer kernel. An `AsymmetricSearchGraph` over the same database stores codes
-too, but inserts and searches with the **raw** objects, evaluated against the stored codes
-by the mixed kernel: each new item picks its neighbors by its exact distance, so the
-quantization error is not baked into the edges. A query can be passed raw to either graph;
-the symmetric one also takes it as codes, `quantize(database(G), q)`.
+A graph stored as codes can work in two ways. The way is a property of the instance.
+
+A `SearchGraph` over a `QuantDatabase` is the **symmetric** graph. It inserts and searches with
+the objects as the database stores them. Both sides of every evaluation are codes, and the exact
+integer kernel is used.
+
+An `AsymmetricSearchGraph` over the same database also stores codes, but it inserts and searches
+with the **raw** objects. Each raw object is evaluated against the stored codes by the mixed
+kernel. Each new item therefore picks its neighbors by its exact distance, and the quantization
+error does not enter the edges.
+
+A query can be passed raw to either graph. The symmetric one also accepts it as codes,
+`quantize(database(G), q)`.
 
 ```julia
 # SimilaritySearch v1.5
@@ -152,25 +168,35 @@ append_items!(asym, ctx, MatrixDatabase(X))                  # edges chosen on F
 res_asym = search(asym, ctx, q, knnqueue(KnnSorted, 10))
 ```
 
-Quantization error at insertion time is baked into the topology for good; at query time it
-is recoverable by re-ranking. For a fixed graph, a `Float32` query never does worse than a
-quantized one, and the same edges searched over the full-precision vectors never do worse
-than either; the tests assert exactly that ordering. On the SISAP 2025 `ccnews` benchmark
-(issue #86) the asymmetric edges are better below 8 bits, but a query evaluated against
-codes cannot cash the difference, so the asymmetric graph is for queries that will be
-re-scored in higher precision and the symmetric one, cheaper at every step, for the rest.
+Quantization error at insertion time stays in the topology permanently. At query time it can
+still be corrected by re-ranking.
 
-That re-evaluation belongs to the distance. The graph only ever evaluates
-`dist(q, stored)`, and `dist` receives everything a model has: the raw query, the encoded
-object with whatever the model kept beside the code, and its own parameters. The scalar
-quantizers' distances are the no-op case, an estimate that needs no correction. A
-distance that is an *estimator* with an error of its own -- a sketch against a raw query, a
-RaBitQ-style code -- is an `AbstractEstimator`: it says through `encode(est, obj)` what the
-storage receives and through `encodequery(est, q)` what a raw query becomes (a rotation,
-applied once per query rather than per evaluation), and inside its `evaluate` it bounds its
-error and re-evaluates when it must, transparently to the graph. One plain type with its parameters as fields, so the
-graph and what gives its codes meaning serialize together. The two estimators that ship with
-the package, `ScalarQuant.SQEncoder` and `RaBitQ`, have their own section,
+For a fixed graph, a `Float32` query never gives a worse result than a quantized one. The same
+edges searched over the full-precision vectors never give a worse result than either. The tests
+assert exactly that ordering.
+
+On the SISAP 2025 `ccnews` benchmark (issue #86) the asymmetric edges are better below 8 bits. A
+query evaluated against codes cannot use that advantage. Use the asymmetric graph for queries
+that will be re-scored in higher precision, and the symmetric graph, which is cheaper at every
+step, for the rest.
+
+That re-evaluation belongs to the distance. The graph only evaluates `dist(q, stored)`. `dist`
+receives everything the model has: the raw query, the encoded object together with whatever the
+model stored beside the code, and the model's own parameters.
+
+The distances of the scalar quantizers are the simple case. They produce an estimate that needs
+no correction.
+
+A distance that is an *estimator* has an error of its own. A sketch compared against a raw query
+is one example, and a RaBitQ-style code is another. Such a distance is an `AbstractEstimator`. It
+declares through `encode(est, obj)` what the storage receives, and through `encodequery(est, q)`
+what a raw query becomes. A rotation is applied there, once per query instead of once per
+evaluation. Inside its `evaluate` the estimator bounds its error and re-evaluates the distance
+when it needs to. The graph does not observe this.
+
+An estimator is one plain type with its parameters as fields, so the graph and the information
+that gives its codes meaning serialize together. The package provides two estimators,
+`ScalarQuant.SQEncoder` and `RaBitQ`. They have their own section,
 [Asymmetric Search: raw queries against codes](asymmetric.md), after the sketches below.
 
 ## Bit Sketches: Binary Random Projections
@@ -181,7 +207,9 @@ $$b_i = \begin{cases} 1 & \text{if } \langle r_i, x \rangle \ge 0 \\ 0 & \text{i
 
 where $R = [r_1, \dots, r_m]^T$ is a random projection matrix (e.g., drawn from a standard Gaussian distribution $\mathcal{N}(0, I)$).
 
-Binary signatures are packed into arrays of `UInt64` words. In this binary representation, angular similarity is approximated by the **Hamming distance**, which evaluates bitwise differences via hardware-accelerated bit-population count (`POPCNT`) instructions.
+Binary signatures are packed into arrays of `UInt64` words. The **Hamming distance** then
+approximates the angular similarity. It counts the differing bits with the hardware `POPCNT`
+instruction.
 
 ### Example: Generating and Querying Bit Sketches
 
@@ -205,16 +233,18 @@ queries_bits_db = MatrixDatabase(bq)
 knns_bits = searchbatch(idx_bits, ctx, queries_bits_db, 10)
 ```
 
-Bit sketches provide a high-throughput, low-memory indexing option for high-dimensional embedding search, and can be used as a coarse-filtering stage prior to full-precision re-ranking.
+Bit sketches give high throughput and low memory for high-dimensional embeddings. They can also
+serve as a first filtering stage before a re-ranking pass in full precision.
 
 ### PCA-Fitted Bit Sketches
 
-`bitsketch` works with any rotation that implements [`Projections.transform`](@ref), so the
-random matrix `R` above can be swapped for a rotation *fitted from data* --
-[`Projections.PCAProjection`](@ref) -- without touching the rest of the pipeline. Unlike
-`RandomProjections`/`HadamardProjection`, a `PCAProjection` depends on the sample it was
-fitted from, so the same object (not a freshly-built one) must be reused to sketch
-anything compared against an already-sketched dataset:
+`bitsketch` works with any rotation that implements [`Projections.transform`](@ref). The random
+matrix `R` above can therefore be replaced by a rotation *fitted from data*,
+[`Projections.PCAProjection`](@ref), without changing the rest of the pipeline.
+
+`RandomProjections` and `HadamardProjection` do not depend on the data. A `PCAProjection` does:
+it depends on the sample it was fitted from. Reuse the same object, and not a newly built one, to
+sketch anything that will be compared against an already-sketched dataset:
 
 ```julia
 using SimilaritySearch.Projections: PCAProjection, bitsketch
@@ -228,28 +258,29 @@ bq_pca = bitsketch(p, queries)    # same p, so sketches stay comparable to B_pca
 
 ## Hyperplane Bit Sketches for Generic Metric Spaces
 
-The bit sketches above all require the dataset to live in $\mathbb{R}^d$: they `transform`
-(rotate/project) raw coordinate vectors before packing signs into bits. When objects only
-support a distance function -- e.g. this tutorial's running prime-factor sets under the
-Dice distance (see the [Quickstart](index.md)) -- there is nothing to rotate.
+All the bit sketches above require the dataset to live in $\mathbb{R}^d$. They `transform`
+(rotate or project) raw coordinate vectors before packing the signs into bits. Some objects
+support only a distance function, and then there is nothing to rotate. The prime-factor sets of
+this tutorial, under the Dice distance, are such a case (see the [Quickstart](index.md)).
 [`Projections.DistantHyperplanes`](@ref), [`Projections.AnchoredDistantHyperplanes`](@ref),
 and [`Projections.RandomHyperplanes`](@ref) sketch *any* `SemiMetric`/`AbstractDatabase`
-instead: an object $x$ is encoded by which side of a hyperplane -- a pair of anchor objects
-$(i, j)$ from the dataset -- it falls on:
+instead. A hyperplane here is a pair of anchor objects $(i, j)$ taken from the dataset. An object
+$x$ is encoded by the side of that hyperplane it falls on:
 
 $$b = \begin{cases} 1 & \text{if } d(x, i) \le d(x, j) \\ 0 & \text{otherwise} \end{cases}$$
 
-- **[`DistantHyperplanes`](@ref Projections.DistantHyperplanes)** samples many candidate
-  anchor pairs, discards the uninformative ones (low entropy over a data sample), and keeps
-  a mutually diverse subset via [`fft`](@ref) -- diverse under a flip-invariant Hamming
-  distance, since swapping a pair's two anchors describes the exact same hyperplane.
-- **[`AnchoredDistantHyperplanes`](@ref Projections.AnchoredDistantHyperplanes)** is the
-  same idea, but orients every candidate pair by distance to a reference `anchor` object
-  (given explicitly, or picked automatically per an `anchorpolicy`) instead, so plain
-  Hamming distance is enough during selection.
-- **[`RandomHyperplanes`](@ref Projections.RandomHyperplanes)** skips the search entirely:
-  the caller supplies the anchor pairs directly (e.g. a plain random sample), trading
-  sketch quality for a much cheaper fit.
+- **[`DistantHyperplanes`](@ref Projections.DistantHyperplanes)** samples many candidate anchor
+  pairs and discards the uninformative ones, which are those with low entropy over a data sample.
+  It then keeps a mutually diverse subset with [`fft`](@ref). Diversity is measured under a
+  flip-invariant Hamming distance, because swapping the two anchors of a pair describes the same
+  hyperplane.
+- **[`AnchoredDistantHyperplanes`](@ref Projections.AnchoredDistantHyperplanes)** follows the same
+  idea. It orients every candidate pair by the distance to a reference `anchor` object, so plain
+  Hamming distance is enough during selection. The anchor is given explicitly or chosen
+  automatically by an `anchorpolicy`.
+- **[`RandomHyperplanes`](@ref Projections.RandomHyperplanes)** performs no search. The caller
+  supplies the anchor pairs directly, for example a plain random sample. The fit is much cheaper
+  and the sketch quality is lower.
 
 All three expose the same [`distance`](@ref) (Hamming, over the packed sketch),
 [`Projections.outdim`](@ref), and [`Projections.bitsketch`](@ref) used above.
@@ -279,4 +310,4 @@ snippet above; only their construction differs (see their docstrings for the ext
 arguments each one takes).
 
 In the next section, [Multi-Bit Sketches](multibit_sketches.md), we keep more than one bit per
-hyperplane -- the same fitted model, with the magnitude it was already computing.
+hyperplane. It is the same fitted model, with the magnitude it was already computing.

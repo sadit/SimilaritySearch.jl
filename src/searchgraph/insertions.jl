@@ -131,6 +131,9 @@ index!(index::SearchGraph, ctx::SearchGraphContext) = _index!(index, ctx, databa
 function _index!(index::SearchGraph, ctx::SearchGraphContext, objects)
     n = length(database(index))
     @assert n > 0
+    # one tuning pool for this insertion, drawn from the range it is about to fill, so every
+    # callback scores on the same population instead of a fresh sample (see `tuningpool`)
+    ctx = tuningpool(ctx, length(index) + 1, n)
 
     if ctx.parallel_block == 1 || Threads.nthreads() == 1
         qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2

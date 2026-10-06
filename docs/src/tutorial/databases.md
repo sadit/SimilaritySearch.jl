@@ -64,7 +64,9 @@ julia> db[1] isa AbstractVector
 true
 ```
 
-Because index algorithms interact exclusively through the `AbstractDatabase` interface, algorithms such as `SearchGraph`, `ExhaustiveSearch`, `fft`, and `allknn` execute on sparse matrices, dense matrices, or custom array backends without requiring specialized implementations.
+Index algorithms interact only through the `AbstractDatabase` interface. `SearchGraph`,
+`ExhaustiveSearch`, `fft` and `allknn` therefore run on sparse matrices, dense matrices, or
+custom array backends. None of them needs a specialized implementation.
 
 ---
 

@@ -277,7 +277,7 @@ macromatcherror(golddists, reslist, err::MaxMatchError) = macromatcherror(golddi
 function setconfig! end
 
 """
-    tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase) -> Vector{Vector{UInt32}}
+    tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase, ids) -> Vector{Vector{UInt32}}
 
 What each tuning query must not be answered with: the identifiers that are removed from the
 gold *and* marked visited before the descent, empty for a query that does not live in `index`.
@@ -300,18 +300,23 @@ distance 0 and is the same trivial route, so the whole cluster goes in. Masking 
 themselves costs nothing -- the search never visits them -- but it keeps the gold and the
 search reading the same list.
 
-The identity check on `parent` is what makes membership exact: a `SubDatabase` over *this*
-index's database carries the ids in `map`; a view over anything else is external, as is any
-other container. A caller who wants to tune with chosen objects of the database -- the least
-connected ones, say -- passes `SubDatabase(database(index), ids)` and gets the masking.
-"""
-tuningmask(::AbstractSearchIndex, queries::AbstractDatabase) =
-    [UInt32[] for _ in 1:length(queries)]
+`ids` names where the queries live inside the index, and `nothing` says they live outside it.
+That is the whole rule: **queries are masked if and only if their identifiers are given.** It
+used to be inferred as well, from a `SubDatabase` whose `parent` was this index's database, and
+that inference is gone. It read the container's type to decide a question about provenance, it
+could not express the quantized case at all -- a code database cannot be pointed at to name a
+raw object -- and it failed silently in the direction that hurts: objects of the index arriving
+in any other container were taken for external and tuned against as if they were.
 
-function tuningmask(index::AbstractSearchIndex, queries::SubDatabase)
-    queries.parent === database(index) && return [UInt32[clusterids(index, id)...] for id in queries.map]
+A caller tuning with chosen objects of the database -- the least connected ones, say -- passes
+them with their `ids`. `optimize_index!` warns when it is handed a view of the index's own
+database without them, since that is the one case where the old inference would have masked.
+"""
+tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase, ids) =
+    [UInt32[clusterids(index, id)...] for id in ids]
+
+tuningmask(::AbstractSearchIndex, queries::AbstractDatabase, ::Nothing) =
     [UInt32[] for _ in 1:length(queries)]
-end
 
 """
     runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, mask::AbstractVector{UInt32}, res::AbstractKnnQueue)
@@ -456,7 +461,29 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
 # Keyword arguments
 
 - `space`: defines the search space
-- `queries`: the set of queries to be used to measure performances, a validation set. It can be an `AbstractDatabase` or nothing.
+- `queries`: the set of queries to be used to measure performances, a validation set. It can be
+  an `AbstractDatabase` or nothing.
+- `queries_identifiers`: where those queries live inside `index`, which is what makes them
+  *internal* and so what gets masked from both the gold and the search (see [`tuningmask`](@ref)).
+  Four combinations, and the fourth is the one the other three cannot express:
+
+  | `queries` | `queries_identifiers` | what happens |
+  |:--|:--|:--|
+  | `nothing` | `nothing` | `numqueries` ids sampled at random; the queries are those objects |
+  | `nothing` | ids | the queries are `database(index)[ids]` |
+  | objects | `nothing` | external, unless they are a `SubDatabase` of this index's own database |
+  | objects | ids | taken on trust: these objects *are* those ids, and are masked as internal |
+
+  The last row is what a quantized index needs. `database(index)` holds codes, so raw tuning
+  objects cannot be named by position in it; handing over the pair is the only way to tune with
+  raw queries that the index still knows to mask. It is what an `AsymmetricSearchGraph` has to
+  do, since tuning it with external queries measures a different problem and tuning it with its
+  own stored codes measures the symmetric one.
+
+  Note on folding: a held-out set of ids is fixed in name but not in effect. With a `neardup`
+  radius the mask takes each query's whole cluster, and a query whose cluster swallows its gold
+  is dropped (see the empty-gold handling below), so the same list yields fewer usable queries
+  on a heavily duplicated collection than on a clean one.
 - `ksearch`: the number of neighbors to retrieve for `queries` (k-NN workloads only; ignored when `radius` is given)
 - `radius`: tune for radius-bounded (epsilon-ball) queries of this radius instead of k-NN queries.
   The gold standard becomes each query's true ball -- of whatever size, empty included -- and
@@ -466,7 +493,13 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
   `BeamSearch`, so the result also governs later k-NN searches on the index.
 - `kmin`: navigation reserve used while tuning (see [`BallKnn`](@ref)); pass the value the radius
   searches themselves will use, since a configuration is only tuned relative to it
-- `numqueries`: if `queries===nothing` then a sample of the already indexed database is used, `numqueries` is the size of the sample.
+- `numqueries`: how many queries one optimization uses, whatever the source -- a sample of the
+  already indexed database when none is given, or a draw from the pool when `queries` or
+  `queries_identifiers` name one. A pool smaller than this is used whole, and
+  `numqueries=length(queries)` is how a given set is used whole on purpose. Drawing rather than
+  using everything matters because this also runs from a construction callback, once every so
+  many insertions: the whole pool each time would cost its size times the number of callbacks,
+  and identifiers the pool names may not be inserted yet, which are dropped for that call.
 - `rng`: random number generator used to draw the sample of queries when `queries===nothing`.
 - `initialpopulation`: the initial sample for the optimization procedure
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
@@ -493,6 +526,7 @@ function optimize_index!(
     kind::ErrorFunction=MinRecall(0.9);
     space::AbstractSolutionSpace=optimization_space(index),
     queries=nothing,
+    queries_identifiers=nothing,
     ksearch=10,
     radius=nothing,
     kmin::Int=8,
@@ -508,17 +542,58 @@ function optimize_index!(
 )
 
     db = database(index)
-    if queries === nothing
+    # `queries` says what to search with, `queries_identifiers` says where those objects live
+    # inside the index -- which is what makes them internal, and so what gets masked. The two
+    # are independent because for a quantized index they have to be: `database(index)` holds
+    # codes, so raw tuning objects cannot be named by position in it, and the pair (raw
+    # vectors, their ids) is the only way to say "these are internal, and here they are".
+    qids = queries_identifiers === nothing ? nothing : UInt32.(queries_identifiers)
+    if queries !== nothing && qids !== nothing && length(queries) != length(qids)
+        throw(ArgumentError("optimize_index!: $(length(queries)) queries against $(length(qids)) queries_identifiers; they are the same objects named two ways and must match one to one"))
+    end
+
+    # The inference this replaces -- a SubDatabase over the index's own database counting as
+    # internal by itself -- is gone, and this is the one shape where it used to fire. Silently
+    # dropping the masking there would tune against a query that is its own vertex, which is
+    # the bias the masking exists to prevent, so it is said rather than inferred.
+    if qids === nothing && queries isa SubDatabase && queries.parent === db
+        @warn "optimize_index!: the queries are a view of this index's own database but arrive without queries_identifiers, so they count as external and are not masked -- a query that is its own vertex reads its own adjacency at distance 0. Pass queries_identifiers (its `map`) to declare them internal."
+    end
+
+    # A held-out pool is named once and drawn from on every call, because this runs from a
+    # construction callback as well: the index grows under it, so an identifier the pool names
+    # may not be inserted yet, and using the whole pool each time would cost its size times the
+    # number of callbacks. What `numqueries` means is therefore how many queries one
+    # optimization uses, whatever the source -- the pool when there is one, the index itself
+    # when there is not. Passing `numqueries=length(queries)` uses a given set whole.
+    if qids !== nothing
+        live = findall(id -> id <= length(index), qids)
+        if length(live) < length(qids)
+            verbose(ctx) && @inform ctx "$(length(qids) - length(live)) of $(length(qids)) pool identifiers are not inserted yet"
+            qids = qids[live]
+            queries === nothing || (queries = SubDatabase(queries, live))
+        end
+        isempty(qids) && (qids = nothing; queries = nothing)   # nothing of it exists yet
+    end
+
+    if queries === nothing && qids === nothing
         verbose(ctx) && @inform ctx "using $numqueries random queries from the dataset"
-        sample = rand(rng, 1:length(index), numqueries) |> unique
-        queries = SubDatabase(db, sample)
+        qids = unique(rand(rng, UInt32(1):UInt32(length(index)), numqueries))
+        queries = SubDatabase(db, qids)
     else
-        verbose(ctx) && @inform ctx "using $(length(queries)) given as hyperparameter"
+        pool = queries === nothing ? length(qids) : length(queries)
+        if pool > numqueries
+            pick = unique(rand(rng, 1:pool, numqueries))
+            qids === nothing || (qids = qids[pick])
+            queries === nothing || (queries = SubDatabase(queries, pick))
+        end
+        queries === nothing && (queries = SubDatabase(db, qids))
+        verbose(ctx) && @inform ctx "using $(length(queries)) of a pool of $pool" * (qids === nothing ? " (external)" : ", declared internal by their identifiers")
     end
 
     # one list per query of what it must not be answered with, read by the gold and by the
     # search alike (see `tuningmask`); empty throughout for external queries
-    qmask = tuningmask(index, queries)
+    qmask = tuningmask(index, queries, qids)
 
     gold = nothing
     golddists = nothing

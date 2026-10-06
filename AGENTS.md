@@ -479,3 +479,27 @@ Key facts an agent must know before editing anything here:
 Recent history favors concise, single-focus commits explaining *why* a change was made,
 not a line-by-line what — see `git log --oneline` for the house style. Don't commit or
 push unless explicitly asked to.
+
+## Writing the documentation
+
+The tutorial pages are read mostly by people whose first language is not English. Write for
+them. This is about the prose only; code examples stay as they are.
+
+- **Short sentences.** One idea each. Split anything past about 25 words. A sentence with two
+  subordinate clauses is two sentences.
+- **No idioms and no analogies.** Write what the thing does. "under the hood", "out of the
+  box", "rule of thumb", "sweet spot", "pays off", "for free", "think of it as" and the like
+  have no place here: a reader translating word by word gets nothing from them, and a reader
+  who knows the idiom learns nothing either.
+- **No contractions.** "does not", not "doesn't".
+- **Few parenthetical asides.** An em-dash aside is a sentence the reader must hold open while
+  reading another. Prefer a second sentence, or a list.
+- **Define a term before using it**, and then use the same word for it every time. Do not
+  alternate between synonyms for the same concept.
+- **Name the subject.** Prefer "the optimizer masks the query" over "the query is masked".
+- **State the measurement, not the impression.** "recall fell from 0.90 to 0.69 on two SISAP
+  2025 benchmarks", not "recall dropped a lot".
+
+Two numbers worth checking after an edit: sentences over 30 words, and em-dashes. Both were
+counted across `docs/src/tutorial/` while this rule was written, and both should go down, not
+up.

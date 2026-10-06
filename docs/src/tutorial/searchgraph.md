@@ -151,21 +151,20 @@ Hyperparameter tuning via [`optimize_index!`](@ref) adjusts the beam parameters 
 
 ## Near duplicates: one node per cluster, two stages per query
 
-Real collections repeat themselves. On the SISAP 2025 `ccnews` embeddings 27% of the
-603,664 points are exact duplicates of another point, in 45,833 clusters, 1,816 of them with
-ten or more copies and the largest with 1,555. A graph that gives every copy its own node
-pays for it twice: the SAT filter cannot tell twins apart, so the copies of a point keep
-each other and grow into a clique that a search walks through member by member, and the
-queries that land on such a point reach recall 0.72-0.75 while the rest of the queries
-reach 0.86-0.96.
+Real collections repeat themselves. On the SISAP 2025 `ccnews` embeddings, 27% of the
+603,664 points are exact duplicates of another point. They form 45,833 clusters. Of those,
+1,816 hold ten or more copies, and the largest holds 1,555. A graph that gives every copy its own node pays for it
+twice. The SAT filter cannot distinguish twins, so the copies of a point keep each other as
+neighbors and form a clique. A search then traverses that clique member by member. Queries that
+land on such a point reach a recall of 0.72 to 0.75. The other queries reach 0.86 to 0.96.
 
 `Neighborhood(neardup=ϵ)` folds them. An object whose nearest indexed object lies within `ϵ`
-becomes a **member** of that object's cluster instead of a node: its adjacency is the single
-edge to the representative, nothing links to it, and the search never visits it. The first
+becomes a **member** of that object's cluster instead of a node. Its adjacency list holds one
+edge, to the representative. Nothing links to it, and the search never visits it. The first
 stage of a query therefore answers with representatives, at most one per cluster, in the
 same `(ids, dists)` matrices or queue as always; the second stage, [`expand`](@ref) or
 [`expand!`](@ref), gives the raw neighbors back, each member with its own distance to the
-query, evaluated by the index's distance -- with `ϵ > 0` the members of a cluster are not
+query, evaluated by the index's distance. With `ϵ > 0` the members of a cluster are not
 at the same distance, and that is the point of evaluating them.
 
 ```julia
@@ -187,39 +186,40 @@ expand!(G, queries, knns, dists)                       # every column, in parall
 macrorecall(gold, knns)                                # against an exhaustive gold, which holds the duplicates
 ```
 
-Both stages are regular results, so anything that takes a queue or the matrices keeps
-working, and `expand!` respects the result's own rule: a `KnnSorted` keeps its `k` nearest,
-a `RadiusSorted` what falls within its radius. `optimize_index!` expands before scoring and
-masks the whole cluster of an internal query, not only its id, since a member query's
-representative sits at distance 0 and is the same trivial route. `rebuild` keeps the
+Both stages produce regular results, so anything that accepts a queue or the matrices continues
+to work. `expand!` respects the rule of the result it is given: a `KnnSorted` keeps its `k`
+nearest, and a `RadiusSorted` keeps what falls within its radius. `optimize_index!` expands before scoring. It masks the whole cluster of an internal query, not
+only its identifier, because the representative of a member query sits at distance 0 and is the
+same trivial route. `rebuild` keeps the
 members, resolving them again from scratch.
 
-`neardup` is off by default (`typemin(Float32)`): a graph over data without repeats loses
-nothing by it, and a graph over data with repeats gains the clusters, fewer edges and a
-faster build (ccnews: 30% fewer edges, the build 37% faster, recall up on every query and
-most on the duplicated ones). Pick `ϵ` on the scale of your distance: `0f0` folds exact
+`neardup` is off by default, at `typemin(Float32)`. A graph over data without repeats loses
+nothing when it is enabled. A graph over data with repeats gains the clusters, fewer edges and a
+faster build. On `ccnews` that is 30% fewer edges, a build 37% faster, and recall up on every
+query, most of all on the duplicated ones. Pick `ϵ` on the scale of your distance: `0f0` folds exact
 copies only; a small positive value folds near copies, which the expansion then tells apart
 by their evaluated distances.
 
 `0f0` is not taken literally, and it cannot be: two bit-identical vectors usually do not
-evaluate to `0f0`. Measured on `ccnews` and `yahooaq` under `CastF32.NormCosine`, half of the
-bit-identical pairs land on exactly `0f0`, a sixth come out *negative*, and the rest sit a few
-ulps above it, never more than six. Since the test is `d <= ϵ`, a literal radius of zero folds
-the first two groups and leaves the positive third as nodes -- about a third of the exact
-duplicates missed. So a non-negative `ϵ` is raised to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO)
-(`1f-5`), an order of magnitude above that arithmetic noise and three to four orders below any
-real distance on such data (the median neighborhood spread there is 0.08-0.10). Integer code
+evaluate to `0f0`. Measured on `ccnews` and `yahooaq` under `CastF32.NormCosine`: half of the bit-identical pairs
+land on exactly `0f0`. A sixth come out *negative*. The rest sit a few ulps above zero, and
+never more than six. The test is `d <= ϵ`. A literal radius of zero therefore folds the first two groups and leaves
+the positive third as nodes. About a third of the exact duplicates are missed. A non-negative `ϵ` is therefore raised to
+[`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), which is `1f-5`. That
+value is an order of magnitude above the arithmetic noise. It is three to four orders of
+magnitude below any real distance on such data, where the median neighborhood spread is 0.08 to
+0.10. Integer code
 distances need none of this: identical codes give exactly `0f0`.
 
-The default is left exactly as it is, and that matters more than it looks: raising `typemin`
-to the floor would turn a mechanism that never fires into one that fires on every single-entry
-neighborhood of a graph whose distances run at or below zero.
+The default is left exactly as it is, and that detail is important. Raising `typemin` to the
+floor would turn a mechanism that never fires into one that fires on every single-entry
+neighborhood, in a graph whose distances run at or below zero.
 
-A negative `ϵ` is rejected. The distances that evaluate below zero are the ones wrapped to
-search for *farthest* objects -- `Dist.Hacks.NegativeDistanceHack`, range `(-Inf, 0]`, and
-`SimilarityFromDistance`, range `(0, 1]` -- and under either of them identical objects land at
-the end of the range that means farthest, so folding near duplicates would fold what by
-construction never resembles anything. In such a graph `neardup` does not apply at any
+A negative `ϵ` is rejected. The distances that evaluate below zero are the ones used to search for *farthest* objects. There
+are two of them: `Dist.Hacks.NegativeDistanceHack`, with range `(-Inf, 0]`, and
+`SimilarityFromDistance`, with range `(0, 1]`. Under either of them, identical objects land at
+the end of the range that means farthest. Folding near duplicates there would fold objects that
+never resemble each other. In such a graph `neardup` does not apply at any
 threshold; leave it at its default.
 
 ---

@@ -151,24 +151,6 @@ search(g::AsymmetricSearchGraph, ctx::SearchGraphContext, q, res::AbstractMetric
     search(g.graph, ctx, encodequery(distance(g), q), res)
 
 """
-    rawqueries(dist::PreMetric, ctx::SearchGraphContext, items::AbstractDatabase) -> SearchGraphContext
-
-The context an asymmetric insertion runs its callbacks with: the same one, except that an
-[`OptimizeParameters`](@ref) callback left to sample its own queries samples them from the raw
-`items` being inserted, prepared by `encodequery`, rather than from the stored codes, which
-is not what the distance takes on the query side. A callback given explicit `queries` keeps
-them.
-"""
-function rawqueries(dist::PreMetric, ctx::SearchGraphContext, items::AbstractDatabase)
-    cb = ctx.hyperparameters_callback
-    (cb isa OptimizeParameters && cb.queries === nothing && length(items) > 0) || return ctx
-    sample = VectorDatabase([encodequery(dist, x) for x in rand(items, min(Int(cb.numqueries), length(items)))])
-    cb2 = OptimizeParameters(cb.kind, cb.initialpopulation, cb.maxiters, cb.bsize, cb.mutbsize, cb.crossbsize,
-                             cb.maxpopulation, cb.ksearch, sample, cb.numqueries, cb.space)
-    @set ctx.hyperparameters_callback = cb2
-end
-
-"""
     append_items!(g::AsymmetricSearchGraph, ctx::SearchGraphContext, items::AbstractDatabase)
 
 Appends the raw `items`: each is stored as `encode(distance(g), item)`, and then indexed with
@@ -183,7 +165,10 @@ function append_items!(g::AsymmetricSearchGraph, ctx::SearchGraphContext, items:
         push_item!(db, encode(dist, item))
     end
 
-    _index!(g.graph, rawqueries(dist, ctx, items), InsertionSource(dist, db, items, offset))
+    # the pool must carry prepared raw objects: `db` holds codes, which is not what the
+    # distance takes on the query side (see `tuningpool`)
+    ctx = tuningpool(ctx, offset + 1, offset + length(items), k -> encodequery(dist, items[k - offset]))
+    _index!(g.graph, ctx, InsertionSource(dist, db, items, offset))
     g
 end
 

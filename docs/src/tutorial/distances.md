@@ -160,22 +160,22 @@ evaluate(Dist.Seqs.Levenshtein(), "form", "from")        # 2.0 -- two substituti
 evaluate(Dist.Seqs.DamerauLevenshtein(), "form", "from")  # 1.0 -- one transposition
 ```
 
-This is the restricted (Optimal String Alignment) variant, so it is a `SemiMetric` rather
-than a `Metric`: it does not satisfy the triangle inequality, and should not be paired with
-indexes that rely on it (e.g. pivot-based pruning).
+This is the restricted variant, also called Optimal String Alignment. It is a `SemiMetric` and
+not a `Metric`, because it does not satisfy the triangle inequality. Do not pair it with indexes
+that rely on that inequality, such as pivot-based pruning.
 
-`Levenshtein` and `DamerauLevenshtein` (and `LCS`, which wraps `Levenshtein`) accept
-`String`/`SubString` directly, Unicode included, with no need to `collect` into a
-`Vector{Char}` first -- a dedicated method walks each string character-by-character via
-Julia's string-iteration protocol instead of integer-indexing it:
+`Levenshtein` and `DamerauLevenshtein` accept `String` and `SubString` directly, Unicode
+included. `LCS`, which wraps `Levenshtein`, does the same. There is no need to `collect` into a
+`Vector{Char}` first. A dedicated method walks each string character by character, through the
+string-iteration protocol of Julia, instead of indexing it by integer:
 
 ```julia
 evaluate(Dist.Seqs.Levenshtein(), "héllo", "hallo")  # 1.0
 ```
 
-(Passing a general array input, e.g. `Vector{Int32}` as in the factorization example
-above, still uses the plain integer-indexing method; that one requires `a[i]` to be O(1)
-and character-aligned, which a raw `String` is not for non-ASCII text.)
+A general array input still uses the plain integer-indexing method. `Vector{Int32}`, as in the
+factorization example above, is such an input. That method requires `a[i]` to be O(1) and
+character-aligned. A raw `String` is neither, for non-ASCII text.
 
 ---
 

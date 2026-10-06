@@ -18,10 +18,9 @@ two relate in practice, and when to reach for each.
 ## The problem `MaxMatchError` addresses
 
 `MinRecall`/[`macrorecall`](@ref) treat every returned neighbor as either a hit (its
-identifier is in the exact result set) or a miss -- there is no partial credit. That is the
-right notion of quality when nearby-but-wrong answers are genuinely bad, but many index
-building blocks introduce *exact ties* in distance, and a "miss" that is tied in distance
-with the true answer is not actually wrong:
+identifier is in the exact result set) or a miss. There is no partial credit. That is the right notion of quality when a nearby but wrong answer is genuinely bad. Many index
+building blocks introduce *exact ties* in distance. A miss that is tied in distance with the true
+answer is not wrong:
 
 ```julia
 using SimilaritySearch, Random, Statistics
@@ -33,14 +32,15 @@ X[:, end-100:end] .= X[:, 1:101]
 db = MatrixDatabase(X)
 ```
 
-If a query's true 3rd- and 4th-nearest neighbors are two duplicate points sitting at the
-*exact same distance*, an index that returns the "wrong" one of the pair in 4th place is
-not making a mistake at all -- but `macrorecall` counts it as a miss regardless. This is
-routine whenever a database has near-duplicate items (real corpora often do), and it's the
-normal case -- not the exception -- for indexes built over a discretized proxy space, such
-as a `Dist.Bits.Hamming`-compared bit sketch (used internally by
-[`index!(idx, ctx, :bitsketch)`](@ref)): comparing `nbits`-bit codes only has `nbits+1`
-possible distance values, so ties among candidates are the norm, not the exception.
+Consider a query whose true third and fourth nearest neighbors are two duplicate points at the
+*exact same distance*. An index that returns the other point of the pair in fourth place makes no
+mistake. `macrorecall` counts it as a miss.
+
+This happens whenever a database contains near-duplicate items, which real corpora often do. It
+is also the normal case for an index built over a discretized proxy space. A bit sketch compared
+with `Dist.Bits.Hamming` is one such space, and
+[`index!(idx, ctx, :bitsketch)`](@ref) uses it internally. Comparing codes of `nbits` bits gives
+only `nbits+1` possible distance values, so ties among candidates are common.
 
 ## How `MaxMatchError` scores a result
 
@@ -54,23 +54,23 @@ deviation_i = maxdeviation                                     for i > r    (a m
 matcherror  = mean(deviation_i ^ exponent  for i in 1:k')
 ```
 
-`spread` is the gold neighborhood's own spread, so a `maxerror` of `0.1` means "on average,
-within 10% of this query's own neighborhood spread beyond where the true answer sits" --
-the same relative threshold is meaningful whether a query's neighbors happen to be tightly
-clustered or spread far apart. `0` is a perfect match. A position never costs more than
-`maxdeviation` (default `1`), which is also what a missing position costs: a returned neighbor
-farther beyond its gold counterpart than a whole spread is as bad as no neighbor at all, and
-the score stays within `[0, maxdeviation ^ exponent]`. That bound is what makes the mean over
-queries usable: on `ccnews`, without it, ten queries whose gold neighbors were all exact
-duplicates at distance `0` made 85% of the mean over 10,500 held-out queries.
+`spread` is the spread of the gold neighborhood itself. A `maxerror` of `0.1` therefore means
+that a returned neighbor is, on average, within 10% of that spread beyond where the true answer
+sits. The threshold is relative, so it keeps the same meaning whether the neighbors of a query
+are tightly clustered or far apart. `0` is a perfect match. A position never costs more than `maxdeviation`, whose default is `1`. A missing position costs
+the same amount. A returned neighbor that is farther than one whole spread beyond its gold
+counterpart therefore counts as no neighbor at all, and the score stays within
+`[0, maxdeviation ^ exponent]`. That bound is what makes the mean over queries usable. On `ccnews`, without it, ten queries whose
+gold neighbors were all exact duplicates at distance `0` produced 85% of the mean over 10,500
+held-out queries.
 
-`spreadfloor` exists for the degenerate case described above: if a query's gold neighbors
-are *all* tied (`d*_{k'} == d*_1`), the true spread is `0`, and without a real floor `spread`
-would collapse to `≈eps(Float32)` -- inflating an ordinary, non-buggy distance difference by
-a factor of `10^6`-`10^7`. `spreadfloor` (default `1f-2`) restores a sane floor. **Pick it
-relative to your distance's own typical scale**: the default suits a `[0, 2]`-ranged
-cosine-family distance, but `Dist.Bits.Hamming` over `nbits`-bit codes wants something
-closer to `1f0` (one bit) -- see [`MaxMatchError`](@ref)'s docstring for the full detail.
+`spreadfloor` exists for the degenerate case described above. If the gold neighbors of a query
+are *all* tied (`d*_{k'} == d*_1`), the true spread is `0`. Without a real floor, `spread` would
+collapse to about `eps(Float32)`. An ordinary distance difference would then be multiplied by a
+factor of `10^6` to `10^7`. `spreadfloor` (default `1f-2`) restores a sane floor. **Choose it relative to the typical scale of your distance.** The default suits a cosine-family
+distance with a range of `[0, 2]`. `Dist.Bits.Hamming` over codes of `nbits` bits needs a value
+closer to `1f0`, which is one bit. The docstring of [`MaxMatchError`](@ref) gives the full
+detail.
 
 ```julia
 optimize_index!(G, ctx, MaxMatchError(; maxerror=0.05f0, spreadfloor=1f-2))
@@ -78,7 +78,7 @@ optimize_index!(G, ctx, MaxMatchError(; maxerror=0.05f0, spreadfloor=1f-2))
 
 ## Finding a `maxerror` with roughly the same bar as a `MinRecall` target
 
-`maxerror` isn't a percentage the way `minrecall` is, so it isn't obvious up front what
+`maxerror` is not a percentage, and `minrecall` is one, so it is not obvious in advance what
 value corresponds to "about as good as `MinRecall(0.9)`" on *your* data/distance. The
 practical way to find out is to tune once with `MinRecall`, measure the MatchError that
 configuration actually achieves, and use that as your `MaxMatchError` target:
@@ -107,11 +107,11 @@ achieved = mean(SimilaritySearch.matcherror(view(gold_dists, :, i), knns[i], 1f0
 # on this dataset/distance.
 ```
 
-A freshly built index tuned with `MaxMatchError(; maxerror=achieved)` will typically build
-*faster* (see below) than the `MinRecall`-tuned one it was calibrated against, but its
-resulting recall won't be identical -- `MinRecall` and `MaxMatchError` are two different,
-only loosely related objectives, so always re-check both `macrorecall` and mean
-`matcherror` after tuning rather than assuming the calibration transfers exactly.
+A new index tuned with `MaxMatchError(; maxerror=achieved)` usually builds *faster* than the
+`MinRecall`-tuned index it was calibrated against. The section below shows this. Its recall will
+not be identical, because `MinRecall` and `MaxMatchError` are two different objectives and are
+only loosely related. Measure both `macrorecall` and the mean `matcherror` after tuning. Do not
+assume that the calibration transfers exactly.
 
 ## What actually differs in practice
 
@@ -125,15 +125,18 @@ only loosely related objectives, so always re-check both `macrorecall` and mean
 
 In repeated measurement against real, ~600k-row text embeddings (the investigation behind
 [`index!(idx, ctx, :bitsketch)`](@ref)'s default `kind=MaxMatchError(; maxerror=0.01f0)`),
-`MaxMatchError`-tuned construction consistently built *faster* and *far more
-run-to-run-consistent* than an equivalent `MinRecall` target, while matching or exceeding
-its resulting recall -- but that pattern didn't hold universally: tuning a **poorly
-connected** raw topology (a `:knr` graph before its `rebuild` refinement pass) with
-`MaxMatchError` performed *worse*, and with unusually high run-to-run variance, compared to
-`MinRecall` on the very same graph. `MaxMatchError`'s continuous, distance-based landscape
-seems to reward an already reasonably well-connected topology more reliably than
-`MinRecall`'s simpler set-based one does; on a badly-connected graph, prefer `MinRecall`, or
-fix the connectivity first (e.g. via [`rebuild`](@ref)).
+Construction tuned with `MaxMatchError` built *faster* than construction tuned with an
+equivalent `MinRecall` target, and it varied much less from one run to the next. Its recall
+matched or exceeded the recall of the `MinRecall` target.
+
+That pattern does not hold everywhere. On a **poorly connected** raw topology, a `:knr` graph
+before its `rebuild` refinement pass, `MaxMatchError` performed *worse* than `MinRecall` on the
+same graph, and with unusually high variance between runs.
+
+The continuous, distance-based landscape of `MaxMatchError` appears to reward a topology that is
+already reasonably well connected. The simpler set-based landscape of `MinRecall` depends on it
+less. On a badly connected graph, use `MinRecall`, or repair the connectivity first with
+[`rebuild`](@ref).
 
 ---
 
@@ -144,10 +147,9 @@ the mean over the queries of [`recallscore`](@ref), and [`macromatcherror`](@ref
 [`matcherror`](@ref); `matcherror(g, r, err::MaxMatchError)` takes `exponent`, `maxdeviation` and `spreadfloor`
 from the goal, so a score computed by hand is exactly the one `optimize_index!` saw.
 
-A macro score is one number, and two indexes at 0.91 and 0.92 may or may not differ. The
-sample of queries is what it depends on, so [`bootstrapscore`](@ref) resamples the queries
-with replacement over the per-query scores ([`perqueryscores`](@ref), computed once) and
-returns the mean with its standard deviation and a percentile interval:
+A macro score is one number, and two indexes at 0.91 and 0.92 may or may not differ. The value depends on the sample of queries. [`bootstrapscore`](@ref) therefore resamples the
+queries with replacement, over the per-query scores that [`perqueryscores`](@ref) computes once.
+It returns the mean, its standard deviation, and a percentile interval:
 
 ```julia
 goldI, goldD = searchbatch(ExhaustiveSearch(dist, db), GenericContext(), queries, k)
@@ -159,9 +161,9 @@ knns = [search(G, ctx, queries[i], knnqueue(KnnSorted, k)) for i in eachindex(qu
 bootstrapscore((g, r) -> matcherror(g, r, MaxMatchError()), goldD, knns)
 ```
 
-Two indexes on the **same** queries are compared paired, by bootstrapping the per-query
-differences, so every draw takes the same queries from both; an interval that excludes zero
-is the evidence that they differ at that level:
+Two indexes measured on the **same** queries are compared in pairs. The bootstrap resamples the
+per-query differences, so every draw takes the same queries from both indexes. An interval that
+excludes zero is the evidence that the two indexes differ at that level:
 
 ```julia
 a = perqueryscores(recallscore, goldI, resA)
