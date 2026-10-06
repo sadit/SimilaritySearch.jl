@@ -202,7 +202,7 @@ end
     centroid(cluster::AbstractVector{<:SparseVectorLike})
 
 Centroid (normalized sum) of a cluster of `SparseVector`s. See
-[`sum(::AbstractVector{<:SparseVectorLike})`](@ref sum) for the algorithm.
+`sum(::AbstractVector{<:SparseVectorLike})` for the algorithm.
 """
 centroid(cluster::AbstractVector{<:SparseVectorLike}) = normalize!(sum(cluster))
 
