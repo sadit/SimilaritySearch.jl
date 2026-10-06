@@ -25,7 +25,7 @@ return worse results. Going through `SketchedSearch` makes them unrepresentable.
 quantization range (and, for the hyperplane models, its anchors) are fitted on exactly the
 data given here, so growing the collection means rebuilding it rather than pushing into it.
 
-Because it is an `AbstractSearchIndex`, [`search`](@ref)/[`searchbatch`](@ref) work on it
+Because it is an `AbstractSearchIndex`, [`search`](@ref)/[`searchbatch`](@ref SimilaritySearch.searchbatch) work on it
 unchanged, and the ids and distances it returns are ids into `db` and true `dist` values,
 so it is a drop-in replacement for an exact index -- swapping one in is the whole
 experiment. `factor` is the knob that trades recall for time: the sketch stage is fast but

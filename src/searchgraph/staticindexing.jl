@@ -263,8 +263,8 @@ to reach a competitive recall/QpS trade-off against an equal-effort incremental 
     coordinate vectors and keep the sign of each resulting coordinate, which is only
     meaningful when the objects actually *are* vectors in a Euclidean-ish space. A metric
     space without a vector representation (edit distance over strings, an arbitrary user type
-    compared through a custom [`SemiMetric`](@ref), ...) cannot use `:gaussian`/`:qr`; use
-    `method=:adh` instead -- [`AnchoredDistantHyperplanes`](@ref) only needs `dist`/`evaluate`,
+    compared through a custom `SemiMetric`, ...) cannot use `:gaussian`/`:qr`; use
+    `method=:adh` instead -- [`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes) only needs `dist`/`evaluate`,
     no vector coordinates, at the cost of a slower sketch-construction pass (it samples and
     characterizes candidate hyperplanes against `distance(idx)` up front, rather than a single
     matrix rotation).
@@ -292,7 +292,7 @@ reliably improve on the plain sketch-built topology (see issue #52).
 
 # Keyword Arguments
 - `method`: the bit-sketch generator: `:gaussian` (default), `:qr`, `:adh`
-  ([`AnchoredDistantHyperplanes`](@ref), built with its own defaults -- construct one
+  ([`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes), built with its own defaults -- construct one
   directly first if it needs tuning), or `:external` (use a sketch computed outside this
   package -- e.g. another binarization method entirely -- passed via `sketch`) -- see
   [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning above.

@@ -10,7 +10,7 @@ export expand, expand!
     expand(G, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
 
 Iterates the result `res` of a search for `q` -- a queue, or the `(ids, dists)` pair of one
-column of [`searchbatch`](@ref)'s matrices -- giving each item back followed by the members
+column of [`searchbatch`](@ref SimilaritySearch.searchbatch)'s matrices -- giving each item back followed by the members
 of its cluster (see [`Members`](@ref)), each member with its distance to `q` evaluated by
 the index's distance. Nothing is modified and nothing is trimmed: a result of `k`
 representatives yields `k` items plus every member they have. For a result cut back to `k`
@@ -58,7 +58,7 @@ end
 In place: pushes the members of every cluster in the result into it, each with its distance
 to the query evaluated by the index's distance, and lets the result's own rule trim -- a
 k-nn queue keeps its `k` nearest, a radius queue what falls within its radius, a column of
-[`searchbatch`](@ref)'s matrices its `k` rows. The first stage, [`search`](@ref), answered
+[`searchbatch`](@ref SimilaritySearch.searchbatch)'s matrices its `k` rows. The first stage, [`search`](@ref), answered
 with one representative per cluster; after this the result holds raw neighbors, duplicates
 included, which is what [`macrorecall`](@ref) against an exhaustive gold expects. The matrix
 form runs the columns in parallel. An index without members returns the result untouched.

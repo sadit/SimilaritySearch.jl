@@ -12,7 +12,7 @@
 
 Wraps a matrix-like object `matrix` into a `MatrixDatabase`, i.e., each column of `matrix` is taken as one
 object of the database. It is a static, fixed-size database (no `push_item!`/`append_items!` support);
-use [`BlockMatrixDatabase`](@ref) or [`VectorDatabase`](@ref) when incremental growth is needed.
+use [`BlockMatrixDatabase`](@ref) or [`VectorDatabase`](@ref SimilaritySearch.VectorDatabase) when incremental growth is needed.
 Please see [`AbstractDatabase`](@ref) for general usage.
 
 # Examples
@@ -45,7 +45,7 @@ end
     push_item!(db::MatrixDatabase, v)
 
 Not supported; `MatrixDatabase` is a fixed-size wrapper over a matrix. Use [`BlockMatrixDatabase`](@ref)
-or [`VectorDatabase`](@ref) instead if you need to grow the database.
+or [`VectorDatabase`](@ref SimilaritySearch.VectorDatabase) instead if you need to grow the database.
 """
 @inline push_item!(db::MatrixDatabase, v) = error("push! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 
@@ -53,7 +53,7 @@ or [`VectorDatabase`](@ref) instead if you need to grow the database.
     append_items!(a::MatrixDatabase, b)
 
 Not supported; `MatrixDatabase` is a fixed-size wrapper over a matrix. Use [`BlockMatrixDatabase`](@ref)
-or [`VectorDatabase`](@ref) instead if you need to grow the database.
+or [`VectorDatabase`](@ref SimilaritySearch.VectorDatabase) instead if you need to grow the database.
 """
 @inline append_items!(a::MatrixDatabase, b) = error("append! is not supported for MatrixDatabase, please see DynamicMatrixDatabase")
 @inline Base.length(db::MatrixDatabase) = size(db.matrix, 2)

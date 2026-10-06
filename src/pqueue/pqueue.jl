@@ -52,7 +52,7 @@ Abstract base type for radius-bounded result containers ([`RadiusSorted`](@ref) 
 [`RadiusHeap`](@ref)): accept an `(id, dist)` pair iff `dist <= radius`, growing without any
 count limit (backed by plain growable `Vector`s, never a fixed-size or view-backed buffer).
 Unlike [`AbstractKnnQueue`](@ref), [`maxlength`](@ref) always returns `typemax(Int32)` and
-[`maximum`](@ref)/[`covradius`](@ref) always return the fixed `radius`, since the covering
+`maximum`/[`covradius`](@ref) always return the fixed `radius`, since the covering
 radius is known in advance rather than discovered as the queue fills up. Construct one
 directly (e.g. `RadiusSorted(radius)`); they are not wired into the `knnqueue(T, k::Int)`
 capacity-based constructor since "k" has no meaning here.

@@ -269,16 +269,16 @@ $x$ is encoded by the side of that hyperplane it falls on:
 
 $$b = \begin{cases} 1 & \text{if } d(x, i) \le d(x, j) \\ 0 & \text{otherwise} \end{cases}$$
 
-- **[`DistantHyperplanes`](@ref Projections.DistantHyperplanes)** samples many candidate anchor
+- **[`DistantHyperplanes`](@ref SimilaritySearch.Projections.DistantHyperplanes)** samples many candidate anchor
   pairs and discards the uninformative ones, which are those with low entropy over a data sample.
   It then keeps a mutually diverse subset with [`fft`](@ref). Diversity is measured under a
   flip-invariant Hamming distance, because swapping the two anchors of a pair describes the same
   hyperplane.
-- **[`AnchoredDistantHyperplanes`](@ref Projections.AnchoredDistantHyperplanes)** follows the same
+- **[`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes)** follows the same
   idea. It orients every candidate pair by the distance to a reference `anchor` object, so plain
   Hamming distance is enough during selection. The anchor is given explicitly or chosen
   automatically by an `anchorpolicy`.
-- **[`RandomHyperplanes`](@ref Projections.RandomHyperplanes)** performs no search. The caller
+- **[`RandomHyperplanes`](@ref SimilaritySearch.Projections.RandomHyperplanes)** performs no search. The caller
   supplies the anchor pairs directly, for example a plain random sample. The fit is much cheaper
   and the sketch quality is lower.
 

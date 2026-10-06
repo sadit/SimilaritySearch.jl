@@ -66,7 +66,7 @@ alone cannot resolve, and the symmetric one otherwise.
 
 # Interface
 [`append_items!`](@ref)`(g, ctx, items)` and [`push_item!`](@ref)`(g, ctx, item)` take raw
-objects; [`search`](@ref)/[`searchbatch`](@ref) take raw queries;
+objects; [`search`](@ref)/[`searchbatch`](@ref SimilaritySearch.searchbatch) take raw queries;
 [`optimize_index!`](@ref)`(g, ctx, kind; queries)` requires raw `queries`, since the index
 holds no raw object to sample from. `index!(g, ctx)` and `rebuild` only have the stored form
 to work with and are not available: they are the symmetric operations, use a `SearchGraph`

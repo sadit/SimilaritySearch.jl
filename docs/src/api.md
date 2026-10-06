@@ -22,6 +22,9 @@ SimilaritySearch.rotationdim
 BKT
 PermutedSearchIndex
 distance
+AbstractSearchIndex
+InsertionSource
+SpatialAccessTree.Sat
 ```
 
 ## Searching
@@ -94,7 +97,7 @@ BootstrapScore
 ## Parallel batching (`@BATCHES`)
 The primitive every batch operation above (`searchbatch`, `allknn`, `closestpair`,
 `neardup`, `index!`, the k-centers algorithms, ...) is built on; see the
-[parallelism tutorial](@ref "Parallelism: what to expect, what not to do") for a guided
+[parallelism tutorial](@ref "Parallelism and Multithreading") for a guided
 introduction, including the `:sequential` scheduler and how contexts carry their own
 `scheduler`.
 ```@docs
@@ -108,6 +111,9 @@ introduction, including the `:sequential` scheduler and how contexts carry their
 @nbatches
 set_batch_scheduler!
 get_batch_scheduler
+beginbatch
+distance_evaluations
+distance_stats
 ```
 
 ## Indexing elements
@@ -122,7 +128,7 @@ rebuild
 A context carries two logging slots: `ctx.reporters`, where progress messages go to be
 read, and `ctx.observers`, what reacts to a structural change so that something durable
 happens. `reporters=[]` silences a context completely without disturbing observation. See
-the [logging tutorial](@ref "Reporting, observing, and capturing neighbors as they're built")
+the [logging tutorial](@ref "Logging and Observation Channels")
 for worked examples of both.
 ```@docs
 AbstractLog
@@ -217,6 +223,7 @@ optimize_index!
 MinRecall
 MaxMatchError
 SimilaritySearch.goalvalue
+ErrorFunction
 ```
 
 ### Neighborhood computation and refinement
@@ -246,6 +253,7 @@ ismember
 expand
 expand!
 SimilaritySearch.NEARDUP_NUMERICAL_ZERO
+addmember!
 ```
 
 ### Hints (entry points for approximate search)
@@ -273,6 +281,7 @@ BlockMatrixDatabase
 MMapMatrixDatabase
 VectorDatabase
 SubDatabase
+database
 ```
 
 ## Adjacency list API
@@ -326,6 +335,7 @@ IdView
 DistView
 IdDistView
 knn_matrices
+PQueue.heapify!
 ```
 
 ## Scalar quantization (`ScalarQuant` submodule)
@@ -339,6 +349,7 @@ ScalarQuant
 ScalarQuant.SQMinC
 ScalarQuant.SQVec
 ScalarQuant.quantvector!
+ScalarQuant.sqdistortion
 ```
 
 ### The quantized database (`QuantDatabase`)
@@ -378,6 +389,9 @@ ScalarQuant.SQu4.SQu4Database
 ScalarQuant.SQu8
 ScalarQuant.SQu8.quantize
 ScalarQuant.SQu8.SQu8Database
+ScalarQuant.SQu2.SQu2Vec
+ScalarQuant.SQu4.SQu4Vec
+ScalarQuant.SQu8.SQu8Vec
 ```
 
 ### Global (database-wide) quantization (`SQgu2`, `SQgu4`, `SQgu8` submodules)
@@ -460,6 +474,8 @@ Projections.indim
 Projections.transform
 Projections.transform!
 Projections.bitsketch
+Projections.packsigns
+Projections.packsigns!
 ```
 
 ## Hadamard projection (`Projections.HadamardProjection`) and the rotations
@@ -557,9 +573,6 @@ A sparse matrix view tailored for distance evaluations, replacing Base's `Sparse
 with an explicit dimension-tracking read-only wrapper `SparseVecView`.
 
 ```@docs
-Special.Sparse
-Special.Sparse.SparseVecView
-Special.Sparse.SparseDatabase
 Special.Sparse.sparsedot
 ```
 
@@ -572,11 +585,13 @@ Inverted file index data structures and context for sparse vectors, MIPS, and se
 InvertedFiles.AbstractInvertedFile
 InvertedFiles.InvertedFile
 InvertedFiles.DictInvertedFile
-InvertedFiles.InvertedFileContext
-InvertedFiles.getcontext
 InvertedFiles.search_invfile
 InvertedFiles.select_posting_lists
-InvertedFiles.SortedIntSet
+InvertedFiles.has_exact_fastpath
+InvertedFiles.identiterator
+InvertedFiles.sort_postinglist!
+InvertedFiles.InvertedFileContext
+InvertedFiles.getcontext
 ```
 
 ## Posting list intersections (`Intersections` submodule)
@@ -584,11 +599,10 @@ InvertedFiles.SortedIntSet
 Algorithms for set and posting list intersections.
 
 ```@docs
-Intersections.svs
 Intersections.bk!
 Intersections.bkt!
 Intersections.umerge!
-Intersections.imerge!
 Intersections.xmerge!
+Intersections.svs
 ```
 

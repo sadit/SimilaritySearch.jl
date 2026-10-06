@@ -27,8 +27,8 @@ An inverted index maps distinct feature components (such as vocabulary terms, se
 
 The search procedure processes candidates according to the specified distance metric:
 
-- **Exact Fast-Path Set Metrics**: For standard set metrics ([`Dist.Sets.Jaccard`](@ref Dist.Sets.Jaccard), [`Dist.Sets.Dice`](@ref Dist.Sets.Dice), [`Dist.Sets.Intersection`](@ref Dist.Sets.Intersection), [`Dist.Sets.CosineSet`](@ref Dist.Sets.CosineSet), and [`Dist.Sets.RogersTanimoto`](@ref Dist.Sets.RogersTanimoto)), the metric distance is computed analytically during the posting list intersection pass.
-- **Direct Candidate Evaluation**: For other metrics (such as [`Dist.NormCosine`](@ref Dist.NormCosine) for sparse vectors or arbitrary user metrics), posting lists identify candidate documents sharing non-zero coordinates, and `search` evaluates the metric directly against the candidate objects stored in `database(idx)`.
+- **Exact Fast-Path Set Metrics**: For standard set metrics ([`Dist.Sets.Jaccard`](@ref SimilaritySearch.Dist.Sets.Jaccard), [`Dist.Sets.Dice`](@ref SimilaritySearch.Dist.Sets.Dice), [`Dist.Sets.Intersection`](@ref SimilaritySearch.Dist.Sets.Intersection), [`Dist.Sets.CosineSet`](@ref SimilaritySearch.Dist.Sets.CosineSet), and [`Dist.Sets.RogersTanimoto`](@ref SimilaritySearch.Dist.Sets.RogersTanimoto)), the metric distance is computed analytically during the posting list intersection pass.
+- **Direct Candidate Evaluation**: For other metrics (such as [`Dist.NormCosine`](@ref SimilaritySearch.Dist.NormCosine) for sparse vectors or arbitrary user metrics), posting lists identify candidate documents sharing non-zero coordinates, and `search` evaluates the metric directly against the candidate objects stored in `database(idx)`.
 
 ---
 
@@ -91,7 +91,7 @@ end
 
 ### Rogers-Tanimoto Ranking
 
-[`Dist.Sets.RogersTanimoto`](@ref Dist.Sets.RogersTanimoto) incorporates mutual absences relative to the total vocabulary size $\sigma$:
+[`Dist.Sets.RogersTanimoto`](@ref SimilaritySearch.Dist.Sets.RogersTanimoto) incorporates mutual absences relative to the total vocabulary size $\sigma$:
 
 ```julia
 IR = InvertedFile(vocsize, Dist.Sets.RogersTanimoto(vocsize))
@@ -142,7 +142,7 @@ end
 
 ## Arbitrary Key Indexing with `DictInvertedFile`
 
-To index native types (such as `String`, tuples, or open vocabulary terms) directly without mapping them to a contiguous integer range, use [`DictInvertedFile`](@ref):
+To index native types (such as `String`, tuples, or open vocabulary terms) directly without mapping them to a contiguous integer range, use [`DictInvertedFile`](@ref SimilaritySearch.InvertedFiles.DictInvertedFile):
 
 ```julia
 recipes = Dict(

@@ -1,15 +1,6 @@
 # This file is part of Intersections.jl
 export svs
 
-"""
-    svs(postinglists, intersect2=baezayates!) -> output
-
-Computes the intersection of the ordered lists in `postinglists` using a
-small vs small strategy. Accepts an intersection algorithm of two sets.
-
-This method does not give explicit support for `onmatch2!`
-
-"""
 function svs_!(curr, prev, postinglists, intersect2::Function=baezayates!)
     sort!(postinglists, by=length, rev=true)
     isize = intersect2(curr, pop!(postinglists), pop!(postinglists))
@@ -26,6 +17,15 @@ function svs_!(curr, prev, postinglists, intersect2::Function=baezayates!)
     curr
 end
 
+"""
+    svs(postinglists, intersect2=baezayates!) -> output
+
+Computes the intersection of the ordered lists in `postinglists` using a
+small vs small strategy. Accepts an intersection algorithm of two sets.
+
+This method does not give explicit support for `onmatch2!`
+
+"""
 function svs(postinglists::Vector{Vector{T}}, intersect2::Function=baezayates!) where T
     curr = T[]
     prev = T[]

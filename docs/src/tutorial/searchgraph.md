@@ -7,7 +7,7 @@ CurrentModule = SimilaritySearch
 [`SearchGraph`](@ref) is an approximate nearest neighbor search index based on a navigable proximity graph. It provides sub-linear query times on continuous metric spaces by traversing an adjacency network of data points.
 
 !!! warning "Requirement for Continuous Metric Spaces"
-    As detailed in [Distance Functions and Metric Spaces](distances.md), graph-based search requires a navigable continuous distance gradient. For discrete metrics (such as Jaccard, Hamming, or edit distances with high tie frequencies), use [`ExhaustiveSearch`](@ref) or [`InvertedFile`](@ref) instead.
+    As detailed in [Distance Functions and Metric Spaces](distances.md), graph-based search requires a navigable continuous distance gradient. For discrete metrics (such as Jaccard, Hamming, or edit distances with high tie frequencies), use [`ExhaustiveSearch`](@ref) or [`InvertedFile`](@ref SimilaritySearch.InvertedFiles.InvertedFile) instead.
 
 ---
 

@@ -1,9 +1,9 @@
 """
     SQgu8
 
-Global (database-wide) 8-bit scalar quantization: [`quantize`](@ref SQgu8.quantize)
+Global (database-wide) 8-bit scalar quantization: [`quantize`](@ref SimilaritySearch.ScalarQuant.SQgu8.quantize)
 maps every coordinate of every vector using a single shared `min`/scale pair, and
-[`SqL2`](@ref SQgu8.SqL2) compares the resulting
+[`SqL2`](@ref SimilaritySearch.ScalarQuant.SQgu8.SqL2) compares the resulting
 codes directly with SIMD. Accessed as `ScalarQuant.SQgu8.quantize`, etc.
 """
 module SQgu8
@@ -18,7 +18,7 @@ using SIMD
     quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes every entry of `X` to 8 bits (`UInt8`) using a single, global pair of
-dequantization parameters shared by all columns, unlike [`SQu8`](@ref ScalarQuant.SQu8)'s `quantize`
+dequantization parameters shared by all columns, unlike [`SQu8`](@ref SimilaritySearch.ScalarQuant.SQu8)'s `quantize`
 which computes an independent `min`/scale per column. This is useful, e.g., when the columns of `X` are
 known to share a comparable value range and a single global range provides enough
 precision while being cheaper to compute and store.
@@ -33,10 +33,10 @@ quantiles of the sample (to be robust to outliers), unless it is provided explic
   `min`/`max` values
 - `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
   (the default) the range is chosen from a random sample of the entries of `X` by
-  [`sqautorange`](@ref ScalarQuant.sqautorange), or by `quant` when that is given
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), or by `quant` when that is given
 - `quant`: a fixed lower/upper quantile pair (of the sampled entries of `X`) to use as the
   range instead of searching for it. `nothing` (the default) runs
-  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), which places each end of the range where it
   minimizes the error the codes would incur -- the optimum moves with the code width, so a
   fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
   pre-search behaviour
@@ -104,7 +104,7 @@ coordinate) instead of a `Matrix{UInt8}`.
   existing quantized dataset.
 - `quant`: a fixed lower/upper quantile pair (of the sampled entries of `v`) to use as the
   range instead of searching for it. `nothing` (the default) runs
-  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), which places each end of the range where it
   minimizes the error the codes would incur -- the optimum moves with the code width, so a
   fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
   pre-search behaviour

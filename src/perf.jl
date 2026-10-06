@@ -200,7 +200,7 @@ The mean of the per-query [`matcherror`](@ref) over the queries: the macro Match
 distance-based counterpart of [`macrorecall`](@ref), and what [`MaxMatchError`](@ref) scores
 a configuration by (the second form takes the parameters from `err`). `golddists` holds each query's exact gold distances in ascending
 order, as a vector with one vector per query or as a `(k, n)` matrix (the second output of
-[`searchbatch`](@ref) over an exact index), and `reslist` the result queues to score, one per
+[`searchbatch`](@ref SimilaritySearch.searchbatch) over an exact index), and `reslist` the result queues to score, one per
 query. `0` is a perfect match, `maxdeviation ^ exponent` the worst.
 
 # Examples

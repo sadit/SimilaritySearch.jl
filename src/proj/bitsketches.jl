@@ -28,7 +28,7 @@ end
 """
     packsigns(y::AbstractVector{<:Real}) -> Vector{UInt64}
 
-Out-of-place version of [`packsigns!`](@ref): packs the sign of each entry of `y` into a
+Out-of-place version of [`packsigns!`](@ref SimilaritySearch.Projections.packsigns!): packs the sign of each entry of `y` into a
 freshly allocated `Vector{UInt64}` of length `cld(length(y), 64)`.
 """
 packsigns(y::AbstractVector{<:Real}) = packsigns!(zeros(UInt64, cld(length(y), 64)), y)

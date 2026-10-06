@@ -24,7 +24,7 @@ end
         cov::Vector{Float32}
     end
 
-Spatial Access Tree data structure. Please see [`Sat`](@ref) constructor for the
+Spatial Access Tree data structure. Please see [`Sat`](@ref SimilaritySearch.SpatialAccessTree.Sat) constructor for the
 high level entry point, and [`index!`](@ref) to build the tree once constructed.
 
 `cov[i]` is always non-negative: for an internal node (`children[i] !== nothing`) it is the

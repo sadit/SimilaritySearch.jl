@@ -1,6 +1,23 @@
 # This file is a part of SimilaritySearch.jl
 
 module SimilaritySearch
+
+"""
+    AbstractSearchIndex
+
+The supertype of every index in this package. An index answers a `k` nearest neighbor query or
+a radius query over a database, under a distance function.
+
+Three functions give access to what an index is made of: [`database`](@ref SimilaritySearch.database) returns the objects
+it indexes, [`distance`](@ref) returns the distance function it uses, and `length` returns how
+many objects it holds. Queries go through [`search`](@ref) for one query and
+[`searchbatch`](@ref SimilaritySearch.searchbatch) for many. Indexes that accept new objects
+implement [`push_item!`](@ref) and [`append_items!`](@ref).
+
+The concrete types are [`ExhaustiveSearch`](@ref), [`ParallelExhaustiveSearch`](@ref),
+[`SearchGraph`](@ref), [`AsymmetricSearchGraph`](@ref) and the inverted files of the
+`InvertedFiles` submodule.
+"""
 abstract type AbstractSearchIndex end
 using Accessors
 
@@ -32,7 +49,7 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
 
 Base type for context objects (e.g. [`GenericContext`](@ref), [`SearchGraphContext`](@ref)):
 per-call configuration, hyperparameters, caches, and a logger, passed alongside an index to
-[`search`](@ref), [`searchbatch`](@ref), [`index!`](@ref), and similar functions.
+[`search`](@ref), [`searchbatch`](@ref SimilaritySearch.searchbatch), [`index!`](@ref), and similar functions.
 """
 abstract type AbstractContext end
 function searchbatch! end

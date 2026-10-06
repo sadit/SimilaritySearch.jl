@@ -1,9 +1,9 @@
 """
     SQgu4
 
-Global (database-wide) 4-bit scalar quantization: [`quantize`](@ref SQgu4.quantize) maps
+Global (database-wide) 4-bit scalar quantization: [`quantize`](@ref SimilaritySearch.ScalarQuant.SQgu4.quantize) maps
 every coordinate of every vector using a single shared `min`/scale pair, packing two
-4-bit codes per `UInt8`, and [`SqL2`](@ref SQgu4.SqL2) compares the resulting codes directly with SIMD. Accessed as
+4-bit codes per `UInt8`, and [`SqL2`](@ref SimilaritySearch.ScalarQuant.SQgu4.SqL2) compares the resulting codes directly with SIMD. Accessed as
 `ScalarQuant.SQgu4.quantize`, etc.
 """
 module SQgu4
@@ -18,12 +18,12 @@ using SIMD
     quantize(X::AbstractMatrix; minmax=nothing, quant=nothing, samplesize=0)
 
 Scalar-quantizes every entry of `X` to 4 bits using a single, global pair of
-dequantization parameters shared by all columns, unlike [`SQu4`](@ref ScalarQuant.SQu4)'s `quantize`
-which computes an independent `min`/scale per column. As with [`SQgu8`](@ref ScalarQuant.SQgu8)'s
+dequantization parameters shared by all columns, unlike [`SQu4`](@ref SimilaritySearch.ScalarQuant.SQu4)'s `quantize`
+which computes an independent `min`/scale per column. As with [`SQgu8`](@ref SimilaritySearch.ScalarQuant.SQgu8)'s
 `quantize`, this is useful when the columns of `X` share a comparable value range, since
 a single global range provides enough precision while being cheaper to compute and store.
 
-Codes are packed two per `UInt8` (low nibble, high nibble), exactly like [`SQu4`](@ref ScalarQuant.SQu4)'s,
+Codes are packed two per `UInt8` (low nibble, high nibble), exactly like [`SQu4`](@ref SimilaritySearch.ScalarQuant.SQu4)'s,
 so the returned matrix has `ceil(Int, size(X, 1) / 2)` rows. Packing pairs of dimensions
 into a single byte, combined with a *global* (rather than per-column) `min`/scale, lets
 [`SqL2`](@ref) operates directly on the packed codes
@@ -41,10 +41,10 @@ quantiles of the sample (to be robust to outliers), unless it is provided explic
   `min`/`max` values
 - `minmax`: an optional `(min, max)` tuple giving the value range to use; when `nothing`
   (the default) the range is chosen from a random sample of the entries of `X` by
-  [`sqautorange`](@ref ScalarQuant.sqautorange), or by `quant` when that is given
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), or by `quant` when that is given
 - `quant`: a fixed lower/upper quantile pair (of the sampled entries of `X`) to use as the
   range instead of searching for it. `nothing` (the default) runs
-  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), which places each end of the range where it
   minimizes the error the codes would incur -- the optimum moves with the code width, so a
   fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
   pre-search behaviour
@@ -112,7 +112,7 @@ codes per byte) of length `ceil(Int, length(v) / 2)`, instead of a `Matrix{UInt8
   existing quantized dataset.
 - `quant`: a fixed lower/upper quantile pair (of the sampled entries of `v`) to use as the
   range instead of searching for it. `nothing` (the default) runs
-  [`sqautorange`](@ref ScalarQuant.sqautorange), which places each end of the range where it
+  [`sqautorange`](@ref SimilaritySearch.ScalarQuant.sqautorange), which places each end of the range where it
   minimizes the error the codes would incur -- the optimum moves with the code width, so a
   fixed pair cannot be right at 2, 4 and 8 bits at once. Pass `[0.025, 0.975]` for the
   pre-search behaviour
