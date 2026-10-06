@@ -7,6 +7,17 @@ on:
     tags: '*'
   pull_request:
 
+# Every run of this workflow deploys to the same `gh-pages` branch: a pull request writes a
+# preview, a push to main writes `dev`, and a tag writes a release. Two runs that overlap race
+# on that branch and the loser dies with `! [rejected] HEAD -> gh-pages (fetch first)`, which
+# is how the 1.6 merge lost its deploy to a pull request build that had started five seconds
+# earlier. The group therefore leaves out `github.ref` on purpose: what has to be serialized is
+# the whole workflow, not one branch. Runs queue instead of cancelling, so no deploy is dropped
+# in favour of a newer one.
+concurrency:
+  group: ${{ github.workflow }}-gh-pages
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
