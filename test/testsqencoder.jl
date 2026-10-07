@@ -30,10 +30,11 @@ qrrotation(rng, dim) = SimilaritySearch.Projections.qr(rng, Float32, dim, dim)
         c = encode(e, o)
         @test c isa SQ.SQVec{bits} && length(c) == dim
         qr = encodequery(e, o)
-        @test qr isa Vector{Float32}
+        @test qr isa SQ.SQQuery{bits} && qr isa AbstractVector{Float32}   # prepared, and still the rotated query (#110)
         @test norm(qr) ≈ norm(o) rtol=1f-4
-        # the object against its own code: within the quantization step of a unit vector
-        @test evaluate(e, qr, c) <= (bits == 8 ? 1f-4 : bits == 4 ? 2f-2 : 0.3f0)
+        # the object against its own code: within the quantization step of a unit vector, plus
+        # the few 1e-6 the query's 15-bit image adds at 8 bits
+        @test evaluate(e, qr, c) <= (bits == 8 ? 2f-4 : bits == 4 ? 2f-2 : 0.3f0)
         @test evaluate(e, c, qr) == evaluate(e, qr, c)
         @test evaluate(e, c, c) == 0f0                                    # codes against codes: exact zero
         # a rotation preserves distances: the estimate is the exact SqL2 up to quantization
