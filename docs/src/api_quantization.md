@@ -103,14 +103,16 @@ ScalarQuant.GlobalQuantDatabase
 
 ### The quantizers as an encoder for the asymmetric graph (`SQEncoder`)
 
-Objects are quantized once and stored as codes, queries are kept in `Float32`, and the
-distances above evaluate one against the other; an optional rotation is applied to both
+Objects are quantized once and stored as codes, queries are prepared once (`SQQuery`: the
+`Float32` query with its sums and an integer image), and the distances above evaluate one
+against the other through one integer dot product per pair; an optional rotation is applied to both
 sides first. It uses the `AbstractEstimator` interface the `AsymmetricSearchGraph` navigates
 with, but carries no error model. The quantizer is named by its module (`SQgu4`, `SQu8`, ...),
 the rotation by the object that applies it (`Projections.qr(dim, dim)`,
 `Projections.RandomizedHadamard(dim)`) or `nothing`, the default.
 ```@docs
 ScalarQuant.SQEncoder
+ScalarQuant.SQQuery
 ScalarQuant.sqcodes
 ScalarQuant.quantizer
 ```
