@@ -99,8 +99,11 @@ Two reasons for a pool instead of a new random sample on every callback:
 2. A `SearchGraph` and an `AsymmetricSearchGraph` tune the same way. This matters when the two are
    compared, because otherwise the tuning procedure changes together with the thing under study.
 
-Identifiers that the graph has not inserted yet are skipped for that call. This is normal: the
-pool names the whole range at the start, and the index reaches it gradually.
+Identifiers that the graph has not inserted yet are used as external queries for that call. Their
+objects exist, and none of them is its own vertex yet, so there is nothing to mask. The pool names
+the whole range at the start, and the index reaches it gradually, so the early callbacks tune
+mostly on queries from outside the index. Every callback gets `numqueries` queries, however large
+the range is.
 
 ## Near duplicates change what a mask removes
 
@@ -117,7 +120,7 @@ yields fewer usable queries on a collection with many duplicates than on a clean
 ## What is reported
 
 With `verbose(ctx)` enabled, each optimization reports which queries it used, how many came from
-a pool, and how many identifiers were not inserted yet.
+a pool, and how many identifiers were not inserted yet and counted as external.
 
 ```@docs
 tuningmask

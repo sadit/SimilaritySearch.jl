@@ -108,23 +108,52 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
             MinRecall(0.9f0); queries=raw, queries_identifiers=UInt32[3, 7])
     end
 
-    @testset "a held-out pool is drawn from, and skips what is not inserted yet" begin
+    @testset "a held-out pool is drawn from, and what is not inserted yet counts as external" begin
         # The shape an AsymmetricSearchGraph needs: a fixed set of raw objects with their ids,
         # named once and drawn from on every optimization -- including the ones the construction
-        # callback fires while the index is still filling, where part of the pool does not exist.
+        # callback fires while the index is still filling, where part of the pool is not a vertex
+        # yet. Those are external queries for that call, not dropped: a pool of 1024 over the
+        # whole range is always drawn from whole.
         Xp = MatrixDatabase(rand(Xoshiro(2), Float32, dim, 3000))
         pool = UInt32.(1:1024)
         raw = VectorDatabase([Xp[i] for i in pool])
         buf = IOBuffer()
-        ctxp = SearchGraphContext(; verbose=true, reporters=InformativeLog(buf; dt=0),
+        # sequential insertion, so the callbacks fire at the 1.5x crossings from 256 whatever the
+        # thread count, and the first five of them see only part of the pool inserted
+        ctxp = SearchGraphContext(; verbose=true, reporters=InformativeLog(buf; dt=0), parallel_block=1,
             hyperparameters_callback=OptimizeParameters(MinRecall(0.9f0);
                 queries=raw, queries_identifiers=pool, numqueries=64))
         Gp = SearchGraph(dist, Xp)
         index!(Gp, ctxp)
         lines = split(String(take!(buf)), "\n")
-        @test count(l -> occursin("of a pool of", l), lines) > 1        # drawn, every callback
-        @test count(l -> occursin("not inserted yet", l), lines) > 0    # and the early ones skip
+        used = filter(l -> occursin("of a pool of", l), lines)
+        @test length(used) > 1                                           # drawn, every callback
+        @test all(l -> occursin("of a pool of 1024", l), used)           # the whole pool, every time
+        @test count(l -> occursin("not inserted yet", l), lines) > 0    # the early ones say so
         @test Gp.algo[] isa BeamSearch && Gp.algo[].bsize > 0
+
+        # an identifier beyond the index gets an empty mask: it is external with respect to it
+        @test tuningmask(Gp, VectorDatabase([Xp[1]]), UInt32[length(Gp) + 1]) == [UInt32[]]
+        # and one beyond the database is a caller's error, not a silent skip
+        @test_throws ArgumentError optimize_index!(Gp, SearchGraphContext(; reporters=[]),
+            MinRecall(0.9f0); queries_identifiers=UInt32[length(Xp) + 1])
+
+        # The bug this fixes: a pool sparse over a large range. 64 identifiers over 3000 objects
+        # are one in 47, so the first callbacks (at 256 vertices and 1.5x steps) had five or so
+        # of them inserted; skipping the rest left too few queries to score any configuration,
+        # the optimizer warned of an empty population and kept the previous parameters. Now every
+        # callback uses the 64 whole, and nothing is warned.
+        sparse = sort!(unique(rand(Xoshiro(5), UInt32(1):UInt32(3000), 64)))
+        rawsparse = VectorDatabase([Xp[i] for i in sparse])
+        buf2 = IOBuffer()
+        ctxs = SearchGraphContext(; verbose=true, reporters=InformativeLog(buf2; dt=0), parallel_block=1,
+            hyperparameters_callback=OptimizeParameters(MinRecall(0.9f0);
+                queries=rawsparse, queries_identifiers=sparse, numqueries=64))
+        Gs = SearchGraph(dist, Xp)
+        @test_logs min_level=Base.CoreLogging.Warn index!(Gs, ctxs)
+        used2 = filter(l -> occursin("of a pool of", l), split(String(take!(buf2)), "\n"))
+        @test length(used2) > 1
+        @test all(l -> occursin("using $(length(sparse)) of a pool of $(length(sparse))", l), used2)
     end
 
     @testset "a twin whose distance rounds just above zero still folds" begin

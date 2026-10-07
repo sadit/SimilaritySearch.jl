@@ -311,9 +311,13 @@ in any other container were taken for external and tuned against as if they were
 A caller tuning with chosen objects of the database -- the least connected ones, say -- passes
 them with their `ids`. `optimize_index!` warns when it is handed a view of the index's own
 database without them, since that is the one case where the old inference would have masked.
+
+An identifier the index has not inserted yet gets an empty mask: with respect to the current
+index that object is external, not its own vertex, and there is nothing to hide from it. This is
+what lets a pool drawn over a whole insertion serve the construction callbacks from the start.
 """
 tuningmask(index::AbstractSearchIndex, queries::AbstractDatabase, ids) =
-    [UInt32[clusterids(index, id)...] for id in ids]
+    [id <= length(index) ? UInt32[clusterids(index, id)...] : UInt32[] for id in ids]
 
 tuningmask(::AbstractSearchIndex, queries::AbstractDatabase, ::Nothing) =
     [UInt32[] for _ in 1:length(queries)]
@@ -498,8 +502,9 @@ Tries to configure the `index` to achieve the specified performance (`kind`). Th
   `queries_identifiers` name one. A pool smaller than this is used whole, and
   `numqueries=length(queries)` is how a given set is used whole on purpose. Drawing rather than
   using everything matters because this also runs from a construction callback, once every so
-  many insertions: the whole pool each time would cost its size times the number of callbacks,
-  and identifiers the pool names may not be inserted yet, which are dropped for that call.
+  many insertions: the whole pool each time would cost its size times the number of callbacks.
+  Identifiers the pool names may not be inserted yet; those count as external queries for that
+  call, since their objects exist and none of them is its own vertex yet.
 - `rng`: random number generator used to draw the sample of queries when `queries===nothing`.
 - `initialpopulation`: the initial sample for the optimization procedure
 - `params`: the parameters of the solver, see [`SearchParams` arguments of `SearchModels.jl`](https://github.com/sadit/SearchModels.jl) package for more information.
@@ -566,14 +571,22 @@ function optimize_index!(
     # number of callbacks. What `numqueries` means is therefore how many queries one
     # optimization uses, whatever the source -- the pool when there is one, the index itself
     # when there is not. Passing `numqueries=length(queries)` uses a given set whole.
+    #
+    # An identifier not inserted yet is kept, not dropped. Its object exists -- the database is
+    # filled ahead of the index, and a given `queries` holds it outright -- and with respect to
+    # the current index it is an external query: not its own vertex, so there is nothing to
+    # mask (`tuningmask` gives it an empty mask), and its gold is computed over what is inserted.
+    # Dropping it starved the early callbacks of any large build: 1024 pool identifiers over
+    # 600K objects are one in 590, so a callback at a thousand vertices was left with one or
+    # two queries, every configuration failed "Too few queries fetched k near neighbors", and
+    # the parameters that chose the first tens of thousands of edges were whatever came before.
+    # The one shortcut this leaves open is an object whose exact copy is already a vertex: the
+    # copy sits at distance 0 and is not masked, the same as for any query from outside.
     if qids !== nothing
-        live = findall(id -> id <= length(index), qids)
-        if length(live) < length(qids)
-            verbose(ctx) && @inform ctx "$(length(qids) - length(live)) of $(length(qids)) pool identifiers are not inserted yet"
-            qids = qids[live]
-            queries === nothing || (queries = SubDatabase(queries, live))
-        end
-        isempty(qids) && (qids = nothing; queries = nothing)   # nothing of it exists yet
+        maximum(qids; init=UInt32(0)) <= length(db) ||
+            throw(ArgumentError("optimize_index!: queries_identifiers name objects beyond the database ($(length(db)))"))
+        unreached = count(id -> id > length(index), qids)
+        unreached > 0 && verbose(ctx) && @inform ctx "$unreached of $(length(qids)) pool identifiers are not inserted yet and count as external for this call"
     end
 
     if queries === nothing && qids === nothing

@@ -181,8 +181,12 @@ their results are not comparable to each other. It also makes the symmetric and 
 paths tune the same way, which matters whenever the two are compared -- otherwise the tuning
 procedure varies alongside the thing under study.
 
-Identifiers the graph has not reached yet are skipped by that call, which is routine: the pool
-names the range up front and the index arrives at it gradually.
+Identifiers the graph has not reached yet count as external queries for that call: their objects
+exist, and none of them is its own vertex yet, so [`tuningmask`](@ref) gives them nothing to
+mask. The pool names the range up front and the index arrives at it gradually, so the early
+callbacks tune mostly on queries from outside the index, which is a real workload, and every
+callback has `numqueries` queries however large the range. Skipping them instead left the early
+callbacks of a 600K build with one or two queries and no valid configuration.
 """
 function tuningpool(ctx::SearchGraphContext, lo::Integer, hi::Integer, objectfor=nothing)
     cb = ctx.hyperparameters_callback
