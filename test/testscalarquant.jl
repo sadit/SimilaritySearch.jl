@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-using SimilaritySearch, Test, Distances, Random
+using SimilaritySearch, Test, Distances, Random, LinearAlgebra
 using SimilaritySearch.ScalarQuant: SQEncoder, sqcodes, SQQuery, codequerydot, dotquery
 using SimilaritySearch: encodequery
 
