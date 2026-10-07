@@ -131,6 +131,15 @@ so the exception is stated here instead of left for a reader to find.
   with the scale read off each query's own neighborhood. `MinRecall` and `MaxMatchError` remain; a
   bi-objective goal will return as a smooth, explicitly weighted combination.
 
+### 1.6.1
+
+- **The tuning pool no longer starves the construction callbacks of a large insertion.** The pool
+  is drawn once over the whole range being inserted, and 1.6.0 dropped the identifiers not yet
+  inserted from each callback's optimization; on a 600K build the early callbacks were left with
+  one or two queries, every configuration failed and the previous parameters stayed (#107). An
+  identifier the index has not reached now counts as an external query for that call, masked only
+  once it is a vertex. Identifiers beyond the database raise `ArgumentError`.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
