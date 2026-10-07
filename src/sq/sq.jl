@@ -244,6 +244,7 @@ end
 
 include("codes.jl")
 include("vec.jl")
+include("query.jl")
 include("dist.jl")
 include("db.jl")
 include("gu8.jl")

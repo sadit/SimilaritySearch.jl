@@ -100,7 +100,9 @@ query's neighbors in both cases. The difference is in the edges, and it appears 
 8 bits. The end of this page gives those measurements.
 
 A rotation changes what the symmetric graph must receive. Its database quantizes with a range
-fitted on the rotated coordinates, so it has to be given rotated vectors, `encodequery(enc, v)`.
+fitted on the rotated coordinates, so it has to be given rotated vectors: `encodequery(enc, v)`
+returns the rotated query prepared for the mixed kernels (an `SQQuery`, see below), and it is
+still a `Float32` vector for whatever reads the coordinates, the database's `push_item!` included.
 
 | module | range | bits per coordinate | bytes per vector at 384-d |
 | :--- | :--- | :--- | :--- |
@@ -181,8 +183,10 @@ for (name, rot) in (("no rotation", nothing), ("QR", P.qr(64, 64)), ("randomized
 end
 ```
 
-The object is rotated once, in `encode`. The query is rotated once, in `encodequery`. Nothing is
-rotated inside an evaluation. An `AsymmetricSearchGraph` performs both steps. The exhaustive scan
+The object is rotated once, in `encode`. The query is rotated once, in `encodequery`, and prepared
+there as well: an `SQQuery` carries `Σq`, `‖q‖²` and an integer image of the query on its own range,
+so a mixed distance is the expansion over the stored code sums plus one integer dot product, the
+symmetric kernels' cost (issue #110). Nothing is rotated or prepared inside an evaluation. An `AsymmetricSearchGraph` performs both steps. The exhaustive scan
 above prepares the queries explicitly, because `ExhaustiveSearch` uses whatever it is given.
 
 ---

@@ -287,6 +287,87 @@ end
 end
 
 """
+    dotquery(::Val{8}, x, d::AbstractVector{Int16})
+    dotquery(::Val{4}, x, dlo::AbstractVector{Int8}, dhi::AbstractVector{Int8})
+    dotquery(::Val{2}, x, d0, d1, d2, d3)
+
+Σ aᵢdᵢ between the unpacked codes `x` and the signed integer image of a query, one plane per
+field of a byte (see `SQQuery`): plane `p` holds the coordinates field `p` unpacks into, so
+every plane is read at the byte's own index and nothing is interleaved. Lanes accumulate in
+`Int32` -- at 8 bits a product is at most 255·16384 and a lane sees `n/32` of them, which
+holds to 16K dimensions -- and the horizontal sum is taken in `Int64`.
+"""
+@inline function dotquery(::Val{8}, x::AbstractVector{UInt8}, d::AbstractVector{Int16})::Int64
+    n = length(x); i = 1; acc = zero(Vec{32,Int32})
+    @inbounds while i + 31 <= n
+        acc = muladd(convert(Vec{32,Int32}, vload(Vec{32,UInt8}, x, i)),
+                     convert(Vec{32,Int32}, vload(Vec{32,Int16}, d, i)), acc)
+        i += 32
+    end
+    s = sum(convert(Vec{32,Int64}, acc))
+    @inbounds if i + 15 <= n
+        s += sum(convert(Vec{16,Int64}, convert(Vec{16,Int32}, vload(Vec{16,UInt8}, x, i)) *
+                                         convert(Vec{16,Int32}, vload(Vec{16,Int16}, d, i))))
+        i += 16
+    end
+    @inbounds while i <= n; s += Int64(x[i]) * Int64(d[i]); i += 1; end
+    s
+end
+
+@inline function dotquery(::Val{4}, x::AbstractVector{UInt8}, dlo::AbstractVector{Int8}, dhi::AbstractVector{Int8})::Int64
+    n = length(x); i = 1; m = 0x0f; acc = zero(Vec{32,Int32})
+    @inbounds while i + 31 <= n
+        b = vload(Vec{32,UInt8}, x, i)
+        acc = muladd(convert(Vec{32,Int32}, b & m), convert(Vec{32,Int32}, vload(Vec{32,Int8}, dlo, i)), acc)
+        acc = muladd(convert(Vec{32,Int32}, b >>> 4), convert(Vec{32,Int32}, vload(Vec{32,Int8}, dhi, i)), acc)
+        i += 32
+    end
+    s = sum(convert(Vec{32,Int64}, acc))
+    @inbounds if i + 15 <= n
+        b = vload(Vec{16,UInt8}, x, i)
+        s += sum(convert(Vec{16,Int64}, muladd(convert(Vec{16,Int32}, b & m), convert(Vec{16,Int32}, vload(Vec{16,Int8}, dlo, i)),
+                                                 convert(Vec{16,Int32}, b >>> 4) * convert(Vec{16,Int32}, vload(Vec{16,Int8}, dhi, i)))))
+        i += 16
+    end
+    @inbounds while i <= n
+        b = x[i]
+        s += Int64(b & m) * Int64(dlo[i]) + Int64(b >>> 4) * Int64(dhi[i])
+        i += 1
+    end
+    s
+end
+
+@inline function dotquery(::Val{2}, x::AbstractVector{UInt8}, d0::AbstractVector{Int8}, d1::AbstractVector{Int8},
+                          d2::AbstractVector{Int8}, d3::AbstractVector{Int8})::Int64
+    n = length(x); i = 1; m = 0x03; acc = zero(Vec{32,Int32})
+    @inbounds while i + 31 <= n
+        b = vload(Vec{32,UInt8}, x, i)
+        acc = muladd(convert(Vec{32,Int32}, b & m), convert(Vec{32,Int32}, vload(Vec{32,Int8}, d0, i)), acc)
+        acc = muladd(convert(Vec{32,Int32}, (b >>> 2) & m), convert(Vec{32,Int32}, vload(Vec{32,Int8}, d1, i)), acc)
+        acc = muladd(convert(Vec{32,Int32}, (b >>> 4) & m), convert(Vec{32,Int32}, vload(Vec{32,Int8}, d2, i)), acc)
+        acc = muladd(convert(Vec{32,Int32}, b >>> 6), convert(Vec{32,Int32}, vload(Vec{32,Int8}, d3, i)), acc)
+        i += 32
+    end
+    s = sum(convert(Vec{32,Int64}, acc))
+    @inbounds if i + 15 <= n
+        b = vload(Vec{16,UInt8}, x, i); acc16 = zero(Vec{16,Int32})
+        acc16 = muladd(convert(Vec{16,Int32}, b & m), convert(Vec{16,Int32}, vload(Vec{16,Int8}, d0, i)), acc16)
+        acc16 = muladd(convert(Vec{16,Int32}, (b >>> 2) & m), convert(Vec{16,Int32}, vload(Vec{16,Int8}, d1, i)), acc16)
+        acc16 = muladd(convert(Vec{16,Int32}, (b >>> 4) & m), convert(Vec{16,Int32}, vload(Vec{16,Int8}, d2, i)), acc16)
+        acc16 = muladd(convert(Vec{16,Int32}, b >>> 6), convert(Vec{16,Int32}, vload(Vec{16,Int8}, d3, i)), acc16)
+        s += sum(convert(Vec{16,Int64}, acc16))
+        i += 16
+    end
+    @inbounds while i <= n
+        b = x[i]
+        s += Int64(b & m) * Int64(d0[i]) + Int64((b >>> 2) & m) * Int64(d1[i]) +
+             Int64((b >>> 4) & m) * Int64(d2[i]) + Int64(b >>> 6) * Int64(d3[i])
+        i += 1
+    end
+    s
+end
+
+"""
 Σ (aᵢ-bᵢ)² over the raw codes: the whole answer whenever both vectors share a scale, and
 what every `SqL2` over raw codes evaluates.
 

@@ -115,10 +115,11 @@ flops per query and per inserted item. Rotate when the coordinates' scales are u
 global family is wanted anyway; the per-vector family is the other remedy for uneven scales.
 
 `encode` rotates an object once and quantizes the rotated vector, `encodequery` rotates the
-query once and keeps it in `Float32`, and `evaluate` is `dist`, one of this module's (`SqL2`,
-`L2`, `L1`, `NormCosine` or `Cosine`): its mixed kernel for the rotated query against a
-stored code, its integer kernels between two stored codes. Nothing is ever rotated inside an
-evaluation. [`sqcodes`](@ref)`(e)` is the storage to build an `AsymmetricSearchGraph`
+query once and prepares it (an [`SQQuery`](@ref): the rotated `Float32` vector with its sums
+and an integer image on its own range), and `evaluate` is `dist`, one of this module's
+(`SqL2`, `L2`, `L1`, `NormCosine` or `Cosine`): its factored kernel for the prepared query
+against a stored code, one integer dot product per pair, and its integer kernels between two
+stored codes. Nothing is ever rotated or prepared inside an evaluation. [`sqcodes`](@ref)`(e)` is the storage to build an `AsymmetricSearchGraph`
 over: a `QuantDatabase` with the estimator's own parameters, whose codes live in dense
 blocks, and which takes the `SQVec`s `encode` produces without re-quantizing them.
 """
@@ -164,10 +165,15 @@ function encode(e::SQEncoder{B}, o::AbstractVector) where {B}
     _quantcode(Val(B), e.E, rotate(e.rot, o))
 end
 
-"Rotates once: the `Float32` vector the mixed kernels take on the query side."
-function encodequery(e::SQEncoder, q::AbstractVector)
+"""
+Rotates once and prepares the query for the mixed kernels: an [`SQQuery`](@ref) of the
+encoder's width, with the sums and the integer image the factored distances take (issue
+#110). It is still an `AbstractVector{Float32}`, the rotated query, for whatever reads the
+coordinates.
+"""
+function encodequery(e::SQEncoder{B}, q::AbstractVector) where {B}
     _checkdim(e, q)
-    rotate(e.rot, q)
+    SQQuery{B}(rotate(e.rot, q))
 end
 
 @inline evaluate(e::SQEncoder, q::AbstractVector{Float32}, s::SQVec)::Float32 = evaluate(e.dist, q, s)

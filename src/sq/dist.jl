@@ -26,6 +26,12 @@ end
 "Dot product of a dequantized vector with a plain one, coordinate by coordinate."
 dotmixed(A::SQVec{W}, v::AbstractVector) where {W} = _scan(_dotop, Val(W), A, v)
 
+# against a prepared query of the same width: Σ x̂ᵢqᵢ = c·Σaᵢqᵢ + m·Σqᵢ, one integer dot
+# product and the sums (see `SQQuery`); of another width, the query's coordinates as they are
+dotmixed(A::SQVec{B}, Q::SQQuery{B}) where {B} =
+    Float32(Float64(A.E.c) * codequerydot(A, Q) + Float64(A.E.min) * Q.sumq)
+dotmixed(A::SQVec{W}, Q::SQQuery) where {W} = _scan(_dotop, Val(W), A, Q.q)
+
 "Euclidean norm of the dequantized vector, from its stored code sums."
 @inline function quantnorm(a::SQVec)::Float64
     c, m = Float64(a.E.c), Float64(a.E.min)
@@ -80,6 +86,14 @@ end
 
 evaluate(c::Cosine, q::AbstractVector, a::SQVec)::Float32 = evaluate(c, a, q)
 
+# a prepared query carries its norm, so this is the dot product and two divisions
+function evaluate(::Cosine, a::SQVec{B}, Q::SQQuery{B})::Float32 where {B}
+    na = quantnorm(a)
+    (na == 0 || Q.sumqq == 0) && return 1f0
+    dot = Float64(a.E.c) * codequerydot(a, Q) + Float64(a.E.min) * Q.sumq
+    Float32(1.0 - clamp(dot / (na * sqrt(Q.sumqq)), -1.0, 1.0))
+end
+
 """
     NormCosine()
 
@@ -123,6 +137,7 @@ function _l1(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
     _scanpair(_absdiffop, Val(W), A, B, A.E.c, A.E.min, B.E.c, B.E.min)
 end
 _l1(A::SQVec{W}, B::AbstractVector) where {W} = _scan(_absdiffop, Val(W), A, B)
+_l1(A::SQVec{W}, Q::SQQuery) where {W} = _scan(_absdiffop, Val(W), A, Q.q)   # |a - b| does not expand
 
 @inline evaluate(::L1, A::SQVec, B::SQVec)::Float32 = _l1(A, B)
 @inline evaluate(::L1, A::SQVec, B::AbstractVector)::Float32 = _l1(A, B)
@@ -150,6 +165,18 @@ function squared_euclidean(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
         2 * k * (cA64 * Float64(A.Sa) - cB64 * Float64(B.Sa)) + n * k * k
     Float32(max(0.0, d))   # a difference of positives; rounding can still undershoot zero
 end
+
+# against a prepared query of the same width (issue #110): the expansion at the top of this
+# file with the query's half from `SQQuery`, one integer dot product per pair and no
+# dequantized coordinate anywhere; of another width, the query's coordinates through the
+# width's own kernel
+function squared_euclidean(A::SQVec{B}, Q::SQQuery{B})::Float32 where {B}
+    c, m = Float64(A.E.c), Float64(A.E.min)
+    d = c * c * Float64(A.Saa) + 2 * c * m * Float64(A.Sa) + length(A) * m * m -
+        2 * (c * codequerydot(A, Q) + m * Q.sumq) + Q.sumqq
+    Float32(max(0.0, d))   # a difference of positives; rounding can still undershoot zero
+end
+squared_euclidean(A::SQVec{W}, Q::SQQuery) where {W} = _sqeuclid_mixed(Val(W), A, Q.q)
 
 # against a plain vector: any indexable one through the scalar scan, a contiguous Float32 one
 # through the width's own kernel

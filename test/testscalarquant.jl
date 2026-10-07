@@ -1,5 +1,7 @@
 # This file is a part of SimilaritySearch.jl
-using SimilaritySearch, Test, Distances
+using SimilaritySearch, Test, Distances, Random
+using SimilaritySearch.ScalarQuant: SQEncoder, sqcodes, SQQuery, codequerydot, dotquery
+using SimilaritySearch: encodequery
 
 """
 Reference (non-SIMD) implementation of the code-space squared L2 / dot product between
@@ -321,6 +323,95 @@ end
             @test evaluate(mod.SqL2(), a, a) == 0f0
         end
     end
+end
+
+"The `k`-th unpacked code of `a`, as the integer it is."
+codes_at(a::SimilaritySearch.ScalarQuant.SQVec{B}, k::Integer) where {B} =
+    B == 8 ? Int(a.V[k]) : B == 4 ? Int((a.V[(k-1) ÷ 2 + 1] >> (4 * ((k-1) % 2))) & 0x0f) :
+    Int((a.V[(k-1) ÷ 4 + 1] >> (2 * ((k-1) % 4))) & 0x03)
+
+@testset "ScalarQuant: prepared queries evaluate through the integer image (#110)" begin
+    # `SQQuery` carries the query's sums and an integer image of it on its own range; the mixed
+    # distances are ScalarQuant's generic ones, what `SQEncoder` evaluates with (the per-module
+    # `SQu4.SqL2` and relatives are the raw-code distances and keep their own paths); the mixed
+    # distances against it are the expansion over the stored code sums plus one integer dot
+    # product, never a dequantized coordinate. Checked against a Float64 evaluation of the
+    # same expansion over the image (tight), against the Float32-query path (loose: the image
+    # is 15 bits against 8-bit codes, 8 bits against 4- and 2-bit codes), at whole blocks,
+    # partial blocks and tails, in both families.
+    rng = Xoshiro(11)
+    for (mod, B, cpb) in ((ScalarQuant.SQu2, 2, 4), (ScalarQuant.SQu4, 4, 2), (ScalarQuant.SQu8, 8, 1),
+                          (ScalarQuant.SQgu2, 2, 4), (ScalarQuant.SQgu4, 4, 2), (ScalarQuant.SQgu8, 8, 1))
+        for dim in (8, 16, 64, 100, 128, 260)
+            dim % cpb == 0 || continue
+            X = randn(rng, Float32, dim, 8)
+            enc = SQEncoder(mod, X)
+            db = sqcodes(enc, X)
+            q = randn(rng, Float32, dim)
+            Q = encodequery(enc, q)
+            @test Q isa SQQuery{B}
+            @test Q isa AbstractVector{Float32} && length(Q) == dim && Q[3] == q[3]   # the rotated query, as a vector
+            @test length(Q.planes) == cpb
+            P = cpb
+            qimg = [Float64(Q.mq) + Float64(Q.sq) * (Float64(Q.planes[(i-1) % P + 1][(i-1) ÷ P + 1]) + Q.half) for i in 1:dim]
+            @test maximum(abs.(qimg .- q)) <= (B == 8 ? 2e-4 : 1e-2) * (maximum(q) - minimum(q))   # the image's resolution
+            @test Q.sumq ≈ sum(Float64.(q)) && Q.sumqq ≈ sum(abs2, Float64.(q))
+            for i in 1:8
+                a = db[i]
+                # the dot product of the codes with the image is exact
+                @test codequerydot(a, Q) ≈ sum(Float64(codes_at(a, k)) * qimg[k] for k in 1:dim) atol=1e-6 * dim
+                # SqL2 is the expansion with the image in the cross term and the query itself in the
+                # rest: (c²Saa + 2cmSa + nm²) − 2(c·Σaᵢqimgᵢ + m·Σqᵢ) + Σqᵢ², the sums exact
+                codes = [Float64(codes_at(a, k)) for k in 1:dim]
+                c, m = Float64(a.E.c), Float64(a.E.min)
+                expected = c * c * sum(codes .^ 2) + 2 * c * m * sum(codes) + dim * m * m -
+                           2 * (c * sum(codes .* qimg) + m * Q.sumq) + Q.sumqq
+                got = evaluate(ScalarQuant.SqL2(), a, Q)
+                @test abs(got - expected) <= 1e-5 * max(1.0, expected)
+                @test evaluate(ScalarQuant.SqL2(), Q, a) == got
+                # against the Float32 query the image's resolution is the only difference; the
+                # tolerances scale with the vectors, since these are randn and not unit vectors
+                ref = evaluate(ScalarQuant.SqL2(), a, q)
+                @test abs(got - ref) <= (B == 8 ? 1e-3 : 2e-2) * max(1.0, ref)
+                @test evaluate(ScalarQuant.L2(), a, Q) ≈ sqrt(got)
+                scale = sqrt(c * c * sum(codes .^ 2) + 2 * c * m * sum(codes) + dim * m * m) * sqrt(Q.sumqq)   # ‖x̂‖·‖q‖
+                @test abs(evaluate(ScalarQuant.NormCosine(), a, Q) - evaluate(ScalarQuant.NormCosine(), a, q)) <= (B == 8 ? 1e-3 : 2e-2) * max(1.0, scale)
+                @test abs(evaluate(ScalarQuant.Cosine(), a, Q) - evaluate(ScalarQuant.Cosine(), a, q)) <= (B == 8 ? 1e-3 : 2e-2)
+                @test evaluate(ScalarQuant.L1(), a, Q) == evaluate(ScalarQuant.L1(), a, q)
+                # the encoder dispatches both orders to the same thing
+                @test evaluate(enc, Q, a) == got && evaluate(enc, a, Q) == got
+            end
+            # a prepared query of another width falls back to the query's coordinates
+            other = SQQuery{B == 8 ? 4 : 8}(q)
+            @test evaluate(ScalarQuant.SqL2(), db[1], other) == evaluate(ScalarQuant.SqL2(), db[1], q)
+        end
+    end
+
+    # the integer kernels on their own, against a scalar loop, across SIMD phases
+    for n in (1, 15, 16, 17, 31, 32, 33, 64, 100, 128)
+        x = rand(rng, UInt8, n)
+        d16 = rand(rng, Int16(-16384):Int16(16383), n)
+        @test dotquery(Val(8), x, d16) == sum(Int64(x[i]) * Int64(d16[i]) for i in 1:n)
+        dlo = rand(rng, Int8, n); dhi = rand(rng, Int8, n)
+        @test dotquery(Val(4), x, dlo, dhi) == sum(Int64(x[i] & 0x0f) * dlo[i] + Int64(x[i] >> 4) * dhi[i] for i in 1:n)
+        ds = ntuple(_ -> rand(rng, Int8, n), 4)
+        @test dotquery(Val(2), x, ds...) == sum(Int64((x[i] >> (2p)) & 0x03) * ds[p+1][i] for i in 1:n, p in 0:3)
+    end
+
+    # the asymmetric graph navigates with prepared queries, and its recall is what it was
+    dim = 32
+    X = randn(rng, Float32, dim, 2000); Qm = randn(rng, Float32, dim, 30)
+    enc = SQEncoder(ScalarQuant.SQgu8, X)
+    G = AsymmetricSearchGraph(enc, sqcodes(enc)); ctx = SearchGraphContext(; reporters=[])
+    append_items!(G, ctx, MatrixDatabase(X))
+    ids, _ = searchbatch(G, ctx, MatrixDatabase(Qm), 10)
+    gold, _ = searchbatch(ExhaustiveSearch(Dist.SqL2(), MatrixDatabase(X)), GenericContext(), MatrixDatabase(Qm), 10)
+    exh, _ = searchbatch(ExhaustiveSearch(enc, sqcodes(enc, X)), GenericContext(), VectorDatabase([encodequery(enc, q) for q in eachcol(Qm)]), 10)
+    r(a) = sum(length(intersect(Set(a[:, j]), Set(gold[:, j]))) for j in 1:30) / (30 * 10)
+    @test r(exh) >= 0.95                       # the codes' own ceiling, with prepared queries
+    @test r(ids) >= r(exh) - 0.15
+    # length must match the packing, like SQVec
+    @test_throws ArgumentError SQQuery{4}(randn(Float32, 7))
 end
 
 @testset "ScalarQuant: GlobalQuantDatabase keeps what raw-data comparisons need (#77)" begin
