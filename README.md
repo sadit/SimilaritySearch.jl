@@ -140,6 +140,17 @@ so the exception is stated here instead of left for a reader to find.
   identifier the index has not reached now counts as an external query for that call, masked only
   once it is a vertex. Identifiers beyond the database raise `ArgumentError`.
 
+### 1.6.2
+
+- **Prepared queries for the mixed distances** (#110, #111). `encodequery(::SQEncoder, q)` returns an
+  `SQQuery`: the rotated query with its sums and an integer image on its own range (15 bits against
+  8-bit codes, 8 bits against 4- and 2-bit codes). `SqL2`, `NormCosine` and `Cosine` against it are the
+  expansion over the stored code sums plus one integer dot product, so a query against codes costs
+  47, 45 and 42 ns per pair at 2, 4 and 8 bits on a Xeon Silver 4216 at 384 dimensions, against 84,
+  74 and 48 before (code against code: 31, 27, 28). It is still an `AbstractVector{Float32}`, so plain
+  query paths keep working; accuracy against the `Float32` query is within 6e-5 at 8 bits and 0.3-0.5%
+  at 4 and 2, under the codes' own error.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
