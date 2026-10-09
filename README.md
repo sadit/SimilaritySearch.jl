@@ -153,17 +153,23 @@ so the exception is stated here instead of left for a reader to find.
 
 ### 1.6.3
 
-- **The beam search expands a neighbourhood in two passes and prefetches its children.** The first
-  pass over the neighbours of a popped vertex only reads the visited set and asks the hardware for the
-  storage of every child that will be evaluated (`prefetch_item(db, i)`: the first 8 cache lines of
-  the item in a `MatrixDatabase` or `BlockMatrixDatabase`, plus the stored sums and the per-vector
-  quantizer of a `QuantDatabase`; a no-op for other databases); the second pass evaluates them as
-  before, so the cache misses of a whole neighbourhood overlap instead of being paid one after
-  another. Results are identical. On ccnews (603K × 384, 8-bit codes, symmetric graph, static
-  adjacency, 64 threads, three fresh builds against eight controls): 1.06-1.10× queries per second at
-  recall 0.90, 1.20-1.27× at 0.95, 1.34× on external queries at 0.90, nothing at 0.80; on one thread
-  1.15× at 0.90 and 1.36× at 0.95. Construction time does not change. The gain grows with the length
-  of the search; a short search is dominated by its start.
+- **The beam search expands a neighbourhood in two passes and prefetches its children** (#113). The
+  first pass over the neighbours of a popped vertex only reads the visited set and asks the hardware
+  for the storage of every child that will be evaluated; the second pass evaluates them as before, so
+  the cache misses of a whole neighbourhood overlap instead of being paid one after another. Results
+  are identical. `prefetch_item(db, i)` is the hook, with methods for `MatrixDatabase`,
+  `BlockMatrixDatabase`, `MMapMatrixDatabase`, `SubDatabase`, `VectorDatabase` of vectors or strings,
+  and `QuantDatabase` (codes plus the stored sums and the per-vector quantizer); `prefetchable(db)`
+  says whether a database has one, and the search skips the pass otherwise. Items of up to 512 bytes
+  are prefetched whole into every cache level, items up to 1024 bytes get their four leading lines
+  into L2 (the hardware streamer follows), larger items are left alone: Float32 vectors at 384
+  dimensions lost 4-13% with either policy, since that search is half arithmetic and the pass costs
+  more than the misses it hides. Measured at 64 threads on three fresh builds per variant against
+  three or more controls, static adjacency, queries per second at equal recall: 8-bit codes on ccnews
+  1.06-1.10× at recall 0.90, 1.20-1.27× at 0.95, 1.34× on external queries (one thread: 1.15× and
+  1.36×); per-vector 8-bit codes on yahooaq 1.17×, 1.21×, 1.23×; Float16 vectors 1.12× and 1.18×;
+  clustered sets under Jaccard 1.02-1.08×; byte strings under Levenshtein 1.15× (1.23× on one
+  thread); Float32 vectors unchanged. Construction time does not change.
 
 ## 1.5
 

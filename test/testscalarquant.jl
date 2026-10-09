@@ -639,6 +639,7 @@ end
         enc = SQEncoder(Q, X)
         db = sqcodes(enc, X)
         @test db.Q isa BlockMatrixDatabase
+        @test SimilaritySearch.prefetchable(db)
         for i in (1, 256, 257, 300)
             @test SimilaritySearch.prefetch_item(db, i) === nothing
         end
