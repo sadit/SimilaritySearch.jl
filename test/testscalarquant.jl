@@ -648,7 +648,7 @@ end
 
 
 @testset "per-vector range policies" begin
-    using SimilaritySearch.ScalarQuant: AutoRange, SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, levels, codesperbyte
+    using SimilaritySearch.ScalarQuant: AutoRange, SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, SQVec, levels, codesperbyte, encode
     rng = Xoshiro(5)
     X = randn(rng, Float32, 256, 200)
     for B in (2, 4, 8)
