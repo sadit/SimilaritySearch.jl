@@ -303,3 +303,14 @@ function Base.:(==)(a::QuantDatabase{B}, b::QuantDatabase{B}) where {B}
 end
 
 Base.:(==)(::QuantDatabase, ::QuantDatabase) = false
+
+
+# the mixed and symmetric distances read the item's codes and its stored sums (and its own
+# quantizer in the per-vector family): all of it is prefetched together
+@inline function SimilaritySearch.prefetch_item(db::QuantDatabase, i::Integer)
+    prefetch_item(db.Q, i)
+    _prefetch(pointer(db.Sa, i))
+    _prefetch(pointer(db.Saa, i))
+    db.E isa AbstractVector && _prefetch(pointer(db.E, i))
+    nothing
+end

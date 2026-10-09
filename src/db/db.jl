@@ -163,3 +163,4 @@ end
 Creates a new `MatrixDatabase` from any `AbstractDatabase` by horizontally concatenating its elements into a fresh matrix.
 """
 MatrixDatabase(V::AbstractDatabase) = MatrixDatabase(hcat(V...))
+include("prefetch.jl")

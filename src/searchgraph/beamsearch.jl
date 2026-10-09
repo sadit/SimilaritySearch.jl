@@ -58,6 +58,17 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
         #prev.dist <= Δ * maximum(res) || continue
         costblocks += 1
 
+        # Two passes over the neighbourhood. The first only reads the visited set and asks the
+        # hardware to fetch the storage of every child that will be evaluated, so the cache
+        # misses of a whole neighbourhood are in flight at once; the second evaluates them.
+        # Measured outside the graph (bench-prefetch.jl, 384-d 8-bit codes, 1M random items): a
+        # dependent miss per item costs 130 ns on one thread and 650 ns·thread on 64, batches of
+        # 8-16 prefetched items 92 and 475.
+        db = database(index)
+        for childID in N
+            visited(vstate, convert(UInt64, childID)) || prefetch_item(db, childID)
+        end
+
         for childID in N
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
