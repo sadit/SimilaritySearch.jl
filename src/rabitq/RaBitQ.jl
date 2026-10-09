@@ -26,7 +26,7 @@ using Statistics: quantile
 using ..SimilaritySearch
 using ..SimilaritySearch: AbstractEstimator, @BATCHES, PreMetric, AbstractDatabase, rotate, rotationdim, rotationname
 using ..SimilaritySearch.Projections: RandomProjections, RandomizedHadamard, Rotation
-using ..SimilaritySearch.ScalarQuant: SQVec, SQMinC, dotmixed, quantnorm, _quantparams, _rotatedsample, _quantcode, _quantmodule
+using ..SimilaritySearch.ScalarQuant: SQVec, SQMinC, dotmixed, quantnorm, _quantparams, _rotatedsample, _quantcode, _quantmodule, RangePolicy, AutoRange
 using ..SimilaritySearch.Dist.Bits: Hamming
 import ..SimilaritySearch: encode, encodequery, evaluate
 import ..SimilaritySearch.ScalarQuant: quantizer, codewidth, isglobal

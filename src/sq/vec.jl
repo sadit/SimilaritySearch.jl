@@ -3,17 +3,15 @@
 export SQVec
 
 """
-    quantvector!(::Val{B}, vout::AbstractVector{UInt8}, v::AbstractVector; eps=1f-6) -> SQMinC
+    quantvector!(::Val{B}, vout::AbstractVector{UInt8}, v::AbstractVector; range=DEFAULT_RANGE, eps=1f-6) -> SQMinC
 
-Quantizes `v` into `vout` on its **own** extrema, the per-vector family's rule: the whole
-range `[min, max]` maps onto the codes `0:levels(B)`, so nothing is clipped and a vector on
-a different scale from the rest is encoded as faithfully as any other. Returns the
-[`SQMinC`](@ref) that dequantizes it; `eps` keeps a constant vector's range from collapsing.
+Quantizes `v` into `vout` on its **own** range, placed by `range` (a [`RangePolicy`](@ref);
+the default, [`AutoRange`](@ref), resolves by width), so a vector on a different scale from the rest
+is encoded as faithfully as any other. Returns the [`SQMinC`](@ref) that dequantizes it; `eps`
+keeps a constant vector's range from collapsing.
 """
-function quantvector!(B::Val, vout::AbstractVector{UInt8}, v::AbstractVector; eps::Float32=1f-6)
-    min, max = extrema(v)
-    min, max = Float32(min), Float32(max)
-    c = (max - min + eps) / Float32(levels(B))
+function quantvector!(B::Val, vout::AbstractVector{UInt8}, v::AbstractVector; range::RangePolicy=DEFAULT_RANGE, eps::Float32=1f-6)
+    min, c = vectorrange(range, v, levels(B); eps)
     packcodes!(B, vout, v, min, 1f0/c)
     SQMinC(min, c)
 end
@@ -37,7 +35,7 @@ quantized vector *is* a per-vector one whose `E` happens to be shared with the r
 database. `SQu8Vec`, `SQu4Vec` and `SQu2Vec` are aliases for `SQVec{8}`, `SQVec{4}` and
 `SQVec{2}`.
 
-The first constructor quantizes `v` on its own extrema ([`quantvector!`](@ref)). `length(v)`
+The first constructor quantizes `v` on its own range ([`quantvector!`](@ref), placed by `range`). `length(v)`
 must be a multiple of `codesperbyte(B)` (2 at 4 bits, 4 at 2 bits), or an `ArgumentError`
 is thrown: pad `v` if needed, and then pad any plain vector later compared against the
 result the same way, since the mixed distances index it positionally. The other two take
@@ -55,12 +53,12 @@ SQVec{B}(E::SQMinC, V::VEC, Sa::Real, Saa::Real) where {B,VEC<:AbstractVector{UI
 
 SQVec{B}(E::SQMinC, V::AbstractVector{UInt8}) where {B} = SQVec{B}(E, V, codesums(Val(B), V)...)
 
-function SQVec{B}(v::AbstractVector) where {B}
+function SQVec{B}(v::AbstractVector; range::RangePolicy=DEFAULT_RANGE) where {B}
     cpb = codesperbyte(Val(B))
     length(v) % cpb == 0 ||
         throw(ArgumentError("SQVec{$B}: length(v) = $(length(v)) must be a multiple of $cpb ($cpb coordinates are packed per UInt8)"))
     vout = Vector{UInt8}(undef, length(v) ÷ cpb)
-    E = quantvector!(Val(B), vout, v)
+    E = quantvector!(Val(B), vout, v; range)
     SQVec{B}(E, vout)
 end
 

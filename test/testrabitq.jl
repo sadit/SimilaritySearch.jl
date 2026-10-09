@@ -189,7 +189,7 @@ end
     @test rbits < r4 < 1.0
     # the per-vector family needs no data, and at 8 bits it is close to the exact level
     f8 = RaBitQVectorFallback(SQ.SQu8, coarse)
-    @test SQ.quantizer(f8) === SQ.SQu8 && !SQ.isglobal(f8) && f8.E === nothing
+    @test SQ.quantizer(f8) === SQ.SQu8 && !SQ.isglobal(f8) && f8.E === SQ.ExtremaRange()   # AutoRange at 8 bits
     sq8 = RaBitQRefined(coarse, f8)
     codes8 = rabitqcodes(sq8, X)
     @test codes8[1][2] isa SQ.SQVec{8}
