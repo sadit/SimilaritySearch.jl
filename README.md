@@ -173,29 +173,25 @@ so the exception is stated here instead of left for a reader to find.
 
 ### 1.6.4
 
-- **The per-vector scalar quantizer places each vector's range on a searched symmetric
-  `mean ± k·σ` at 2 and 4 bits instead of the vector's extrema.** `quantvector!`, `SQVec{B}(v)`,
-  `SQEncoder` and the per-vector databases take a `range` policy; the default `AutoRange()` is
-  `SymmetricRange(search=:refined)` at 2 bits, `SymmetricRange()` at 4 and `ExtremaRange()` at 8.
-  `SymmetricRange()` reads the
-  factor off a 64-bin histogram of the coordinates' deviations in one pass, scoring every
-  candidate from 0.5σ to 4.5σ in constant time with the saturation error summed exactly and the
-  rounding error modelled as `step²/12` (about 3 µs per vector, the cost of taking the extrema,
-  against 32 µs for the exact `sqdistortion` search, `SymmetricRange(search=:exact)`, whose factors it
-  matches within 0.05-0.1; `search=:refined` adds three exact evaluations around the fast factor, 6.5 µs,
-  and recovers the exact recall at 2 bits: yahooaq 0.758 / 0.822 against the fast 0.740 / 0.805 and the
-  exact 0.760 / 0.822);
-  `SymmetricRange(k=2.5)` fixes the factor; `ExtremaRange()` keeps the codes of 1.6.3 and earlier,
-  and so does an encoder stored before 1.6.4. Measured offline (100K vectors, 384 dimensions,
-  exhaustive recall@10, symmetric / asymmetric kernels): on yahooaq extrema gave 0.544 / 0.616 at 2
-  bits, 0.913 / 0.931 at 4 and 0.9935 / 0.9947 at 8, the searched symmetric range 0.760 / 0.822,
-  0.924 / 0.940 and 0.9931 / 0.9953; on ccnews 0.569 / 0.621, 0.901 / 0.917 and 0.981 / 0.991 against
-  0.757 / 0.816, 0.913 / 0.928 and 0.982 / 0.982. With three or fifteen levels, stretching the range
-  to a vector's farthest coordinate leaves its bulk on one or two codes; at 8 bits the extrema of a
-  few hundred near-Gaussian coordinates already sit inside the width the search picks, and the two
-  agree, and the few coordinates beyond `mean ± 3.2σ` that a symmetric range clips are the ones
-  the distances lean on, so the extrema stay the rule there (0.991 against 0.982 on ccnews,
-  asymmetric kernel).
+- **The per-vector scalar quantizer places each vector's range by a policy, chosen by width.**
+  Up to 1.6.3 `SQu2`, `SQu4` and `SQu8` mapped each vector's extrema onto the codes, so one outlying
+  coordinate coarsened all the others; with three or fifteen levels that left the bulk of a vector
+  on one or two codes. `quantvector!`, `SQVec{B}(v)`, `SQEncoder` and the per-vector databases now
+  take `range=`, a `RangePolicy` (all in `SimilaritySearch.ScalarQuant`, not re-exported):
+  `ExtremaRange()` (the old rule), `FixedRange(k)` (`mean ± k·σ`), `CalibratedRange()` (one `k`
+  fitted on a sample of the data, then only the vector's mean and σ: ~1 µs per vector at 384
+  dimensions), `HistogramRange(bins=64)` (`k` searched per vector on a one-pass histogram of the
+  deviations, ~3 µs), `RefinedRange(inner)` (the real distortion at `inner`'s `k` and its two
+  neighbours) and `ExactRange()` (the full distortion search, ~32 µs). The default `AutoRange()`
+  resolves to `CalibratedRange()` at 2 bits, `HistogramRange()` at 4 and `ExtremaRange()` at 8. An
+  `SQEncoder` built from data calibrates and keeps its policy; a per-vector database built from a
+  matrix only resolves it, so it holds the codes growing it with `push_item!` would; an encoder
+  stored before 1.6.4 keeps producing extrema. Measured offline on yahooaq and ccnews (100K
+  vectors, 384 dimensions, exhaustive recall@10, symmetric / asymmetric kernels): at 2 bits the
+  extrema gave 0.544 / 0.616 and 0.569 / 0.621, the calibrated `k` 0.741 / 0.803 and 0.742 / 0.802;
+  at 4 bits 0.913 / 0.931 and 0.900 / 0.917 against the histogram's 0.919 / 0.933 and 0.915 / 0.926;
+  at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
+  histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
 ## 1.5
 

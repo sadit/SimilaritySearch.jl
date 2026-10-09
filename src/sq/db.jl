@@ -147,8 +147,12 @@ function (::Type{QuantDatabase{B,Vector{SQMinC}}})(X::AbstractMatrix; storage=Ma
     Sa = Vector{Float32}(undef, n)
     Saa = Vector{Float32}(undef, n)
     minbatch = getminbatch(n)
+    # resolved, not calibrated: a database grows one vector at a time through `push_item!`, which
+    # has no matrix to calibrate on, and a build from a matrix must produce the very codes that
+    # growing would. Calibration belongs to `SQEncoder`, which keeps its fitted policy.
+    policy = resolverange(range, B)
     @BATCHES minbatch for i in 1:n
-        E[i] = quantvector!(Val(B), view(Q, :, i), view(X, :, i); range)
+        E[i] = quantvector!(Val(B), view(Q, :, i), view(X, :, i); range=policy)
         Sa[i], Saa[i] = codesums(Val(B), view(Q, :, i))
     end
 

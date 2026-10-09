@@ -543,9 +543,13 @@ end
                 for i in (1, n ÷ 2, n)
                     @test collect(db[i].V) == collect(ref[i].V)
                     @test db[i].E == ref[i].E
-                    for dist in (ScalarQuant.SqL2(), ScalarQuant.L1(), ScalarQuant.Cosine(), ScalarQuant.NormCosine())
+                    for dist in (ScalarQuant.SqL2(), ScalarQuant.Cosine(), ScalarQuant.NormCosine())
                         @test evaluate(dist, db[i], db[1]) == evaluate(dist, ref[i], ref[1])
                     end
+                    # L1 dequantizes coordinate by coordinate, and a `Vector{UInt8}` and a column view
+                    # of the same bytes take differently ordered sums under `--check-bounds=yes` (as
+                    # `Pkg.test` runs): equal codes, distances one ulp apart. Reproduced on 1.6.3 too.
+                    @test evaluate(ScalarQuant.L1(), db[i], db[1]) ≈ evaluate(ScalarQuant.L1(), ref[i], ref[1]) rtol = 1e-6
                     for dist in (ScalarQuant.SqL2(), ScalarQuant.L1(), ScalarQuant.NormCosine())
                         @test evaluate(dist, db[i], q) == evaluate(dist, ref[i], q)
                     end
@@ -648,49 +652,71 @@ end
 
 
 @testset "per-vector range policies" begin
-    using SimilaritySearch.ScalarQuant: AutoRange, SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, SQVec, levels, codesperbyte, encode
+    using SimilaritySearch.ScalarQuant: AutoRange, ExtremaRange, FixedRange, CalibratedRange, HistogramRange, RefinedRange,
+        ExactRange, resolverange, calibrate, defaultk, vectorrange, quantvector!, sqdistortion, SQMinC, SQVec, levels,
+        codesperbyte, encode, packcodes!
     rng = Xoshiro(5)
-    X = randn(rng, Float32, 256, 200)
+    X = randn(rng, Float32, 256, 400)
+    μσ(v) = (μ = sum(v) / length(v); (μ, sqrt(sum(abs2, v .- μ) / length(v))))
+    kof(v, mn) = (μσ(v)[1] - mn) / μσ(v)[2]
+    @test resolverange(AutoRange(), 2) isa CalibratedRange
+    @test resolverange(AutoRange(), 4) isa HistogramRange && resolverange(AutoRange(), 4).bins == 64
+    @test resolverange(AutoRange(), 8) isa ExtremaRange
+    @test resolverange(FixedRange(2.0), 2) == FixedRange(2.0)
+    @test_throws ArgumentError HistogramRange(bins=4)
     for B in (2, 4, 8)
         L = levels(Val(B))
-        for i in 1:50
+        cal = calibrate(CalibratedRange(), X, L)
+        @test cal.k > 0 && abs(cal.k - defaultk(L)) <= 0.35           # Gaussian columns: near the tabulated factor
+        @test calibrate(cal, X, L) === cal                              # already calibrated: unchanged
+        @test calibrate(HistogramRange(), X, L) == HistogramRange()     # nothing to learn
+        @test calibrate(RefinedRange(CalibratedRange()), X, L).inner.k == cal.k
+        for i in 1:40
             v = view(X, :, i)
-            # the extrema policy is the pre-1.6.4 rule, byte for byte
+            # the extrema are the pre-1.6.4 rule, byte for byte
             mn, c = vectorrange(ExtremaRange(), v, L)
             @test mn == minimum(v) && c ≈ (maximum(v) - minimum(v) + 1f-6) / L
-            codes = Vector{UInt8}(undef, cld(size(X, 1), codesperbyte(Val(B)))); old = Vector{UInt8}(undef, length(codes))
+            codes = Vector{UInt8}(undef, cld(size(X, 1), codesperbyte(Val(B)))); old = similar(codes)
             E = quantvector!(Val(B), codes, v; range=ExtremaRange())
-            ScalarQuant.packcodes!(Val(B), old, v, mn, 1f0 / c)
+            packcodes!(Val(B), old, v, mn, 1f0 / c)
             @test codes == old && E == SQMinC(mn, c)
-            # the symmetric range is centred on the mean, and its searched factor stays near the exact search's
-            mf, cf = vectorrange(SymmetricRange(), v, L); me, ce = vectorrange(SymmetricRange(search=:exact), v, L)
-            mr, cr = vectorrange(SymmetricRange(search=:refined), v, L)
-            μ = sum(v) / length(v); σ = sqrt(sum(abs2, v .- μ) / length(v))
-            kf, ke, kr = (μ - mf) / σ, (μ - me) / σ, (μ - mr) / σ
-            @test mf + cf * L ≈ μ + kf * σ atol = 1e-3
-            @test 0.5 <= kf <= 4.5 && abs(kf - ke) <= 0.6 && abs(kr - kf) <= 4.5 / 64 + 1e-4
-            # a fixed factor is used as given
-            m2, c2 = vectorrange(SymmetricRange(k=2.5), v, L)
-            @test (μ - m2) / σ ≈ 2.5 atol = 1e-3
+            # symmetric policies: centred on the mean, with the factor each one promises
+            for (p, check) in ((FixedRange(2.5), k -> isapprox(k, 2.5; atol=1e-3)),
+                               (CalibratedRange(), k -> isapprox(k, defaultk(L); atol=1e-3)),
+                               (cal, k -> isapprox(k, cal.k; atol=1e-3)),
+                               (HistogramRange(), k -> 0.5 <= k <= 4.5),
+                               (RefinedRange(cal), k -> abs(k - cal.k) <= 0.1 + 1e-3),
+                               (ExactRange(), k -> 0.5 <= k <= 4.5))
+                m1, c1 = vectorrange(p, v, L)
+                k = kof(v, m1)
+                @test check(k)
+                @test m1 + c1 * L ≈ μσ(v)[1] + k * μσ(v)[2] atol = 1e-3
+            end
+            @test abs(kof(v, vectorrange(HistogramRange(), v, L)[1]) - kof(v, vectorrange(ExactRange(), v, L)[1])) <= 0.6
         end
-        # at 2 and 4 bits the searched symmetric range distorts a Gaussian vector less than its extrema do
+        # at 2 and 4 bits the default distorts a Gaussian vector less than its extrema do
         if B != 8
+            policy = calibrate(resolverange(AutoRange(), B), X, L)
             better = 0
             for i in 1:50
                 v = view(X, :, i)
-                mn, c = vectorrange(SymmetricRange(), v, L); m2, c2 = vectorrange(ExtremaRange(), v, L)
+                mn, c = vectorrange(policy, v, L); m2, c2 = vectorrange(ExtremaRange(), v, L)
                 better += sqdistortion(v, L, mn, mn + c * L) < sqdistortion(v, L, m2, m2 + c2 * L)
             end
             @test better >= 45
         end
     end
-    # the default everywhere is the symmetric searched range; an encoder stored with `nothing` keeps the extrema
-    @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=SymmetricRange()).E                    # AutoRange: fast symmetric at 4 bits
-    @test SQVec{2}(X[:, 1]).E == SQVec{2}(X[:, 1]; range=SymmetricRange(search=:refined)).E     # refined at 2
-    @test SQVec{8}(X[:, 1]).E == SQVec{8}(X[:, 1]; range=ExtremaRange()).E      # AutoRange: extrema at 8 bits
-    @test SQVec{4}(X[:, 1]; range=ExtremaRange()).E.min == minimum(X[:, 1])
-    e = SQEncoder(ScalarQuant.SQu8, X); @test e.E isa ScalarQuant.AutoRange
-    e2 = SQEncoder(ScalarQuant.SQu8, X; range=ExtremaRange()); @test encode(e2, X[:, 3]).E.min == minimum(X[:, 3])
-    @test_throws ArgumentError SymmetricRange(search=:what)
-    @test SymmetricRange(search=:refined).search === :refined
+    # the default wherever a vector is quantized alone: resolved by width, uncalibrated
+    @test SQVec{2}(X[:, 1]).E == SQVec{2}(X[:, 1]; range=CalibratedRange()).E
+    @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=HistogramRange()).E
+    @test SQVec{8}(X[:, 1]).E == SQVec{8}(X[:, 1]; range=ExtremaRange()).E
+    # an encoder built from data resolves and calibrates; one built from a dimension only resolves
+    e2 = SQEncoder(ScalarQuant.SQu2, X); @test e2.E isa CalibratedRange && e2.E.k > 0
+    @test SQEncoder(ScalarQuant.SQu2, 256).E == CalibratedRange()
+    @test SQEncoder(ScalarQuant.SQu4, X).E == HistogramRange() && SQEncoder(ScalarQuant.SQu8, X).E == ExtremaRange()
+    @test encode(SQEncoder(ScalarQuant.SQu8, X; range=FixedRange(3.0)), X[:, 3]).E == SQVec{8}(X[:, 3]; range=FixedRange(3.0)).E
+    # the per-vector database built from a matrix resolves without calibrating, so it holds the codes
+    # that growing it one vector at a time would (calibration is the encoder's)
+    db = ScalarQuant.QuantDatabase{2,Vector{SQMinC}}(X)
+    @test db.E[7] == SQVec{2}(X[:, 7]).E == SQVec{2}(X[:, 7]; range=CalibratedRange()).E
 end

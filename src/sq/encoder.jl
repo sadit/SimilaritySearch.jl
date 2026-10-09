@@ -45,16 +45,18 @@ The width of `quant` and its parameters: the global `SQMinC`, fitted by `sqautor
 `sample()` (only called for a global module) or given as `minmax`, or the [`RangePolicy`](@ref)
 a per-vector module places each vector's own range with.
 """
-function _quantparams(quant::Module, sample::Function, range::RangePolicy)
+function _quantparams(quant::Module, sample::Function, range::RangePolicy, dim::Int)
     B, global_ = _quantspec(quant)
-    global_ || return B, range
+    # a per-vector module keeps its range policy, resolved for the width and fitted to the sample's
+    # vectors (only the calibrated factor learns anything)
+    global_ || return B, calibrate(resolverange(range, B), reshape(sample(), dim, :), levels(Val(B)))
     mn, mx = sqautorange(sample(), levels(Val(B)))
     B, _globalparams(B, mn, mx)
 end
 
 function _quantparams(quant::Module, minmax, range::RangePolicy)
     B, global_ = _quantspec(quant)
-    global_ || return B, range
+    global_ || return B, resolverange(range, B)
     minmax === nothing && throw(ArgumentError("$(nameof(quant)) needs `minmax`, or a matrix to estimate its range from"))
     B, _globalparams(B, Float32(minmax[1]), Float32(minmax[2]))
 end
@@ -92,8 +94,8 @@ end
 _quantcode(B::Val, ::Nothing, r::AbstractVector{Float32}) = _quantcode(B, ExtremaRange(), r)
 
 """
-    SQEncoder(quant::Module, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng, range=SymmetricRange())
-    SQEncoder(quant::Module, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing, range=SymmetricRange())
+    SQEncoder(quant::Module, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng, range=AutoRange())
+    SQEncoder(quant::Module, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing, range=AutoRange())
     SQEncoder(quant::Module, rotation, X::AbstractMatrix; ...)
     SQEncoder(quant::Module, rotation, dim::Integer; ...)
 
@@ -107,8 +109,8 @@ error to exploit: nothing is bounded and nothing is ever re-evaluated.
 `quant` is one of `ScalarQuant`'s quantizer modules, which names the family and the width at
 once: `SQgu8`, `SQgu4`, `SQgu2` (one global range for every code, estimated by `sqautorange`
 on a sample of `X`'s rotated coordinates, or given as `minmax`) or `SQu8`, `SQu4`, `SQu2`
-(each code with its own range, placed by the `range` policy -- a symmetric `mean ± k·σ` with
-`k` searched per vector by default, see [`RangePolicy`](@ref) -- which needs nothing beyond `dim`).
+(each code with its own range, placed by the `range` policy -- [`AutoRange`](@ref) by default,
+resolved by width and calibrated on the sample when one is given, see [`RangePolicy`](@ref)).
 
 `rotation` is the object that rotates, a [`SimilaritySearch.Projections.Rotation`](@ref) -- `Projections.qr(dim, dim)`
 or `Projections.RandomizedHadamard(dim)` -- or `nothing`, which quantizes the coordinates as
@@ -147,7 +149,7 @@ function SQEncoder(quant::Module, rot, X::AbstractMatrix;
         dist=SqL2(), samplesize::Int=4096, rng::AbstractRNG=Random.default_rng(), range::RangePolicy=DEFAULT_RANGE)
     dim = size(X, 1)
     _checkrotation(rot, dim)
-    B, E = _quantparams(quant, () -> _rotatedsample(rot, X, samplesize, rng; unit=false), range)
+    B, E = _quantparams(quant, () -> _rotatedsample(rot, X, samplesize, rng; unit=false), range, dim)
     SQEncoder{B,typeof(rot),typeof(E),typeof(dist)}(rot, dim, E, dist)
 end
 

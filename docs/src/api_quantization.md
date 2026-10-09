@@ -114,8 +114,15 @@ the rotation by the object that applies it (`Projections.qr(dim, dim)`,
 ScalarQuant.SQEncoder
 ScalarQuant.RangePolicy
 ScalarQuant.AutoRange
-ScalarQuant.SymmetricRange
 ScalarQuant.ExtremaRange
+ScalarQuant.FixedRange
+ScalarQuant.CalibratedRange
+ScalarQuant.HistogramRange
+ScalarQuant.RefinedRange
+ScalarQuant.ExactRange
+ScalarQuant.resolverange
+ScalarQuant.calibrate
+ScalarQuant.defaultk
 ScalarQuant.SQQuery
 ScalarQuant.sqcodes
 ScalarQuant.quantizer

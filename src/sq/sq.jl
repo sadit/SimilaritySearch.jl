@@ -12,9 +12,8 @@ families that differ in *where the quantization range comes from*:
   consume them with SIMD and nothing is stored per vector.
 - **Per-vector** (`SQu2`, `SQu4`, `SQu8`): every stored vector carries its own `min`/scale
   ([`SQMinC`](@ref)), placed on that vector's own coordinates by a [`RangePolicy`](@ref): by
-  default a symmetric `mean ± k·σ` whose factor is searched per vector to minimize its own
-  distortion (since 1.6.4; the extrema, which clip nothing, remain available as
-  `ExtremaRange()`). A vector living on a different scale than the rest is quantized as
+  default ([`AutoRange`](@ref), since 1.6.4) a symmetric `mean ± k·σ` with a calibrated `k` at 2
+  bits, with `k` searched per vector on a histogram at 4, and the vector's extrema at 8. A vector living on a different scale than the rest is quantized as
   faithfully as any other; the price is 8 bytes per vector and a distance that must fold both
   vectors' parameters in (see `SQu8`'s `dotu8`).
 
@@ -34,8 +33,9 @@ because it is derived from the vector itself.
 
 The trade has a second edge. A per-vector range set on the vector's extrema lets one outlying
 coordinate stretch it and cost resolution for every other coordinate of that vector, which is
-why the default policy searches a symmetric range instead and lets a few coordinates saturate
-(measured: +0.21 of recall@10 at 2 bits and +0.01 at 4 on yahooaq, nothing at 8). Per-vector
+why the default policy places a symmetric range at 2 and 4 bits and lets a few coordinates
+saturate (measured: +0.19-0.20 of recall@10 at 2 bits and +0.006-0.015 at 4 on yahooaq and ccnews;
+at 8 bits the extrema stay). Per-vector
 adapts to scale differences *between* vectors; it does not help against a heavy-tailed
 coordinate distribution, which costs resolution in both families.
 
@@ -97,6 +97,7 @@ module ScalarQuant
 
 using Distances: PreMetric, SemiMetric, Metric
 using Statistics: quantile
+using Random: AbstractRNG, Xoshiro
 using StatsBase
 using SIMD
 import Distances: evaluate
@@ -248,6 +249,7 @@ function sqrange(V::AbstractVector, levels::Integer;
 end
 
 include("codes.jl")
+include("ranges.jl")
 include("vec.jl")
 include("query.jl")
 include("dist.jl")
