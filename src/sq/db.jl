@@ -137,7 +137,7 @@ end
 
 ### the two families' constructors from a matrix
 
-function (::Type{QuantDatabase{B,Vector{SQMinC}}})(X::AbstractMatrix; storage=MatrixDatabase) where {B}
+function (::Type{QuantDatabase{B,Vector{SQMinC}}})(X::AbstractMatrix; storage=MatrixDatabase, range::RangePolicy=DEFAULT_RANGE) where {B}
     m, n = size(X)
     cpb = codesperbyte(Val(B))
     m % cpb == 0 ||
@@ -148,7 +148,7 @@ function (::Type{QuantDatabase{B,Vector{SQMinC}}})(X::AbstractMatrix; storage=Ma
     Saa = Vector{Float32}(undef, n)
     minbatch = getminbatch(n)
     @BATCHES minbatch for i in 1:n
-        E[i] = quantvector!(Val(B), view(Q, :, i), view(X, :, i))
+        E[i] = quantvector!(Val(B), view(Q, :, i), view(X, :, i); range)
         Sa[i], Saa[i] = codesums(Val(B), view(Q, :, i))
     end
 
@@ -227,7 +227,7 @@ end
     quantize(db::QuantDatabase, v::AbstractVector) -> SQVec
 
 Quantizes `v` the way `db`'s vectors are: with `db`'s shared parameters in the global family,
-so the result is comparable with what it stores; on `v`'s own extrema in the per-vector one,
+so the result is comparable with what it stores; on `v`'s own range (the default policy) in the per-vector one,
 where `db` only fixes the dimension. This is what [`push_item!`](@ref) stores, and what a
 query must go through to be compared as codes against codes (a `Float32` query needs no
 quantization: the mixed distances take it as it is).

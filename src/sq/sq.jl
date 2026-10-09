@@ -11,10 +11,12 @@ families that differ in *where the quantization range comes from*:
   coordinate values. Codes of different vectors are directly comparable, so the distances
   consume them with SIMD and nothing is stored per vector.
 - **Per-vector** (`SQu2`, `SQu4`, `SQu8`): every stored vector carries its own `min`/scale
-  ([`SQMinC`](@ref)), taken from that vector's own extrema. Nothing is ever clipped, and a
-  vector living on a different scale than the rest is quantized as faithfully as any other;
-  the price is 8 bytes per vector and a distance that must fold both vectors' parameters in
-  (see `SQu8`'s `dotu8`).
+  ([`SQMinC`](@ref)), placed on that vector's own coordinates by a [`RangePolicy`](@ref): by
+  default a symmetric `mean ± k·σ` whose factor is searched per vector to minimize its own
+  distortion (since 1.6.4; the extrema, which clip nothing, remain available as
+  `ExtremaRange()`). A vector living on a different scale than the rest is quantized as
+  faithfully as any other; the price is 8 bytes per vector and a distance that must fold both
+  vectors' parameters in (see `SQu8`'s `dotu8`).
 
 # Choosing a family
 
@@ -30,10 +32,12 @@ whole database, and a vector that breaks it saturates against the ends of the ra
 precisely the large coordinates distances depend on. A per-vector range cannot be broken,
 because it is derived from the vector itself.
 
-The trade has a second edge. A per-vector range is set by that vector's own extrema, so one
-outlying coordinate stretches the range and costs resolution for every other coordinate of
-that vector. Per-vector adapts to scale differences *between* vectors; it does not help
-against a heavy-tailed coordinate distribution, which costs resolution in both families.
+The trade has a second edge. A per-vector range set on the vector's extrema lets one outlying
+coordinate stretch it and cost resolution for every other coordinate of that vector, which is
+why the default policy searches a symmetric range instead and lets a few coordinates saturate
+(measured: +0.21 of recall@10 at 2 bits and +0.01 at 4 on yahooaq, nothing at 8). Per-vector
+adapts to scale differences *between* vectors; it does not help against a heavy-tailed
+coordinate distribution, which costs resolution in both families.
 
 # Choosing the range of a global quantizer
 

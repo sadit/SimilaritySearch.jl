@@ -42,19 +42,19 @@ _globalparams(B::Int, mn::Float32, mx::Float32) = SQMinC(mn, 1f0 / sqglobalscale
     _quantparams(quant, minmax) -> (B, E)
 
 The width of `quant` and its parameters: the global `SQMinC`, fitted by `sqautorange` on
-`sample()` (only called for a global module) or given as `minmax`, or `nothing` for a
-per-vector module, whose ranges come with each code.
+`sample()` (only called for a global module) or given as `minmax`, or the [`RangePolicy`](@ref)
+a per-vector module places each vector's own range with.
 """
-function _quantparams(quant::Module, sample::Function)
+function _quantparams(quant::Module, sample::Function, range::RangePolicy)
     B, global_ = _quantspec(quant)
-    global_ || return B, nothing
+    global_ || return B, range
     mn, mx = sqautorange(sample(), levels(Val(B)))
     B, _globalparams(B, mn, mx)
 end
 
-function _quantparams(quant::Module, minmax)
+function _quantparams(quant::Module, minmax, range::RangePolicy)
     B, global_ = _quantspec(quant)
-    global_ || return B, nothing
+    global_ || return B, range
     minmax === nothing && throw(ArgumentError("$(nameof(quant)) needs `minmax`, or a matrix to estimate its range from"))
     B, _globalparams(B, Float32(minmax[1]), Float32(minmax[2]))
 end
@@ -82,14 +82,18 @@ function _quantcode(::Val{B}, E::SQMinC, r::AbstractVector{Float32}) where {B}
     SQVec{B}(E, packcodes!(Val(B), codes, r, E.min, 1f0 / E.c))
 end
 
-function _quantcode(::Val{B}, ::Nothing, r::AbstractVector{Float32}) where {B}
+function _quantcode(::Val{B}, range::RangePolicy, r::AbstractVector{Float32}) where {B}
     codes = Vector{UInt8}(undef, cld(length(r), codesperbyte(Val(B))))
-    SQVec{B}(quantvector!(Val(B), codes, r), codes)
+    SQVec{B}(quantvector!(Val(B), codes, r; range), codes)
 end
 
+# an encoder stored before 1.6.4 carries `nothing` for a per-vector module: its codes were
+# placed on the extrema, and so are the ones it keeps producing
+_quantcode(B::Val, ::Nothing, r::AbstractVector{Float32}) = _quantcode(B, ExtremaRange(), r)
+
 """
-    SQEncoder(quant::Module, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng)
-    SQEncoder(quant::Module, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing)
+    SQEncoder(quant::Module, X::AbstractMatrix; dist=ScalarQuant.SqL2(), samplesize=4096, rng, range=SymmetricRange())
+    SQEncoder(quant::Module, dim::Integer; dist=ScalarQuant.SqL2(), minmax=nothing, range=SymmetricRange())
     SQEncoder(quant::Module, rotation, X::AbstractMatrix; ...)
     SQEncoder(quant::Module, rotation, dim::Integer; ...)
 
@@ -103,7 +107,8 @@ error to exploit: nothing is bounded and nothing is ever re-evaluated.
 `quant` is one of `ScalarQuant`'s quantizer modules, which names the family and the width at
 once: `SQgu8`, `SQgu4`, `SQgu2` (one global range for every code, estimated by `sqautorange`
 on a sample of `X`'s rotated coordinates, or given as `minmax`) or `SQu8`, `SQu4`, `SQu2`
-(each code with its own range from its own extrema, which needs nothing beyond `dim`).
+(each code with its own range, placed by the `range` policy -- a symmetric `mean ± k·σ` with
+`k` searched per vector by default, see [`RangePolicy`](@ref) -- which needs nothing beyond `dim`).
 
 `rotation` is the object that rotates, a [`SimilaritySearch.Projections.Rotation`](@ref) -- `Projections.qr(dim, dim)`
 or `Projections.RandomizedHadamard(dim)` -- or `nothing`, which quantizes the coordinates as
@@ -126,7 +131,7 @@ blocks, and which takes the `SQVec`s `encode` produces without re-quantizing the
 struct SQEncoder{B,ROT,P,D} <: AbstractEstimator
     rot::ROT
     dim::Int
-    E::P              # SQMinC for the global family, nothing for the per-vector one
+    E::P              # SQMinC for the global family, its RangePolicy for the per-vector one (nothing before 1.6.4: extrema)
     dist::D
 end
 
@@ -139,20 +144,20 @@ _checkrotation(rot, dim::Int) = rotationdim(rot) == dim ||
     throw(ArgumentError("SQEncoder: a rotation of dimension $(rotationdim(rot)) for vectors of dimension $dim"))
 
 function SQEncoder(quant::Module, rot, X::AbstractMatrix;
-        dist=SqL2(), samplesize::Int=4096, rng::AbstractRNG=Random.default_rng())
+        dist=SqL2(), samplesize::Int=4096, rng::AbstractRNG=Random.default_rng(), range::RangePolicy=DEFAULT_RANGE)
     dim = size(X, 1)
     _checkrotation(rot, dim)
-    B, E = _quantparams(quant, () -> _rotatedsample(rot, X, samplesize, rng; unit=false))
+    B, E = _quantparams(quant, () -> _rotatedsample(rot, X, samplesize, rng; unit=false), range)
     SQEncoder{B,typeof(rot),typeof(E),typeof(dist)}(rot, dim, E, dist)
 end
 
 SQEncoder(quant::Module, X::AbstractMatrix; kwargs...) = SQEncoder(quant, nothing, X; kwargs...)
 SQEncoder(quant::Module, dim::Integer; kwargs...) = SQEncoder(quant, nothing, dim; kwargs...)
 
-function SQEncoder(quant::Module, rot, dim::Integer; dist=SqL2(), minmax=nothing)
+function SQEncoder(quant::Module, rot, dim::Integer; dist=SqL2(), minmax=nothing, range::RangePolicy=DEFAULT_RANGE)
     dim = Int(dim)
     _checkrotation(rot, dim)
-    B, E = _quantparams(quant, minmax)
+    B, E = _quantparams(quant, minmax, range)
     SQEncoder{B,typeof(rot),typeof(E),typeof(dist)}(rot, dim, E, dist)
 end
 
