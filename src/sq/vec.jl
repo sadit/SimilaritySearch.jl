@@ -34,16 +34,19 @@ struct ExtremaRange <: RangePolicy end
 `mean ± k·σ` of the vector's coordinates as its range; `k == 0` searches the factor per vector.
 `search=:fast` (the default) reads the factor off a 64-bin histogram of the coordinates'
 deviations in one pass and scores every candidate in constant time, with the rounding error
-modelled as `step²/12` and the saturation error summed exactly from the histogram -- about a
-microsecond per vector, little over the quantization itself. `search=:exact` evaluates the real
-grid's [`sqdistortion`](@ref) for every candidate (28 passes over the vector, ~30 µs), the
-reference the fast search is validated against. See [`RangePolicy`](@ref).
+modelled as `step²/12` and the saturation error summed exactly from the histogram -- about
+2.5 µs per vector at 384 dimensions, the cost of taking the extrema. `search=:refined` then
+evaluates the real grid's [`sqdistortion`](@ref) at that factor and its two neighbouring
+candidates (three passes over the vector, ~6 µs). `search=:exact` evaluates it for every
+candidate (28 passes, ~32 µs), the reference the other two are validated against: on yahooaq
+(100K vectors, exhaustive recall@10) the fast search gives up 0.02 of the exact one's recall at
+2 bits and 0.005 at 4. See [`RangePolicy`](@ref).
 """
 struct SymmetricRange <: RangePolicy
     k::Float32
     search::Symbol
 end
-SymmetricRange(; k=0, search::Symbol=:fast) = (search in (:fast, :exact) || throw(ArgumentError("SymmetricRange: search must be :fast or :exact")); SymmetricRange(Float32(k), search))
+SymmetricRange(; k=0, search::Symbol=:fast) = (search in (:fast, :refined, :exact) || throw(ArgumentError("SymmetricRange: search must be :fast, :refined or :exact")); SymmetricRange(Float32(k), search))
 
 "The per-vector family's default range policy."
 const DEFAULT_RANGE = SymmetricRange()
@@ -65,8 +68,17 @@ function vectorrange(p::SymmetricRange, v::AbstractVector, L::Integer; eps::Floa
     σ = sqrt(max(0.0, s2 / n - μ * μ))
     σ > 0 || return vectorrange(ExtremaRange(), v, L; eps)
     μ32, σ32 = Float32(μ), Float32(σ)
-    k = p.k > 0 ? p.k : p.search === :fast ? _searchk_fast(v, L, μ32, σ32) : _searchk(v, L, μ32, σ32)
+    k = p.k > 0 ? p.k :
+        p.search === :exact ? _searchk(v, L, μ32, σ32) :
+        p.search === :refined ? _refinek(v, L, μ32, σ32, _searchk_fast(v, L, μ32, σ32)) :
+        _searchk_fast(v, L, μ32, σ32)
     (μ32 - k * σ32, (2k * σ32 + eps) / Float32(L))
+end
+
+# the real grid's distortion at the fast factor and its two neighbouring candidates
+function _refinek(v::AbstractVector, L::Integer, μ::Float32, σ::Float32, k0::Float32)
+    w = _KMAX / _KBINS
+    argmin(k -> sqdistortion(v, L, μ - k * σ, μ + k * σ), (max(0.5f0, k0 - w), k0, min(_KMAX, k0 + w)))
 end
 
 # The fast search. One pass bins the deviations |x - μ| in units of σ, 64 bins of width 4.5/64
