@@ -49,3 +49,21 @@ end
     @inbounds m = db.blocks[b]
     _prefetch_bytes(pointer(m, (j - 1) * Dim + 1), Dim * sizeof(NumType))
 end
+
+# a view onto another database: the parent's item
+@inline prefetch_item(db::SubDatabase, i::Integer) = prefetch_item(db.parent, db.map[i])
+
+# memory-mapped matrix: the same layout as a MatrixDatabase, backed by the file's pages
+@inline function prefetch_item(db::MMapMatrixDatabase{Dim,NumType}, i::Integer) where {Dim,NumType}
+    _prefetch_bytes(pointer(db.data, (i - 1) * Dim + 1), Dim * sizeof(NumType))
+end
+
+# one heap object per item (sets, strings, variable-length vectors): reaching the data costs the
+# reference and the object's header first, two dependent loads the second pass then finds in
+# cache; the data lines are what gets prefetched
+@inline function prefetch_item(db::VectorDatabase, i::Integer)
+    @inbounds v = db.vecs[i]
+    _prefetch_object(v)
+end
+@inline _prefetch_object(v::Union{Vector,String}) = _prefetch_bytes(pointer(v), sizeof(v))
+@inline _prefetch_object(::Any) = nothing
