@@ -173,7 +173,7 @@ so the exception is stated here instead of left for a reader to find.
 
 ### 1.6.4
 
-- **The per-vector scalar quantizer places each vector's range by a policy, chosen by width.**
+- **The per-vector scalar quantizer places each vector's range by a policy, chosen by width** (#116, #117).
   Up to 1.6.3 `SQu2`, `SQu4` and `SQu8` mapped each vector's extrema onto the codes, so one outlying
   coordinate coarsened all the others; with three or fifteen levels that left the bulk of a vector
   on one or two codes. `quantvector!`, `SQVec{B}(v)`, `SQEncoder` and the per-vector databases now
