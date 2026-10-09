@@ -176,11 +176,15 @@ so the exception is stated here instead of left for a reader to find.
 - **The per-vector scalar quantizer places each vector's range on a searched symmetric
   `mean ± k·σ` at 2 and 4 bits instead of the vector's extrema.** `quantvector!`, `SQVec{B}(v)`,
   `SQEncoder` and the per-vector databases take a `range` policy; the default `AutoRange()` is
-  `SymmetricRange()` at 2 and 4 bits and `ExtremaRange()` at 8. `SymmetricRange()` reads the
+  `SymmetricRange(search=:refined)` at 2 bits, `SymmetricRange()` at 4 and `ExtremaRange()` at 8.
+  `SymmetricRange()` reads the
   factor off a 64-bin histogram of the coordinates' deviations in one pass, scoring every
   candidate from 0.5σ to 4.5σ in constant time with the saturation error summed exactly and the
-  rounding error modelled as `step²/12` (about 2 µs per vector against 34 µs for the exact
-  `sqdistortion` search, `SymmetricRange(search=:exact)`, whose factors it matches within 0.05-0.1);
+  rounding error modelled as `step²/12` (about 3 µs per vector, the cost of taking the extrema,
+  against 32 µs for the exact `sqdistortion` search, `SymmetricRange(search=:exact)`, whose factors it
+  matches within 0.05-0.1; `search=:refined` adds three exact evaluations around the fast factor, 6.5 µs,
+  and recovers the exact recall at 2 bits: yahooaq 0.758 / 0.822 against the fast 0.740 / 0.805 and the
+  exact 0.760 / 0.822);
   `SymmetricRange(k=2.5)` fixes the factor; `ExtremaRange()` keeps the codes of 1.6.3 and earlier,
   and so does an encoder stored before 1.6.4. Measured offline (100K vectors, 384 dimensions,
   exhaustive recall@10, symmetric / asymmetric kernels): on yahooaq extrema gave 0.544 / 0.616 at 2

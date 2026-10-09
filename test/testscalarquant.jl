@@ -658,7 +658,7 @@ end
             # the extrema policy is the pre-1.6.4 rule, byte for byte
             mn, c = vectorrange(ExtremaRange(), v, L)
             @test mn == minimum(v) && c ≈ (maximum(v) - minimum(v) + 1f-6) / L
-            codes = Vector{UInt8}(undef, cld(64, codesperbyte(Val(B)))); old = Vector{UInt8}(undef, length(codes))
+            codes = Vector{UInt8}(undef, cld(size(X, 1), codesperbyte(Val(B)))); old = Vector{UInt8}(undef, length(codes))
             E = quantvector!(Val(B), codes, v; range=ExtremaRange())
             ScalarQuant.packcodes!(Val(B), old, v, mn, 1f0 / c)
             @test codes == old && E == SQMinC(mn, c)
@@ -685,7 +685,8 @@ end
         end
     end
     # the default everywhere is the symmetric searched range; an encoder stored with `nothing` keeps the extrema
-    @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=SymmetricRange()).E
+    @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=SymmetricRange()).E                    # AutoRange: fast symmetric at 4 bits
+    @test SQVec{2}(X[:, 1]).E == SQVec{2}(X[:, 1]; range=SymmetricRange(search=:refined)).E     # refined at 2
     @test SQVec{8}(X[:, 1]).E == SQVec{8}(X[:, 1]; range=ExtremaRange()).E      # AutoRange: extrema at 8 bits
     @test SQVec{4}(X[:, 1]; range=ExtremaRange()).E.min == minimum(X[:, 1])
     e = SQEncoder(ScalarQuant.SQu8, X); @test e.E isa ScalarQuant.AutoRange

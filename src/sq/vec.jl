@@ -9,7 +9,7 @@ How the per-vector family places a vector's own quantization range `[min, max]` 
 it onto the codes `0:levels(B)`. Three policies; [`AutoRange`](@ref) is the default and picks
 between the other two by the width:
 
-- [`SymmetricRange`](@ref) (the default at 2 and 4 bits): `mean ± k·σ` of the vector's coordinates, with `k`
+- [`SymmetricRange`](@ref) (the default at 2 and 4 bits, refined at 2): `mean ± k·σ` of the vector's coordinates, with `k`
   searched per vector (coarse then fine over `0.5:0.05:4.5`) to minimize that vector's own
   [`sqdistortion`](@ref), or fixed with `SymmetricRange(k=2.5)`. The coordinates beyond the range
   saturate; the search decides how many, and the bulk gets the levels.
@@ -53,11 +53,14 @@ SymmetricRange(; k=0, search::Symbol=:fast) = (search in (:fast, :refined, :exac
 """
     AutoRange()
 
-The per-vector family's default: [`SymmetricRange`](@ref)`()` at 2 and 4 bits, [`ExtremaRange`](@ref)`()`
-at 8. With 3 or 15 levels the searched symmetric range is worth 0.19-0.21 and 0.01 of recall@10
-over the extrema (yahooaq, ccnews); with 255 levels a single clipped coordinate costs more than
-the finer step buys back -- the few coordinates beyond `mean ± 3.2σ` are exactly the ones the
-distances lean on -- and the extrema, which clip nothing, were 0.001-0.009 better.
+The per-vector family's default, by width: at 2 bits [`SymmetricRange`](@ref)`(search=:refined)`,
+at 4 bits `SymmetricRange()` (the fast search), at 8 bits [`ExtremaRange`](@ref)`()`. With 3 levels the
+searched symmetric range is worth 0.19-0.21 of recall@10 over the extrema (yahooaq, ccnews) and the
+fast model's coarse rounding term leaves 0.02 of it on the table, which three exact evaluations
+recover for 4 µs more per vector; with 15 levels the fast search is within 0.002-0.006 of the exact
+one and 0.01 above the extrema; with 255 levels a single clipped coordinate costs more than the
+finer step buys back -- the few coordinates beyond `mean ± 3.2σ` are exactly the ones the distances
+lean on -- and the extrema, which clip nothing, were 0.001-0.009 better.
 """
 struct AutoRange <: RangePolicy end
 
@@ -65,7 +68,9 @@ struct AutoRange <: RangePolicy end
 const DEFAULT_RANGE = AutoRange()
 
 @inline vectorrange(::AutoRange, v::AbstractVector, L::Integer; eps::Float32=1f-6) =
-    L >= 255 ? vectorrange(ExtremaRange(), v, L; eps) : vectorrange(SymmetricRange(), v, L; eps)
+    L >= 255 ? vectorrange(ExtremaRange(), v, L; eps) :
+    L >= 15  ? vectorrange(SymmetricRange(), v, L; eps) :
+               vectorrange(SymmetricRange(search=:refined), v, L; eps)
 
 "`(min, step)` of `v` under `policy` at `L` levels."
 @inline function vectorrange(::ExtremaRange, v::AbstractVector, L::Integer; eps::Float32=1f-6)
