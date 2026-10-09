@@ -648,7 +648,7 @@ end
 
 
 @testset "per-vector range policies" begin
-    using SimilaritySearch.ScalarQuant: SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, levels, codesperbyte
+    using SimilaritySearch.ScalarQuant: AutoRange, SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, levels, codesperbyte
     rng = Xoshiro(5)
     X = randn(rng, Float32, 256, 200)
     for B in (2, 4, 8)
@@ -686,8 +686,9 @@ end
     end
     # the default everywhere is the symmetric searched range; an encoder stored with `nothing` keeps the extrema
     @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=SymmetricRange()).E
+    @test SQVec{8}(X[:, 1]).E == SQVec{8}(X[:, 1]; range=ExtremaRange()).E      # AutoRange: extrema at 8 bits
     @test SQVec{4}(X[:, 1]; range=ExtremaRange()).E.min == minimum(X[:, 1])
-    e = SQEncoder(ScalarQuant.SQu8, X); @test e.E isa SymmetricRange
+    e = SQEncoder(ScalarQuant.SQu8, X); @test e.E isa ScalarQuant.AutoRange
     e2 = SQEncoder(ScalarQuant.SQu8, X; range=ExtremaRange()); @test encode(e2, X[:, 3]).E.min == minimum(X[:, 3])
     @test_throws ArgumentError SymmetricRange(search=:what)
     @test SymmetricRange(search=:refined).search === :refined

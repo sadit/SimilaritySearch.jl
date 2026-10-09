@@ -113,6 +113,7 @@ the rotation by the object that applies it (`Projections.qr(dim, dim)`,
 ```@docs
 ScalarQuant.SQEncoder
 ScalarQuant.RangePolicy
+ScalarQuant.AutoRange
 ScalarQuant.SymmetricRange
 ScalarQuant.ExtremaRange
 ScalarQuant.SQQuery

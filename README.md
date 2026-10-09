@@ -174,8 +174,9 @@ so the exception is stated here instead of left for a reader to find.
 ### 1.6.4
 
 - **The per-vector scalar quantizer places each vector's range on a searched symmetric
-  `mean ± k·σ` instead of the vector's extrema.** `quantvector!`, `SQVec{B}(v)`, `SQEncoder` and
-  the per-vector databases take a `range` policy: `SymmetricRange()` (the new default) reads the
+  `mean ± k·σ` at 2 and 4 bits instead of the vector's extrema.** `quantvector!`, `SQVec{B}(v)`,
+  `SQEncoder` and the per-vector databases take a `range` policy; the default `AutoRange()` is
+  `SymmetricRange()` at 2 and 4 bits and `ExtremaRange()` at 8. `SymmetricRange()` reads the
   factor off a 64-bin histogram of the coordinates' deviations in one pass, scoring every
   candidate from 0.5σ to 4.5σ in constant time with the saturation error summed exactly and the
   rounding error modelled as `step²/12` (about 2 µs per vector against 34 µs for the exact
@@ -188,7 +189,9 @@ so the exception is stated here instead of left for a reader to find.
   0.757 / 0.816, 0.913 / 0.928 and 0.982 / 0.982. With three or fifteen levels, stretching the range
   to a vector's farthest coordinate leaves its bulk on one or two codes; at 8 bits the extrema of a
   few hundred near-Gaussian coordinates already sit inside the width the search picks, and the two
-  agree.
+  agree, and the few coordinates beyond `mean ± 3.2σ` that a symmetric range clips are the ones
+  the distances lean on, so the extrema stay the rule there (0.991 against 0.982 on ccnews,
+  asymmetric kernel).
 
 ## 1.5
 
