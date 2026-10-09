@@ -112,6 +112,9 @@ the rotation by the object that applies it (`Projections.qr(dim, dim)`,
 `Projections.RandomizedHadamard(dim)`) or `nothing`, the default.
 ```@docs
 ScalarQuant.SQEncoder
+ScalarQuant.RangePolicy
+ScalarQuant.SymmetricRange
+ScalarQuant.ExtremaRange
 ScalarQuant.SQQuery
 ScalarQuant.sqcodes
 ScalarQuant.quantizer
