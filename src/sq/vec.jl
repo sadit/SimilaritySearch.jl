@@ -31,7 +31,7 @@ abstract type RangePolicy end
 struct ExtremaRange <: RangePolicy end
 
 """
-    SymmetricRange(; k=0, search=:fast)
+    SymmetricRange(; k=0, search=:fast, bins=64)
 
 `mean ± k·σ` of the vector's coordinates as its range; `k == 0` searches the factor per vector.
 `search=:fast` (the default) reads the factor off a 64-bin histogram of the coordinates'
@@ -47,8 +47,13 @@ candidate (28 passes, ~32 µs), the reference the other two are validated agains
 struct SymmetricRange <: RangePolicy
     k::Float32
     search::Symbol
+    bins::Int      # histogram bins of the fast search over 0..4.5σ (64: candidates every 0.07σ)
 end
-SymmetricRange(; k=0, search::Symbol=:fast) = (search in (:fast, :refined, :exact) || throw(ArgumentError("SymmetricRange: search must be :fast, :refined or :exact")); SymmetricRange(Float32(k), search))
+function SymmetricRange(; k=0, search::Symbol=:fast, bins::Integer=64)
+    search in (:fast, :refined, :exact) || throw(ArgumentError("SymmetricRange: search must be :fast, :refined or :exact"))
+    bins >= 8 || throw(ArgumentError("SymmetricRange: bins must be at least 8"))
+    SymmetricRange(Float32(k), search, Int(bins))
+end
 
 """
     AutoRange()
@@ -91,14 +96,14 @@ function vectorrange(p::SymmetricRange, v::AbstractVector, L::Integer; eps::Floa
     μ32, σ32 = Float32(μ), Float32(σ)
     k = p.k > 0 ? p.k :
         p.search === :exact ? _searchk(v, L, μ32, σ32) :
-        p.search === :refined ? _refinek(v, L, μ32, σ32, _searchk_fast(v, L, μ32, σ32)) :
-        _searchk_fast(v, L, μ32, σ32)
+        p.search === :refined ? _refinek(v, L, μ32, σ32, _searchk_fast(v, L, μ32, σ32, p.bins), p.bins) :
+        _searchk_fast(v, L, μ32, σ32, p.bins)
     (μ32 - k * σ32, (2k * σ32 + eps) / Float32(L))
 end
 
 # the real grid's distortion at the fast factor and its two neighbouring candidates
-function _refinek(v::AbstractVector, L::Integer, μ::Float32, σ::Float32, k0::Float32)
-    w = _KMAX / _KBINS
+function _refinek(v::AbstractVector, L::Integer, μ::Float32, σ::Float32, k0::Float32, bins::Int=_KBINS)
+    w = _KMAX / bins
     argmin(k -> sqdistortion(v, L, μ - k * σ, μ + k * σ), (max(0.5f0, k0 - w), k0, min(_KMAX, k0 + w)))
 end
 
@@ -112,13 +117,13 @@ end
 # yahooaq and ccnews within measurement.
 const _KBINS = 64
 const _KMAX = 4.5f0
-function _searchk_fast(v::AbstractVector, L::Integer, μ::Float32, σ::Float32)
-    cnt = zeros(Int32, _KBINS); s1 = zeros(Float32, _KBINS); s2 = zeros(Float32, _KBINS)
-    w = _KMAX / _KBINS
+function _searchk_fast(v::AbstractVector, L::Integer, μ::Float32, σ::Float32, bins::Int=_KBINS)
+    cnt = zeros(Int32, bins); s1 = zeros(Float32, bins); s2 = zeros(Float32, bins)
+    w = _KMAX / bins
     invσw = 1f0 / (σ * w)
     @inbounds for x in v
         d = abs(Float32(x) - μ)
-        j = min(_KBINS, 1 + unsafe_trunc(Int, d * invσw))
+        j = min(bins, 1 + unsafe_trunc(Int, d * invσw))
         cnt[j] += 1; s1[j] += d; s2[j] += d * d
     end
     # suffix sums: what bins j..end hold
@@ -126,7 +131,7 @@ function _searchk_fast(v::AbstractVector, L::Integer, μ::Float32, σ::Float32)
     best = _KMAX; bestD = Inf32
     m = 0; S1 = 0f0; S2 = 0f0
     step2 = (2f0 * σ / Float32(L))^2 / 12f0   # times k² gives the rounding error per coordinate
-    @inbounds for j in _KBINS:-1:1
+    @inbounds for j in bins:-1:1
         m += cnt[j]; S1 += s1[j]; S2 += s2[j]
         k = (j - 1) * w            # the lower edge of bin j: a candidate factor saturates bins j..end
         k < 0.5f0 && break
