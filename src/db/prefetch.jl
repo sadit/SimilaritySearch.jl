@@ -41,3 +41,11 @@ end
     rows = size(m, 1)
     _prefetch_bytes(pointer(m, (i - 1) * rows + 1), rows * sizeof(T))
 end
+
+# the storage `sqcodes`/`SQEncoder` build and every `push_item!`-grown database use: blocks of
+# 2^NumBits columns, item `i` at column `j` of block `b`
+@inline function prefetch_item(db::BlockMatrixDatabase{Dim,NumType,NumBits}, i::Integer) where {Dim,NumType,NumBits}
+    b, j = _get_block_and_pos(NumBits, i)
+    @inbounds m = db.blocks[b]
+    _prefetch_bytes(pointer(m, (j - 1) * Dim + 1), Dim * sizeof(NumType))
+end
