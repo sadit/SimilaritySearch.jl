@@ -65,8 +65,10 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
         # dependent miss per item costs 130 ns on one thread and 650 ns·thread on 64, batches of
         # 8-16 prefetched items 92 and 475.
         db = database(index)
-        for childID in N
-            visited(vstate, convert(UInt64, childID)) || prefetch_item(db, childID)
+        if prefetchable(db)
+            for childID in N
+                visited(vstate, convert(UInt64, childID)) || prefetch_item(db, childID)
+            end
         end
 
         for childID in N

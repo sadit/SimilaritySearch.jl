@@ -97,7 +97,7 @@ using StatsBase
 using SIMD
 import Distances: evaluate
 using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist, @BATCHES, _prefetch, _prefetch_bytes
-import ..SimilaritySearch: prefetch_item
+import ..SimilaritySearch: prefetch_item, prefetchable
 #using ..Dist: fastacos
 
 """

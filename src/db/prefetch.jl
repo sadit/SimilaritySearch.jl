@@ -12,11 +12,22 @@ from there) and whatever per-item side data their distance reads.
 """
 @inline prefetch_item(::AbstractDatabase, ::Integer) = nothing
 
-"At most this many 64-byte lines are prefetched per item: enough for 512 bytes of codes or floats."
-const PREFETCH_LINES = 8
+"""
+    prefetchable(db::AbstractDatabase) -> Bool
 
-# `llvm.prefetch(ptr, rw=0 read, locality=3 keep in every level, cache type=1 data)`; the tuple
-# form of `llvmcall` takes a module and its entry function (opaque pointers: LLVM 15+, Julia 1.10+)
+Whether [`prefetch_item`](@ref) does anything for `db`. The graph search skips its prefetch pass
+when it does not, so a database without contiguous storage pays nothing.
+"""
+@inline prefetchable(::AbstractDatabase) = false
+
+"An item of up to this many 64-byte lines (512 bytes: codes, sketches, Float16 at 256 dimensions) is prefetched whole, into every cache level."
+const PREFETCH_LINES = 8
+"A larger item (Float32 vectors) only has this many leading lines prefetched, into L2 and beyond: the hardware streamer follows, and L1 stays with the query, the beam and the visited words. 1536-byte items lost 8-13% when 8 lines went into L1."
+const PREFETCH_LINES_LARGE = 4
+
+# `llvm.prefetch(ptr, rw=0 read, locality, cache type=1 data)`; locality 3 keeps the line in every
+# level, 2 in L2 and beyond. The tuple form of `llvmcall` takes a module and its entry function
+# (opaque pointers: LLVM 15+, Julia 1.10+).
 const _PREFETCH_IR = """
 declare void @llvm.prefetch.p0(ptr, i32, i32, i32)
 define void @prefetch_entry(ptr %p) alwaysinline {
@@ -24,18 +35,35 @@ define void @prefetch_entry(ptr %p) alwaysinline {
     ret void
 }
 """
+const _PREFETCH_IR_L2 = """
+declare void @llvm.prefetch.p0(ptr, i32, i32, i32)
+define void @prefetch_entry_l2(ptr %p) alwaysinline {
+    call void @llvm.prefetch.p0(ptr %p, i32 0, i32 2, i32 1)
+    ret void
+}
+"""
 @inline function _prefetch(p::Ptr)
     Base.llvmcall((_PREFETCH_IR, "prefetch_entry"), Cvoid, Tuple{Ptr{Int8}}, Ptr{Int8}(p))
 end
+@inline function _prefetch_l2(p::Ptr)
+    Base.llvmcall((_PREFETCH_IR_L2, "prefetch_entry_l2"), Cvoid, Tuple{Ptr{Int8}}, Ptr{Int8}(p))
+end
 
-"Prefetches the first lines of `nbytes` bytes at `p`."
+"Prefetches an item of `nbytes` bytes at `p`: whole into L1 when it fits `PREFETCH_LINES`, its first `PREFETCH_LINES_LARGE` lines into L2 otherwise."
 @inline function _prefetch_bytes(p::Ptr, nbytes::Integer)
     q = Ptr{Int8}(p)
-    for off in 0:64:min(nbytes, 64 * PREFETCH_LINES) - 1
-        _prefetch(q + off)
+    if nbytes <= 64 * PREFETCH_LINES
+        for off in 0:64:nbytes - 1
+            _prefetch(q + off)
+        end
+    else
+        for off in 0:64:64 * PREFETCH_LINES_LARGE - 1
+            _prefetch_l2(q + off)
+        end
     end
 end
 
+@inline prefetchable(::MatrixDatabase{M}) where {T,M<:DenseMatrix{T}} = true
 @inline function prefetch_item(db::MatrixDatabase{M}, i::Integer) where {T,M<:DenseMatrix{T}}
     m = db.matrix
     rows = size(m, 1)
@@ -44,6 +72,7 @@ end
 
 # the storage `sqcodes`/`SQEncoder` build and every `push_item!`-grown database use: blocks of
 # 2^NumBits columns, item `i` at column `j` of block `b`
+@inline prefetchable(::BlockMatrixDatabase) = true
 @inline function prefetch_item(db::BlockMatrixDatabase{Dim,NumType,NumBits}, i::Integer) where {Dim,NumType,NumBits}
     b, j = _get_block_and_pos(NumBits, i)
     @inbounds m = db.blocks[b]
@@ -51,9 +80,11 @@ end
 end
 
 # a view onto another database: the parent's item
+@inline prefetchable(db::SubDatabase) = prefetchable(db.parent)
 @inline prefetch_item(db::SubDatabase, i::Integer) = prefetch_item(db.parent, db.map[i])
 
 # memory-mapped matrix: the same layout as a MatrixDatabase, backed by the file's pages
+@inline prefetchable(::MMapMatrixDatabase) = true
 @inline function prefetch_item(db::MMapMatrixDatabase{Dim,NumType}, i::Integer) where {Dim,NumType}
     _prefetch_bytes(pointer(db.data, (i - 1) * Dim + 1), Dim * sizeof(NumType))
 end
@@ -61,6 +92,7 @@ end
 # one heap object per item (sets, strings, variable-length vectors): reaching the data costs the
 # reference and the object's header first, two dependent loads the second pass then finds in
 # cache; the data lines are what gets prefetched
+@inline prefetchable(::VectorDatabase{V}) where {V} = eltype(V) <: Union{Vector,String}
 @inline function prefetch_item(db::VectorDatabase, i::Integer)
     @inbounds v = db.vecs[i]
     _prefetch_object(v)
