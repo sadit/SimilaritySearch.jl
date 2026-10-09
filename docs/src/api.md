@@ -289,3 +289,9 @@ PQueue.heapify!
 PQueue.ninside
 PQueue.heapfix_up!
 ```
+
+```@docs
+SimilaritySearch.ScalarQuant.RangePolicy
+SimilaritySearch.ScalarQuant.SymmetricRange
+SimilaritySearch.ScalarQuant.ExtremaRange
+```

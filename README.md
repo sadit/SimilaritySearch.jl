@@ -171,6 +171,25 @@ so the exception is stated here instead of left for a reader to find.
   clustered sets under Jaccard 1.02-1.08×; byte strings under Levenshtein 1.15× (1.23× on one
   thread); Float32 vectors unchanged. Construction time does not change.
 
+### 1.6.4
+
+- **The per-vector scalar quantizer places each vector's range on a searched symmetric
+  `mean ± k·σ` instead of the vector's extrema.** `quantvector!`, `SQVec{B}(v)`, `SQEncoder` and
+  the per-vector databases take a `range` policy: `SymmetricRange()` (the new default) reads the
+  factor off a 64-bin histogram of the coordinates' deviations in one pass, scoring every
+  candidate from 0.5σ to 4.5σ in constant time with the saturation error summed exactly and the
+  rounding error modelled as `step²/12` (about 2 µs per vector against 34 µs for the exact
+  `sqdistortion` search, `SymmetricRange(search=:exact)`, whose factors it matches within 0.05-0.1);
+  `SymmetricRange(k=2.5)` fixes the factor; `ExtremaRange()` keeps the codes of 1.6.3 and earlier,
+  and so does an encoder stored before 1.6.4. Measured offline (100K vectors, 384 dimensions,
+  exhaustive recall@10, symmetric / asymmetric kernels): on yahooaq extrema gave 0.544 / 0.616 at 2
+  bits, 0.913 / 0.931 at 4 and 0.9935 / 0.9947 at 8, the searched symmetric range 0.760 / 0.822,
+  0.924 / 0.940 and 0.9931 / 0.9953; on ccnews 0.569 / 0.621, 0.901 / 0.917 and 0.981 / 0.991 against
+  0.757 / 0.816, 0.913 / 0.928 and 0.982 / 0.982. With three or fifteen levels, stretching the range
+  to a vector's farthest coordinate leaves its bulk on one or two codes; at 8 bits the extrema of a
+  few hundred near-Gaussian coordinates already sit inside the width the search picks, and the two
+  agree.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a

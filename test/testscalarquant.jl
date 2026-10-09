@@ -645,3 +645,41 @@ end
         end
     end
 end
+
+
+@testset "per-vector range policies" begin
+    using SimilaritySearch.ScalarQuant: SymmetricRange, ExtremaRange, vectorrange, quantvector!, sqdistortion, SQMinC, levels, codesperbyte
+    rng = Xoshiro(5)
+    X = randn(rng, Float32, 64, 200)
+    for B in (2, 4, 8)
+        L = levels(Val(B))
+        for i in 1:50
+            v = view(X, :, i)
+            # the extrema policy is the pre-1.6.4 rule, byte for byte
+            mn, c = vectorrange(ExtremaRange(), v, L)
+            @test mn == minimum(v) && c ≈ (maximum(v) - minimum(v) + 1f-6) / L
+            codes = Vector{UInt8}(undef, cld(64, codesperbyte(Val(B)))); old = Vector{UInt8}(undef, length(codes))
+            E = quantvector!(Val(B), codes, v; range=ExtremaRange())
+            ScalarQuant.packcodes!(Val(B), old, v, mn, 1f0 / c)
+            @test codes == old && E == SQMinC(mn, c)
+            # the symmetric range is centred on the mean, and its searched factor stays near the exact search's
+            mf, cf = vectorrange(SymmetricRange(), v, L); me, ce = vectorrange(SymmetricRange(search=:exact), v, L)
+            μ = sum(v) / length(v); σ = sqrt(sum(abs2, v .- μ) / length(v))
+            kf, ke = (μ - mf) / σ, (μ - me) / σ
+            @test mf + cf * L ≈ μ + kf * σ atol = 1e-3
+            @test 0.5 <= kf <= 4.5 && abs(kf - ke) <= 0.35
+            # a fixed factor is used as given
+            m2, c2 = vectorrange(SymmetricRange(k=2.5), v, L)
+            @test (μ - m2) / σ ≈ 2.5 atol = 1e-3
+        end
+        # at 2 and 4 bits the searched symmetric range distorts a Gaussian vector less than its extrema do
+        B == 8 || @test sum(let v = view(X, :, i); mn, c = vectorrange(SymmetricRange(), v, L); sqdistortion(v, L, mn, mn + c * L) <
+                                                      (let m2, c2 = vectorrange(ExtremaRange(), v, L); sqdistortion(v, L, m2, m2 + c2 * L); end); end for i in 1:50) >= 45
+    end
+    # the default everywhere is the symmetric searched range; an encoder stored with `nothing` keeps the extrema
+    @test SQVec{4}(X[:, 1]).E == SQVec{4}(X[:, 1]; range=SymmetricRange()).E
+    @test SQVec{4}(X[:, 1]; range=ExtremaRange()).E.min == minimum(X[:, 1])
+    e = SQEncoder(ScalarQuant.SQu8, X); @test e.E isa SymmetricRange
+    e2 = SQEncoder(ScalarQuant.SQu8, X; range=ExtremaRange()); @test encode(e2, X[:, 3]).E.min == minimum(X[:, 3])
+    @test_throws ArgumentError SymmetricRange(search=:what)
+end
