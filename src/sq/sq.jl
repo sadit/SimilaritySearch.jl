@@ -96,7 +96,8 @@ using Statistics: quantile
 using StatsBase
 using SIMD
 import Distances: evaluate
-using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist, @BATCHES, prefetch_item, _prefetch, _prefetch_bytes
+using ..SimilaritySearch: AbstractDatabase, getminbatch, Dist, @BATCHES, _prefetch, _prefetch_bytes
+import ..SimilaritySearch: prefetch_item
 #using ..Dist: fastacos
 
 """
