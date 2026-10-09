@@ -631,3 +631,17 @@ end
     end
     @test hits >= 0.8 * 300
 end
+
+
+@testset "prefetch_item on quantized databases" begin
+    X = rand(Float32, 32, 300)
+    for Q in (ScalarQuant.SQgu8, ScalarQuant.SQu4)
+        enc = SQEncoder(Q, X)
+        db = sqcodes(enc, X)
+        @test db.Q isa BlockMatrixDatabase
+        @test SimilaritySearch.prefetchable(db)
+        for i in (1, 256, 257, 300)
+            @test SimilaritySearch.prefetch_item(db, i) === nothing
+        end
+    end
+end

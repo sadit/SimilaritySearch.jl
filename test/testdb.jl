@@ -7,6 +7,17 @@ using Test, SimilaritySearch, SparseArrays, LinearAlgebra
     B = VectorDatabase(X)
     C = BlockMatrixDatabase(X)
     D = B[1:100]
+    # prefetch_item is a hint to the hardware: it must accept every item of every database and
+    # change nothing (the graph search calls it on each unvisited child before evaluating any)
+    for db in (A, B, C, D), i in (1, 50, 100)
+        @test SimilaritySearch.prefetch_item(db, i) === nothing
+    end
+    # the trait follows the item size: 4 Float32 = 16 bytes is prefetchable, 384 Float32 = 1536 is not
+    @test SimilaritySearch.prefetchable(A) && SimilaritySearch.prefetchable(C) && SimilaritySearch.prefetchable(D)
+    @test SimilaritySearch.prefetchable(B)          # a VectorDatabase of Vectors
+    @test !SimilaritySearch.prefetchable(MatrixDatabase(rand(Float32, 384, 2)))
+    @test !SimilaritySearch.prefetchable(VectorDatabase([(1, 2), (3, 4)]))
+    @test X == hcat(C...)
     @test D isa SubDatabase
     @test X === A.matrix
     @test X == hcat(B.vecs...)
