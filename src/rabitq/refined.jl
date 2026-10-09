@@ -44,22 +44,23 @@ end
 The rotated unit vector scalar-quantized with `quant`, one of `ScalarQuant`'s quantizer
 modules, which names the family and the width at once: `SQgu8`, `SQgu4`, `SQgu2` (one global
 range for every code, estimated by `sqautorange` on a sample of `X`'s rotated unit vectors,
-or given as `minmax`) or `SQu8`, `SQu4`, `SQu2` (each code with its own range, which needs no
-data). `est` supplies the rotation and the dimension. `dim·B/8 + 8` bytes per object,
+or given as `minmax`) or `SQu8`, `SQu4`, `SQu2` (each code with its own range, placed by `range`,
+a `ScalarQuant.RangePolicy`; `AutoRange()` by default, calibrated on the sample when given). `est` supplies the rotation and the dimension. `dim·B/8 + 8` bytes per object,
 consulted through `ScalarQuant`'s mixed kernels with the dequantized norm.
 """
 struct RaBitQVectorFallback{B,P} <: AbstractFallback
-    E::P              # SQMinC for the global family, nothing for the per-vector one
+    E::P              # SQMinC for the global family, its RangePolicy for the per-vector one
     dim::Int
 end
 
-function RaBitQVectorFallback(quant::Module, est::AbstractRaBitQ, X::AbstractMatrix; samplesize::Int=4096, rng::AbstractRNG=Random.default_rng())
-    B, E = _quantparams(quant, () -> _rotatedsample(est.rot, X, samplesize, rng; unit=true))
+function RaBitQVectorFallback(quant::Module, est::AbstractRaBitQ, X::AbstractMatrix; samplesize::Int=4096,
+                              rng::AbstractRNG=Random.default_rng(), range::RangePolicy=AutoRange())
+    B, E = _quantparams(quant, () -> _rotatedsample(est.rot, X, samplesize, rng; unit=true), range, est.dim)
     RaBitQVectorFallback{B,typeof(E)}(E, est.dim)
 end
 
-function RaBitQVectorFallback(quant::Module, est::AbstractRaBitQ; minmax=nothing)
-    B, E = _quantparams(quant, minmax)
+function RaBitQVectorFallback(quant::Module, est::AbstractRaBitQ; minmax=nothing, range::RangePolicy=AutoRange())
+    B, E = _quantparams(quant, minmax, range)
     RaBitQVectorFallback{B,typeof(E)}(E, est.dim)
 end
 
