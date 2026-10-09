@@ -22,8 +22,10 @@ when it does not, so a database without contiguous storage pays nothing.
 
 "An item of up to this many 64-byte lines (512 bytes: codes, sketches, Float16 at 256 dimensions) is prefetched whole, into every cache level."
 const PREFETCH_LINES = 8
-"A larger item (Float32 vectors) only has this many leading lines prefetched, into L2 and beyond: the hardware streamer follows, and L1 stays with the query, the beam and the visited words. 1536-byte items lost 8-13% when 8 lines went into L1."
+"A larger item only has this many leading lines prefetched, into L2 and beyond: the hardware streamer follows, and L1 stays with the query, the beam and the visited words (768-byte Float16 vectors: 1.12x at recall 0.90)."
 const PREFETCH_LINES_LARGE = 4
+"Items above this size are not prefetched at all: 1536-byte Float32 vectors lost 8-13% with 8 lines into L1 and 4-11% with 4 lines into L2 (the search is half compute there, and the pass costs more than the misses it hides)."
+const PREFETCH_MAX_BYTES = 1024
 
 # `llvm.prefetch(ptr, rw=0 read, locality, cache type=1 data)`; locality 3 keeps the line in every
 # level, 2 in L2 and beyond. The tuple form of `llvmcall` takes a module and its entry function
@@ -63,7 +65,7 @@ end
     end
 end
 
-@inline prefetchable(::MatrixDatabase{M}) where {T,M<:DenseMatrix{T}} = true
+@inline prefetchable(db::MatrixDatabase{M}) where {T,M<:DenseMatrix{T}} = size(db.matrix, 1) * sizeof(T) <= PREFETCH_MAX_BYTES
 @inline function prefetch_item(db::MatrixDatabase{M}, i::Integer) where {T,M<:DenseMatrix{T}}
     m = db.matrix
     rows = size(m, 1)
@@ -72,7 +74,7 @@ end
 
 # the storage `sqcodes`/`SQEncoder` build and every `push_item!`-grown database use: blocks of
 # 2^NumBits columns, item `i` at column `j` of block `b`
-@inline prefetchable(::BlockMatrixDatabase) = true
+@inline prefetchable(::BlockMatrixDatabase{Dim,NumType}) where {Dim,NumType} = Dim * sizeof(NumType) <= PREFETCH_MAX_BYTES
 @inline function prefetch_item(db::BlockMatrixDatabase{Dim,NumType,NumBits}, i::Integer) where {Dim,NumType,NumBits}
     b, j = _get_block_and_pos(NumBits, i)
     @inbounds m = db.blocks[b]
@@ -84,7 +86,7 @@ end
 @inline prefetch_item(db::SubDatabase, i::Integer) = prefetch_item(db.parent, db.map[i])
 
 # memory-mapped matrix: the same layout as a MatrixDatabase, backed by the file's pages
-@inline prefetchable(::MMapMatrixDatabase) = true
+@inline prefetchable(::MMapMatrixDatabase{Dim,NumType}) where {Dim,NumType} = Dim * sizeof(NumType) <= PREFETCH_MAX_BYTES
 @inline function prefetch_item(db::MMapMatrixDatabase{Dim,NumType}, i::Integer) where {Dim,NumType}
     _prefetch_bytes(pointer(db.data, (i - 1) * Dim + 1), Dim * sizeof(NumType))
 end
@@ -97,5 +99,5 @@ end
     @inbounds v = db.vecs[i]
     _prefetch_object(v)
 end
-@inline _prefetch_object(v::Union{Vector,String}) = _prefetch_bytes(pointer(v), sizeof(v))
+@inline _prefetch_object(v::Union{Vector,String}) = (sizeof(v) <= PREFETCH_MAX_BYTES && _prefetch_bytes(pointer(v), sizeof(v)); nothing)
 @inline _prefetch_object(::Any) = nothing
