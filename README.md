@@ -151,6 +151,20 @@ so the exception is stated here instead of left for a reader to find.
   query paths keep working; accuracy against the `Float32` query is within 6e-5 at 8 bits and 0.3-0.5%
   at 4 and 2, under the codes' own error.
 
+### 1.6.3
+
+- **The beam search expands a neighbourhood in two passes and prefetches its children.** The first
+  pass over the neighbours of a popped vertex only reads the visited set and asks the hardware for the
+  storage of every child that will be evaluated (`prefetch_item(db, i)`: the first 8 cache lines of
+  the item in a `MatrixDatabase` or `BlockMatrixDatabase`, plus the stored sums and the per-vector
+  quantizer of a `QuantDatabase`; a no-op for other databases); the second pass evaluates them as
+  before, so the cache misses of a whole neighbourhood overlap instead of being paid one after
+  another. Results are identical. On ccnews (603K × 384, 8-bit codes, symmetric graph, static
+  adjacency, 64 threads, three fresh builds against eight controls): 1.06-1.10× queries per second at
+  recall 0.90, 1.20-1.27× at 0.95, 1.34× on external queries at 0.90, nothing at 0.80; on one thread
+  1.15× at 0.90 and 1.36× at 0.95. Construction time does not change. The gain grows with the length
+  of the search; a short search is dominated by its start.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a

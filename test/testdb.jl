@@ -7,6 +7,12 @@ using Test, SimilaritySearch, SparseArrays, LinearAlgebra
     B = VectorDatabase(X)
     C = BlockMatrixDatabase(X)
     D = B[1:100]
+    # prefetch_item is a hint to the hardware: it must accept every item of every database and
+    # change nothing (the graph search calls it on each unvisited child before evaluating any)
+    for db in (A, B, C, D), i in (1, 50, 100)
+        @test SimilaritySearch.prefetch_item(db, i) === nothing
+    end
+    @test X == hcat(C...)
     @test D isa SubDatabase
     @test X === A.matrix
     @test X == hcat(B.vecs...)

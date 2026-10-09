@@ -224,6 +224,7 @@ AbstractDatabase
 MatrixDatabase
 BlockMatrixDatabase
 MMapMatrixDatabase
+SimilaritySearch.prefetch_item
 VectorDatabase
 SubDatabase
 database
