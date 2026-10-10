@@ -65,7 +65,8 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   context). Pass `scheduler=:sequential` to force every `@BATCHES` call driven by this
   context to run unthreaded, regardless of `Threads.nthreads()`.
 - `visited`: the kind of visited-vertices set each `vstates` entry is, as a prototype
-  ([`BitVisited`](@ref) by default; [`ByteVisited`](@ref), [`HashVisited`](@ref), [`LossyHashVisited`](@ref)); used only
+  ([`AutoVisited`](@ref) by default: a bitset up to `2^20` vertices, an exact hash table beyond;
+  [`BitVisited`](@ref), [`ByteVisited`](@ref), [`HashVisited`](@ref), [`LossyHashVisited`](@ref)); used only
   when `vstates` is not given.
 - `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
   `nothing` builds a fresh one sized by `maxbatches`).
@@ -137,7 +138,7 @@ function SearchGraphContext(
     beam_dists=nothing,
     costdists=nothing,
     costblocks=nothing,
-    visited::AbstractVisited=BitVisited()
+    visited::AbstractVisited=AutoVisited()
 )
     vstates    === nothing && (vstates    = [newvisited(visited) for _ in 1:maxbatches])
     beam_ids   === nothing && (beam_ids   = zeros(UInt32,  32, maxbatches))
