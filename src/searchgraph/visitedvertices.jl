@@ -115,7 +115,7 @@ The set of vertices a graph search has already reached, one per batch slot of a
 - [`LossyHashVisited`](@ref): a fixed-size table that may *forget* a vertex (it is then
   evaluated again) but never reports one that was not reached; it never grows, so it stays in
   cache. The search guards the result queue against the duplicates a forgotten vertex brings.
-- [`AutoVisited`](@ref) (the default): a `BitVisited` up to `2^20` vertices, a `HashVisited` beyond.
+- [`AutoVisited`](@ref) (the default): a bitset up to `2^20` vertices, a `HashVisited` beyond, in one buffer.
 
 The plain `Vector{UInt64}` (a bitset) and `Set{UInt32}` keep working as `vstates` entries.
 """
@@ -272,35 +272,46 @@ end
 @inline visit!(v::HashVisited, i::Integer) = (check_visited_and_visit!(v, i); nothing)
 
 """
-    AutoVisited(; maxbits=2^20, capacity=2^12)
+    AutoVisited(; maxbits=2^20)
 
-The default visited set: a [`BitVisited`](@ref) while the graph has at most `maxbits` vertices and a
-[`HashVisited`](@ref) (initial `capacity`) beyond, chosen at every `reuse!` -- a graph under
-construction crosses the threshold midway. Below it the bitset's reset (at most `maxbits/8` bytes per
-search) is cheaper than hashing; above it the reset grows with `n` and the table only with the visit.
-The bitset never grows past `maxbits`, and the table is not allocated until a search needs it.
+The default visited set: a bitset while the graph has at most `maxbits` vertices and a
+[`HashVisited`](@ref) beyond, chosen at every `reuse!` -- a graph under construction crosses the
+threshold midway. Both live in one buffer of `cld(maxbits, 64)` words (128 KB by default): the bitset
+uses its first `cld(n, 64)` words, and the table starts with that many slots (8K visits before it
+doubles) and grows only when a search needs it. Below the threshold the bitset's reset (at most
+`maxbits/8` bytes per search) is cheaper than hashing; above it the reset grows with `n` and the
+table only with the visit.
 """
 mutable struct AutoVisited <: AbstractVisited
-    bit::BitVisited
-    hash::HashVisited
+    hash::HashVisited   # its slots are also the bitset
     maxbits::Int
     usehash::Bool
 end
 
-AutoVisited(; maxbits::Integer=2^20, capacity::Integer=2^12) =
-    AutoVisited(BitVisited(maxbits), HashVisited(; capacity), maxbits, false)
-newvisited(v::AutoVisited) = AutoVisited(; v.maxbits, capacity=1 << v.hash.bits)
+AutoVisited(; maxbits::Integer=2^20) = AutoVisited(HashVisited(; capacity=cld(maxbits, 64)), maxbits, false)
+newvisited(v::AutoVisited) = AutoVisited(; v.maxbits)
 
 function reuse!(v::AutoVisited, n::Integer)
-    v.usehash = n > v.maxbits
-    v.usehash ? reuse!(v.hash, n) : reuse!(v.bit, n)
+    h = v.hash
+    if n > v.maxbits
+        # leaving bitset mode: its words could pass for slots of the current generation
+        v.usehash || isempty(h.slots) || fill!(h.slots, 0)
+        reuse!(h, n)
+        v.usehash = true
+    else
+        isempty(h.slots) && (h.slots = zeros(UInt64, 1 << h.bits))
+        reuse!(h.slots, n)
+        v.usehash = false
+    end
     v
 end
 
 @inline check_visited_and_visit!(v::AutoVisited, i::Integer)::Bool =
-    v.usehash ? check_visited_and_visit!(v.hash, i) : check_visited_and_visit!(v.bit, i)
-@inline visited(v::AutoVisited, i::Integer)::Bool = v.usehash ? visited(v.hash, i) : visited(v.bit, i)
-@inline visit!(v::AutoVisited, i::Integer) = (v.usehash ? visit!(v.hash, i) : visit!(v.bit, i); nothing)
+    v.usehash ? check_visited_and_visit!(v.hash, i) : check_visited_and_visit!(v.hash.slots, convert(UInt64, i))
+@inline visited(v::AutoVisited, i::Integer)::Bool =
+    v.usehash ? visited(v.hash, i) : Bool(visited(v.hash.slots, convert(UInt64, i)))
+@inline visit!(v::AutoVisited, i::Integer) =
+    (v.usehash ? visit!(v.hash, i) : visit!(v.hash.slots, convert(UInt64, i)); nothing)
 
 """
     LossyHashVisited(; capacity=2^15)

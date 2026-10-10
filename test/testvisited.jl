@@ -6,7 +6,7 @@ using SimilaritySearch: reuse!, visited, visit!, check_visited_and_visit!, mayfo
     rng = Xoshiro(7)
     n = 100_000
     for proto in (BitVisited(), ByteVisited(), HashVisited(; capacity=16), LossyHashVisited(; capacity=2^12),
-                  AutoVisited(), AutoVisited(; maxbits=1000))
+                  AutoVisited(), AutoVisited(; maxbits=1024))
         v = reuse!(newvisited(proto), n)
         ids = unique(rand(rng, 1:n, 3000))
         lossy = mayforget(v)
@@ -41,12 +41,20 @@ using SimilaritySearch: reuse!, visited, visit!, check_visited_and_visit!, mayfo
     reuse!(h, n)
     @test length(h.slots) == sz && !visited(h, 1)
 
-    # the default switches with n, both ways, and the bitset never grows past its threshold
-    a = newvisited(AutoVisited(; maxbits=1000))
-    @test !reuse!(a, 1000).usehash && reuse!(a, 1001).usehash && !reuse!(a, 10).usehash
-    reuse!(a, 10^6)
-    @test a.usehash && length(a.bit.B) == cld(1000, 64)
+    # the default: one buffer of cld(maxbits, 64) words for both modes, switching with n both ways
+    a = newvisited(AutoVisited(; maxbits=1024))
+    @test !reuse!(a, 1024).usehash && length(a.hash.slots) == 16
+    visit!(a, 3)
+    @test reuse!(a, 1025).usehash && !visited(a, 3) && length(a.hash.slots) == 16
+    for i in 1:100
+        visit!(a, i)
+    end
+    @test length(a.hash.slots) >= 200 && all(i -> visited(a, i), 1:100)
+    @test !reuse!(a, 1000).usehash && !any(i -> visited(a, i), 1:100)   # bitset on the grown buffer
+    visit!(a, 7)
+    @test reuse!(a, 10^6).usehash && !visited(a, 7) && !visited(a, 3)
     @test eltype(SearchGraphContext(; reporters=[]).vstates) == AutoVisited
+    @test length(reuse!(newvisited(AutoVisited()), 10^6).hash.slots) == 2^14
 
     # the byte table wraps every 255 searches without carrying anything over
     b = ByteVisited()
@@ -81,7 +89,7 @@ end
     run(c) = searchbatch(G, c, queries, k)
     I0, D0 = run(ctx)
     # the exact sets reach the same vertices in the same order: same answers, same cost
-    for proto in (BitVisited(), ByteVisited(), HashVisited(), AutoVisited(; maxbits=1000))
+    for proto in (BitVisited(), ByteVisited(), HashVisited(), AutoVisited(; maxbits=1024))
         c = SearchGraphContext(ctx; visited=proto)
         @test eltype(c.vstates) == typeof(proto)
         I, D = run(c)
