@@ -5,7 +5,7 @@ using SimilaritySearch: reuse!, visited, visit!, check_visited_and_visit!, mayfo
 @testset "visited sets: semantics" begin
     rng = Xoshiro(7)
     n = 100_000
-    for proto in (BitVisited(), HashVisited(; capacity=16), LossyHashVisited(; capacity=2^12))
+    for proto in (BitVisited(), ByteVisited(), HashVisited(; capacity=16), LossyHashVisited(; capacity=2^12))
         v = reuse!(newvisited(proto), n)
         ids = unique(rand(rng, 1:n, 3000))
         lossy = mayforget(v)
@@ -40,6 +40,15 @@ using SimilaritySearch: reuse!, visited, visit!, check_visited_and_visit!, mayfo
     reuse!(h, n)
     @test length(h.slots) == sz && !visited(h, 1)
 
+    # the byte table wraps every 255 searches without carrying anything over
+    b = ByteVisited()
+    for _ in 1:600
+        reuse!(b, 1000)
+        @test !visited(b, 7)
+        visit!(b, 7)
+    end
+    @test b.gen != 0x00
+
     # generation wrap: the table is cleared and nothing survives
     for proto in (HashVisited(), LossyHashVisited())
         v = reuse!(newvisited(proto), n)
@@ -64,7 +73,7 @@ end
     run(c) = searchbatch(G, c, queries, k)
     I0, D0 = run(ctx)
     # the exact sets reach the same vertices in the same order: same answers, same cost
-    for proto in (BitVisited(), HashVisited())
+    for proto in (BitVisited(), ByteVisited(), HashVisited())
         c = SearchGraphContext(ctx; visited=proto)
         @test eltype(c.vstates) == typeof(proto)
         I, D = run(c)

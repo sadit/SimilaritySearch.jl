@@ -107,6 +107,8 @@ The set of vertices a graph search has already reached, one per batch slot of a
 
 - [`BitVisited`](@ref): one bit per vertex of the graph, zeroed at every `reuse!` (the
   original representation; `reuse!` costs `n/8` bytes of writes per search).
+- [`ByteVisited`](@ref): one byte per vertex with the generation of the search that reached it
+  (FAISS's `VisitedTable`); zeroed only every 255 searches, 8 times the bitset's memory.
 - [`HashVisited`](@ref): an exact open-addressing table of the vertices reached by the current
   search, tagged with a generation number; `reuse!` only advances the generation, and the
   table grows with the largest search seen, not with `n`.
@@ -149,6 +151,46 @@ reuse!(v::BitVisited, n::Integer) = (reuse!(v.B, n); v)
 @inline check_visited_and_visit!(v::BitVisited, i::Integer) = check_visited_and_visit!(v.B, convert(UInt64, i))
 @inline visited(v::BitVisited, i::Integer) = Bool(visited(v.B, convert(UInt64, i)))
 @inline visit!(v::BitVisited, i::Integer) = visit!(v.B, convert(UInt64, i))
+
+"""
+    ByteVisited(n=0)
+
+One byte per vertex holding the generation of the search that reached it (FAISS's `VisitedTable`):
+"visited" is `tags[i] == gen`. `reuse!` advances the generation and zeroes the table only when it
+wraps, every 255 searches; it costs 8 times the memory of [`BitVisited`](@ref) (`n` bytes per batch
+slot) but no per-search reset and no bit manipulation.
+"""
+mutable struct ByteVisited <: AbstractVisited
+    tags::Vector{UInt8}
+    gen::UInt8
+end
+
+ByteVisited(n::Integer=0) = ByteVisited(zeros(UInt8, n), 0x00)
+newvisited(v::ByteVisited) = ByteVisited(length(v.tags))
+
+function reuse!(v::ByteVisited, n::Integer)
+    if n > length(v.tags)
+        m = length(v.tags)
+        resize!(v.tags, n)
+        @inbounds fill!(view(v.tags, m+1:n), 0x00)
+    end
+    if v.gen == 0xff
+        fill!(v.tags, 0x00)
+        v.gen = 0x00
+    end
+    v.gen += 0x01
+    v
+end
+
+@inline function check_visited_and_visit!(v::ByteVisited, i::Integer)::Bool
+    @inbounds t = v.tags[i]
+    t == v.gen && return true
+    @inbounds v.tags[i] = v.gen
+    false
+end
+
+@inline visited(v::ByteVisited, i::Integer)::Bool = @inbounds v.tags[i] == v.gen
+@inline visit!(v::ByteVisited, i::Integer) = (@inbounds v.tags[i] = v.gen; nothing)
 
 # a slot holds (generation << 32) | id; generation 0 is never current, so a zeroed slot is empty
 @inline _vkey(gen::UInt64, i::Integer) = (gen << 32) | (convert(UInt64, i) & 0xffffffff)

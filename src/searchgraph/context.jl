@@ -65,7 +65,7 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   context). Pass `scheduler=:sequential` to force every `@BATCHES` call driven by this
   context to run unthreaded, regardless of `Threads.nthreads()`.
 - `visited`: the kind of visited-vertices set each `vstates` entry is, as a prototype
-  ([`BitVisited`](@ref) by default; [`HashVisited`](@ref), [`LossyHashVisited`](@ref)); used only
+  ([`BitVisited`](@ref) by default; [`ByteVisited`](@ref), [`HashVisited`](@ref), [`LossyHashVisited`](@ref)); used only
   when `vstates` is not given.
 - `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
   `nothing` builds a fresh one sized by `maxbatches`).

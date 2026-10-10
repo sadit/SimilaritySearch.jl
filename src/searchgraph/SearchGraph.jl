@@ -3,7 +3,7 @@
 export LocalSearchAlgorithm, AbstractSearchGraph, SearchGraph, SearchGraphContext
 export index!, push_item!
 export BeamSearch, BeamSearchSpace, Callback
-export AbstractVisited, BitVisited, HashVisited, LossyHashVisited
+export AbstractVisited, BitVisited, ByteVisited, HashVisited, LossyHashVisited
 export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, AdjacentStoredHints, matrixhints
 #export RandomPruning, KeepNearestPruning, SatPruning, prune!
 
