@@ -246,7 +246,25 @@ end
 end
 
 function _grow!(v::HashVisited)
-    old, gen = v.slots, v.gen
+    gen = v.gen
+    if length(v.slots) >= 2 << v.bits
+        # the buffer already holds the doubled table: take the live entries out, open a new
+        # generation (the old copies turn stale where they stand) and put them back
+        live = [s & 0xffffffff for s in view(v.slots, 1:(1 << v.bits)) if (s >>> 32) == gen]
+        v.bits += 1
+        v.gen += 1
+        if v.gen > 0xffffffff
+            fill!(v.slots, 0)
+            v.gen = 1
+        end
+        @inbounds for i in live
+            key = _vkey(v.gen, i)
+            p, _ = _probe(v, key, i)
+            v.slots[p] = key
+        end
+        return v
+    end
+    old = v.slots
     v.bits += 1
     v.slots = zeros(UInt64, 1 << v.bits)
     @inbounds for s in old
@@ -264,7 +282,7 @@ end
     found && return true
     @inbounds v.slots[p] = key
     v.count += 1
-    2v.count > length(v.slots) && _grow!(v)
+    2v.count > (1 << v.bits) && _grow!(v)
     false
 end
 
@@ -272,15 +290,15 @@ end
 @inline visit!(v::HashVisited, i::Integer) = (check_visited_and_visit!(v, i); nothing)
 
 """
-    AutoVisited(; maxbits=2^20)
+    AutoVisited(; maxbits=2^20, capacity=2^12)
 
 The default visited set: a bitset while the graph has at most `maxbits` vertices and a
 [`HashVisited`](@ref) beyond, chosen at every `reuse!` -- a graph under construction crosses the
 threshold midway. Both live in one buffer of `cld(maxbits, 64)` words (128 KB by default): the bitset
-uses its first `cld(n, 64)` words, and the table starts with that many slots (8K visits before it
-doubles) and grows only when a search needs it. Below the threshold the bitset's reset (at most
-`maxbits/8` bytes per search) is cheaper than hashing; above it the reset grows with `n` and the
-table only with the visit.
+uses its first `cld(n, 64)` words, and the table its first `capacity` slots (32 KB, 2K visits before it
+doubles), growing inside the buffer without clearing it and beyond it only when a search needs more.
+Below the threshold the bitset's reset (at most `maxbits/8` bytes per search) is cheaper than hashing;
+above it the reset grows with `n` and the table only with the visit.
 """
 mutable struct AutoVisited <: AbstractVisited
     hash::HashVisited   # its slots are also the bitset
@@ -288,18 +306,18 @@ mutable struct AutoVisited <: AbstractVisited
     usehash::Bool
 end
 
-AutoVisited(; maxbits::Integer=2^20) = AutoVisited(HashVisited(; capacity=cld(maxbits, 64)), maxbits, false)
-newvisited(v::AutoVisited) = AutoVisited(; v.maxbits)
+AutoVisited(; maxbits::Integer=2^20, capacity::Integer=2^12) = AutoVisited(HashVisited(; capacity), maxbits, false)
+newvisited(v::AutoVisited) = AutoVisited(; v.maxbits, capacity=1 << v.hash.bits)
 
 function reuse!(v::AutoVisited, n::Integer)
     h = v.hash
+    isempty(h.slots) && (h.slots = zeros(UInt64, max(cld(v.maxbits, 64), 1 << h.bits)))
     if n > v.maxbits
         # leaving bitset mode: its words could pass for slots of the current generation
         v.usehash || isempty(h.slots) || fill!(h.slots, 0)
         reuse!(h, n)
         v.usehash = true
     else
-        isempty(h.slots) && (h.slots = zeros(UInt64, 1 << h.bits))
         reuse!(h.slots, n)
         v.usehash = false
     end

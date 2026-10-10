@@ -43,18 +43,32 @@ using SimilaritySearch: reuse!, visited, visit!, check_visited_and_visit!, mayfo
 
     # the default: one buffer of cld(maxbits, 64) words for both modes, switching with n both ways
     a = newvisited(AutoVisited(; maxbits=1024))
-    @test !reuse!(a, 1024).usehash && length(a.hash.slots) == 16
+    @test !reuse!(a, 1024).usehash && length(a.hash.slots) == 2^12   # the table's capacity, over cld(1024, 64)
     visit!(a, 3)
-    @test reuse!(a, 1025).usehash && !visited(a, 3) && length(a.hash.slots) == 16
+    @test reuse!(a, 1025).usehash && !visited(a, 3) && length(a.hash.slots) == 2^12
     for i in 1:100
         visit!(a, i)
     end
-    @test length(a.hash.slots) >= 200 && all(i -> visited(a, i), 1:100)
+    @test all(i -> visited(a, i), 1:100)
+    # the table starts on a prefix of the buffer and grows inside it before reallocating
+    b = reuse!(newvisited(AutoVisited()), 10^7)
+    @test b.hash.bits == 12 && length(b.hash.slots) == 2^14
+    for i in 1:5000
+        visit!(b, 7i)
+    end
+    @test b.hash.bits == 14 && length(b.hash.slots) == 2^14
+    @test all(i -> visited(b, 7i), 1:5000) && !any(i -> visited(b, 7i + 1), 1:5000)
+    reuse!(b, 10^7)
+    @test b.hash.bits == 14 && !any(i -> visited(b, 7i), 1:5000)
+    for i in 1:20000      # past the buffer: reallocated
+        visit!(b, 3i)
+    end
+    @test b.hash.bits == 16 && length(b.hash.slots) == 2^16 && all(i -> visited(b, 3i), 1:20000) && !visited(b, 7)
     @test !reuse!(a, 1000).usehash && !any(i -> visited(a, i), 1:100)   # bitset on the grown buffer
     visit!(a, 7)
     @test reuse!(a, 10^6).usehash && !visited(a, 7) && !visited(a, 3)
     @test eltype(SearchGraphContext(; reporters=[]).vstates) == AutoVisited
-    @test length(reuse!(newvisited(AutoVisited()), 10^6).hash.slots) == 2^14
+    @test length(reuse!(newvisited(AutoVisited()), 10^7).hash.slots) == 2^14
 
     # the byte table wraps every 255 searches without carrying anything over
     b = ByteVisited()
