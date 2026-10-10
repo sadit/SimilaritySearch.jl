@@ -279,6 +279,12 @@ its search, as in [`HashVisited`](@ref). A vertex goes to a stale slot of its bu
 belong to the current search, overwrites one of them. A lookup finds a vertex only if it is still
 there, so the set never reports a vertex that was not reached; a forgotten one is evaluated again,
 which costs a distance evaluation and is counted as one. `reuse!` advances the generation.
+
+**Use it with a finite `maxvisits`.** A forgotten vertex that is still in the result queue is
+neither pushed nor expanded again, but one that already left it can re-enter the beam whenever
+`Δ > 1` admits it, and the search may then cycle through the same vertices; only the visit cap
+ends it. With the uncapped `BeamSearch` a small table can loop indefinitely (measured: 2^11 slots on
+ccnews, 600K vertices).
 """
 mutable struct LossyHashVisited <: AbstractVisited
     slots::Vector{UInt64}
@@ -341,7 +347,7 @@ end
     ids = IdView(res)
     u = convert(UInt32, id)
     @inbounds for j in 1:length(res)
-        ids[j] == u && return false
+        ids[j] == u && return :duplicate
     end
     push_item!(res, id, d)
 end

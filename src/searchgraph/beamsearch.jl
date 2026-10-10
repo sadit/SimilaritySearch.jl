@@ -74,8 +74,10 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
         for childID in N
             check_visited_and_visit!(vstate, convert(UInt64, childID)) && continue
             d = evaluate(dist, q, database(index, childID))
-            _pushres!(vstate, res, childID, d)
             costdists += 1
+            # a set that forgets can hand back a vertex already in `res`: it is not pushed again,
+            # and not expanded again either (that is how a forgetting search would loop)
+            _pushres!(vstate, res, childID, d) === :duplicate && continue
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
             if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
