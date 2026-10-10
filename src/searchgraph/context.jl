@@ -64,6 +64,9 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
   calls to [`set_batch_scheduler!`](@ref) do not retroactively change an already-built
   context). Pass `scheduler=:sequential` to force every `@BATCHES` call driven by this
   context to run unthreaded, regardless of `Threads.nthreads()`.
+- `visited`: the kind of visited-vertices set each `vstates` entry is, as a prototype
+  ([`BitVisited`](@ref) by default; [`HashVisited`](@ref), [`LossyHashVisited`](@ref)); used only
+  when `vstates` is not given.
 - `beams`: knn queues cache used while inserting elements (used by [`BeamSearch`](@ref);
   `nothing` builds a fresh one sized by `maxbatches`).
 
@@ -133,9 +136,10 @@ function SearchGraphContext(
     beam_ids=nothing,
     beam_dists=nothing,
     costdists=nothing,
-    costblocks=nothing
+    costblocks=nothing,
+    visited::AbstractVisited=BitVisited()
 )
-    vstates    === nothing && (vstates    = [Vector{UInt64}(undef, 2^15) for _ in 1:maxbatches])
+    vstates    === nothing && (vstates    = [newvisited(visited) for _ in 1:maxbatches])
     beam_ids   === nothing && (beam_ids   = zeros(UInt32,  32, maxbatches))
     beam_dists === nothing && (beam_dists = zeros(Float32, 32, maxbatches))
     costdists   === nothing && (costdists   = zeros(Int, maxbatches))
@@ -170,8 +174,11 @@ function SearchGraphContext(ctx::SearchGraphContext{KnnType,VSType,NFILTER};
     batchid=ctx.batchid,
     scheduler=ctx.scheduler,
     costdists=ctx.costdists,
-    costblocks=ctx.costblocks
+    costblocks=ctx.costblocks,
+    visited::Union{Nothing,AbstractVisited}=nothing
 ) where {KnnType,VSType,NFILTER}
+    # a new kind of visited set replaces the cache; otherwise the copy shares it
+    visited === nothing || (vstates = [newvisited(visited) for _ in 1:maxbatches])
 
     # `typeof(neighborhood.filter)`, not `NFILTER`: the copy may override `neighborhood`
     # with one carrying a different filter
