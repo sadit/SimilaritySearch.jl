@@ -218,7 +218,8 @@ and makes the rest *members* of it: never visited, never answered by `search`, w
 representatives. `expand` and `expand!` are the second stage, from `k` clusters to the raw
 neighbors, on any result form. A non-negative `ϵ` -- here and in [`neardup`](@ref) -- is raised
 to [`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO), since two identical objects usually do not evaluate to exactly
-`0f0`; a negative one is rejected.
+`0f0`; a negative one is rejected. Given the context the graph was built with, a graph folded at
+distance zero copies each member's distance from its representative instead of evaluating it.
 ```@docs
 Members
 members
@@ -226,6 +227,7 @@ representative
 ismember
 expand
 expand!
+SimilaritySearch.sharesdistance
 SimilaritySearch.NEARDUP_NUMERICAL_ZERO
 addmember!
 ```

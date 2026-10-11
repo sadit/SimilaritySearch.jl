@@ -349,7 +349,8 @@ function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
     @LOOP for i in 1:m
         runconfig(conf, index, bctx, queries[i], qmask[i], reuse!(knns[i]))
         # the raw neighbors behind the representatives, counted as the search cost they are
-        add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i]))
+        # (none for a graph folded at distance zero, whose members take their representative's)
+        add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i], sharesdistance(bctx)))
     end
     end
     knns

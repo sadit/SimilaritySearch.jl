@@ -6,8 +6,25 @@
 export expand, expand!
 
 """
+    sharesdistance(ctx) -> Bool
+
+Whether the members a graph built with `ctx` holds are at distance zero from their
+representative -- `Neighborhood(neardup=0f0)`, raised to
+[`NEARDUP_NUMERICAL_ZERO`](@ref SimilaritySearch.NEARDUP_NUMERICAL_ZERO) -- so that a member is
+at its representative's distance from any query and the expansion copies that distance
+instead of evaluating it. Read from the context because the graph does not record the radius
+it was folded with; a later version is meant to store it in the graph, at the price of
+changing what a stored graph holds. A context that is not a [`SearchGraphContext`](@ref)
+says nothing about the folding, and the members are evaluated.
+"""
+sharesdistance(ctx::SearchGraphContext) = ctx.neighborhood.neardup <= NEARDUP_NUMERICAL_ZERO
+sharesdistance(::AbstractContext) = false
+
+"""
     expand(G, q, res) -> iterator of IdDist
     expand(G, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+    expand(G, ctx, q, res)
+    expand(G, ctx, q, ids, dists)
 
 Iterates the result `res` of a search for `q` -- a queue, or the `(ids, dists)` pair of one
 column of [`searchbatch`](@ref SimilaritySearch.searchbatch)'s matrices -- giving each item back followed by the members
@@ -15,9 +32,19 @@ of its cluster (see [`Members`](@ref)), each member with its distance to `q` eva
 the index's distance. Nothing is modified and nothing is trimmed: a result of `k`
 representatives yields `k` items plus every member they have. For a result cut back to `k`
 raw neighbors, use [`expand!`](@ref). An index without members yields `res` as it is.
+
+Given the context the graph was built with, a graph folded at distance zero
+(`Neighborhood(neardup=0f0)`, see [`sharesdistance`](@ref SimilaritySearch.sharesdistance))
+gives each member its representative's distance without evaluating it: the members are
+exact copies, so nothing is read for them but their ids. The context must be the one whose
+`Neighborhood` built the graph; one claiming distance zero over a graph folded with a larger
+radius would hand the members their representative's distance.
 """
-expand(G::AbstractSearchIndex, q, res::AbstractMetricQueue) = Expanded(G, q, IdDistView(res))
-expand(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = Expanded(G, q, _iditems(ids, dists))
+expand(G::AbstractSearchIndex, q, res::AbstractMetricQueue) = Expanded(G, q, IdDistView(res), false)
+expand(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = Expanded(G, q, _iditems(ids, dists), false)
+expand(G::AbstractSearchIndex, ctx::AbstractContext, q, res::AbstractMetricQueue) = Expanded(G, q, IdDistView(res), sharesdistance(ctx))
+expand(G::AbstractSearchIndex, ctx::AbstractContext, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) =
+    Expanded(G, q, _iditems(ids, dists), sharesdistance(ctx))
 
 _iditems(ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) =
     (IdDist(ids[i], dists[i]) for i in eachindex(ids) if ids[i] != 0)
@@ -26,6 +53,7 @@ struct Expanded{G<:AbstractSearchIndex,Q,I}
     index::G
     q::Q
     items::I
+    shared::Bool    # members at their representative's distance (see `sharesdistance`)
 end
 
 Base.IteratorSize(::Type{<:Expanded}) = Base.SizeUnknown()
@@ -42,7 +70,8 @@ function Base.iterate(e::Expanded, state=nothing)
     M = members(e.index, p.id)
     if j <= length(M)
         m = M[j]
-        return IdDist(m, Float32(evaluate(distance(e.index), e.q, database(e.index)[m]))), (s, p, j + 1)
+        d = e.shared ? p.dist : Float32(evaluate(distance(e.index), e.q, database(e.index)[m]))
+        return IdDist(m, d), (s, p, j + 1)
     end
     r = iterate(e.items, s)
     r === nothing && return nothing
@@ -54,6 +83,9 @@ end
     expand!(G, q, res::AbstractMetricQueue) -> res
     expand!(G, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) -> (ids, dists)
     expand!(G, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) -> (knns, dists)
+    expand!(G, ctx, q, res)
+    expand!(G, ctx, q, ids, dists)
+    expand!(G, ctx, Q, knns, dists)
 
 In place: pushes the members of every cluster in the result into it, each with its distance
 to the query evaluated by the index's distance, and lets the result's own rule trim -- a
@@ -62,29 +94,47 @@ k-nn queue keeps its `k` nearest, a radius queue what falls within its radius, a
 with one representative per cluster; after this the result holds raw neighbors, duplicates
 included, which is what [`macrorecall`](@ref) against an exhaustive gold expects. The matrix
 form runs the columns in parallel. An index without members returns the result untouched.
-"""
-function expand!(G::AbstractSearchIndex, q, res::AbstractMetricQueue)
-    _expand!(G, q, res)
-    res
-end
 
-"Expands in place and returns how many member distances it evaluated."
-function _expand!(G::AbstractSearchIndex, q, res::AbstractMetricQueue)::Int
-    reps = UInt32[]
-    for id in IdView(res)
-        isempty(members(G, id)) || push!(reps, id)
+With the context the graph was built with, a graph folded at distance zero
+(`Neighborhood(neardup=0f0)`) gives each member its representative's distance instead of
+evaluating it, as [`expand`](@ref) does; the context must be the one whose `Neighborhood`
+built the graph.
+"""
+expand!(G::AbstractSearchIndex, q, res::AbstractMetricQueue) = (_expand!(G, q, res, false); res)
+expand!(G::AbstractSearchIndex, ctx::AbstractContext, q, res::AbstractMetricQueue) = (_expand!(G, q, res, sharesdistance(ctx)); res)
+
+"""
+    _expand!(G, q, res, shared=false) -> Int
+
+Expands in place and returns how many member distances it evaluated: none when `shared`,
+where every member takes its representative's distance (see `sharesdistance`).
+"""
+function _expand!(G::AbstractSearchIndex, q, res::AbstractMetricQueue, shared::Bool=false)::Int
+    reps = IdDist[]
+    for p in IdDistView(res)
+        isempty(members(G, p.id)) || push!(reps, p)
     end
     isempty(reps) && return 0
+    if shared
+        for r in reps, m in members(G, r.id)
+            push_item!(res, m, r.dist)
+        end
+        return 0
+    end
     dist = distance(G); db = database(G)
     n = 0
-    for r in reps, m in members(G, r)
+    for r in reps, m in members(G, r.id)
         push_item!(res, m, Float32(evaluate(dist, q, db[m])))
         n += 1
     end
     n
 end
 
-function expand!(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32})
+expand!(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = _expandcolumn!(G, q, ids, dists, false)
+expand!(G::AbstractSearchIndex, ctx::AbstractContext, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) =
+    _expandcolumn!(G, q, ids, dists, sharesdistance(ctx))
+
+function _expandcolumn!(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}, shared::Bool)
     k = length(ids)
     items = collect(_iditems(ids, dists))
     res = knnqueue(KnnSorted, ids, dists)
@@ -92,7 +142,7 @@ function expand!(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::
     for p in items
         push_item!(res, p.id, p.dist)
     end
-    expand!(G, q, res)
+    _expand!(G, q, res, shared)
     for j in length(res)+1:k           # the slots the result does not fill are empty, as searchbatch leaves them
         ids[j] = 0
         dists[j] = typemax(Float32)
@@ -100,10 +150,15 @@ function expand!(G::AbstractSearchIndex, q, ids::AbstractVector{UInt32}, dists::
     ids, dists
 end
 
-function expand!(G::AbstractSearchIndex, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32})
+expand!(G::AbstractSearchIndex, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) =
+    _expandmatrix!(G, Q, knns, dists, false)
+expand!(G::AbstractSearchIndex, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) =
+    _expandmatrix!(G, Q, knns, dists, sharesdistance(ctx))
+
+function _expandmatrix!(G::AbstractSearchIndex, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}, shared::Bool)
     size(knns, 2) == length(Q) || throw(DimensionMismatch("expand!: $(size(knns, 2)) result columns for $(length(Q)) queries"))
     @BATCHES getminbatch(length(Q)) for i in 1:length(Q)
-        expand!(G, Q[i], view(knns, :, i), view(dists, :, i))
+        _expandcolumn!(G, Q[i], view(knns, :, i), view(dists, :, i), shared)
     end
     knns, dists
 end

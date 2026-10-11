@@ -137,7 +137,15 @@ expand!(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue) = expand!(g.graph
 expand!(g::AsymmetricSearchGraph, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) = expand!(g.graph, encodequery(distance(g), q), ids, dists)
 expand!(g::AsymmetricSearchGraph, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) =
     expand!(g.graph, VectorDatabase([encodequery(distance(g), q) for q in Q]), knns, dists)
-_expand!(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue) = _expand!(g.graph, encodequery(distance(g), q), res)
+expand(g::AsymmetricSearchGraph, ctx::AbstractContext, q, res::AbstractMetricQueue) = expand(g.graph, ctx, encodequery(distance(g), q), res)
+expand(g::AsymmetricSearchGraph, ctx::AbstractContext, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) =
+    expand(g.graph, ctx, encodequery(distance(g), q), ids, dists)
+expand!(g::AsymmetricSearchGraph, ctx::AbstractContext, q, res::AbstractMetricQueue) = expand!(g.graph, ctx, encodequery(distance(g), q), res)
+expand!(g::AsymmetricSearchGraph, ctx::AbstractContext, q, ids::AbstractVector{UInt32}, dists::AbstractVector{Float32}) =
+    expand!(g.graph, ctx, encodequery(distance(g), q), ids, dists)
+expand!(g::AsymmetricSearchGraph, ctx::AbstractContext, Q::AbstractDatabase, knns::AbstractMatrix{UInt32}, dists::AbstractMatrix{Float32}) =
+    expand!(g.graph, ctx, VectorDatabase([encodequery(distance(g), q) for q in Q]), knns, dists)
+_expand!(g::AsymmetricSearchGraph, q, res::AbstractMetricQueue, shared::Bool=false) = _expand!(g.graph, encodequery(distance(g), q), res, shared)
 
 function Base.show(io::IO, g::AsymmetricSearchGraph; prefix="", indent="  ")
     println(io, prefix, "AsymmetricSearchGraph (raw objects in, stored as `encode(dist, obj)`):")
