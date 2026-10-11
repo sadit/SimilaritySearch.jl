@@ -195,6 +195,20 @@ so the exception is stated here instead of left for a reader to find.
 
 ### 1.6.5
 
+- **The visited set of the graph search is a type, and past 2^20 vertices it is a hash table** (#119, #120).
+  Up to 1.6.4 every search zeroed a bitset of `n` bits before it started: 2.9 MB of writes per search at
+  23.9M vertices, and the cost that flattened large graphs (pubmed23 at 64 threads scaled 5.5× over one
+  thread). `SearchGraphContext(; visited=...)` now takes the kind of set each batch slot holds:
+  `BitVisited` (the bitset), `ByteVisited` (a generation byte per vertex, zeroed every 255 searches),
+  `HashVisited` (an exact open-addressing table tagged with the search's generation; nothing is cleared
+  between searches and the table grows with the visit, not with `n`) and `LossyHashVisited` (a fixed
+  table that may forget a vertex but never reports one that was not reached; it needs a finite
+  `maxvisits`). The default `AutoVisited()` is the bitset while the graph has at most `2^20` vertices and
+  the table beyond, in one 128 KB buffer per slot. Same answers and evaluations; at 64 threads on a Xeon
+  Silver 4216 with 8-bit codes, at ×0.85, ×1.00 and ×1.15 of the tuned Δ, queries per second against the
+  bitset in the same process: ccnews (604K) 1.00×, 0.99×, 0.99× (the table alone 0.92× and 0.82× at the
+  two larger Δ); gooaq (3.0M) 1.36×, 1.30×, 1.17×; pubmed23 (23.9M, one run) 6.2×, 3.1×, 1.5×. Construction past `2^20` vertices
+  uses the table too; its time was not measured.
 - **Large stores are written from all threads, so their pages spread over the NUMA nodes** (#121, #122).
   Linux and Windows place a page on the node of the thread that first writes it, and up to 1.6.4 a
   database, its code sums and a frozen adjacency were written by one thread: on a two-socket machine

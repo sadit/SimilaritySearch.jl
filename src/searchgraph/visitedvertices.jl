@@ -94,3 +94,336 @@ Marks vertex `i` as visited by adding it to the set `vstate`.
     !v && visit!(vstate, i)
     v
 end
+
+#### Visited-vertices types
+
+"""
+    AbstractVisited
+
+The set of vertices a graph search has already reached, one per batch slot of a
+[`SearchGraphContext`](@ref) (its `vstates`). Each search starts with
+[`reuse!`](@ref)`(vstate, n)` and then asks [`check_visited_and_visit!`](@ref),
+[`visited`](@ref) and [`visit!`](@ref). The implementations:
+
+- [`BitVisited`](@ref): one bit per vertex of the graph, zeroed at every `reuse!` (the
+  original representation; `reuse!` costs `n/8` bytes of writes per search).
+- [`ByteVisited`](@ref): one byte per vertex with the generation of the search that reached it
+  (FAISS's `VisitedTable`); zeroed only every 255 searches, 8 times the bitset's memory.
+- [`HashVisited`](@ref): an exact open-addressing table of the vertices reached by the current
+  search, tagged with a generation number; `reuse!` only advances the generation, and the
+  table grows with the largest search seen, not with `n`.
+- [`LossyHashVisited`](@ref): a fixed-size table that may *forget* a vertex (it is then
+  evaluated again) but never reports one that was not reached; it never grows, so it stays in
+  cache. The search guards the result queue against the duplicates a forgotten vertex brings.
+- [`AutoVisited`](@ref) (the default): a bitset up to `2^20` vertices, a `HashVisited` beyond, in one buffer.
+
+The plain `Vector{UInt64}` (a bitset) and `Set{UInt32}` keep working as `vstates` entries.
+"""
+abstract type AbstractVisited end
+
+"""
+    mayforget(vstate) -> Bool
+
+Whether `vstate` can report an already reached vertex as not visited ([`LossyHashVisited`](@ref)).
+The search then checks the result queue before pushing a vertex into it.
+"""
+@inline mayforget(::Any) = false
+
+"""
+    newvisited(proto::AbstractVisited) -> AbstractVisited
+
+A fresh, empty visited set configured like `proto` (one per batch slot of a context).
+"""
+function newvisited end
+
+"""
+    BitVisited(nbits=2^21)
+
+One bit per vertex: `reuse!(v, n)` resizes the bitset to `n` bits and zeroes it, so its cost per
+search is `n/8` bytes of writes whatever the search visits (2.85 MB at 24M vertices).
+"""
+struct BitVisited <: AbstractVisited
+    B::Vector{UInt64}
+end
+
+BitVisited(nbits::Integer=2^21) = BitVisited(Vector{UInt64}(undef, cld(nbits, 64)))
+newvisited(v::BitVisited) = BitVisited(64length(v.B))
+reuse!(v::BitVisited, n::Integer) = (reuse!(v.B, n); v)
+@inline check_visited_and_visit!(v::BitVisited, i::Integer) = check_visited_and_visit!(v.B, convert(UInt64, i))
+@inline visited(v::BitVisited, i::Integer) = Bool(visited(v.B, convert(UInt64, i)))
+@inline visit!(v::BitVisited, i::Integer) = visit!(v.B, convert(UInt64, i))
+
+"""
+    ByteVisited(n=0)
+
+One byte per vertex holding the generation of the search that reached it (FAISS's `VisitedTable`):
+"visited" is `tags[i] == gen`. `reuse!` advances the generation and zeroes the table only when it
+wraps, every 255 searches; it costs 8 times the memory of [`BitVisited`](@ref) (`n` bytes per batch
+slot) but no per-search reset and no bit manipulation.
+"""
+mutable struct ByteVisited <: AbstractVisited
+    tags::Vector{UInt8}
+    gen::UInt8
+end
+
+ByteVisited(n::Integer=0) = ByteVisited(zeros(UInt8, n), 0x00)
+newvisited(v::ByteVisited) = ByteVisited(length(v.tags))
+
+function reuse!(v::ByteVisited, n::Integer)
+    if n > length(v.tags)
+        m = length(v.tags)
+        resize!(v.tags, n)
+        @inbounds fill!(view(v.tags, m+1:n), 0x00)
+    end
+    if v.gen == 0xff
+        fill!(v.tags, 0x00)
+        v.gen = 0x00
+    end
+    v.gen += 0x01
+    v
+end
+
+@inline function check_visited_and_visit!(v::ByteVisited, i::Integer)::Bool
+    @inbounds t = v.tags[i]
+    t == v.gen && return true
+    @inbounds v.tags[i] = v.gen
+    false
+end
+
+@inline visited(v::ByteVisited, i::Integer)::Bool = @inbounds v.tags[i] == v.gen
+@inline visit!(v::ByteVisited, i::Integer) = (@inbounds v.tags[i] = v.gen; nothing)
+
+# a slot holds (generation << 32) | id; generation 0 is never current, so a zeroed slot is empty
+@inline _vkey(gen::UInt64, i::Integer) = (gen << 32) | (convert(UInt64, i) & 0xffffffff)
+@inline _vhash(i::Integer, bits::Int) = ((convert(UInt64, i) * 0x9E3779B97F4A7C15) >>> (64 - bits)) % Int
+
+"""
+    HashVisited(; capacity=2^12)
+
+An exact visited set: an open-addressing table (linear probing) of `UInt64` slots, each holding
+the vertex id and the generation of the search that inserted it. `reuse!` advances the
+generation instead of clearing (the table is zeroed only when the 32-bit generation wraps), so
+entries left by earlier searches read as empty. The table doubles when the current search fills
+half of it and keeps its size for the following searches; its size follows the largest visit,
+not the graph. Vertex ids must fit in 32 bits.
+"""
+mutable struct HashVisited <: AbstractVisited
+    slots::Vector{UInt64}
+    bits::Int
+    gen::UInt64
+    count::Int
+end
+
+function HashVisited(; capacity::Integer=2^12)
+    bits = max(4, ceil(Int, log2(capacity)))
+    HashVisited(UInt64[], bits, UInt64(0), 0)   # allocated on the first `reuse!`
+end
+
+newvisited(v::HashVisited) = HashVisited(; capacity=1 << v.bits)
+
+"""
+    AutoVisited(; maxbits=2^20, capacity=2^12)
+
+The default visited set: a bitset while the graph has at most `maxbits` vertices and a
+[`HashVisited`](@ref) table beyond, chosen at every `reuse!` -- a graph under construction crosses the
+threshold midway. Both live in one buffer of `cld(maxbits, 64)` words (128 KB by default): the bitset
+uses its first `cld(n, 64)` words, and the table its first `capacity` slots (32 KB, 2K visits before it
+doubles), growing inside the buffer without clearing it and beyond it only when a search needs more.
+Below the threshold the bitset's reset (at most `maxbits/8` bytes per search) is cheaper than hashing;
+above it the reset grows with `n` and the table only with the visit.
+"""
+mutable struct AutoVisited <: AbstractVisited
+    # the table's fields, as in HashVisited, flat so that a visit costs the same loads; `slots` is
+    # also the bitset
+    slots::Vector{UInt64}
+    bits::Int
+    gen::UInt64
+    count::Int
+    maxbits::Int
+    usehash::Bool
+end
+
+function AutoVisited(; maxbits::Integer=2^20, capacity::Integer=2^12)
+    AutoVisited(UInt64[], max(4, ceil(Int, log2(capacity))), UInt64(0), 0, maxbits, false)
+end
+
+newvisited(v::AutoVisited) = AutoVisited(; v.maxbits, capacity=1 << v.bits)
+
+# the open-addressing table, shared by both
+const _GenTable = Union{HashVisited,AutoVisited}
+
+function _newsearch!(v::_GenTable)
+    v.gen += 1
+    if v.gen > 0xffffffff
+        fill!(v.slots, 0)
+        v.gen = 1
+    end
+    v.count = 0
+    v
+end
+
+function reuse!(v::HashVisited, ::Integer)
+    if isempty(v.slots)
+        v.slots = zeros(UInt64, 1 << v.bits)
+        v.gen = 0
+    end
+    _newsearch!(v)
+end
+
+function reuse!(v::AutoVisited, n::Integer)
+    isempty(v.slots) && (v.slots = zeros(UInt64, max(cld(v.maxbits, 64), 1 << v.bits)))
+    if n > v.maxbits
+        # leaving bitset mode: its words could pass for slots of the current generation
+        v.usehash || fill!(v.slots, 0)
+        v.usehash = true
+        _newsearch!(v)
+    else
+        v.usehash = false
+        reuse!(v.slots, n)
+    end
+    v
+end
+
+@inline function _probe(v::_GenTable, key::UInt64, i::Integer)
+    mask = (1 << v.bits) - 1
+    p = _vhash(i, v.bits)
+    @inbounds while true
+        s = v.slots[p + 1]
+        (s == key || (s >>> 32) != v.gen) && return p + 1, s == key
+        p = (p + 1) & mask
+    end
+end
+
+function _grow!(v::_GenTable)
+    gen = v.gen
+    if length(v.slots) >= 2 << v.bits
+        # the buffer already holds the doubled table: take the live entries out, open a new
+        # generation (the old copies turn stale where they stand) and put them back
+        live = [s & 0xffffffff for s in view(v.slots, 1:(1 << v.bits)) if (s >>> 32) == gen]
+        v.bits += 1
+        v.gen += 1
+        if v.gen > 0xffffffff
+            fill!(v.slots, 0)
+            v.gen = 1
+        end
+        @inbounds for i in live
+            key = _vkey(v.gen, i)
+            p, _ = _probe(v, key, i)
+            v.slots[p] = key
+        end
+        return v
+    end
+    old = v.slots
+    v.bits += 1
+    v.slots = zeros(UInt64, 1 << v.bits)
+    @inbounds for s in old
+        if (s >>> 32) == gen
+            p, _ = _probe(v, s, s & 0xffffffff)
+            v.slots[p] = s
+        end
+    end
+    v
+end
+
+@inline function _tablevisit!(v::_GenTable, i::Integer)::Bool
+    key = _vkey(v.gen, i)
+    p, found = _probe(v, key, i)
+    found && return true
+    @inbounds v.slots[p] = key
+    v.count += 1
+    2v.count > (1 << v.bits) && _grow!(v)
+    false
+end
+
+@inline check_visited_and_visit!(v::HashVisited, i::Integer)::Bool = _tablevisit!(v, i)
+@inline visited(v::HashVisited, i::Integer)::Bool = last(_probe(v, _vkey(v.gen, i), i))
+@inline visit!(v::HashVisited, i::Integer) = (_tablevisit!(v, i); nothing)
+
+@inline check_visited_and_visit!(v::AutoVisited, i::Integer)::Bool =
+    v.usehash ? _tablevisit!(v, i) : check_visited_and_visit!(v.slots, convert(UInt64, i))
+@inline visited(v::AutoVisited, i::Integer)::Bool =
+    v.usehash ? last(_probe(v, _vkey(v.gen, i), i)) : Bool(visited(v.slots, convert(UInt64, i)))
+@inline visit!(v::AutoVisited, i::Integer) =
+    (v.usehash ? _tablevisit!(v, i) : visit!(v.slots, convert(UInt64, i)); nothing)
+
+"""
+    LossyHashVisited(; capacity=2^15)
+
+A fixed-size visited set that may forget: `capacity` `UInt64` slots (256 KB by default, within a
+core's L2) in buckets of 8 (one cache line), each slot holding the vertex id and the generation of
+its search, as in [`HashVisited`](@ref). A vertex goes to a stale slot of its bucket, or, when all 8
+belong to the current search, overwrites one of them. A lookup finds a vertex only if it is still
+there, so the set never reports a vertex that was not reached; a forgotten one is evaluated again,
+which costs a distance evaluation and is counted as one. `reuse!` advances the generation.
+
+**Use it with a finite `maxvisits`.** A forgotten vertex that is still in the result queue is
+neither pushed nor expanded again, but one that already left it can re-enter the beam whenever
+`Δ > 1` admits it, and the search may then cycle through the same vertices; only the visit cap
+ends it. With the uncapped `BeamSearch` a small table can loop indefinitely (measured: 2^11 slots on
+ccnews, 600K vertices).
+"""
+mutable struct LossyHashVisited <: AbstractVisited
+    slots::Vector{UInt64}
+    bbits::Int   # log2 of the number of buckets
+    gen::UInt64
+end
+
+function LossyHashVisited(; capacity::Integer=2^15)
+    bbits = max(1, ceil(Int, log2(capacity)) - 3)
+    LossyHashVisited(UInt64[], bbits, UInt64(0))
+end
+
+newvisited(v::LossyHashVisited) = LossyHashVisited(; capacity=8 << v.bbits)
+@inline mayforget(::LossyHashVisited) = true
+
+function reuse!(v::LossyHashVisited, ::Integer)
+    if isempty(v.slots)
+        v.slots = zeros(UInt64, 8 << v.bbits)
+        v.gen = 0
+    end
+    v.gen += 1
+    if v.gen > 0xffffffff
+        fill!(v.slots, 0)
+        v.gen = 1
+    end
+    v
+end
+
+@inline function check_visited_and_visit!(v::LossyHashVisited, i::Integer)::Bool
+    key = _vkey(v.gen, i)
+    h = _vhash(i, v.bbits + 3)
+    base = (h & ~7) + 1
+    free = 0
+    @inbounds for j in 0:7
+        s = v.slots[base + j]
+        s == key && return true
+        free == 0 && (s >>> 32) != v.gen && (free = base + j)
+    end
+    @inbounds v.slots[free == 0 ? base + (h & 7) : free] = key
+    false
+end
+
+@inline function visited(v::LossyHashVisited, i::Integer)::Bool
+    key = _vkey(v.gen, i)
+    base = (_vhash(i, v.bbits + 3) & ~7) + 1
+    @inbounds for j in 0:7
+        v.slots[base + j] == key && return true
+    end
+    false
+end
+
+@inline visit!(v::LossyHashVisited, i::Integer) = (check_visited_and_visit!(v, i); nothing)
+
+# The result queue of a search whose visited set may forget: a forgotten vertex is evaluated again
+# and must not enter `res` twice. A linear scan over `res`, only for such sets (`mayforget` is
+# resolved by dispatch, so the exact sets pay nothing).
+@inline _pushres!(vstate, res, id, d) = mayforget(vstate) ? _pushunique!(res, id, d) : push_item!(res, id, d)
+
+@inline function _pushunique!(res, id, d)
+    ids = IdView(res)
+    u = convert(UInt32, id)
+    @inbounds for j in 1:length(res)
+        ids[j] == u && return :duplicate
+    end
+    push_item!(res, id, d)
+end
