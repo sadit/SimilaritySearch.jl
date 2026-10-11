@@ -322,7 +322,7 @@ end
 
 Appends every object of `items` (an `AbstractDatabase`, an iterator of vectors, or a matrix
 whose columns are the vectors) to `db`, as [`push_item!`](@ref) would. Many indexable items into
-block storage are quantized and written by all threads (see [`set_page_spread!`](@ref)).
+block storage are quantized and written by all threads (see [`set_page_spread!`](@ref SimilaritySearch.set_page_spread!)).
 """
 function append_items!(db::QuantDatabase, items)
     items isa Union{AbstractVector,AbstractDatabase} && return _appendby!(db, length(items), k -> items[k])
