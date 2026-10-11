@@ -209,6 +209,21 @@ so the exception is stated here instead of left for a reader to find.
   bitset in the same process: ccnews (604K) 1.00×, 0.99×, 0.99× (the table alone 0.92× and 0.82× at the
   two larger Δ); gooaq (3.0M) 1.36×, 1.30×, 1.17×; pubmed23 (23.9M, one run) 6.2×, 3.1×, 1.5×. Construction past `2^20` vertices
   uses the table too; its time was not measured.
+- **Large stores are written from all threads, so their pages spread over the NUMA nodes** (#121, #122).
+  Linux and Windows place a page on the node of the thread that first writes it, and up to 1.6.4 a
+  database, its code sums and a frozen adjacency were written by one thread: on a two-socket machine
+  all of them sat on one node, and a `BlockMatrixDatabase`'s 256-column blocks rarely got huge pages.
+  Bulk `append_items!` into a `BlockMatrixDatabase` or a quantized database (and so `SearchGraph`'s and
+  `AsymmetricSearchGraph`'s `append_items!`, and `sqcodes(enc, X)`) now reserves the room and fills it
+  from all threads, `StaticAdjList(adj)` too, and a new `BlockMatrixDatabase` defaults to blocks of at
+  least 32 MB (the last one holds only what it needs). `set_page_spread!(false)` restores the 1.6.4
+  behavior; the results are the same either way. `spreadcopy(x)` balances a structure written by one
+  thread (an index read back from disk, for instance): arrays, the databases, the adjacency lists and
+  whole graphs. On a two-socket Xeon Silver 4216 (64 threads), five indexes of 600K vectors built in one
+  process with 8-bit codes at 384 dimensions answered 1.14-1.30× the queries per second at recall 0.90
+  (ccnews and yahooaq, symmetric and asymmetric), as much as copying the codes into one matrix from all
+  threads. The tutorial's new [Memory Placement](https://sadit.github.io/SimilaritySearch.jl/dev/tutorial/memory_placement/)
+  section says where it pays off and where it does not.
 
 ## 1.5
 

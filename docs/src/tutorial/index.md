@@ -26,13 +26,14 @@ We recommend reading the tutorial in the following order:
 6. **[Dataset Operations: Selection, All-kNN, and Closest Pairs](operations.md)** -- Advanced algorithms including Farthest First Traversal (`fft`), all-pairs $k$-NN (`allknn`), closest pair search, and near-duplicate elimination (`neardup`).
 7. **[Bichromatic Operations and Metric Joins](bichromatic.md)** -- Closest pairs and metric joins between two distinct datasets ($A \times B$).
 8. **[Parallelism and Multithreading](parallelism.md)** -- The `@BATCHES` execution model, context thread safety, and concurrency best practices.
-9. **[Index Persistence and Serialization](persistence.md)** -- Serializing indexes with JLD2 and decoupling graph topology from dataset storage.
-10. **[Logging and Observation Channels](logging.md)** -- Informational reporting (`reporters`) versus structural event listening (`observers`) for incremental graph tracking.
-11. **[Inverted Files and Posting List Intersections](invertedfiles.md)** -- Inverted indexing (`InvertedFile`, `DictInvertedFile`) for sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
-12. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant`, projection-based `bitsketch` (random, Hadamard, PCA), and hyperplane-based sketches for generic metric spaces.
-13. **[Multi-Bit Sketches](multibit_sketches.md)** -- Spending 2, 4 or 8 bits per hyperplane instead of a sign bit (`Projections.QuantSketch`), and bootstrapping a `SearchGraph` from the wider codes.
-14. **[Asymmetric Search: Raw Queries Against Codes](asymmetric.md)** -- The `AsymmetricSearchGraph`, whose storage is encoded while insertion and queries use the raw objects, with `ScalarQuant.SQEncoder` (with or without a rotation) and the `RaBitQ` estimators.
-15. **[Sketched Search](sketchedsearch.md)** -- The symmetric encode, index, retrieve and re-score pipeline as one ordinary index, `Projections.SketchedSearch`.
+9. **[Memory Placement: NUMA Nodes and Huge Pages](memory_placement.md)** -- Where large stores lie on a multi-socket machine: balanced writes (`set_page_spread!`, the default since 1.6.5), `spreadcopy` for structures written by one thread, and where it pays off and where it does not.
+10. **[Index Persistence and Serialization](persistence.md)** -- Serializing indexes with JLD2 and decoupling graph topology from dataset storage.
+11. **[Logging and Observation Channels](logging.md)** -- Informational reporting (`reporters`) versus structural event listening (`observers`) for incremental graph tracking.
+12. **[Inverted Files and Posting List Intersections](invertedfiles.md)** -- Inverted indexing (`InvertedFile`, `DictInvertedFile`) for sparse vectors, set metrics, and Maximum Inner Product Search (MIPS).
+13. **[Quantization and Bit Sketches](quantization_and_bitsketches.md)** -- Compressing vectors to reduce memory usage and accelerate distance evaluations via `ScalarQuant`, projection-based `bitsketch` (random, Hadamard, PCA), and hyperplane-based sketches for generic metric spaces.
+14. **[Multi-Bit Sketches](multibit_sketches.md)** -- Spending 2, 4 or 8 bits per hyperplane instead of a sign bit (`Projections.QuantSketch`), and bootstrapping a `SearchGraph` from the wider codes.
+15. **[Asymmetric Search: Raw Queries Against Codes](asymmetric.md)** -- The `AsymmetricSearchGraph`, whose storage is encoded while insertion and queries use the raw objects, with `ScalarQuant.SQEncoder` (with or without a rotation) and the `RaBitQ` estimators.
+16. **[Sketched Search](sketchedsearch.md)** -- The symmetric encode, index, retrieve and re-score pipeline as one ordinary index, `Projections.SketchedSearch`.
 
 ---
 

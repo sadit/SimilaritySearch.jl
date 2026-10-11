@@ -61,6 +61,10 @@ collect(IdView(res1)) == collect(IdView(res2))   # Returns true
 
 The same serialization procedure applies to [`ExhaustiveSearch`](@ref) and [`SimilaritySearch.Exact.ParallelExhaustiveSearch`](@ref).
 
+A loaded index has every array written by the one thread that read it, so on a machine with two or
+more NUMA nodes all of it sits on that thread's node. `G2 = spreadcopy(G2)` copies its database and
+adjacency from all threads; see [Memory Placement](memory_placement.md).
+
 ---
 
 ## Persisting Indexes vs. Contexts

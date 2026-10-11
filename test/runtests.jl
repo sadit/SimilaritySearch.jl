@@ -19,6 +19,7 @@ const TESTFILES = [
     "testbatches.jl",
     "testdistances.jl",
     "testdb.jl",
+    "testplacement.jl",
     "testmmapdb.jl",
     "testlog.jl",
     "testresults.jl",

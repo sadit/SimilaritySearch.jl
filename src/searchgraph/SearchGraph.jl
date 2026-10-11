@@ -234,6 +234,16 @@ is what the missing field holds.
 SearchGraph(dist::PreMetric, db::AbstractDatabase, adj::AbstractAdjList, hints, algo::Base.RefValue{BeamSearch}, len::Base.RefValue{Int64}) =
     SearchGraph(dist, db, adj, hints, algo, len, Members())
 
+"""
+    spreadcopy(G::SearchGraph) -> SearchGraph
+
+The same graph with its database and adjacency copied by all threads (see [`spreadcopy`](@ref)):
+e.g. `G = spreadcopy(JLD2.load(file, "G"))` for an index read back from disk, whose arrays the
+reader wrote from one thread. Hints, search parameters and members are copied as they are.
+"""
+spreadcopy(G::SearchGraph) = SearchGraph(G.dist, spreadcopy(G.db), spreadcopy(G.adj), copy(G.hints),
+                                         Ref(G.algo[]), Ref(G.len[]), deepcopy(G.members))
+
 ismember(G::SearchGraph, id::Integer) = ismember(G.members, id)
 representative(G::SearchGraph, id::Integer) = representative(G.members, id)
 members(G::SearchGraph, id::Integer) = members(G.members, id)

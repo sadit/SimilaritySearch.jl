@@ -43,6 +43,7 @@ function show(io::IO, db::AbstractDatabase; prefix="", indent="  ")
     println(io, prefix, "length: ", length(db))
 end
 
+include("placement.jl")
 include("matrixdatabase.jl")
 include("mmapmatrixdatabase.jl")
 include("vectordatabase.jl")

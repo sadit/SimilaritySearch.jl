@@ -1,7 +1,7 @@
 # This file is a part of SimilaritySearch.jl
 
-import ..SimilaritySearch: push_item!, append_items!, show
-using ..SimilaritySearch: MatrixDatabase, BlockMatrixDatabase, MMapMatrixDatabase
+import ..SimilaritySearch: push_item!, append_items!, show, _appendby!, spreadcopy
+using ..SimilaritySearch: MatrixDatabase, BlockMatrixDatabase, MMapMatrixDatabase, _pushall!, _reserve!, _spread, _spreads
 
 export QuantDatabase
 
@@ -269,19 +269,63 @@ plain vectors.
 push_item!(db::QuantDatabase, v::AbstractVector) = push_item!(db, quantize(db, v))
 
 function push_item!(db::QuantDatabase{B}, v::SQVec{B}) where {B}
+    v = _asstored(db, v)
+    _pushcodes!(db, v.E, v.V, v.Sa, v.Saa)
+end
+
+# what `db` stores for an item: a plain vector is quantized, a quantized one is checked
+_asstored(db::QuantDatabase, v::AbstractVector) = quantize(db, v)
+
+function _asstored(db::QuantDatabase{B}, v::SQVec{B}) where {B}
     _checkdim(db, v)
     isglobal(db) && v.E != db.E &&
         throw(ArgumentError("push_item!: the vector was quantized with other parameters than the database's ($(v.E) against $(db.E))"))
-    _pushcodes!(db, v.E, v.V, v.Sa, v.Saa)
+    v
+end
+
+# Bulk append into block storage: the codes, the sums and the per-vector parameters get their room
+# first and are written by all threads (see `set_page_spread!`); `item(k)` is quantized or encoded
+# inside the parallel loop. Any other storage, or few items, goes through `push_item!`.
+function _appendby!(db::QuantDatabase, m::Integer, item::F) where {F}
+    Q = db.Q
+    (Q isa BlockMatrixDatabase && _spreads(m)) || return _pushall!(db, m, item)
+    n0 = length(Q)
+    _reserve!(Q, m)
+    Q.len[] = n0 + m
+    resize!(db.Sa, n0 + m)
+    resize!(db.Saa, n0 + m)
+    E = db.E
+    E isa AbstractVector && resize!(E, n0 + m)
+    try
+        _spread(m) do r
+            for k in r
+                v = _asstored(db, item(k))
+                i = n0 + k
+                Q[i] = v.V
+                E isa AbstractVector && (@inbounds E[i] = v.E)
+                @inbounds db.Sa[i] = v.Sa
+                @inbounds db.Saa[i] = v.Saa
+            end
+        end
+    catch
+        Q.len[] = n0
+        resize!(db.Sa, n0)
+        resize!(db.Saa, n0)
+        E isa AbstractVector && resize!(E, n0)
+        rethrow()
+    end
+    db
 end
 
 """
     append_items!(db::QuantDatabase, items)
 
 Appends every object of `items` (an `AbstractDatabase`, an iterator of vectors, or a matrix
-whose columns are the vectors) to `db`, through [`push_item!`](@ref).
+whose columns are the vectors) to `db`, as [`push_item!`](@ref) would. Many indexable items into
+block storage are quantized and written by all threads (see [`set_page_spread!`](@ref SimilaritySearch.set_page_spread!)).
 """
 function append_items!(db::QuantDatabase, items)
+    items isa Union{AbstractVector,AbstractDatabase} && return _appendby!(db, length(items), k -> items[k])
     for v in items
         push_item!(db, v)
     end
@@ -318,4 +362,11 @@ Base.:(==)(::QuantDatabase, ::QuantDatabase) = false
     _prefetch(pointer(db.Saa, i))
     db.E isa AbstractVector && _prefetch(pointer(db.E, i))
     nothing
+end
+
+# the codes, the sums and the per-vector parameters, each written by all threads
+function spreadcopy(db::QuantDatabase{B}) where {B}
+    E = db.E isa AbstractVector ? spreadcopy(db.E) : db.E
+    Q = spreadcopy(db.Q)
+    QuantDatabase{B,typeof(E),typeof(Q)}(E, Q, db.dim, spreadcopy(db.Sa), spreadcopy(db.Saa))
 end

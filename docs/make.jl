@@ -25,6 +25,7 @@ makedocs(;
             "tutorial/operations.md",
             "tutorial/bichromatic.md",
             "tutorial/parallelism.md",
+            "tutorial/memory_placement.md",
             "tutorial/persistence.md",
             "tutorial/logging.md",
             "tutorial/invertedfiles.md",
