@@ -66,7 +66,9 @@ sadj = StaticAdjList(adj)
 neighbors(sadj, 2)  # => view of Int32[1]
 ```
 """
-function StaticAdjList(adj::AbstractAdjList{T}) where T
+StaticAdjList(adj::AbstractAdjList) = _staticadjlist(adj)
+
+function _staticadjlist(adj::AbstractAdjList{T}) where T
     n = length(adj)
     offset = Vector{Int64}(undef, n)
     end_point = let N = sum(length(N) for (_, N) in adj)
@@ -85,6 +87,42 @@ function StaticAdjList(adj::AbstractAdjList{T}) where T
         end
     end
 
+    StaticAdjList{T}(offset, end_point)
+end
+
+# An `AdjList` with many nodes is frozen by all threads, each one a contiguous range of nodes: the
+# pages of `offset` and `end_point` spread over the NUMA nodes instead of landing on the caller's
+# (see `set_page_spread!`). Same arrays as the serial version.
+function StaticAdjList(adj::AdjList{T}) where T
+    n = length(adj)
+    _spreads(n) || return _staticadjlist(adj)
+    nt = Threads.nthreads()
+    chunk = cld(n, nt)
+    ranges = [sp:min(n, sp + chunk - 1) for sp in 1:chunk:n]
+    sums = zeros(Int, length(ranges))
+    _spread(length(ranges)) do rr
+        for c in rr
+            s = 0
+            for j in ranges[c]
+                s += neighbors_length(adj, j)
+            end
+            sums[c] = s
+        end
+    end
+    base = cumsum(sums) .- sums
+    offset = Vector{Int64}(undef, n)
+    end_point = Vector{T}(undef, sum(sums))
+    _spread(length(ranges)) do rr
+        for c in rr
+            s = base[c]
+            @inbounds for j in ranges[c]
+                N = neighbors(adj, j)
+                copyto!(end_point, s + 1, N, 1, length(N))
+                s += length(N)
+                offset[j] = s
+            end
+        end
+    end
     StaticAdjList{T}(offset, end_point)
 end
 

@@ -207,13 +207,18 @@ Encodes every column of `X` in parallel into the storage above.
 """
 function sqcodes(e::SQEncoder{B}, X::AbstractMatrix; minbatch::Int=4) where {B}
     n = size(X, 2)
-    codes = Vector{SQVec{B,Vector{UInt8}}}(undef, n)
-    @BATCHES minbatch for i in 1:n
-        codes[i] = encode(e, view(X, :, i))
-    end
     db = sqcodes(e)
-    for c in codes
-        push_item!(db, c)
+    if _spreads(n)
+        # encoded and written by all threads, straight into the reserved storage
+        _appendby!(db, n, k -> encode(e, view(X, :, k)))
+    else
+        codes = Vector{SQVec{B,Vector{UInt8}}}(undef, n)
+        @BATCHES minbatch for i in 1:n
+            codes[i] = encode(e, view(X, :, i))
+        end
+        for c in codes
+            push_item!(db, c)
+        end
     end
     db
 end

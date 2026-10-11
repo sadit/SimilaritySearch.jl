@@ -155,15 +155,15 @@ search(g::AsymmetricSearchGraph, ctx::SearchGraphContext, q, res::AbstractMetric
 
 Appends the raw `items`: each is stored as `encode(distance(g), item)`, and then indexed with
 its raw form as the query that picks its neighbors (see [`InsertionSource`](@ref)). Parallel
-or sequential as `ctx` says, like a `SearchGraph`'s.
+or sequential as `ctx` says, like a `SearchGraph`'s; many items into block storage are encoded and
+stored by all threads (see [`set_page_spread!`](@ref)).
 """
 function append_items!(g::AsymmetricSearchGraph, ctx::SearchGraphContext, items::AbstractDatabase)
     db = database(g)
     dist = distance(g)
     offset = length(db)
-    for item in items
-        push_item!(db, encode(dist, item))
-    end
+    # encoded and stored by all threads when the storage supports it (see `set_page_spread!`)
+    _appendby!(db, length(items), k -> encode(dist, items[k]))
 
     # the pool must carry prepared raw objects: `db` holds codes, which is not what the
     # distance takes on the query side (see `tuningpool`)

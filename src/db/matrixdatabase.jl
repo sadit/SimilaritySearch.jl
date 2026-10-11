@@ -63,7 +63,8 @@ or [`VectorDatabase`](@ref SimilaritySearch.VectorDatabase) instead if you need 
     struct BlockMatrixDatabase{Dim,NumType,NumBits} <: AbstractDatabase
 
 Stores objects of dimension `Dim` and element type `NumType` in a growable collection of dense matrix
-blocks, each block holding `2^NumBits` columns/objects. It behaves like [`MatrixDatabase`](@ref) (each
+blocks, each block holding `2^NumBits` columns/objects (the last one may hold fewer columns, and grows
+as items arrive). It behaves like [`MatrixDatabase`](@ref) (each
 column is one object, backed by contiguous matrices for fast access) but additionally supports
 `push_item!`/`append_items!`, allocating a new block whenever the current one fills up. This makes it a
 good fit when you need to incrementally append large numbers of items without paying the cost of
@@ -81,17 +82,31 @@ struct BlockMatrixDatabase{Dim,NumType,NumBits} <: AbstractDatabase
 end
 
 """
-    BlockMatrixDatabase(Dim::Int, ::Type{NumType}=Float32, NumBits::Int=8) where {NumType<:Number}
+    defaultblockbits(Dim, NumType) -> Int
+
+The default `NumBits` of a [`BlockMatrixDatabase`](@ref): blocks of at least 32 MB, so that at least
+15 of every 16 of their bytes sit on 2 MB huge pages whatever the block's alignment (an 8 MB block
+measured 66%), or 256 columns when [`page_spread`](@ref) is off (the layout up to 1.6.4). The last
+block holds only what it needs, so a small database does not pay for the size.
+"""
+function defaultblockbits(Dim::Integer, ::Type{NumType}) where {NumType}
+    PAGE_SPREAD[] || return 8
+    max(8, ceil(Int, log2(cld(1 << 25, max(1, Dim * sizeof(NumType))))))
+end
+
+"""
+    BlockMatrixDatabase(Dim::Int, ::Type{NumType}=Float32, NumBits::Int=defaultblockbits(Dim, NumType)) where {NumType<:Number}
 
 Creates an empty `BlockMatrixDatabase` for objects of dimension `Dim` and element type `NumType`, where
-each internal block stores up to `2^NumBits` objects.
+each internal block stores up to `2^NumBits` objects (by default, blocks of at least 32 MB; see
+[`defaultblockbits`](@ref)).
 """
-function BlockMatrixDatabase(Dim::Int, ::Type{NumType}=Float32, NumBits::Int=8) where {NumType<:Number}
+function BlockMatrixDatabase(Dim::Int, ::Type{NumType}=Float32, NumBits::Int=defaultblockbits(Dim, NumType)) where {NumType<:Number}
     BlockMatrixDatabase{Dim,NumType,NumBits}(Matrix{NumType}[], Ref(0))
 end
 
 """
-    BlockMatrixDatabase(M::AbstractMatrix, bitsize=8)
+    BlockMatrixDatabase(M::AbstractMatrix, bitsize=defaultblockbits(size(M, 1), eltype(M)))
 
 Creates a `BlockMatrixDatabase` from the columns of `M` (each column is one object), copying the data into
 blocks of `2^bitsize` columns each. Unlike wrapping `M` directly with [`MatrixDatabase`](@ref), the result
@@ -110,7 +125,7 @@ push_item!(db, rand(Float32, 8))
 length(db)  # 1001
 ```
 """
-function BlockMatrixDatabase(M::AbstractMatrix, bitsize=8)
+function BlockMatrixDatabase(M::AbstractMatrix, bitsize=defaultblockbits(size(M, 1), eltype(M)))
     dim = size(M, 1)
     B = BlockMatrixDatabase(dim, eltype(M), bitsize)
     append_items!(B, eachcol(M))
@@ -144,34 +159,98 @@ end
     @inbounds db.blocks[b][:, i] .= value
 end
 
+# Room for column `need` of block `b`. One push at a time (`exact=false`): a new block starts at 256
+# columns and the last one doubles, up to 2^NumBits. A bulk append (`exact=true`) asks for exactly what
+# it fills. Either way a database that stopped growing holds little unused room.
+function _blockroom!(db::BlockMatrixDatabase{Dim,NumType,NumBits}, b::Int, need::Int, exact::Bool=false) where {Dim,NumType,NumBits}
+    cap = 1 << NumBits
+    if b > length(db.blocks)
+        push!(db.blocks, Matrix{NumType}(undef, Dim, min(cap, exact ? need : max(need, 256))))
+    else
+        M = db.blocks[b]
+        if need > size(M, 2)
+            M2 = Matrix{NumType}(undef, Dim, min(cap, exact ? need : max(need, 2size(M, 2))))
+            copyto!(M2, 1, M, 1, length(M))
+            db.blocks[b] = M2
+        end
+    end
+    db
+end
+
 """
     push_item!(db::BlockMatrixDatabase, v::AbstractVector)
 
-Appends `v` as a new object at the end of `db`, allocating a new internal block when the current one is full.
+Appends `v` as a new object at the end of `db`, making room in the last block or allocating a new one.
 """
 @inline function push_item!(db::BlockMatrixDatabase{Dim,NumType,NumBits}, v::AbstractVector) where {Dim,NumType,NumBits}
     n = db.len[] + 1
     b, i = _get_block_and_pos(NumBits, n)
-    # @show b, i, n, Dim, NumType, NumBits, length(db), length(db.blocks), size(db.blocks[1])
-    if i == 1
-        M = Matrix{NumType}(undef, Dim, 1 << NumBits)
-        @inbounds M[:, 1] .= v
-        push!(db.blocks, M)
-    else
-        @inbounds db.blocks[b][:, i] .= v
-    end
+    (b > length(db.blocks) || i > size(@inbounds(db.blocks[b]), 2)) && _blockroom!(db, b, i)
+    @inbounds db.blocks[b][:, i] .= v
+    db.len[] = n
+end
 
-    db.len[] += 1
+# Room for `m` more items: the last block grows to what it needs, new blocks are full except the last,
+# which gets exactly the columns left. Nothing is written: the pages are touched by whoever fills them.
+function _reserve!(db::BlockMatrixDatabase{Dim,NumType,NumBits}, m::Integer) where {Dim,NumType,NumBits}
+    n = db.len[] + m
+    n == db.len[] && return db
+    blast, ilast = _get_block_and_pos(NumBits, n)
+    cap = 1 << NumBits
+    for b in max(1, length(db.blocks)):blast
+        _blockroom!(db, b, b == blast ? ilast : cap, true)
+    end
+    db
+end
+
+"""
+    _appendby!(db, m, item)
+
+Appends `item(1)`, ..., `item(m)` to `db`. A store that supports it reserves the room first and
+fills it from all threads (see [`set_page_spread!`](@ref)), so `item` may run concurrently; the
+default pushes them one by one.
+"""
+_appendby!(db::AbstractDatabase, m::Integer, item::F) where {F} = _pushall!(db, m, item)
+
+function _pushall!(db::AbstractDatabase, m::Integer, item::F) where {F}
+    for k in 1:m
+        push_item!(db, item(k))
+    end
+    db
+end
+
+function _appendby!(db::BlockMatrixDatabase, m::Integer, item::F) where {F}
+    _spreads(m) || return _pushall!(db, m, item)
+    n0 = db.len[]
+    _reserve!(db, m)
+    db.len[] = n0 + m
+    try
+        _spread(m) do r
+            for k in r
+                db[n0 + k] = item(k)
+            end
+        end
+    catch
+        db.len[] = n0
+        rethrow()
+    end
+    db
 end
 
 """
     append_items!(db::BlockMatrixDatabase, B)
 
-Appends every object in `B` (e.g., an iterator of vectors, such as `eachcol` of a matrix) to the end of `db`.
+Appends every object in `B` (e.g., an iterator of vectors, such as `eachcol` of a matrix) to the end of
+`db`. An indexable `B` (a vector, `eachcol`, a database) with many items is copied by all threads (see
+[`set_page_spread!`](@ref)).
 """
-@inline function append_items!(db::BlockMatrixDatabase, B)
-    for b in B
-        push_item!(db, b)
+function append_items!(db::BlockMatrixDatabase, B)
+    if B isa Union{AbstractVector,AbstractDatabase}
+        _appendby!(db, length(B), k -> B[k])
+    else
+        for b in B
+            push_item!(db, b)
+        end
     end
 
     db
