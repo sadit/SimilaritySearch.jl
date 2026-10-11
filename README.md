@@ -205,9 +205,9 @@ so the exception is stated here instead of left for a reader to find.
   table that may forget a vertex but never reports one that was not reached; it needs a finite
   `maxvisits`). The default `AutoVisited()` is the bitset while the graph has at most `2^20` vertices and
   the table beyond, in one 128 KB buffer per slot. Same answers and evaluations; at 64 threads on a Xeon
-  Silver 4216 with 8-bit codes, at the tuned point and ×0.85 / ×1.15 of its Δ, queries per second against
-  the bitset: ccnews (604K) 1.00×, 0.99×, 0.99× (the table alone 0.92× and 0.82× at the two larger Δ);
-  gooaq (3.0M) 1.36×, 1.30×, 1.17×; pubmed23 (23.9M) 5.7×, 3.1×, 1.5×. Construction past `2^20` vertices
+  Silver 4216 with 8-bit codes, at ×0.85, ×1.00 and ×1.15 of the tuned Δ, queries per second against the
+  bitset in the same process: ccnews (604K) 1.00×, 0.99×, 0.99× (the table alone 0.92× and 0.82× at the
+  two larger Δ); gooaq (3.0M) 1.36×, 1.30×, 1.17×; pubmed23 (23.9M, one run) 6.2×, 3.1×, 1.5×. Construction past `2^20` vertices
   uses the table too; its time was not measured.
 
 ## 1.5
