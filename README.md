@@ -193,6 +193,18 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.6 (unreleased)
+
+- **The expansion of a graph folded at distance zero copies the representative's distance** (#124).
+  `expand` and `expand!` take the context the graph was built with (`expand!(G, ctx, Q, knns, dists)`
+  and the other forms); with `Neighborhood(neardup=0f0)` a member is an exact copy of its
+  representative, so it gets the representative's distance and its vector is not read. On ccnews
+  (604K, 20% members) the expansion made ~40 distance evaluations per query against ~570 for the
+  search, all of them for copies. `optimize_index!` does the same while tuning, and counts no
+  evaluations for those members. Without the context, or with `neardup > 0`, members are evaluated
+  as before. The radius is read from the context because the graph does not store it; a later
+  version is meant to keep it in the graph, which changes what a stored graph holds.
+
 ### 1.6.5
 
 - **The visited set of the graph search is a type, and past 2^20 vertices it is a hash table** (#119, #120).

@@ -182,9 +182,16 @@ end
 expand!(G, q, res)                                     # in place: the 10 nearest raw neighbors
 
 knns, dists = searchbatch(G, ctx, queries, 10)
-expand!(G, queries, knns, dists)                       # every column, in parallel
+expand!(G, ctx, queries, knns, dists)                  # every column, in parallel
 macrorecall(gold, knns)                                # against an exhaustive gold, which holds the duplicates
 ```
+
+Every form also takes the context the graph was built with, `expand(G, ctx, q, res)` and
+`expand!(G, ctx, ...)`. With `neardup=0f0` the members are exact copies of their
+representative, so the context lets the expansion give them the representative's distance
+without reading them: on `ccnews` that is about 40 distance evaluations per query that are not
+made. Without the context, or with `ϵ > 0`, each member is evaluated. The context must be the
+one whose `Neighborhood` built the graph, since the graph does not record its radius yet.
 
 Both stages produce regular results, so anything that accepts a queue or the matrices continues
 to work. `expand!` respects the rule of the result it is given: a `KnnSorted` keeps its `k`

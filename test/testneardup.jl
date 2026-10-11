@@ -232,6 +232,26 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
             expand!(G, Q[1], view(ids1, :, 1), view(d1, :, 1))
             @test ids1[:, 1] == knns[:, 1]
 
+            # with the context that built the graph (folded at distance zero) the members take their
+            # representative's distance: the same expansion, and none of it evaluated
+            @test SimilaritySearch.sharesdistance(ctx) && !SimilaritySearch.sharesdistance(GenericContext())
+            res2 = search(G, ctx, Q[1], knnqueue(KnnSorted, k))
+            @test collect(expand(G, ctx, Q[1], res2)) == collect(expand(G, Q[1], res2))   # exact copies, the same distance
+            withmembers = findfirst(j -> any(id -> !isempty(members(G, id)), knns[:, j]), 1:length(Q))
+            @test withmembers !== nothing
+            q2 = Q[withmembers]
+            ra = search(G, ctx, q2, knnqueue(KnnSorted, k)); rb = search(G, ctx, q2, knnqueue(KnnSorted, k))
+            @test SimilaritySearch._expand!(G, q2, ra, true) == 0 && SimilaritySearch._expand!(G, q2, rb) > 0
+            @test collect(IdDistView(ra)) == collect(IdDistView(rb))
+            knnsC, distsC = searchbatch(G, ctx, Q, k)
+            expand!(G, ctx, Q, knnsC, distsC)
+            knnsE, distsE = searchbatch(G, ctx, Q, k)
+            expand!(G, Q, knnsE, distsE)
+            @test distsC == distsE && recall_of(gold, [knnsC[:, j] for j in 1:length(Q)]) == recall_of(gold, [knnsE[:, j] for j in 1:length(Q)])
+            ids2, d2 = searchbatch(G, ctx, MatrixDatabase(Q.matrix[:, 1:1]), k)
+            expand!(G, ctx, Q[1], view(ids2, :, 1), view(d2, :, 1))
+            @test d2[:, 1] == distsE[:, 1]
+
             # radius queue: expand! keeps what falls within the radius
             rad = search(G, ctx, Q[1], RadiusSorted(0.05f0))
             nrad = length(rad)
@@ -275,5 +295,24 @@ recall_of(gold, got) = mean(length(intersect(g, r)) / length(g) for (g, r) in zi
         ex = collect(expand(G, q, res))
         @test all(p -> p.dist == evaluate(dist, q, Y[p.id]), ex)
         @test length(unique(p.dist for p in ex)) > 1 || length(ex) == length(res)   # distances differ among a cluster
+        @test !SimilaritySearch.sharesdistance(ctx)                         # ϵ > 0: the context keeps the evaluation
+        @test collect(expand(G, ctx, q, res)) == ex
+    end
+
+    @testset "AsymmetricSearchGraph: the expansion with the building context copies the representative's distance" begin
+        rngA = Xoshiro(3)
+        baseA = rand(rngA, Float32, 16, 3000)
+        XA = hcat(baseA, baseA[:, 1:600])                                   # 600 exact duplicates
+        encA = ScalarQuant.SQEncoder(ScalarQuant.SQgu8, XA)
+        ctxA = SearchGraphContext(; reporters=[], neighborhood=Neighborhood(; neardup=0f0))
+        GA = AsymmetricSearchGraph(encA, ScalarQuant.sqcodes(encA))
+        append_items!(GA, ctxA, MatrixDatabase(XA))
+        @test length(GA.graph.members) > 0
+        QA = MatrixDatabase(XA[:, 1:50])
+        a, da = searchbatch(GA, ctxA, QA, 5); expand!(GA, ctxA, QA, a, da)
+        b, db = searchbatch(GA, ctxA, QA, 5); expand!(GA, QA, b, db)
+        @test a == b && da == db
+        r = search(GA, ctxA, QA[1], knnqueue(KnnSorted, 5))
+        @test collect(expand(GA, ctxA, QA[1], r)) == collect(expand(GA, QA[1], r))
     end
 end
