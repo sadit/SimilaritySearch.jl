@@ -178,3 +178,5 @@ construction is complete.
 function add!(adj::StaticAdjList, N)
     error("ERROR: unsupported add! on a static adjacent list")
 end
+
+spreadcopy(adj::StaticAdjList{T}) where {T} = StaticAdjList{T}(spreadcopy(adj.offset), spreadcopy(adj.end_point))

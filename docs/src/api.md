@@ -125,6 +125,17 @@ block_evaluations
 block_stats
 ```
 
+## Memory placement (NUMA nodes and huge pages)
+See the [Memory Placement](tutorial/memory_placement.md) tutorial section for when it pays off
+and when it does not.
+
+```@docs
+set_page_spread!
+page_spread
+spreadcopy
+SimilaritySearch.defaultblockbits
+```
+
 ## Indexing elements
 ```@docs
 push_item!

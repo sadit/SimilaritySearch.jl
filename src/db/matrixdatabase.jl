@@ -91,8 +91,10 @@ block holds only what it needs, so a small database does not pay for the size.
 """
 function defaultblockbits(Dim::Integer, ::Type{NumType}) where {NumType}
     PAGE_SPREAD[] || return 8
-    max(8, ceil(Int, log2(cld(1 << 25, max(1, Dim * sizeof(NumType))))))
+    _hugeblockbits(Dim, NumType)
 end
+
+_hugeblockbits(Dim::Integer, ::Type{NumType}) where {NumType} = max(8, ceil(Int, log2(cld(1 << 25, max(1, Dim * sizeof(NumType))))))
 
 """
     BlockMatrixDatabase(Dim::Int, ::Type{NumType}=Float32, NumBits::Int=defaultblockbits(Dim, NumType)) where {NumType<:Number}
@@ -257,3 +259,19 @@ function append_items!(db::BlockMatrixDatabase, B)
 end
 
 @inline Base.length(db::BlockMatrixDatabase) = db.len[]
+
+spreadcopy(db::MatrixDatabase{<:Array}) = MatrixDatabase(spreadcopy(db.matrix))
+
+# rebuilt with huge-page blocks, whatever its own block size (a 1.6.4 database has 256 columns)
+function spreadcopy(db::BlockMatrixDatabase{Dim,NumType}) where {Dim,NumType}
+    C = BlockMatrixDatabase(Dim, NumType, _hugeblockbits(Dim, NumType))
+    m = length(db)
+    _reserve!(C, m)
+    C.len[] = m
+    _spread(m) do r
+        for i in r
+            @inbounds C[i] = db[i]
+        end
+    end
+    C
+end

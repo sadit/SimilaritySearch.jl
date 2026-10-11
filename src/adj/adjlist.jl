@@ -167,3 +167,15 @@ Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, iter) where T
 
     adj
 end
+
+# each neighbor list is allocated and written by the thread that copies it
+function spreadcopy(adj::AdjList{T}) where {T}
+    n = length(adj)
+    E = Vector{Vector{T}}(undef, n)
+    _spread(n) do r
+        for i in r
+            isassigned(adj.end_point, i) && (@inbounds E[i] = copy(adj.end_point[i]))
+        end
+    end
+    AdjList(E)
+end

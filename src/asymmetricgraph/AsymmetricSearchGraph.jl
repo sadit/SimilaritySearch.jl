@@ -121,6 +121,9 @@ function AsymmetricSearchGraph(dist::PreMetric, db::AbstractDatabase; kwargs...)
     AsymmetricSearchGraph(SearchGraph(dist, db; kwargs...))
 end
 
+"Like `spreadcopy(::SearchGraph)`, on the wrapped graph."
+spreadcopy(g::AsymmetricSearchGraph) = AsymmetricSearchGraph(spreadcopy(g.graph))
+
 @inline database(g::AsymmetricSearchGraph) = database(g.graph)
 @inline distance(g::AsymmetricSearchGraph) = distance(g.graph)
 @inline Base.length(g::AsymmetricSearchGraph) = length(g.graph)

@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export set_page_spread!, page_spread
+export set_page_spread!, page_spread, spreadcopy
 
 # Where the pages of a large structure end up. Linux and Windows place an anonymous page on the
 # NUMA node of the thread that first writes it, and Linux backs a 2 MB-aligned stretch of a large
@@ -68,3 +68,25 @@ end
 
 "Whether a bulk store of `m` items should be written by all threads."
 _spreads(m::Integer) = PAGE_SPREAD[] && m >= SPREAD_MIN && Threads.nthreads() > 1
+
+"""
+    spreadcopy(x)
+
+A copy of `x` whose memory is written by all threads, so its pages spread over the NUMA nodes
+(and, for large arrays, over 2 MB huge pages). Same contents, same results; meant for structures
+that were written by one thread, e.g. an index read back from disk, or one built with
+[`set_page_spread!`](@ref)`(false)`. It runs whatever `page_spread()` says.
+
+Methods: arrays of plain values, [`MatrixDatabase`](@ref), [`BlockMatrixDatabase`](@ref)
+(rebuilt with blocks of at least 32 MB), quantized databases, [`AdjList`](@ref),
+[`StaticAdjList`](@ref), [`SearchGraph`](@ref) and [`AsymmetricSearchGraph`](@ref) (database and
+adjacency; the rest is copied as is).
+"""
+function spreadcopy(A::Array{T}) where {T}
+    isbitstype(T) || throw(ArgumentError("spreadcopy: arrays of plain values only, got $(typeof(A))"))
+    B = similar(A)
+    _spread(length(A)) do r
+        copyto!(B, first(r), A, first(r), length(r))
+    end
+    B
+end

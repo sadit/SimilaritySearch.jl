@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-import ..SimilaritySearch: push_item!, append_items!, show, _appendby!
+import ..SimilaritySearch: push_item!, append_items!, show, _appendby!, spreadcopy
 using ..SimilaritySearch: MatrixDatabase, BlockMatrixDatabase, MMapMatrixDatabase, _pushall!, _reserve!, _spread, _spreads
 
 export QuantDatabase
@@ -362,4 +362,11 @@ Base.:(==)(::QuantDatabase, ::QuantDatabase) = false
     _prefetch(pointer(db.Saa, i))
     db.E isa AbstractVector && _prefetch(pointer(db.E, i))
     nothing
+end
+
+# the codes, the sums and the per-vector parameters, each written by all threads
+function spreadcopy(db::QuantDatabase{B}) where {B}
+    E = db.E isa AbstractVector ? spreadcopy(db.E) : db.E
+    Q = spreadcopy(db.Q)
+    QuantDatabase{B,typeof(E),typeof(Q)}(E, Q, db.dim, spreadcopy(db.Sa), spreadcopy(db.Saa))
 end
