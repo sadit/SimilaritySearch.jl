@@ -171,6 +171,24 @@ ErrorFunction
 LocalSearchAlgorithm
 ```
 
+### Visited sets of the graph search
+One per batch slot of a [`SearchGraphContext`](@ref) (`visited=`); [`AutoVisited`](@ref) is the
+default since 1.6.5.
+
+```@docs
+AbstractVisited
+AutoVisited
+BitVisited
+ByteVisited
+HashVisited
+LossyHashVisited
+SimilaritySearch.mayforget
+SimilaritySearch.newvisited
+SimilaritySearch.check_visited_and_visit!
+SimilaritySearch.visited
+SimilaritySearch.visit!
+```
+
 ### Neighborhood computation and refinement
 ```@docs
 Neighborhood
