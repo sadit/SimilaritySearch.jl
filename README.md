@@ -193,6 +193,23 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.5
+
+- **The visited set of the graph search is a type, and past 2^20 vertices it is a hash table** (#119, #120).
+  Up to 1.6.4 every search zeroed a bitset of `n` bits before it started: 2.9 MB of writes per search at
+  23.9M vertices, and the cost that flattened large graphs (pubmed23 at 64 threads scaled 5.5× over one
+  thread). `SearchGraphContext(; visited=...)` now takes the kind of set each batch slot holds:
+  `BitVisited` (the bitset), `ByteVisited` (a generation byte per vertex, zeroed every 255 searches),
+  `HashVisited` (an exact open-addressing table tagged with the search's generation; nothing is cleared
+  between searches and the table grows with the visit, not with `n`) and `LossyHashVisited` (a fixed
+  table that may forget a vertex but never reports one that was not reached; it needs a finite
+  `maxvisits`). The default `AutoVisited()` is the bitset while the graph has at most `2^20` vertices and
+  the table beyond, in one 128 KB buffer per slot. Same answers and evaluations; at 64 threads on a Xeon
+  Silver 4216 with 8-bit codes, at the tuned point and ×0.85 / ×1.15 of its Δ, queries per second against
+  the bitset: ccnews (604K) 1.00×, 0.99×, 0.99× (the table alone 0.92× and 0.82× at the two larger Δ);
+  gooaq (3.0M) 1.36×, 1.30×, 1.17×; pubmed23 (23.9M) 5.7×, 3.1×, 1.5×. Construction past `2^20` vertices
+  uses the table too; its time was not measured.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
