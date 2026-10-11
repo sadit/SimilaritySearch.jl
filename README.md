@@ -193,6 +193,24 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.5
+
+- **Large stores are written from all threads, so their pages spread over the NUMA nodes** (#ISSUE, #PR).
+  Linux and Windows place a page on the node of the thread that first writes it, and up to 1.6.4 a
+  database, its code sums and a frozen adjacency were written by one thread: on a two-socket machine
+  all of them sat on one node, and a `BlockMatrixDatabase`'s 256-column blocks rarely got huge pages.
+  Bulk `append_items!` into a `BlockMatrixDatabase` or a quantized database (and so `SearchGraph`'s and
+  `AsymmetricSearchGraph`'s `append_items!`, and `sqcodes(enc, X)`) now reserves the room and fills it
+  from all threads, `StaticAdjList(adj)` too, and a new `BlockMatrixDatabase` defaults to blocks of at
+  least 32 MB (the last one holds only what it needs). `set_page_spread!(false)` restores the 1.6.4
+  behavior; the results are the same either way. `spreadcopy(x)` balances a structure written by one
+  thread (an index read back from disk, for instance): arrays, the databases, the adjacency lists and
+  whole graphs. On a two-socket Xeon Silver 4216 (64 threads), five indexes of 600K vectors built in one
+  process with 8-bit codes at 384 dimensions answered 1.14-1.30× the queries per second at recall 0.90
+  (ccnews and yahooaq, symmetric and asymmetric), as much as copying the codes into one matrix from all
+  threads. The tutorial's new [Memory Placement](https://sadit.github.io/SimilaritySearch.jl/dev/tutorial/memory_placement/)
+  section says where it pays off and where it does not.
+
 ## 1.5
 
 - **Multi-bit sketches.** `Projections.QuantSketch` keeps 2, 4 or 8 bits per hyperplane instead of a
