@@ -195,7 +195,7 @@ so the exception is stated here instead of left for a reader to find.
 
 ### 1.6.5
 
-- **Large stores are written from all threads, so their pages spread over the NUMA nodes** (#ISSUE, #PR).
+- **Large stores are written from all threads, so their pages spread over the NUMA nodes** (#121, #122).
   Linux and Windows place a page on the node of the thread that first writes it, and up to 1.6.4 a
   database, its code sums and a frozen adjacency were written by one thread: on a two-socket machine
   all of them sat on one node, and a `BlockMatrixDatabase`'s 256-column blocks rarely got huge pages.
