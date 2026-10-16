@@ -536,3 +536,25 @@ end
         @test !any(id -> id != 0 && SimilaritySearch.ismember(H, id), hids)
     end
 end
+
+@testset "optimize_index! measures visits per query, not per batch slot (#128)" begin
+    # maxbatches=2 puts 32 tuning queries in each batch slot whatever the number of threads.
+    # Summing a slot made `visited`, and the `maxvisits` derived from it, grow with the number
+    # of queries per batch: 25412 against a costliest query of about 500.
+    X = MatrixDatabase(rand(Xoshiro(1), Float32, 16, 5_000))
+    Q = MatrixDatabase(rand(Xoshiro(2), Float32, 16, 64))
+    ctx = SearchGraphContext(; maxbatches=2, verbose=false)
+    G = SearchGraph(Dist.SqL2(), X)
+    index!(G, ctx)
+    perf = last(first(optimize_index!(G, ctx, MinRecall(0.9); queries=Q, numqueries=length(Q))))
+
+    b = SimilaritySearch.beginbatch(ctx, 1)
+    per = map(1:length(Q)) do j   # the chosen configuration, one query at a time on one slot
+        d0 = b.costdists[1]
+        SimilaritySearch.runconfig(perf.conf, G, b, Q[j], knnqueue(b, 10))
+        b.costdists[1] - d0
+    end
+    @test perf.visited.mean ≈ mean(per) rtol=0.2
+    @test perf.visited.max <= 2 * maximum(per)
+    @test G.algo[].maxvisits <= 4 * maximum(per)
+end
