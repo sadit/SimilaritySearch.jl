@@ -205,6 +205,16 @@ so the exception is stated here instead of left for a reader to find.
   as before. The radius is read from the context because the graph does not store it; a later
   version is meant to keep it in the graph, which changes what a stored graph holds.
 
+- **A `SearchGraph` with fewer than 64 items keeps the contract of `search`** (#125). Below that size
+  `search` scans the whole database instead of running the beam, and the scan ignored the visited
+  state. Three results were wrong without an error: `allknn` repeated each id once per hint,
+  `rebuild` linked every node to itself, and under `neardup` the search answered with members. The
+  scan now goes through the same step as the beam, so it masks what the caller marked, records
+  what it evaluated and skips members. The threshold stays at 64. On ccnews subsets, thresholds
+  of 1, 8, 16, 32 and 64 gave the same recall within 0.006 under a fixed beam from 128 items on.
+  Below 64 items the scan answers exactly for at most 63 evaluations, and the beam reaches
+  0.94-0.98 with about 50.
+
 ### 1.6.5
 
 - **The visited set of the graph search is a type, and past 2^20 vertices it is a hash table** (#119, #120).
