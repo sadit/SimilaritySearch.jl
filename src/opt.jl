@@ -333,24 +333,31 @@ runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, q, ::AbstractV
     runconfig(conf, index, ctx, q, res)
 
 """
-    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, knns::AbstractVector{<:AbstractKnnQueue})
+    runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext, queries::AbstractDatabase, qmask, knns::AbstractVector{<:AbstractKnnQueue}, cost::AbstractVector{Int})
 
 Batch-level counterpart of the single-query `runconfig(conf, index, ctx, q, res)` methods
 (e.g. `src/searchgraph/optbs.jl`): runs `conf` against every query in `queries`, in parallel,
-mirroring [`searchbatch!`](@ref). Internal function used by [`create_error_function`](@ref).
+mirroring [`searchbatch!`](@ref), and writes into `cost[i]` the distance evaluations query `i`
+made. Internal function used by [`create_error_function`](@ref).
+
+The cost is read per query, not per batch slot: a slot of `ctx.costdists` adds up every query
+its batch ran, so [`distance_stats`](@ref) reports a per-query cost only when each batch holds
+one query (issue #128). A batch owns its slot, so the difference around one query is race-free.
 """
 function runconfig(conf, index::AbstractSearchIndex, ctx::AbstractContext,
-                    queries::AbstractDatabase, qmask::AbstractVector, knns::AbstractVector{<:AbstractKnnQueue})
+                    queries::AbstractDatabase, qmask::AbstractVector, knns::AbstractVector{<:AbstractKnnQueue}, cost::AbstractVector{Int})
     m = length(queries)
     minbatch = getminbatch(ctx, m)
     @BATCHES minbatch scheduler=ctx.scheduler begin
     @BEGINBATCH
         bctx = beginbatch(ctx, @batchid())
     @LOOP for i in 1:m
+        before = bctx.costdists[bctx.batchid]
         runconfig(conf, index, bctx, queries[i], qmask[i], reuse!(knns[i]))
         # the raw neighbors behind the representatives, counted as the search cost they are
         # (none for a graph folded at distance zero, whose members take their representative's)
         add_distance_evaluations!(bctx, _expand!(index, queries[i], knns[i], sharesdistance(bctx)))
+        cost[i] = bctx.costdists[bctx.batchid] - before
     end
     end
     knns
@@ -368,13 +375,13 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
     n = length(index)
     m = length(queries)
     cov = Vector{Float64}(undef, m)
+    cost = Vector{Int}(undef, m)
     R = [Set{UInt32}() for _ in knns]
 
     function lossfun(conf)
         empty!(cov)
-        before = copy(ctx.costdists)
 
-        searchtime = @elapsed runconfig(conf, index, ctx, queries, qmask, knns)
+        searchtime = @elapsed runconfig(conf, index, ctx, queries, qmask, knns, cost)
         searchtime /= m
 
         for r in knns
@@ -428,7 +435,7 @@ function create_error_function(index::AbstractSearchIndex, ctx::AbstractContext,
             #exit(0)
         end
 
-        visited = distance_stats(ctx, before)
+        visited = (min=minimum(cost), mean=mean(cost), max=maximum(cost))
         verbose(ctx) && @inform ctx "error_function> config: $conf, searchtime: $searchtime, recall: $recall, match: $match, length: $(length(index)), radius: $radius, visited: $visited"
         (; visited, radius, recall, recallstd, match, matchstd, searchtime, conf)
     end

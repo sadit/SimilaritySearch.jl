@@ -307,6 +307,10 @@ wrong for `min`/`max` (only `mean`/`sum` commute with subtraction) and would als
 call -- only the delta reliably reflects whether that slot was touched during the snapshot
 window.
 
+A slot adds up every query its batch ran, so these are per-query figures only when each batch
+held one query. For a per-query cost, take the difference of `ctx.costdists[ctx.batchid]` around
+each query inside the batch, as `optimize_index!` does (issue #128).
+
 Note: reads `ctx.costdists` with no synchronization -- only call this once every `@BATCHES`
 region writing into `ctx` has already joined (i.e. from sequential code).
 """
