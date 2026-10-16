@@ -193,7 +193,7 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
-### 1.6.6 (unreleased)
+### 1.6.6
 
 - **The expansion of a graph folded at distance zero copies the representative's distance** (#124).
   `expand` and `expand!` take the context the graph was built with (`expand!(G, ctx, Q, knns, dists)`
