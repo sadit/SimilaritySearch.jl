@@ -506,3 +506,33 @@ end
     push_item!(res, 3, 0.7f0)
     @test length(SimilaritySearch.neighborhoodfilter(KCentersNeighborhood(), graph, ctx, database(graph, 1), sortitems!(res), reuse!(out))) == 2
 end
+
+@testset "the small-index scan keeps search's contract (#125)" begin
+    # Below a few items `search` scans the whole database instead of running the beam. That scan
+    # once ignored `vstate`, which is both the caller's mask and the record of what was visited:
+    # `allknn` repeated every id once per hint, `rebuild` linked every node to itself, and under
+    # `neardup` the search answered with members. The sizes cover both sides of the threshold.
+    dist = Dist.SqL2()
+    for n in (5, 8, 9, 16, 63, 64, 65)
+        db = MatrixDatabase(rand(Xoshiro(n), Float32, 8, n))
+        G = SearchGraph(dist, db)
+        ctx = SearchGraphContext(verbose=false)
+        index!(G, ctx)
+        k = min(8, n)
+        ids, _ = allknn(G, ctx, k; progress=nothing)
+        @test all(j -> allunique(filter(!=(0), view(ids, :, j))), 1:n)
+        @test all(j -> ids[1, j] == j, 1:n)   # each object is its own nearest neighbor, once
+
+        R = rebuild(G, ctx; progress=nothing)
+        @test !any(i -> i in neighbors(R.adj, i), 1:n)
+
+        A = db.matrix[:, 1:cld(n, 2)]
+        D = MatrixDatabase(hcat(A, A))   # every object twice: one of each pair is a member
+        nctx = SearchGraphContext(neighborhood=Neighborhood(filter=SatNeighborhood(), neardup=0f0), verbose=false)
+        H = SearchGraph(dist, D)
+        index!(H, nctx)
+        @test !isempty(H.members)
+        hids, _ = searchbatch(H, nctx, D, min(4, size(A, 2)))
+        @test !any(id -> id != 0 && SimilaritySearch.ismember(H, id), hids)
+    end
+end
