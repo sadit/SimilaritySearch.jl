@@ -193,7 +193,7 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
-### 1.6.7 (unreleased)
+### 1.6.7
 
 - **`optimize_index!` measures the cost of each tuning query** (#128). The cost of a configuration
   was read from the batch slots of `ctx.costdists`. A slot adds up every query of its batch, so
