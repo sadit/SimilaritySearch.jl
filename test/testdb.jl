@@ -1,5 +1,5 @@
 # This file is a part of SimilaritySearch.jl
-using Test, SimilaritySearch, SparseArrays, LinearAlgebra
+using Test, SimilaritySearch, SparseArrays, LinearAlgebra, InteractiveUtils
 
 @testset "test database abstractions" begin
     X = rand(Float32, 4, 100)
@@ -54,4 +54,14 @@ using Test, SimilaritySearch, SparseArrays, LinearAlgebra
     G = sparse(rand(1:10000, 30), rand(1:10000, 30), rand(30))
     H = MatrixDatabase(G)
     @test all([norm(H[i]) == norm(G[:, i]) for i in rand(1:size(G, 2), 100)])
+end
+
+@testset "prefetch_item compiles to inlined llvm.prefetch (#130)" begin
+    # The prefetch IR has to parse on every supported Julia and be inlined there. Its first form
+    # took a `ptr` argument: Julia 1.10 (LLVM 15) refused to parse it, so every SearchGraph failed,
+    # and Julia 1.11 left it as a call per line instead of the instruction.
+    X = MatrixDatabase(rand(Float32, 8, 10))
+    ir = sprint(InteractiveUtils.code_llvm, SimilaritySearch.prefetch_item, Tuple{typeof(X), Int}; context=:debuginfo => :none)
+    @test occursin("call void @llvm.prefetch", ir)
+    @test !occursin(r"call void @(?!llvm)", ir)
 end

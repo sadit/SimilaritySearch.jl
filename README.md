@@ -205,6 +205,13 @@ so the exception is stated here instead of left for a reader to find.
   `runconfig` now records the evaluations of each query, and `visited` is the minimum, mean and
   maximum over the queries.
 
+- **`SearchGraph` works again on Julia 1.10** (#130). The prefetch of the graph search (#113) is
+  written in LLVM IR, and its IR used opaque pointers (`ptr`). The LLVM of Julia 1.10 does not
+  parse them, so from 1.6.3 on every `SearchGraph` build or search failed on 1.10, the oldest
+  version `[compat]` declares. The IR now names its pointer type by version and receives the
+  address as an integer. On Julia 1.11 the old IR compiled, but each prefetched line was a
+  function call instead of the instruction; it is now inlined on 1.10, 1.11 and 1.12.
+
 ### 1.6.6
 
 - **The expansion of a graph folded at distance zero copies the representative's distance** (#124).
