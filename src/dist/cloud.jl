@@ -16,11 +16,12 @@ struct Hausdorff{D<:PreMetric} <: PreMetric # is Hausdorff a metric when dist is
     dist::D
 end
 
-function _exhaustive_nndist(dist::PreMetric, u::T, V) where T
-    min_ = typemax(eltype(u))
+function _exhaustive_nndist(dist::PreMetric, u, V)::Float32
+    # Float32, as every distance of the package: typemax(eltype(u)) capped the result for points of small integer types
+    min_ = typemax(Float32)
 
     @inbounds for j in eachindex(V)
-        min_ = min(evaluate(dist, u, V[j]), min_)
+        min_ = min(Float32(evaluate(dist, u, V[j])), min_)
     end
 
     min_
@@ -43,11 +44,9 @@ Computes the Hausdorff distance between two cloud of points.
 `u` and `v` are iterables where each object can be measured with the internal distance `dist`
 """
 function evaluate(m::Hausdorff, u, v)
-    if  length(u) == 1 || length(v) == 1
-        _hausdorff1(m.dist, u, v)
-    else
-        max(_hausdorff1(m.dist, u, v), _hausdorff1(m.dist, v, u))
-    end
+    # both directions always: with a single point in u, the direction v -> u is still needed (Hausdorff({a}, V) is the
+    # farthest point of V from a, not the nearest)
+    max(_hausdorff1(m.dist, u, v), _hausdorff1(m.dist, v, u))
 end
 
 """
@@ -117,7 +116,7 @@ function evaluate(D::Chamfer, U, V)
         usum += _exhaustive_nndist(D.dist, u, V)
     end
 
-    Float32(usum / length(U) + vsum / length(U))
+    Float32(usum / length(U) + vsum / length(V))
 end
 
 
@@ -141,7 +140,10 @@ EMD(U, V) = \\left(\\sum_i evaluate(dist, u_i, v_{\\pi(i)})^p \\right)^{1/p}
 where ``\\pi`` is the greedy matching found by the algorithm.
 
 Note that this is a greedy approximation of the assignment problem underlying the exact
-EMD (optimal transport), not the exact solution, and it requires `length(U) == length(V)`.
+EMD (optimal transport), not the exact solution: its value is never below the optimal
+matching's, it depends on the order of the points of `U` (not on that of `V`, up to ties),
+and it does not satisfy the triangle inequality in general. It requires
+`length(U) == length(V)` and throws `DimensionMismatch` otherwise.
 
 # Examples
 
@@ -163,26 +165,22 @@ between the point clouds `U` and `V` (see [`EMD`](@ref) for details).
 """
 function evaluate(emd::EMD, U, V)
     n = length(U)
+    n == length(V) || throw(DimensionMismatch("EMD needs clouds of the same size, got $n and $(length(V))"))
     s = 0f0
     C = collect(Int32, 1:n)  ## TODO cache this
-    # t = rand() < 0.1
-    # t &&  @info "===================="
-    for i in eachindex(C)
-        C[i] == 0 && break
+    # C[i:n] are the points of V still unmatched when U[i] picks its nearest one
+    for i in 1:n
         u = U[i]
-        min_, argmin_ = typemax(Float32), 0
-        for j in i:n
-            objID = C[j]
-            d = evaluate(emd.dist, u, V[objID])^emd.p
-
+        min_, argmin_ = Float32(evaluate(emd.dist, u, V[C[i]]))^emd.p, i
+        for j in i+1:n
+            d = Float32(evaluate(emd.dist, u, V[C[j]]))^emd.p
             if d < min_
-                s += d
                 min_, argmin_ = d, j
             end
         end
 
+        s += min_  # only the matched pair counts, not every candidate that improved on the previous one
         C[argmin_], C[i] = C[i], C[argmin_]
-        # t && @info (; pos="XXXX POST", C, i, min_, argmin_, s, n)
     end
 
     s^(1f0/emd.p)

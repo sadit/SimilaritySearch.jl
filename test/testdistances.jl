@@ -1,6 +1,10 @@
 # This file is a part of SimilaritySearch.jl
 
-using SimilaritySearch, Test, LinearAlgebra
+using SimilaritySearch, Test, LinearAlgebra, Random
+
+# a distance far above typemax(Int8), for the cloud distances' nearest-point search on Int8 points
+struct FarApart <: SimilaritySearch.PreMetric end
+SimilaritySearch.evaluate(::FarApart, a, b) = 300f0
 
 @testset "Distances" begin
     @testset "Vector Distances" begin
@@ -280,5 +284,64 @@ using SimilaritySearch, Test, LinearAlgebra
         # self-distance is 0
         @test Dist.evaluate(dh, U, U) == 0.0f0
         @test Dist.evaluate(h, U, U) == 0.0f0
+    end
+
+    @testset "Cloud Hausdorff and Chamfer: symmetric, any sizes" begin
+        P(xs...) = [Float32[x] for x in xs]  # clouds of 1-D points
+        h = Dist.Cloud.Hausdorff(Dist.L1())
+        c = Dist.Cloud.Chamfer(Dist.L1())
+        # a single point in one cloud still needs both directions: 10 is 10 away from {0}
+        @test Dist.evaluate(h, P(0), P(0, 10)) == 10f0
+        @test Dist.evaluate(h, P(0, 10), P(0)) == 10f0
+        @test Dist.evaluate(h, P(3), P(7)) == 4f0
+        # each mean over its own cloud: 0/1 + (0 + 10 + 10 + 10)/4
+        @test Dist.evaluate(c, P(0), P(0, 10, 10, 10)) == 7.5f0
+        @test Dist.evaluate(c, P(0, 10, 10, 10), P(0)) == 7.5f0
+
+        rng = Xoshiro(2)
+        for _ in 1:20
+            U = [rand(rng, Float32, 3) for _ in 1:rand(rng, 1:6)]; V = [rand(rng, Float32, 3) for _ in 1:rand(rng, 1:6)]
+            for d in (Dist.Cloud.Hausdorff(Dist.L2()), Dist.Cloud.Chamfer(Dist.L2()))
+                @test Dist.evaluate(d, U, V) ≈ Dist.evaluate(d, V, U)
+                @test Dist.evaluate(d, U, U) == 0f0
+            end
+        end
+
+        # the nearest-point distance is a Float32 whatever the points' type: it was capped at typemax(eltype(u))
+        @test Dist.evaluate(Dist.Cloud.Hausdorff(FarApart()), [Int8[0]], [Int8[1]]) == 300f0
+    end
+
+    @testset "Cloud EMD (greedy matching)" begin
+        P(xs...) = [Float32[x] for x in xs]  # clouds of 1-D points
+        emd1 = Dist.Cloud.EMD(Dist.L1(), 1f0)
+        emd2 = Dist.Cloud.EMD(Dist.L1(), 2f0)
+
+        @test Dist.evaluate(emd1, P(0, 10), P(0, 10)) == 0f0
+        # U[1] = 0 meets 5 and then 3 while scanning V: only the matched pair (0, 3) counts, then (1, 5)
+        @test Dist.evaluate(emd1, P(0, 1), P(5, 3)) == 7f0
+        @test Dist.evaluate(emd1, P(0, 1), P(3, 5)) == 7f0
+        @test Dist.evaluate(emd2, P(0, 1), P(5, 3)) ≈ 5f0  # sqrt(3² + 4²)
+        # greedy, not optimal: 2 takes 1 (tied with 3, first seen), leaving 0 with 3; the optimum is 2
+        @test Dist.evaluate(emd1, P(2, 0), P(1, 3)) == 4f0
+        @test_throws DimensionMismatch Dist.evaluate(emd1, P(0, 1), P(0, 1, 2))
+
+        # never below the optimal matching, and independent of the order of V (no ties in random data)
+        function bestmatching(U, V, p)
+            best = Inf32
+            perms(a, k) = k > length(a) ? (best = min(best, sum(Dist.evaluate(Dist.L2(), U[i], V[a[i]])^p for i in eachindex(a)))) :
+                for j in k:length(a)
+                    a[k], a[j] = a[j], a[k]; perms(a, k + 1); a[k], a[j] = a[j], a[k]
+                end
+            perms(collect(1:length(U)), 1)
+            best^(1f0 / p)
+        end
+        rng = Xoshiro(1)
+        for p in (1f0, 2f0), _ in 1:20
+            U = [rand(rng, Float32, 3) for _ in 1:5]; V = [rand(rng, Float32, 3) for _ in 1:5]
+            d = Dist.Cloud.EMD(Dist.L2(), p)
+            e = Dist.evaluate(d, U, V)
+            @test e >= bestmatching(U, V, p) - 1f-5
+            @test e ≈ Dist.evaluate(d, U, shuffle(rng, V))
+        end
     end
 end
