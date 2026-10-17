@@ -2,6 +2,10 @@
 
 using SimilaritySearch, Test, LinearAlgebra, Random
 
+# a distance far above typemax(Int8), for the cloud distances' nearest-point search on Int8 points
+struct FarApart <: SimilaritySearch.PreMetric end
+SimilaritySearch.evaluate(::FarApart, a, b) = 300f0
+
 @testset "Distances" begin
     @testset "Vector Distances" begin
         u = Float32[1.0, 2.0, 3.0]
@@ -280,6 +284,31 @@ using SimilaritySearch, Test, LinearAlgebra, Random
         # self-distance is 0
         @test Dist.evaluate(dh, U, U) == 0.0f0
         @test Dist.evaluate(h, U, U) == 0.0f0
+    end
+
+    @testset "Cloud Hausdorff and Chamfer: symmetric, any sizes" begin
+        P(xs...) = [Float32[x] for x in xs]  # clouds of 1-D points
+        h = Dist.Cloud.Hausdorff(Dist.L1())
+        c = Dist.Cloud.Chamfer(Dist.L1())
+        # a single point in one cloud still needs both directions: 10 is 10 away from {0}
+        @test Dist.evaluate(h, P(0), P(0, 10)) == 10f0
+        @test Dist.evaluate(h, P(0, 10), P(0)) == 10f0
+        @test Dist.evaluate(h, P(3), P(7)) == 4f0
+        # each mean over its own cloud: 0/1 + (0 + 10 + 10 + 10)/4
+        @test Dist.evaluate(c, P(0), P(0, 10, 10, 10)) == 7.5f0
+        @test Dist.evaluate(c, P(0, 10, 10, 10), P(0)) == 7.5f0
+
+        rng = Xoshiro(2)
+        for _ in 1:20
+            U = [rand(rng, Float32, 3) for _ in 1:rand(rng, 1:6)]; V = [rand(rng, Float32, 3) for _ in 1:rand(rng, 1:6)]
+            for d in (Dist.Cloud.Hausdorff(Dist.L2()), Dist.Cloud.Chamfer(Dist.L2()))
+                @test Dist.evaluate(d, U, V) ≈ Dist.evaluate(d, V, U)
+                @test Dist.evaluate(d, U, U) == 0f0
+            end
+        end
+
+        # the nearest-point distance is a Float32 whatever the points' type: it was capped at typemax(eltype(u))
+        @test Dist.evaluate(Dist.Cloud.Hausdorff(FarApart()), [Int8[0]], [Int8[1]]) == 300f0
     end
 
     @testset "Cloud EMD (greedy matching)" begin

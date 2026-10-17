@@ -16,11 +16,12 @@ struct Hausdorff{D<:PreMetric} <: PreMetric # is Hausdorff a metric when dist is
     dist::D
 end
 
-function _exhaustive_nndist(dist::PreMetric, u::T, V) where T
-    min_ = typemax(eltype(u))
+function _exhaustive_nndist(dist::PreMetric, u, V)::Float32
+    # Float32, as every distance of the package: typemax(eltype(u)) capped the result for points of small integer types
+    min_ = typemax(Float32)
 
     @inbounds for j in eachindex(V)
-        min_ = min(evaluate(dist, u, V[j]), min_)
+        min_ = min(Float32(evaluate(dist, u, V[j])), min_)
     end
 
     min_
@@ -43,11 +44,9 @@ Computes the Hausdorff distance between two cloud of points.
 `u` and `v` are iterables where each object can be measured with the internal distance `dist`
 """
 function evaluate(m::Hausdorff, u, v)
-    if  length(u) == 1 || length(v) == 1
-        _hausdorff1(m.dist, u, v)
-    else
-        max(_hausdorff1(m.dist, u, v), _hausdorff1(m.dist, v, u))
-    end
+    # both directions always: with a single point in u, the direction v -> u is still needed (Hausdorff({a}, V) is the
+    # farthest point of V from a, not the nearest)
+    max(_hausdorff1(m.dist, u, v), _hausdorff1(m.dist, v, u))
 end
 
 """
@@ -117,7 +116,7 @@ function evaluate(D::Chamfer, U, V)
         usum += _exhaustive_nndist(D.dist, u, V)
     end
 
-    Float32(usum / length(U) + vsum / length(U))
+    Float32(usum / length(U) + vsum / length(V))
 end
 
 
