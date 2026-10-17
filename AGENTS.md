@@ -88,11 +88,19 @@ run on; treat a failure anywhere else as a separate, deliberate investigation ra
 part of an ordinary change.
 
 `[compat] julia` still claims **1.10+**, and that is on purpose: nothing in the package
-needs a newer floor. The one version-dependent construct is `@BATCHES`'s `:greedy`
-scheduler, which already handles it -- `src/parallel.jl` carries `VERSION >= v"1.11"`
-gates (native `Threads.@threads :greedy` doesn't exist before 1.11), and
-`test/testbatches.jl` shortens its scheduler list to match. Don't delete those gates to
-"simplify"; they are what keeps the declared floor honest.
+needs a newer floor. Two constructs depend on the version, and both handle it:
+
+- `@BATCHES`'s `:greedy` scheduler: `src/parallel.jl` carries `VERSION >= v"1.11"` gates
+  (native `Threads.@threads :greedy` doesn't exist before 1.11), and `test/testbatches.jl`
+  shortens its scheduler list to match.
+- the prefetch IR in `src/db/prefetch.jl`: Julia 1.10's LLVM 15 parses typed pointers only, so
+  the IR names its pointer type by version (`i8*` before 1.11, `ptr` after), and the entry takes
+  the address as an `i64`, the one form all three versions inline. The `ptr` form shipped in
+  1.6.3 and made every `SearchGraph` fail on 1.10 (#130), unnoticed because CI runs 1.12 only;
+  `test/testdb.jl` checks that the instruction is inlined.
+
+Don't delete those gates to "simplify"; they are what keeps the declared floor honest.
+Anything else written as raw LLVM IR needs the same care: run it on 1.10 before shipping.
 
 Checking an older version is therefore ad-hoc, not routine. Note the local `Manifest.toml`
 is resolved by whichever Julia last touched it, so a 1.10/1.11 run from this checkout

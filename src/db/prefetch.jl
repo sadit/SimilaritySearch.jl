@@ -28,22 +28,22 @@ const PREFETCH_LINES_LARGE = 4
 const PREFETCH_MAX_BYTES = 1024
 
 # `llvm.prefetch(ptr, rw=0 read, locality, cache type=1 data)`; locality 3 keeps the line in every
-# level, 2 in L2 and beyond. The tuple form of `llvmcall` takes a module and its entry function
-# (opaque pointers: LLVM 15+, Julia 1.10+).
-const _PREFETCH_IR = """
-declare void @llvm.prefetch.p0(ptr, i32, i32, i32)
-define void @prefetch_entry(ptr %p) alwaysinline {
-    call void @llvm.prefetch.p0(ptr %p, i32 0, i32 3, i32 1)
+# level, 2 in L2 and beyond. The tuple form of `llvmcall` takes a module and its entry function.
+# The entry receives the address as an `i64` and converts it with `inttoptr`, the form every
+# supported Julia accepts and inlines (issue #130). Julia 1.10 (LLVM 15) parses typed pointers
+# only, so it gets `i8*` and the intrinsic `p0i8`. Julia 1.11 accepted an entry taking `ptr`
+# but did not inline it, leaving a call per prefetched line.
+const _PREFETCH_PTR, _PREFETCH_SUFFIX = VERSION < v"1.11" ? ("i8*", "p0i8") : ("ptr", "p0")
+_prefetch_ir(entry, locality) = """
+declare void @llvm.prefetch.$_PREFETCH_SUFFIX($_PREFETCH_PTR, i32, i32, i32)
+define void @$entry(i64 %a) alwaysinline {
+    %p = inttoptr i64 %a to $_PREFETCH_PTR
+    call void @llvm.prefetch.$_PREFETCH_SUFFIX($_PREFETCH_PTR %p, i32 0, i32 $locality, i32 1)
     ret void
 }
 """
-const _PREFETCH_IR_L2 = """
-declare void @llvm.prefetch.p0(ptr, i32, i32, i32)
-define void @prefetch_entry_l2(ptr %p) alwaysinline {
-    call void @llvm.prefetch.p0(ptr %p, i32 0, i32 2, i32 1)
-    ret void
-}
-"""
+const _PREFETCH_IR = _prefetch_ir("prefetch_entry", 3)
+const _PREFETCH_IR_L2 = _prefetch_ir("prefetch_entry_l2", 2)
 @inline function _prefetch(p::Ptr)
     Base.llvmcall((_PREFETCH_IR, "prefetch_entry"), Cvoid, Tuple{Ptr{Int8}}, Ptr{Int8}(p))
 end
