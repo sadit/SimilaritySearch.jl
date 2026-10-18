@@ -193,6 +193,25 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.8
+
+- **`Dist.Cloud`'s three distances return what their docstrings say** (#133). `EMD` added every
+  candidate that improved on the previous one while scanning the unmatched points of the second
+  cloud, not only the nearest one it kept, so its value depended on that cloud's order
+  (`EMD({0,1}, {5,3})` with `p = 1` gave 12 for a matching that costs 7); it adds each matched pair
+  once, throws `DimensionMismatch` for clouds of different sizes, which it silently truncated or
+  failed on, and its docstring says what a greedy matching implies: never below the optimal matching,
+  dependent on the order of the first cloud, not a metric in general. `Hausdorff` skipped the
+  direction `v → u` whenever one cloud had a single point, so `Hausdorff({0}, {0,10})` was 0 and its
+  reverse 10; it always takes the maximum of both directions. `Chamfer` divided both sums by `|U|`,
+  so it was not symmetric for clouds of different sizes; each sum is divided by the size of its own
+  cloud, as its formula says. The nearest-point search the three share works in `Float32`, so points
+  of small integer types are no longer capped at their `typemax`. With clouds of the same size and
+  more than one point, `Hausdorff` and `Chamfer` return the values they did; `EMD` changes wherever
+  the scan found more than one improving candidate. The new tests cover the worked cases, symmetry
+  and zero self-distance on random clouds, and `EMD` against brute force over every matching of five
+  points.
+
 ### 1.6.7
 
 - **`optimize_index!` measures the cost of each tuning query** (#128). The cost of a configuration
