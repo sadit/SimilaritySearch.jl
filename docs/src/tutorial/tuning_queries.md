@@ -8,6 +8,8 @@ CurrentModule = SimilaritySearch
 and it needs to know their true neighbors. Which queries it uses decides what it measures. This
 page explains the two kinds of query, how to declare which kind you are giving, and what changes
 when the index stores codes or folds near duplicates.
+[Checking a tuning](tuning_diagnostics.md) shows how to read what the optimizer measured, and what
+to do when the queries you serve come from another distribution.
 
 ## Internal queries and external queries
 

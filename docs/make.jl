@@ -21,6 +21,7 @@ makedocs(;
             "tutorial/searchgraph.md",
             "tutorial/matcherror.md",
             "tutorial/tuning_queries.md",
+            "tutorial/tuning_diagnostics.md",
             "tutorial/radius_search.md",
             "tutorial/operations.md",
             "tutorial/bichromatic.md",
