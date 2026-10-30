@@ -23,6 +23,14 @@ component is `>= 0` exactly when [`bitsketch`](@ref) would set its bit to `1`):
   when `obj` is closer to `a` (the side those models encode as bit `1`) and whose
   magnitude says how decisively so.
 
+The two families differ on centering. In the projection family, the hyperplanes pass
+through the origin, and the values may be more useful on centered data. This package does
+not center the data. Centering is the responsibility of the user, who must subtract the
+same mean from the queries and from later insertions. [`PCAProjection`](@ref) is the exception, because it subtracts its fitted mean
+by itself. The metric hyperplanes depend only on distances, so a translation-invariant
+distance (the L2 family) makes them independent of the mean. See
+[Centering the data for linear sketches](@ref).
+
 # Arguments
 - `out`: the output vector, of length `outdim(model)`
 - `model`: the projection or hyperplane model
@@ -101,6 +109,17 @@ through one uniform API instead of two.
 Encode with [`quantsketch`](@ref)`(qs, obj_or_db)`, compare with
 [`distance`](@ref)`(qs)`, and see [`SketchedSearch`](@ref) for the ready-made
 index-and-query pipeline built on top.
+
+# Centering
+
+With a model of the projection family ([`RandomProjections`](@ref),
+[`HadamardProjection`](@ref)), the hyperplanes pass through the origin. A large mean then
+moves the values of every component away from zero, each by a different amount. The single
+quantization range must cover those offsets, so it may spend levels on them. `QuantSketch`
+does not center the data. Centering is the responsibility of the user, who must subtract the
+same mean from `X`, from the queries and from later insertions. The note of
+[`sketchvalues!`](@ref) lists the models that need no centering, and
+[Centering the data for linear sketches](@ref) gives the details.
 
 # Memory
 

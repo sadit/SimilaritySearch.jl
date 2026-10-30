@@ -15,6 +15,12 @@ Packs the sign of each entry of `y` into `out` (a pre-allocated, `cld(length(y),
 `UInt64` vector): entries `>= 0` are encoded as bit `1`, negative entries as bit `0`. If
 `length(y)` is not a multiple of 64, the unused high bits of the last word are left as
 `0`. Returns `out`.
+
+The threshold is zero. When `y` holds the coordinates of a linear projection, each bit
+records the side of a hyperplane through the origin. Such bits may work better on centered
+data. This function does not center. Centering is the responsibility of the user, who must
+subtract the same mean from the queries and from later insertions. See
+[Centering the data for linear sketches](@ref).
 """
 function packsigns!(out::AbstractVector{UInt64}, y::AbstractVector{<:Real})
     fill!(out, zero(UInt64))
@@ -29,7 +35,9 @@ end
     packsigns(y::AbstractVector{<:Real}) -> Vector{UInt64}
 
 Out-of-place version of [`packsigns!`](@ref SimilaritySearch.Projections.packsigns!): packs the sign of each entry of `y` into a
-freshly allocated `Vector{UInt64}` of length `cld(length(y), 64)`.
+freshly allocated `Vector{UInt64}` of length `cld(length(y), 64)`. The threshold is zero,
+and this function does not center `y`; see the note of
+[`packsigns!`](@ref SimilaritySearch.Projections.packsigns!).
 """
 packsigns(y::AbstractVector{<:Real}) = packsigns!(zeros(UInt64, cld(length(y), 64)), y)
 
@@ -99,6 +107,13 @@ sketches approximates the angular distance between the corresponding original ve
   `Float32`/`Float64` (or another `AbstractFloat` subtype)
 - `minbatch`: (matrix method only) minimum number of columns processed per parallel task
 
+!!! note "Centering"
+    The hyperplanes of this sketch pass through the origin. Suppose the mean of the data is
+    large compared with its spread. Then many bits take the same value for most objects,
+    and the sketch may lose quality. This function does not center the data. Centering is the
+    responsibility of the user, who must subtract the same mean from the queries and from
+    later insertions. See [Centering the data for linear sketches](@ref).
+
 !!! note
     To produce sketches that are meaningfully comparable via Hamming distance (e.g. a
     query sketch against an already-sketched dataset), `R` must be the exact same matrix
@@ -164,6 +179,10 @@ in a single step, and returns **both** the resulting sketch(es) and `R` as a tup
 [`bitsketch(R, data)`](@ref)) to sketch further vectors comparable to this one (e.g.
 queries against an already-sketched dataset).
 
+This form sketches `data` as it is, without centering it. If the user subtracts a mean from
+`data`, the same mean must be subtracted from every vector sketched later with `R`.
+See [Centering the data for linear sketches](@ref).
+
 # Arguments
 - `method`: `:gaussian` or `:qr`, selecting which of [`gaussian`](@ref)/[`qr`](@ref)
   builds the rotation matrix; any other value raises `ArgumentError`
@@ -220,6 +239,10 @@ coordinates into `UInt64`-packed bits (see [`packsigns`](@ref)).
     `hp` to sketch a query and the dataset it will be compared against, so their sketches
     are comparable.
 
+The hyperplanes of this sketch pass through the origin, and this function does not center
+the data. See the centering note of [`bitsketch(R::AbstractMatrix, data)`](@ref) and
+[Centering the data for linear sketches](@ref).
+
 # Arguments
 - `hp`: the [`HadamardProjection`](@ref) to apply
 - `v`/`X`: the vector, or matrix (one vector per column), to sketch
@@ -251,6 +274,11 @@ using a fitted [`PCAProjection`](@ref) instead of a random rotation: it encodes 
 each of the `outdim(p)` transformed coordinates into `UInt64`-packed bits (see
 [`packsigns`](@ref)). As with the random-rotation forms, reuse the same `p` to sketch a
 query and the dataset it will be compared against, so their sketches are comparable.
+
+This form needs no centering by the user. `transform(p, ...)` subtracts the mean that `p`
+was fitted with, so the hyperplanes pass through that mean. The exception is a
+`PCAProjection` fitted with `mean=0`, which tells MultivariateStats that the data is
+already centered.
 
 # Arguments
 - `p`: the [`PCAProjection`](@ref) to apply

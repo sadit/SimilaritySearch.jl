@@ -151,6 +151,13 @@ pass one to other projection types (e.g. [`RandomProjections`](@ref)); it requir
 - `outdim`: if given, must equal `indim` (otherwise an `ArgumentError` is thrown), since
   this projection does not support dimensionality reduction/truncation
 
+!!! note "Centering"
+    Each Hadamard direction defines a hyperplane through the origin. A sketch built from the
+    transformed coordinates ([`bitsketch`](@ref), [`QuantSketch`](@ref)) may work better on
+    centered data. This package does not center the data. Centering is the responsibility of
+    the user, who must subtract the same mean from the queries and from later insertions.
+    See [Centering the data for linear sketches](@ref).
+
 # Examples
 
 ```julia
