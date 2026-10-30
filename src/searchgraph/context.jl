@@ -10,7 +10,7 @@ export SearchGraphContext
         hints_callback=RandomHints(; logbase=1.1),
         hyperparameters_callback=OptimizeParameters(),
         maxbatches=8Threads.nthreads(),
-        parallel_block=maxbatches,
+        parallel_block=32Threads.nthreads(),
         logbase_callback=1.5,
         starting_callback=256,
         batchid=1,
@@ -50,7 +50,7 @@ overriding only the given keyword arguments while reusing the same `KnnType` and
 - `hyperparameters_callback`: a callback to compute search hyperparameters, see [`OptimizeParameters`](@ref) for more info.
 - `logbase_callback`: a log base to control when to run callbacks.
 - `starting_callback`: when to start to run callbacks, minimum index length to do it.
-- `parallel_block`: the size of the block that is processed in parallel.
+- `parallel_block`: the size of the block that is processed in parallel. Defaults to `32 * Threads.nthreads()`.
 - `maxbatches`: hard cap on the batch count used by [`getminbatch`](@ref) for operations driven
   by this context, and the capacity (number of columns/entries) of `vstates`/`beams` when they
   are built automatically. Defaults to `8 * Threads.nthreads()`.
@@ -77,8 +77,15 @@ Each of these keyword arguments is stored verbatim in the field of the same name
 - The callbacks are triggers that are called whenever the index grows enough. They keep hyperparameters and structure in shape.
 - The search graph is composed of direct and reverse links; direct links are controlled with a `neighborhood`
     object, mostly used to control how neighborhoods are refined. Reverse links are created when a vertex appears in the neighborhood of another vertex.
-- `parallel_block`: The number of elements that the multithreading algorithm processes at once,
-    it is important to be larger that the number of available threads but not so large since the quality of the search graph could degrade (a few times the number of threads is enough).
+- `parallel_block`: The number of elements that the multithreading algorithm processes at once.
+    It must be larger than the number of threads. Each block ends at a barrier, where threads wait for the slowest
+    one, so a small block wastes time there. A large block costs about `parallel_block / 2` extra distance
+    evaluations per insertion, the comparisons with the earlier objects of the block (see `interblock` in
+    [`Neighborhood`](@ref)). The default, `32 * Threads.nthreads()`, was the fastest block measured with 62 threads
+    (1984): against 8, 16, 64 and 128 per thread on 100k subsets of yahooaq and wikipedia-bge-m3, and against 8
+    per thread on the whole of ccnews and yahooaq, with the same search quality (#140). It was
+    `8 * Threads.nthreads()` before 1.6.9, when a larger block made construction slower because of the lock
+    contention fixed in #138. Other thread counts are not measured.
     If `parallel_block=1` the algorithm becomes sequential.
 - `beams` and `vstates` are caches that alleviate memory allocations in `SearchGraph` construction and searching, indexed by `batchid` (race-free under every [`@BATCHES`](@ref)
   scheduler, unlike the `Threads.threadid()`-indexing used before). Relevant on multithreading scenarios where distance functions, `evaluate`,
@@ -129,7 +136,7 @@ function SearchGraphContext(
     hints_callback=RandomHints(; logbase=1.1),
     hyperparameters_callback=OptimizeParameters(MinRecall(0.97)),
     maxbatches::Integer=8Threads.nthreads(),
-    parallel_block=maxbatches,
+    parallel_block=32Threads.nthreads(),
     logbase_callback=1.5,
     starting_callback=256,
     batchid::Integer=1,

@@ -88,7 +88,7 @@ function _parallel_append_items_loop!(index::SearchGraph, ctx::SearchGraphContex
             if isnearduplicate(bctx, neighbors_)
                 twin[objID - spb + 1] = first(IdView(neighbors_))   # settled below, once the block is done
             else
-                add!(index.adj, objID, IdView(neighbors_))
+                add_resized!(index.adj, objID, IdView(neighbors_))   # resized above
             end
         end
         end

@@ -28,6 +28,20 @@ struct AdjList{T} <: AbstractAdjList{T}
     glock::Threads.ReentrantLock # global locks
 end
 
+"""
+    ADJ_STRIPES
+
+The locks that serialize changes to one node's list of an [`AdjList`](@ref); node `n` takes
+stripe `n % length(ADJ_STRIPES) + 1`. They are shared by every `AdjList` instead of being a
+field, so the struct keeps the two fields that stored graphs were written with. `glock` still
+guards the growth of `end_point`, and [`add!`](@ref) still takes it. Only
+[`add_resized!`](@ref SimilaritySearch.add_resized!), whose node must already exist, appends under the stripe alone.
+"""
+const ADJ_STRIPES = [Threads.SpinLock() for _ in 1:4096]
+
+# the stripe that guards node `n`'s list; every in-place change to one list takes it
+@inline adjstripe(n::Integer) = @inbounds ADJ_STRIPES[(n % length(ADJ_STRIPES)) + 1]
+
 Base.eltype(::AdjList{T}) where {T} = Pair{T,Vector{T}}
 Base.eachindex(adj::AdjList) = eachindex(adj.end_point)
 
@@ -123,7 +137,7 @@ end
 Adds the neighbors in `N` (an iterable of ids convertible to `T`) to node `n`'s neighbor list.
 Grows `adj` first (via `resize!`) if `n` exceeds its current length. If node `n` already has a
 neighbor list, `N` is appended to it; otherwise a new list is created from `N`. Thread-safe via
-`adj.glock`.
+`adj.glock`, which also makes it safe to call while other threads grow `adj`.
 
 # Examples
 ```julia
@@ -136,7 +150,41 @@ neighbors(adj, 1)        # => Int32[2, 3]
 Base.@propagate_inbounds @inline function add!(adj::AdjList{T}, n::Integer, N) where T
     lock(adj.glock) do
         n > length(adj) && resize!(adj, n)
+        lock(adjstripe(n)) do   # excludes a concurrent `add_resized!` on the same node
+            append!(adj.end_point[n], N)
+        end
+    end
+
+    adj
+end
+
+"""
+    add_resized!(adj::AbstractAdjList, n::Integer, N) -> adj
+
+[`add!`](@ref) for a node that already exists, `n <= length(adj)`, while nothing grows `adj`:
+the parallel insertion of a [`SearchGraph`](@ref), which resizes the list before each block, and
+its reverse links. On an [`AdjList`](@ref) it appends under the node's stripe of
+[`ADJ_STRIPES`](@ref SimilaritySearch.ADJ_STRIPES) instead of `glock`, so appends to different
+nodes run concurrently; other lists fall back to `add!`. A node beyond `length(adj)` also goes
+through `add!`, which grows `adj`; that is for a serial caller only, since this function must
+not run while another thread grows `adj`.
+"""
+add_resized!(adj::AbstractAdjList, n::Integer, N) = add!(adj, n, N)
+
+function add_resized!(adj::AdjList, n::Integer, N)
+    n > length(adj) && return add!(adj, n, N)   # a serial caller that did not resize first
+    # An append writes only node `n`'s own list, never `end_point`, so it needs a lock for that
+    # node and not the global one. With `glock` here, the reverse links of a parallel insertion
+    # block queued on a single lock: 9% of the compute threads' samples on ccnews, and the
+    # stripes cut indexing time per distance evaluation by 30-45% on three SISAP 2025
+    # collections (#138). A `SpinLock` is enough: the critical section is one `append!`, and
+    # its spin loop reaches a GC safepoint, so the allocation inside it is safe.
+    l = adjstripe(n)
+    lock(l)
+    try
         append!(adj.end_point[n], N)
+    finally
+        unlock(l)
     end
 
     adj

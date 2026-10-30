@@ -25,6 +25,15 @@ while approximately preserving relative distances (see the Johnson-Lindenstrauss
 Use [`gaussian`](@ref) or [`qr`](@ref) to build a `RandomProjections` map, and
 [`transform`](@ref)/[`transform!`](@ref) to apply it to vectors or matrices of vectors.
 
+!!! note "Centering"
+    Each column of `map` defines a hyperplane through the origin. A sketch keeps the side of
+    these hyperplanes ([`bitsketch`](@ref)) or a quantized coordinate ([`QuantSketch`](@ref)).
+    Such sketches may lose quality when the mean of the data is large compared with its
+    spread. This package does not center the data. Centering is the responsibility of the
+    user, and the same mean must be subtracted from the queries and from later insertions.
+    `transform` followed by an L2 distance does not depend on the mean, because the map is
+    linear. See [Centering the data for linear sketches](@ref).
+
 # Arguments
 - `map`: the projection matrix, with `indim` rows and `outdim` columns
 
@@ -53,6 +62,11 @@ entries drawn independently from a Normal distribution with mean zero and standa
 deviation `1/outdim`, whose columns are then normalized to unit norm. This is a
 Gaussian random projection: unlike [`qr`](@ref), the resulting columns are not
 orthogonal to each other, but generating and applying it is cheaper.
+
+The hyperplanes of the result pass through the origin. A sketch built from them may work
+better on centered data. This function does not center the data. Centering is the
+responsibility of the user, who must subtract the same mean from the queries and from later
+insertions. See [Centering the data for linear sketches](@ref).
 
 # Arguments
 - `rng`: the random number generator to use (defaults to `Random.default_rng()`)
@@ -91,6 +105,11 @@ Builds a [`RandomProjections`](@ref) whose map is the (first `outdim` columns of
 the projection an isometry up to the subspace it projects onto (distances between
 projected vectors are not shrunk by non-orthogonality), at the extra cost of computing
 the QR factorization.
+
+The hyperplanes of the result pass through the origin. A sketch built from them may work
+better on centered data. This function does not center the data. Centering is the
+responsibility of the user, who must subtract the same mean from the queries and from later
+insertions. See [Centering the data for linear sketches](@ref).
 
 # Arguments
 - `rng`: the random number generator to use (defaults to `Random.default_rng()`)

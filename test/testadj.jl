@@ -33,6 +33,30 @@ using SimilaritySearch:
         @test collect(A) == collect(C)
     end
 
+    # concurrent appends (#138): many to the same node, and to nodes that share a stripe, from
+    # every thread, mixing add! (glock) and add_resized! (the stripe alone); each list must end
+    # up with exactly what was appended to it
+    let m = 4000, S = length(SimilaritySearch.ADJ_STRIPES), C = resize!(AdjList(UInt32), S + 8)
+        nodes = [1, 2, 1 + S, 8]
+        Threads.@threads for t in 1:m
+            for n in nodes
+                isodd(t) ? add!(C, n, UInt32[t]) : SimilaritySearch.add_resized!(C, n, UInt32[t])
+            end
+        end
+        for n in nodes
+            @test sort(neighbors(C, n)) == UInt32.(1:m)
+        end
+        # add! grows the list under glock while other threads call it
+        Threads.@threads for t in 1:m
+            add!(C, S + 8 + t, UInt32[t])
+        end
+        @test length(C) == S + 8 + m
+        @test all(neighbors(C, S + 8 + t) == UInt32[t] for t in 1:m)
+        # add_resized! beyond the end, from a serial caller, grows as add! does
+        SimilaritySearch.add_resized!(C, length(C) + 2, UInt32[7])
+        @test neighbors(C, length(C)) == UInt32[7]
+    end
+
     let C = AdjDict(UInt32)
         add!(C, B)
         @test length(A) == length(C)

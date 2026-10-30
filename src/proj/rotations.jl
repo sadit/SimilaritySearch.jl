@@ -14,6 +14,13 @@ coordinate followed by the Walsh-Hadamard transform (`Projections.HadamardProjec
 scales by `1/dim`), rescaled by `sqrt(dim)` so that norms are preserved. `dim` must be a power
 of two. The plain transform is not a random rotation (a constant vector lands on a single
 coordinate), and the sign flip is what makes it one.
+
+The rotation maps the origin to itself. A sketch or a code built from the rotated
+coordinates, such as their signs, cuts the space with hyperplanes through the origin. Such a
+sketch may work better on centered data. Neither this type nor the estimators that take it
+center the data. Centering is the responsibility of the user, who must subtract the same
+mean from the queries and from later insertions. See
+[Centering the data for linear sketches](@ref).
 """
 struct RandomizedHadamard
     hp::HadamardProjection

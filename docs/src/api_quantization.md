@@ -150,6 +150,20 @@ RaBitQ.refinethreshold
 ```
 
 ## Random projections (`Projections` submodule)
+
+!!! note "The hyperplanes pass through the origin"
+    The sketches built from a linear map cut the space with hyperplanes through the origin.
+    This covers [`Projections.bitsketch`](@ref) and [`Projections.QuantSketch`](@ref) over
+    [`Projections.RandomProjections`](@ref) (built with [`Projections.gaussian`](@ref) or
+    [`Projections.qr`](@ref)), and `index!(...; :bitsketch)` with `method=:gaussian` or
+    `method=:qr`.
+    - These sketches may work better on centered data. Centering means subtracting the
+      mean of the collection.
+    - This package does not center the data. Centering is the responsibility of the user.
+    - The queries and every later insertion must have the same mean subtracted.
+
+    See [Centering the data for linear sketches](@ref) below for when centering may help.
+
 ```@docs
 Projections.RandomProjections
 Projections.gaussian
@@ -163,6 +177,88 @@ Projections.packsigns
 Projections.packsigns!
 ```
 
+### Centering the data for linear sketches
+
+This section explains when to center the data before a linear sketch. A *linear sketch* here
+is a sketch computed from a linear map: [`Projections.bitsketch`](@ref) or
+[`Projections.QuantSketch`](@ref) over a [`Projections.RandomProjections`](@ref) or a
+[`Projections.HadamardProjection`](@ref). *Centering* means subtracting the mean `μ` of the
+collection from every vector.
+
+**Why it can matter.** Each component of a linear sketch records the side of a hyperplane
+through the origin. Suppose the mean of the data is large compared with its spread. Then most
+objects fall on the same side of many hyperplanes. Those bits lose entropy, and the Hamming
+distances between sketches bunch together. In a [`Projections.QuantSketch`](@ref) with 2, 4 or
+8 bits, the single quantization range also spends levels on the offset.
+
+**Who centers.** No function of this package centers the data. Centering is the
+responsibility of the user, for two reasons. First, the user must subtract the same `μ` from
+the data, from the queries and from every later insertion. Second, centering changes some
+distances, as the next paragraph explains.
+
+**Distances that are not translation invariant.** A distance is *translation invariant* when
+adding the same vector to both arguments does not change it. The *L2 family* here means L2,
+squared L2, L1, L∞ and the other Minkowski distances. All of them are translation
+invariant. Cosine and inner product are not. For cosine and inner product, centering the
+stored vectors changes the distances. The alternative is to center
+only for the sketch: compute `sketch(x - μ)` and keep the original vectors for the distance.
+The Hamming distance between sketches then follows the angle between centered vectors, not
+the angle between the original vectors.
+
+```julia
+using SimilaritySearch, Statistics
+using SimilaritySearch.Projections: bitsketch
+
+μ = vec(mean(X; dims=2))
+B, R = bitsketch(:qr, 256, X .- μ)    # the sketch of the centered vectors
+bq = bitsketch(R, q .- μ)             # a query, centered with the same μ
+```
+
+The same `B` can build a graph over the original vectors with
+`index!(idx, ctx, :bitsketch; method=:external, nbits=256, sketch=B)`. The sketch is
+used only to build the graph, so the queries of `idx` need no centering.
+
+**What does not need centering.** Do not center by reflex. Three cases need no centering:
+- [`Projections.PCAProjection`](@ref) centers by itself. Its `transform` calls the `predict`
+  of MultivariateStats, which subtracts the fitted mean. The exception is a model fitted
+  with `mean=0`.
+- The metric hyperplanes ([`Projections.DistantHyperplanes`](@ref),
+  [`Projections.AnchoredDistantHyperplanes`](@ref), [`Projections.RandomHyperplanes`](@ref))
+  depend only on distances between an object and pairs of anchors. The anchors are objects
+  of the collection, so centering moves them with the data. A translation-invariant
+  distance (the L2 family) then gives the same sketch with or without centering.
+- A plain [`Projections.transform`](@ref) followed by an L2-family distance does not depend
+  on the mean either, because the map is linear.
+
+**A cheap diagnostic.** Sketch a sample of the data, and compute for each bit the share of
+objects that set it to 1. A bit whose share is far from 0.5, for example
+`abs(p - 0.5) > 0.4`, is nearly constant. A large share of such bits means that the sketch
+spends bits on the offset.
+
+```julia
+nbits = 256
+B, R = bitsketch(:qr, nbits, X[:, 1:10_000])    # a sample of 10 000 objects
+p = [mean((B[((i - 1) >> 6) + 1, j] >> ((i - 1) & 63)) & 1 for j in axes(B, 2)) for i in 1:nbits]
+mean(abs.(p .- 0.5) .> 0.4)    # the share of nearly constant bits
+```
+
+**Measured so far.** The effect depends on the collection. Many embeddings from recent models
+are nearly centered already, and they may not benefit from centering. The test assigned every
+object to its nearest centers in Hamming distance. The sketches had 384 sign bits after a
+`qr` rotation. There were K ∈ {256, 1024, 4096} centers, and each object took its k ∈ {1, 2,
+3} nearest ones. The test measured the share of the 10 nearest neighbors of an object that
+fall in its k cells.
+- The collections were `ccnews` and `yahooaq` from SISAP 2025, both normalized embeddings.
+  The norm of the mean is 0.27 on `ccnews` and 0.12 on `yahooaq`.
+- On both, centering changed the share by at most 0.03.
+- On these two collections, no bit was nearly constant without centering.
+- Collections with a large mean are not measured yet. Examples are non-negative features,
+  such as SIFT or histograms, and embeddings with a strong common component. Centering may
+  help there, but there are no numbers.
+
+Whether to center is a decision of the user, on their own data. `PCAProjection` is the
+exception, since it centers by itself.
+
 ## Hadamard projection (`Projections.HadamardProjection`) and the rotations
 
 A projection computed with the fast Walsh-Hadamard transform (an in-place butterfly,
@@ -170,6 +266,15 @@ A projection computed with the fast Walsh-Hadamard transform (an in-place butter
 functions documented above for `RandomProjections`. `RandomizedHadamard` makes a random
 rotation of it (a random sign per coordinate first, and the norm preserved), and `Rotation`
 is what the estimators (`ScalarQuant.SQEncoder`, `RaBitQ`) take as theirs.
+
+!!! note "The hyperplanes pass through the origin"
+    `HadamardProjection` and `RandomizedHadamard` are linear maps, so a sketch built from
+    them cuts the space with hyperplanes through the origin.
+    - These sketches may work better on centered data.
+    - This package does not center the data. Centering is the responsibility of the user.
+    - The queries and every later insertion must have the same mean subtracted.
+
+    See [Centering the data for linear sketches](@ref) for when centering may help.
 
 ```@docs
 Projections.HadamardProjection

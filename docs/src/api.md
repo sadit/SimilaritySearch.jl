@@ -272,6 +272,8 @@ StaticAdjList
 neighbors
 neighbors_length
 add!
+SimilaritySearch.add_resized!
+SimilaritySearch.ADJ_STRIPES
 ```
 
 ## k-NN and radius-bounded result containers (`PQueue` submodule)

@@ -480,6 +480,48 @@ end
     end
 end
 
+@testset "Neighborhood(interblock=false) skips the block's earlier objects (#140)" begin
+    @test Neighborhood().interblock
+    @test !Neighborhood(interblock=false).interblock
+    @test Neighborhood(1.5, 2, typemin(Float32), SatNeighborhood()).interblock   # the positional form keeps its default
+    @test occursin("interblock=false", sprint(show, Neighborhood(interblock=false)))
+
+    rng = Xoshiro(140)
+    X = [rand(rng, Float32, 4) for _ in 1:400]
+    dist = Dist.SqL2()
+    for interblock in (true, false)
+        ctx = SearchGraphContext(neighborhood=Neighborhood(; interblock), reporters=[])
+        G = SearchGraph(dist, VectorDatabase(X[1:300]))
+        index!(G, ctx)
+        append_items!(G.db, VectorDatabase(X[301:400]))   # stored, not yet linked: a block in progress
+        # object 320 is in the block range and identical to the item, so it is the nearest
+        # candidate whenever the block is compared, and absent whenever it is not
+        tmp, out = knnqueue(ctx, 16), knnqueue(ctx, 16)
+        find_neighborhood!(out, G, ctx, X[320], tmp, 301:349)
+        @test (UInt32(320) in IdView(tmp)) == interblock
+        interblock || @test all(<=(300), IdView(tmp))
+    end
+
+    # the first block still compares within itself, since there is no graph to search yet
+    let ctx = SearchGraphContext(neighborhood=Neighborhood(interblock=false), reporters=[])
+        G = SearchGraph(dist, VectorDatabase(X[1:300]))
+        tmp, out = knnqueue(ctx, 16), knnqueue(ctx, 16)
+        find_neighborhood!(out, G, ctx, X[20], tmp, 1:19)
+        @test length(tmp) > 0
+    end
+
+    # and a whole parallel construction without the comparisons is a usable graph
+    B = prepare_benchmark(MatrixDatabase)
+    graph = SearchGraph(B.dist, B.db)
+    ctx = SearchGraphContext(neighborhood=Neighborhood(interblock=false), parallel_block=64,
+                             hyperparameters_callback=OptimizeParameters(MinRecall(0.99)), reporters=[])
+    index!(graph, ctx)
+    @test all(neighbors_length(graph.adj, i) > 0 for i in eachindex(graph.adj))
+    optimize_index!(graph, ctx, MinRecall(0.9); B.queries, B.ksearch)
+    knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
+    @test macrorecall(B.gold.ids, knns_ids) >= 0.8
+end
+
 @testset "find_neighborhood! resolves the degenerate candidate sets itself" begin
     # `find_neighborhood!` guarantees filters at least two candidates: zero happens on the first
     # insertion, one on the second. KCentersNeighborhood is the filter that derives a size from

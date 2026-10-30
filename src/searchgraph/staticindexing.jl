@@ -269,6 +269,22 @@ to reach a competitive recall/QpS trade-off against an equal-effort incremental 
     characterizes candidate hyperplanes against `distance(idx)` up front, rather than a single
     matrix rotation).
 
+!!! note "`method=:gaussian`/`:qr` sketch `database(idx)` as it is"
+    The hyperplanes of these two sketches pass through the origin, and this function does
+    not center `database(idx)` before it sketches it. Centering is the responsibility of the
+    user. There are two ways to build the graph from a centered sketch:
+    - Index a centered matrix. `distance(idx)` then compares centered vectors, so the user
+      must subtract the same mean from the queries and from later insertions. For cosine
+      and inner-product distances, this also changes the distances.
+    - Compute the sketch of the centered matrix, for example with
+      [`bitsketch`](@ref SimilaritySearch.Projections.bitsketch), and pass it with
+      `method=:external` and `sketch`. `database(idx)` keeps the original vectors. The
+      sketch is used only to build the graph, so the queries need no change. This way
+      supports only `width=1`.
+
+    `method=:adh` needs no centering for an L2-family distance. See
+    [Centering the data for linear sketches](@ref) for when centering may help.
+
 !!! note "Only accepts an empty `idx`, and doesn't (yet) support incremental growth"
     Like `:knr`, this only accepts an `idx` with `length(idx) == 0` (`database(idx)` must
     already hold the whole dataset to sketch, but no vertex may exist in the graph yet), and
@@ -295,7 +311,8 @@ reliably improve on the plain sketch-built topology (see issue #52).
   ([`AnchoredDistantHyperplanes`](@ref SimilaritySearch.Projections.AnchoredDistantHyperplanes), built with its own defaults -- construct one
   directly first if it needs tuning), or `:external` (use a sketch computed outside this
   package -- e.g. another binarization method entirely -- passed via `sketch`) -- see
-  [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning above.
+  [`SimilaritySearch.Projections.bitsketch`](@ref); see the vector-space warning and the
+  centering note above.
 - `sketch`: only used when `method=:external`. A precomputed `(nbits÷64, n)` `UInt64`
   matrix (one `nbits`-bit sketch per column, `n == length(database(idx))`), used as-is
   instead of computing `B` internally -- lets any external binarization method (not just

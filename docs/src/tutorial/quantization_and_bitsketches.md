@@ -236,6 +236,12 @@ knns_bits = searchbatch(idx_bits, ctx, queries_bits_db, 10)
 Bit sketches give high throughput and low memory for high-dimensional embeddings. They can also
 serve as a first filtering stage before a re-ranking pass in full precision.
 
+!!! note
+    The hyperplanes of these sketches pass through the origin. `bitsketch` does not center the
+    data, and centering is the responsibility of the user. On data with a large mean, a
+    centered sketch may work better. See
+    [Centering the data for linear sketches](@ref) for when centering may help.
+
 ### PCA-Fitted Bit Sketches
 
 `bitsketch` works with any rotation that implements [`Projections.transform`](@ref). The random
