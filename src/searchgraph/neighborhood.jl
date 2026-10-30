@@ -77,7 +77,7 @@ end
 function connect_reverse_links!(mustconnect::Function, adj::AbstractAdjList, nodeID::Integer, neighbors)
     #@info nodeID => reinterpret(Int32, neighbors)
     for relID in neighbors
-        mustconnect(relID) && add!(adj, relID, nodeID)
+        mustconnect(relID) && add_resized!(adj, relID, nodeID)
     end
 end
 

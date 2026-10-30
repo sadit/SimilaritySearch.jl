@@ -178,6 +178,8 @@ end
 function _setneighbors!(adj::AdjList, id::Integer, rep::UInt32)
     lock(adj.glock) do
         id > length(adj) && resize!(adj, id)
+    end
+    lock(adjstripe(id)) do
         v = adj.end_point[id]
         empty!(v)
         push!(v, rep)
@@ -267,7 +269,7 @@ function resolvemembers!(G::SearchGraph, sp::Integer, ep::Integer, twin::Abstrac
 end
 
 function _replaceneighbors!(adj::AdjList, id::Integer, repof::Dict{UInt32,UInt32})
-    lock(adj.glock) do
+    lock(adjstripe(id)) do
         v = adj.end_point[id]
         any(x -> haskey(repof, x), v) || return
         for j in eachindex(v)
@@ -278,7 +280,11 @@ function _replaceneighbors!(adj::AdjList, id::Integer, repof::Dict{UInt32,UInt32
     end
 end
 
-_setneighbors!(adj::AdjList, id::Integer, ::Vector{UInt32}) = lock(adj.glock) do
-    id > length(adj) && resize!(adj, id)
-    empty!(adj.end_point[id])
+function _setneighbors!(adj::AdjList, id::Integer, ::Vector{UInt32})
+    lock(adj.glock) do
+        id > length(adj) && resize!(adj, id)
+    end
+    lock(adjstripe(id)) do
+        empty!(adj.end_point[id])
+    end
 end
