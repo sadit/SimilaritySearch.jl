@@ -17,7 +17,8 @@ Searches for `item`'s neighborhood in the index, i.e., if `item` were in the ind
 - `ctx`: context, neighborhood, and cache objects to be used.
 - `item`: The item to be inserted.
 - `tmp`: `AbstractKnnQueue` object used as scratch space for the raw (unfiltered) search results.
-- `blockrange`: Extra block range for parallel insertions, defaults to an empty range.
+- `blockrange`: Extra block range for parallel insertions, defaults to an empty range. Compared
+  only while the index is empty or when `ctx.neighborhood.interblock` is `true` (the default).
 
 # Keyword Arguments
 - `hints`: Search hints
@@ -33,9 +34,13 @@ function find_neighborhood!(out::AbstractKnnQueue, index::SearchGraph, ctx::Sear
         search(index.algo[], index, ctx, item, tmp, hints, vstate)
     end
 
-    for i in blockrange  # interblock neighbors: the block's earlier objects, not yet linked
-        d = evaluate(distance(index), item, database(index, i))
-        push_item!(tmp, i, d)
+    # interblock neighbors: the block's earlier objects, not yet linked. Optional once the graph
+    # has something to search (`Neighborhood.interblock`); the first block has nothing else
+    if n == 0 || ctx.neighborhood.interblock
+        for i in blockrange
+            d = evaluate(distance(index), item, database(index, i))
+            push_item!(tmp, i, d)
+        end
     end
 
     # a near duplicate (its nearest candidate within `neardup`) becomes a member of that

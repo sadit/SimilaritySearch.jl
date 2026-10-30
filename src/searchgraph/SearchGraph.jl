@@ -10,10 +10,10 @@ export KDisjointHints, DisjointHints, RandomHints, EpsilonHints, KCentersHints, 
 """
     get_parallel_block()
 
-Used by SearchGraph insertion functions to solve `find_neighborhood!` in blocks. Small blocks are better to ensure quality; faster constructions will be achieved if `parallel_block` is a multiply of `Threads.nthreads()`
+The default insertion block of a [`SearchGraphContext`](@ref), `32 * Threads.nthreads()`, or 1 on a single thread; see `parallel_block` there.
 
 """
-get_parallel_block() = Threads.nthreads() == 1 ? 1 : 8 * Threads.nthreads()
+get_parallel_block() = Threads.nthreads() == 1 ? 1 : 32 * Threads.nthreads()   # the default of `SearchGraphContext` (#140)
 
 """
     abstract type Callback end
@@ -47,7 +47,7 @@ abstract type NeighborhoodFilter end
 
 
 """
-    Neighborhood(; logbase=2, minsize=2, neardup=typemin(Float32), filter=SatNeighborhood())
+    Neighborhood(; logbase=2, minsize=2, neardup=typemin(Float32), filter=SatNeighborhood(), interblock=true)
     
 Determines the size of the neighborhood; it is adjusted as a callback exponentially.
 More detailed, the insertion algorithm searches for ``log_\\text{logbase}(N) + minsize)`` in the index where ``N`` is the size of the index/dataset,
@@ -80,6 +80,20 @@ then these neighbors are filtered with `filter`. The algorithms use `neardup` to
   in the database reach recall 0.72-0.75 against 0.86-0.96 overall (see the `SearchGraph`
   tutorial's section on near duplicates).
 - `filter=SatNeighborhood()`: strategy to reduce the number of neighbors
+- `interblock=true`: whether a parallel insertion compares each object with the earlier objects
+  of its own insertion block (see `parallel_block` in [`SearchGraphContext`](@ref)). Those
+  objects are not linked into the graph yet, so a search cannot find them; the comparisons cost
+  about `parallel_block / 2` distance evaluations per insertion, which the context's distance
+  evaluations do not count. With `interblock=false` an object sees only the graph as it was when
+  its block started (the comparisons still run while the graph is empty, so the first block can
+  start). Keep the default unless something known about the data justifies turning it off, for
+  example many duplicates. The comparisons are needed when the objects of a block are close to
+  each other, for example when the data arrives in an order that keeps near objects together.
+  Measured with 62 threads (#140): without them, indexing was 7-26% faster with a block of 1984
+  on three 384-dimensional SISAP 2025 collections (ccnews, yahooaq, gooaq), and about the same
+  with a block of 496; on wikipedia-bge-m3 (6.35M × 1024) it was 11% slower with a block of
+  1984, because the construction needed more evaluations per insertion. Search quality at
+  recall 0.9 did not change in any of them.
 
 Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$minsize=0\$ to obtain a pure logarithmic growing neighborhood.
 
@@ -89,8 +103,9 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
     minsize::Int32 = Int32(2)
     neardup::Float32 = typemin(Float32)
     filter::NFILTER = SatNeighborhood()
+    interblock::Bool = true
 
-    function Neighborhood(logbase, minsize, neardup, filter::NFILTER) where {NFILTER<:NeighborhoodFilter}
+    function Neighborhood(logbase, minsize, neardup, filter::NFILTER, interblock=true) where {NFILTER<:NeighborhoodFilter}
         nd = Float32(neardup)
         if nd != typemin(Float32)
             isfinite(nd) ||
@@ -99,12 +114,12 @@ Note: Set \$logbase=Inf\$ to obtain a fixed number of \$in\$ nodes; and set \$mi
                 throw(ArgumentError("Neighborhood: neardup=$neardup is negative; a distance evaluating below zero is one wrapped to find farthest objects (NegativeDistanceHack, SimilarityFromDistance), where identical objects are the farthest of all and near-duplicate members do not apply -- leave neardup at its default, typemin(Float32), for such a graph"))
             nd = max(nd, NEARDUP_NUMERICAL_ZERO)   # a literal 0 does not survive floating point
         end
-        new{NFILTER}(Float32(logbase), Int32(minsize), nd, filter)
+        new{NFILTER}(Float32(logbase), Int32(minsize), nd, filter, Bool(interblock))
     end
 end
 
 function Base.show(io::IO, n::Neighborhood)
-    print(io, "Neighborhood(logbase=", n.logbase, ", minsize=", n.minsize, ", neardup=", n.neardup, ", filter=", n.filter, ")")
+    print(io, "Neighborhood(logbase=", n.logbase, ", minsize=", n.minsize, ", neardup=", n.neardup, ", filter=", n.filter, ", interblock=", n.interblock, ")")
 end
 
 ########################### SearchGraphContext
