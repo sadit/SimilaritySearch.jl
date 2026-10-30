@@ -86,7 +86,10 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             _pushres!(vstate, res, childID, d) === :duplicate && continue
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
-            if neighbors_length(index.adj, childID) > 1 && d <= Δ * maximum(res)
+            # The distance test goes first: most children fail it, and then their adjacency, two
+            # dependent loads, is never read. This test had 14% of the compute threads' samples
+            # in a ccnews construction profile; the swap gave 5-12% more QPS at recall 0.9 (#139).
+            if d <= Δ * maximum(res) && neighbors_length(index.adj, childID) > 1
                 push_item!(beam, childID, d)
             end
         end
