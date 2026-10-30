@@ -70,6 +70,13 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
         # Measured outside the graph (bench-prefetch.jl, 384-d 8-bit codes, 1M random items): a
         # dependent miss per item costs 130 ns on one thread and 650 ns·thread on 64, batches of
         # 8-16 prefetched items 92 and 475.
+        # A single pass in blocks was tried in 1.6.9 (prefetch the block of B children k+1, evaluate
+        # block k, B = 4-32), against these two passes, on the same graph and visits with 62
+        # threads: +4% on ccnews with B = 4, whose hubs reach degree 2169; within the noise (1-3%)
+        # on a 100k subset of yahooaq; and -8.5% to +0.5% on a 100k subset of wikipedia-bge-m3. No
+        # block size helped on all three, and the best one depends on the degree distribution and
+        # on the hardware, so the two passes stay. The prefetch itself is worth 6-14% at 62
+        # threads and ~20% on one thread on 384-byte codes.
         db = database(index)
         if prefetchable(db)
             for childID in N

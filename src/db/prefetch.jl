@@ -22,7 +22,19 @@ when it does not, so a database without contiguous storage pays nothing.
 
 "An item of up to this many 64-byte lines (512 bytes: codes, sketches, Float16 at 256 dimensions) is prefetched whole, into every cache level."
 const PREFETCH_LINES = 8
-"A larger item only has this many leading lines prefetched, into L2 and beyond: the hardware streamer follows, and L1 stays with the query, the beam and the visited words (768-byte Float16 vectors: 1.12x at recall 0.90)."
+"""
+A larger item only has this many leading lines prefetched, into L2 and beyond: the hardware streamer follows, and
+L1 stays with the query, the beam and the visited words (768-byte Float16 vectors: 1.12x at recall 0.90).
+
+The best value depends on the hardware and on the number of threads, so it is left at 4. Measured on 1.6.9 with a
+100k subset of wikipedia-bge-m3 (1024-byte 8-bit codes, the same graph and visits for every value; Xeon Silver
+4216, 32 KB L1d and 1 MB L2 per core, two hyperthreads per core), QPS at recall 0.9 relative to 4 lines:
+- 62 threads: 8 lines +8.5%, 16 lines -10%;
+- 1 thread: 8 lines -4%, 16 lines +15.6%.
+With one thread the search waits on latency, and bringing the whole item wins. With 62 threads, two hyperthreads
+share each L1 and L2 and all of them share the memory bandwidth, and bringing the whole item saturates it. A
+different processor, cache size or thread count may move the best value either way.
+"""
 const PREFETCH_LINES_LARGE = 4
 "Items above this size are not prefetched at all: 1536-byte Float32 vectors lost 8-13% with 8 lines into L1 and 4-11% with 4 lines into L2 (the search is half compute there, and the pass costs more than the misses it hides)."
 const PREFETCH_MAX_BYTES = 1024
