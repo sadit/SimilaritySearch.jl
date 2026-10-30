@@ -193,6 +193,51 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.9
+
+- **The reverse links of a parallel insertion no longer queue on one lock** (#138). Every append
+  to a node's list took `AdjList.glock`, a single lock for the whole graph, so the reverse links of
+  an insertion block were serialized: in a profile of a ccnews construction, 9% of the compute
+  threads' samples waited on it. The parallel insertion, its reverse links and `rebuild`'s now go
+  through `add_resized!`, which appends under one of 4096 striped spin locks chosen by the node
+  (`ADJ_STRIPES`), and requires the node to exist already, as it does in those loops. `add!` keeps
+  its contract, growth included, under `glock`, and takes the node's stripe too. The graph is the
+  same. Indexing time per distance evaluation went down 35% on ccnews, 30% on yahooaq and 45% on
+  gooaq (qr rotation + 8-bit codes, 62 threads).
+- **The beam tests the distance before reading a child's adjacency** (#139). `d <= Δ * maximum(res)`
+  now comes before `neighbors_length(adj, child) > 1`. Most children fail the distance test, and the
+  adjacency read is two dependent loads. Results are unchanged; QPS at recall 0.9 went up 5-12% on
+  the same three collections, and construction time per distance evaluation down 8-18%.
+- **`Neighborhood(interblock=false)` turns off the comparisons within an insertion block** (#140).
+  A parallel insertion compares each object with the earlier objects of its block, which the graph
+  does not link yet: about `parallel_block / 2` uncounted evaluations per insertion. They stay on by
+  default. Turn them off only when something known about the data justifies it, for example many
+  duplicates; they are needed when the objects of a block are close to each other. They still run
+  on the first block, which has no graph to search. Without them, indexing was 7-26% faster with a
+  block of 1984 on ccnews, yahooaq and gooaq, about the same with 496, and 11% slower on
+  wikipedia-bge-m3 (6.35M × 1024), where the construction needed more evaluations per insertion.
+  Search quality at recall 0.9 did not change.
+- **The default `parallel_block` is `32 * Threads.nthreads()`, was `8 *`** (#140). Before #138, a larger block
+  made construction slower, because more reverse links queued on the global lock. Without that lock, each
+  block's final barrier dominates instead, and a larger block waits there less often. With 62 threads and the
+  inter-block comparisons on, indexing a 100k subset took (mean of 2 builds) 1.10 / 1.05 / 0.99 / 1.09 / 1.46 s on
+  yahooaq and 2.55 / 2.30 / 2.14 / 2.55 / 3.36 s on wikipedia-bge-m3 with blocks of 8 / 16 / 32 / 64 / 128 per
+  thread; on the whole of ccnews and yahooaq, 32 per thread was 33% and 24% faster than 8. Evaluations per query
+  at recall 0.9 and the maximum recall did not change. Other thread counts are not measured.
+- **Two prefetch alternatives were measured and not adopted; the measurements are in the code.** The beam search
+  keeps its two passes over a neighbourhood, prefetch everything and then evaluate (comment in
+  `beamsearch_inner_beam`). A single pass in blocks of 4-32 children gained 4% on ccnews, whose hubs reach degree
+  2169, and lost up to 8.5% on wikipedia-bge-m3. `PREFETCH_LINES_LARGE` stays at 4 lines for items over 512
+  bytes. On 1024-byte codes, 8 lines gained 8.5% with 62 threads and lost 4% on one thread, and 16 lines did the
+  opposite (its docstring has the numbers). Both depend on the hardware and the thread count.
+- **The docs say that linear sketches may need centered data, and that centering is the user's
+  decision** (#137). `bitsketch`, `QuantSketch`, the random projections, the Hadamard rotations and
+  `index!(...; :bitsketch)` with `method=:gaussian`/`:qr` cut the space with hyperplanes through the
+  origin and do not center. A new section of the quantization API page explains when centering may
+  help, how to center only for the sketch under cosine or inner product, what needs no centering
+  (`PCAProjection`, the metric hyperplanes under the L2 family), and a diagnostic of nearly constant
+  bits; on ccnews and yahooaq, which are nearly centered, it changed nothing measurable.
+
 ### 1.6.8
 
 - **`Dist.Cloud`'s three distances return what their docstrings say** (#133). `EMD` added every
