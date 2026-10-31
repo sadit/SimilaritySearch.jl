@@ -77,6 +77,11 @@ function abs_rebuild(graph, ctx, B)
     @info "===================== rebuild =============================="
     graph = rebuild(graph, ctx)
     @test B.n == length(B.db) == length(graph)
+    # the adjacency is the direct lists plus their reverse, each edge once (#143): with no
+    # near-duplicate members it is symmetric, without repeated entries and without loops
+    A = graph.adj
+    @test all(i -> allunique(neighbors(A, i)) && i ∉ neighbors(A, i), 1:length(graph))
+    @test all(i -> all(j -> i in neighbors(A, j), neighbors(A, i)), 1:length(graph))
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
     @show graph.algo, length(B.queries), B.ksearch
     searchtime = @elapsed knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)

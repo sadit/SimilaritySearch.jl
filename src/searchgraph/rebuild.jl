@@ -8,7 +8,8 @@ export rebuild
 
 Rebuilds the `SearchGraph` index but seeing the whole dataset for the incremental construction, i.e.,
 it can connect the i-th vertex to its knn in the 1..n possible vertices instead of its knn among 1..(i-1) as in the original algorithm.
-Returns a new `SearchGraph` (the input `g` is not modified).
+Returns a new `SearchGraph` (the input `g` is not modified). Its adjacency holds each vertex's filtered
+neighborhood and the reverse of those links, each edge once.
 
 `g.algo[]`'s `maxvisits` is *not* carried over verbatim into the rebuild search: it may have
 been tuned for a smaller, partial graph (e.g. by `OptimizeParameters` during incremental
@@ -95,9 +96,14 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
     adj = AdjList(direct)
     G = SearchGraph(distance(g), database(g), adj, copy(g.hints), Ref(search_algo), Ref(length(g)), Members())
     settled = resolvemembers!(G, 1, n, twin)        # empties the members' adjacency before the reverse links
+    # Every list grows during the loop below, from other threads, so it reads a copy of the direct
+    # lists (#143): iterating the live list read entries while they were being appended, and also
+    # linked back the reverse links a node had already received. A reverse link that is already a
+    # direct one is skipped, so the adjacency is the direct lists plus their reverse, each edge once.
+    D = [copy(neighbors(adj, i)) for i in eachindex(direct)]
     @BATCHES getminbatch(ctx, length(direct)) scheduler=ctx.scheduler for nodeID in eachindex(direct)
-        connect_reverse_links!(adj, nodeID, neighbors(adj, nodeID)) do relID
-            relID != nodeID
+        connect_reverse_links!(adj, nodeID, D[nodeID]) do relID
+            relID != nodeID && !(nodeID in D[relID])
         end
     end
     for (id, rep) in settled
