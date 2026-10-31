@@ -24,13 +24,13 @@ export Cosine
 end
 
 "Dot product of a dequantized vector with a plain one, coordinate by coordinate."
-dotmixed(A::SQVec{W}, v::AbstractVector) where {W} = _scan(_dotop, Val(W), A, v)
+dotmixed(A::_SQ{W}, v::AbstractVector) where {W} = _scan(_dotop, Val(W), A, v)
 
 # against a prepared query of the same width: Σ x̂ᵢqᵢ = c·Σaᵢqᵢ + m·Σqᵢ, one integer dot
 # product and the sums (see `SQQuery`); of another width, the query's coordinates as they are
-dotmixed(A::SQVec{B}, Q::SQQuery{B}) where {B} =
-    Float32(Float64(A.E.c) * codequerydot(A, Q) + Float64(A.E.min) * Q.sumq)
-dotmixed(A::SQVec{W}, Q::SQQuery) where {W} = _scan(_dotop, Val(W), A, Q.q)
+dotmixed(A::_SQ{B}, Q::SQQuery{B}) where {B} =
+    Float32(Float64(A.E.c) * codequerydot(_withsums(A), Q) + Float64(A.E.min) * Q.sumq)
+dotmixed(A::_SQ{W}, Q::SQQuery) where {W} = _scan(_dotop, Val(W), A, Q.q)
 
 "Euclidean norm of the dequantized vector, from its stored code sums."
 @inline function quantnorm(a::SQVec)::Float64
@@ -65,7 +65,8 @@ vector slightly and the code sums carry exactly that rescaling (issue #87).
 """
 struct Cosine <: SemiMetric end
 
-function evaluate(::Cosine, a::SQVec, b::SQVec)::Float32
+function evaluate(::Cosine, a::_SQ, b::_SQ)::Float32
+    a, b = _withsums(a), _withsums(b)
     na, nb = quantnorm(a), quantnorm(b)
     (na == 0 || nb == 0) && return 1f0
     Float32(1.0 - clamp(quantdot(a, b) / (na * nb), -1.0, 1.0))
@@ -74,7 +75,8 @@ end
 # against a plain vector: the query's norm is not stored anywhere, so it costs one pass over
 # the query per pair on top of the mixed dot product; a query known to be normalized can use
 # `NormCosine` instead, which is the same ranking without that pass
-function evaluate(::Cosine, a::SQVec, q::AbstractVector)::Float32
+function evaluate(::Cosine, a::_SQ, q::AbstractVector)::Float32
+    a = _withsums(a)
     na = quantnorm(a)
     nq2 = 0.0
     @inbounds @simd for i in eachindex(q)
@@ -84,10 +86,11 @@ function evaluate(::Cosine, a::SQVec, q::AbstractVector)::Float32
     Float32(1.0 - clamp(Float64(dotmixed(a, q)) / (na * sqrt(nq2)), -1.0, 1.0))
 end
 
-evaluate(c::Cosine, q::AbstractVector, a::SQVec)::Float32 = evaluate(c, a, q)
+evaluate(c::Cosine, q::AbstractVector, a::_SQ)::Float32 = evaluate(c, a, q)
 
 # a prepared query carries its norm, so this is the dot product and two divisions
-function evaluate(::Cosine, a::SQVec{B}, Q::SQQuery{B})::Float32 where {B}
+function evaluate(::Cosine, a::_SQ{B}, Q::SQQuery{B})::Float32 where {B}
+    a = _withsums(a)
     na = quantnorm(a)
     (na == 0 || Q.sumqq == 0) && return 1f0
     dot = Float64(a.E.c) * codequerydot(a, Q) + Float64(a.E.min) * Q.sumq
@@ -112,9 +115,9 @@ corrects for it and ranks better at every width.
 """
 struct NormCosine <: Metric end
 
-@inline evaluate(::NormCosine, A::SQVec, B::SQVec)::Float32 = 1f0 - Float32(quantdot(A, B))
-@inline evaluate(::NormCosine, A::SQVec, B::AbstractVector)::Float32 = 1f0 - dotmixed(A, B)
-@inline evaluate(::NormCosine, A::AbstractVector, B::SQVec)::Float32 = 1f0 - dotmixed(B, A)
+@inline evaluate(::NormCosine, A::_SQ, B::_SQ)::Float32 = 1f0 - Float32(quantdot(_withsums(A), _withsums(B)))
+@inline evaluate(::NormCosine, A::_SQ, B::AbstractVector)::Float32 = 1f0 - dotmixed(A, B)
+@inline evaluate(::NormCosine, A::AbstractVector, B::_SQ)::Float32 = 1f0 - dotmixed(B, A)
 
 """
     L1()
@@ -125,7 +128,7 @@ accumulates the absolute value of the differences.
 """
 struct L1 <: Metric end
 
-function _l1(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
+function _l1(A::_SQ{W}, B::_SQ{W})::Float32 where {W}
     # Equal scales collapse to `c Σ|a - b|` over the codes, an integer sum that Float32 holds
     # exactly, so identical codes give exactly 0f0 the way `SqL2`'s equal-scale branch does.
     # The dequantized scan cannot promise that: `@fastmath` may contract one side's `a*c + m`
@@ -136,14 +139,14 @@ function _l1(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
 
     _scanpair(_absdiffop, Val(W), A, B, A.E.c, A.E.min, B.E.c, B.E.min)
 end
-_l1(A::SQVec{W}, B::AbstractVector) where {W} = _scan(_absdiffop, Val(W), A, B)
-_l1(A::SQVec{W}, Q::SQQuery) where {W} = _scan(_absdiffop, Val(W), A, Q.q)   # |a - b| does not expand
+_l1(A::_SQ{W}, B::AbstractVector) where {W} = _scan(_absdiffop, Val(W), A, B)
+_l1(A::_SQ{W}, Q::SQQuery) where {W} = _scan(_absdiffop, Val(W), A, Q.q)   # |a - b| does not expand
 
-@inline evaluate(::L1, A::SQVec, B::SQVec)::Float32 = _l1(A, B)
-@inline evaluate(::L1, A::SQVec, B::AbstractVector)::Float32 = _l1(A, B)
-@inline evaluate(::L1, A::AbstractVector, B::SQVec)::Float32 = _l1(B, A)
+@inline evaluate(::L1, A::_SQ, B::_SQ)::Float32 = _l1(A, B)
+@inline evaluate(::L1, A::_SQ, B::AbstractVector)::Float32 = _l1(A, B)
+@inline evaluate(::L1, A::AbstractVector, B::_SQ)::Float32 = _l1(B, A)
 
-function squared_euclidean(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
+function squared_euclidean(A::_SQ{W}, B::_SQ{W})::Float32 where {W}
     cA, mA = A.E.c, A.E.min
     cB, mB = B.E.c, B.E.min
 
@@ -156,6 +159,7 @@ function squared_euclidean(A::SQVec{W}, B::SQVec{W})::Float32 where {W}
         return cA * cA * Float32(sqdiffcodes(Val(W), A.V, B.V))
     end
 
+    A, B = _withsums(A), _withsums(B)   # codes of different scales need the sums
     cA64, mA64 = Float64(cA), Float64(mA)
     cB64, mB64 = Float64(cB), Float64(mB)
     k = mA64 - mB64
@@ -170,19 +174,20 @@ end
 # file with the query's half from `SQQuery`, one integer dot product per pair and no
 # dequantized coordinate anywhere; of another width, the query's coordinates through the
 # width's own kernel
-function squared_euclidean(A::SQVec{B}, Q::SQQuery{B})::Float32 where {B}
+function squared_euclidean(A::_SQ{B}, Q::SQQuery{B})::Float32 where {B}
+    A = _withsums(A)
     c, m = Float64(A.E.c), Float64(A.E.min)
     d = c * c * Float64(A.Saa) + 2 * c * m * Float64(A.Sa) + length(A) * m * m -
         2 * (c * codequerydot(A, Q) + m * Q.sumq) + Q.sumqq
     Float32(max(0.0, d))   # a difference of positives; rounding can still undershoot zero
 end
-squared_euclidean(A::SQVec{W}, Q::SQQuery) where {W} = _sqeuclid_mixed(Val(W), A, Q.q)
+squared_euclidean(A::_SQ{W}, Q::SQQuery) where {W} = _sqeuclid_mixed(Val(W), A, Q.q)
 
 # against a plain vector: any indexable one through the scalar scan, a contiguous Float32 one
 # through the width's own kernel
-squared_euclidean(A::SQVec{W}, B::AbstractVector) where {W} = _scan(_sqdiffop, Val(W), A, B)
-squared_euclidean(A::SQVec{W}, B::SIMD.FastContiguousArray{Float32,1}) where {W} = _sqeuclid_mixed(Val(W), A, B)
-squared_euclidean(A::AbstractVector, B::SQVec) = squared_euclidean(B, A)
+squared_euclidean(A::_SQ{W}, B::AbstractVector) where {W} = _scan(_sqdiffop, Val(W), A, B)
+squared_euclidean(A::_SQ{W}, B::SIMD.FastContiguousArray{Float32,1}) where {W} = _sqeuclid_mixed(Val(W), A, B)
+squared_euclidean(A::AbstractVector, B::_SQ) = squared_euclidean(B, A)
 
 """
     L2()
@@ -231,7 +236,7 @@ struct SqL2 <: Metric end
 @inline _absdiffop(a, b, acc) = @fastmath acc + abs(a - b)
 
 "Reduces `op` over the dequantized coordinates of `A` and the plain vector `B`."
-@inline function _scan(op::F, ::Val{8}, A::SQVec, B)::Float32 where {F}
+@inline function _scan(op::F, ::Val{8}, A::_SQ, B)::Float32 where {F}
     d = zero(Float32); n = length(A.V); c = A.E.c; m = A.E.min
     @fastmath @inbounds @simd for i in 1:n
         d = op(Float32(A.V[i]) * c + m, Float32(B[i]), d)
@@ -240,7 +245,7 @@ struct SqL2 <: Metric end
     d
 end
 
-@inline function _scan(op::F, ::Val{4}, A::SQVec, B)::Float32 where {F}
+@inline function _scan(op::F, ::Val{4}, A::_SQ, B)::Float32 where {F}
     d = zero(Float32); n = length(A.V); c = A.E.c; m = A.E.min
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; j = 2i - 1
@@ -251,7 +256,7 @@ end
     d
 end
 
-@inline function _scan(op::F, ::Val{2}, A::SQVec, B)::Float32 where {F}
+@inline function _scan(op::F, ::Val{2}, A::_SQ, B)::Float32 where {F}
     d = zero(Float32); n = length(A.V); c = A.E.c; m = A.E.min
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; j = 4i - 3
@@ -265,7 +270,7 @@ end
 end
 
 "Reduces `op` over the coordinates of two quantized vectors of the same width, each dequantized with the affine map given (`code * c + m`)."
-@inline function _scanpair(op::F, ::Val{8}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
+@inline function _scanpair(op::F, ::Val{8}, A::_SQ, B::_SQ, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
     @fastmath @inbounds @simd for i in 1:n
         d = op(Float32(A.V[i]) * cA + mA, Float32(B.V[i]) * cB + mB, d)
@@ -274,7 +279,7 @@ end
     d
 end
 
-@inline function _scanpair(op::F, ::Val{4}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
+@inline function _scanpair(op::F, ::Val{4}, A::_SQ, B::_SQ, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; b = B.V[i]
@@ -285,7 +290,7 @@ end
     d
 end
 
-@inline function _scanpair(op::F, ::Val{2}, A::SQVec, B::SQVec, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
+@inline function _scanpair(op::F, ::Val{2}, A::_SQ, B::_SQ, cA::Float32, mA::Float32, cB::Float32, mB::Float32)::Float32 where {F}
     d = zero(Float32); n = length(A.V)
     @fastmath @inbounds @simd for i in 1:n
         a = A.V[i]; b = B.V[i]
@@ -302,12 +307,12 @@ end
 ### that are adjacent in `B`, and that interleaving is what stops the compiler from vectorizing
 ### the scan above; doing it explicitly with one shuffle per block recovers it.
 
-_sqeuclid_mixed(::Val{8}, A::SQVec, B) = _scan(_sqdiffop, Val(8), A, B)
+_sqeuclid_mixed(::Val{8}, A::_SQ, B) = _scan(_sqdiffop, Val(8), A, B)
 
 "Interleaves the low and high nibble lanes back into coordinate order: [lo1, hi1, lo2, hi2, ...]."
 const _U4_ILV = Val(ntuple(t -> (t-1) % 2 == 0 ? (t-1) ÷ 2 : 16 + (t-1) ÷ 2, 32))
 
-function _sqeuclid_mixed(::Val{4}, A::SQVec, B)::Float32
+function _sqeuclid_mixed(::Val{4}, A::_SQ, B)::Float32
     nb = length(A.V); i = 1
     c = A.E.c; m = A.E.min
     vc = Vec{32,Float32}(c); vm = Vec{32,Float32}(m)
@@ -342,7 +347,7 @@ const _U2_ILV16 = Val(ntuple(t -> begin
                                      o < 2 ? 2g + o : 16 + 2g + (o - 2)
                                  end, 32))
 
-function _sqeuclid_mixed(::Val{2}, A::SQVec, B)::Float32
+function _sqeuclid_mixed(::Val{2}, A::_SQ, B)::Float32
     nb = length(A.V); i = 1
     c = A.E.c; m = A.E.min
     vc = Vec{32,Float32}(c); vm = Vec{32,Float32}(m)

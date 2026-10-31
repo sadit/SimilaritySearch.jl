@@ -222,9 +222,9 @@ function show(io::IO, db::QuantDatabase{B}; prefix="", indent="  ") where {B}
     println(io, prefix, "storage: ", typeof(db.Q))
 end
 
-function _checkdim(db::QuantDatabase, v)
+function _checkdim(db::AbstractDatabase, v)
     length(v) == db.dim ||
-        throw(ArgumentError("QuantDatabase: length(v) = $(length(v)) must equal the database's vector dimension ($(db.dim))"))
+        throw(ArgumentError("$(nameof(typeof(db))): length(v) = $(length(v)) must equal the database's vector dimension ($(db.dim))"))
 end
 
 """

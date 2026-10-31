@@ -38,6 +38,7 @@ const TESTFILES = [
     "testneardup.jl",
     "testquantgraph.jl",
     "testsqencoder.jl",
+    "testsqlayouts.jl",
     "testrabitq.jl",
     "testallknn.jl",
     "testclosestpair.jl",

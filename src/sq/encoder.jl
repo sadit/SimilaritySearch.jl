@@ -183,31 +183,49 @@ function encodequery(e::SQEncoder{B}, q::AbstractVector) where {B}
     SQQuery{B}(rotate(e.rot, q))
 end
 
-@inline evaluate(e::SQEncoder, q::AbstractVector{Float32}, s::SQVec)::Float32 = evaluate(e.dist, q, s)
-@inline evaluate(e::SQEncoder, s::SQVec, q::AbstractVector{Float32})::Float32 = evaluate(e.dist, q, s)
-@inline evaluate(e::SQEncoder, a::SQVec, b::SQVec)::Float32 = evaluate(e.dist, a, b)
+@inline evaluate(e::SQEncoder, q::AbstractVector{Float32}, s::_SQ)::Float32 = evaluate(e.dist, q, s)
+@inline evaluate(e::SQEncoder, s::_SQ, q::AbstractVector{Float32})::Float32 = evaluate(e.dist, q, s)
+@inline evaluate(e::SQEncoder, a::_SQ, b::_SQ)::Float32 = evaluate(e.dist, a, b)
 
 """
-    sqcodes(e::SQEncoder) -> QuantDatabase
+    sqcodes(e::SQEncoder; layout=:separate) -> QuantDatabase, GlobalCodesDatabase or PackedQuantDatabase
 
-An empty, growable `QuantDatabase` with `e`'s own parameters and dense code blocks: the
-storage of an `AsymmetricSearchGraph` over `e`. It takes the `SQVec`s `encode` produces as
-they are.
+An empty, growable database with `e`'s own parameters and dense code blocks: the storage of an
+`AsymmetricSearchGraph` over `e`, or of a `SearchGraph` over its codes. It takes the `SQVec`s
+`encode` produces as they are. `layout` says where the code sums go; the three hold the same
+codes and give the same distances, and differ in what each evaluation reads from memory:
+
+- `:separate`, a [`QuantDatabase`](@ref): the sums in two arrays beside the codes;
+- `:codes`, a [`GlobalCodesDatabase`](@ref) (global family only): no sums. The layout for
+  `SqL2`, `L2` and `L1` between codes, which never read them (11-14% more queries per second
+  measured on a symmetric graph of 8-bit codes); everything else recomputes them per evaluation;
+- `:packed`, a [`PackedQuantDatabase`](@ref): the sums (and the per-vector parameters) at the end
+  of each row, one region per item, for the distances that read them.
 """
-function sqcodes(e::SQEncoder{B}) where {B}
+function sqcodes(e::SQEncoder{B}; layout::Symbol=:separate) where {B}
     nb = cld(e.dim, codesperbyte(Val(B)))
-    Q = BlockMatrixDatabase(nb, UInt8)
-    isglobal(e) ? QuantDatabase{B}(e.E, Q; dim=e.dim) : QuantDatabase{B}(SQMinC[], Q; dim=e.dim)
+    if layout === :separate
+        Q = BlockMatrixDatabase(nb, UInt8)
+        isglobal(e) ? QuantDatabase{B}(e.E, Q; dim=e.dim) : QuantDatabase{B}(SQMinC[], Q; dim=e.dim)
+    elseif layout === :codes
+        isglobal(e) || throw(ArgumentError("sqcodes: layout=:codes holds the global family only; $(nameof(quantizer(e))) is per-vector"))
+        GlobalCodesDatabase{B}(e.E, BlockMatrixDatabase(nb, UInt8); dim=e.dim)
+    elseif layout === :packed
+        E = isglobal(e) ? e.E : nothing
+        PackedQuantDatabase{B}(E, BlockMatrixDatabase(_packedrowbytes(Val(B), e.dim, isglobal(e)), UInt8); dim=e.dim)
+    else
+        throw(ArgumentError("sqcodes: layout=:$layout must be :separate, :codes or :packed"))
+    end
 end
 
 """
-    sqcodes(e::SQEncoder, X::AbstractMatrix; minbatch=4) -> QuantDatabase
+    sqcodes(e::SQEncoder, X::AbstractMatrix; minbatch=4, layout=:separate)
 
 Encodes every column of `X` in parallel into the storage above.
 """
-function sqcodes(e::SQEncoder{B}, X::AbstractMatrix; minbatch::Int=4) where {B}
+function sqcodes(e::SQEncoder{B}, X::AbstractMatrix; minbatch::Int=4, layout::Symbol=:separate) where {B}
     n = size(X, 2)
-    db = sqcodes(e)
+    db = sqcodes(e; layout)
     if _spreads(n)
         # encoded and written by all threads, straight into the reserved storage
         _appendby!(db, n, k -> encode(e, view(X, :, k)))
