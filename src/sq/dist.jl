@@ -2,7 +2,9 @@
 
 export Cosine
 
-### Distances over SQVec.
+### Distances over SQVec, and over SQCodes (the codes without their sums): the kernels that read
+### only `E` and `V` take both (`_SQ`), and wherever the sums are read `_withsums` computes them
+### for an `SQCodes`, so the two give the same value.
 ###
 ### Every distance between two quantized vectors is one call into the integer kernels of
 ### `codes.jl` plus O(1) arithmetic on the per-vector sums, so it is defined once for every

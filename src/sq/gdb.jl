@@ -29,6 +29,10 @@ distance in this module works here unchanged, and each takes the path it should:
 - [`Cosine`](@ref) uses the stored sums for both the dot product's offset terms and the
   norms (issue #77).
 
+The sums sit in two arrays of their own, and every item handed out loads them. A symmetric graph
+under `SqL2`/`L2`/`L1` never reads them: [`GlobalCodesDatabase`](@ref) holds the codes alone and
+searches faster there (see its docstring for the measurements).
+
 # Arguments
 - `bits`: 2, 4 or 8
 - `X`: the matrix to quantize, one column per vector; `size(X, 1)` must be a multiple of the

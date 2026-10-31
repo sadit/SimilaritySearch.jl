@@ -188,19 +188,17 @@ end
 @inline evaluate(e::SQEncoder, a::_SQ, b::_SQ)::Float32 = evaluate(e.dist, a, b)
 
 """
-    sqcodes(e::SQEncoder; layout=:separate) -> QuantDatabase, GlobalCodesDatabase or PackedQuantDatabase
+    sqcodes(e::SQEncoder; layout=:separate) -> QuantDatabase or GlobalCodesDatabase
 
 An empty, growable database with `e`'s own parameters and dense code blocks: the storage of an
 `AsymmetricSearchGraph` over `e`, or of a `SearchGraph` over its codes. It takes the `SQVec`s
-`encode` produces as they are. `layout` says where the code sums go; the three hold the same
-codes and give the same distances, and differ in what each evaluation reads from memory:
+`encode` produces as they are. `layout` says whether the code sums are kept; the two hold the
+same codes and give the same distances, and differ in what each evaluation reads from memory:
 
 - `:separate`, a [`QuantDatabase`](@ref): the sums in two arrays beside the codes;
 - `:codes`, a [`GlobalCodesDatabase`](@ref) (global family only): no sums. The layout for
-  `SqL2`, `L2` and `L1` between codes, which never read them (11-14% more queries per second
-  measured on a symmetric graph of 8-bit codes); everything else recomputes them per evaluation;
-- `:packed`, a [`PackedQuantDatabase`](@ref): the sums (and the per-vector parameters) at the end
-  of each row, one region per item, for the distances that read them.
+  `SqL2`, `L2` and `L1` between codes, which never read them (up to 14% more queries per second
+  measured on a symmetric graph of 8-bit codes); everything else recomputes them per evaluation.
 """
 function sqcodes(e::SQEncoder{B}; layout::Symbol=:separate) where {B}
     nb = cld(e.dim, codesperbyte(Val(B)))
@@ -210,11 +208,8 @@ function sqcodes(e::SQEncoder{B}; layout::Symbol=:separate) where {B}
     elseif layout === :codes
         isglobal(e) || throw(ArgumentError("sqcodes: layout=:codes holds the global family only; $(nameof(quantizer(e))) is per-vector"))
         GlobalCodesDatabase{B}(e.E, BlockMatrixDatabase(nb, UInt8); dim=e.dim)
-    elseif layout === :packed
-        E = isglobal(e) ? e.E : nothing
-        PackedQuantDatabase{B}(E, BlockMatrixDatabase(_packedrowbytes(Val(B), e.dim, isglobal(e)), UInt8); dim=e.dim)
     else
-        throw(ArgumentError("sqcodes: layout=:$layout must be :separate, :codes or :packed"))
+        throw(ArgumentError("sqcodes: layout=:$layout must be :separate or :codes"))
     end
 end
 

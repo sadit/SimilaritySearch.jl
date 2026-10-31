@@ -101,6 +101,17 @@ grows like any other.
 ScalarQuant.GlobalQuantDatabase
 ```
 
+### The codes without their sums (`GlobalCodesDatabase`)
+
+A `QuantDatabase` keeps each vector's code sums in two arrays beside the codes, and every item it
+hands out loads them. `GlobalCodesDatabase` holds the same codes without the sums, which `SqL2`,
+`L2` and `L1` between codes of the global family never read, and yields `SQCodes`; the distances
+are the same to the bit. `sqcodes(e; layout=:codes)` starts one.
+```@docs
+ScalarQuant.SQCodes
+ScalarQuant.GlobalCodesDatabase
+```
+
 ### The quantizers as an encoder for the asymmetric graph (`SQEncoder`)
 
 Objects are quantized once and stored as codes, queries are prepared once (`SQQuery`: the
