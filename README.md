@@ -193,6 +193,39 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.10
+
+- **`GlobalCodesDatabase`, the codes without their sums.** `SqL2`, `L2` and `L1` between codes of one
+  global scale never read the code sums a `GlobalQuantDatabase` loads, from two other arrays, for every
+  item it hands out. This layout keeps only the codes and the shared range: on a `SearchGraph` of 8-bit
+  codes (384 dimensions, QR rotation, 64 threads, recall 0.9), the same graph answered 10.6-13.8% more
+  queries per second on SISAP 2025 ccnews and 0-6.4% on gooaq, and it saves 8 bytes per vector. Cosine
+  and prepared queries still need the sums: use a `GlobalQuantDatabase` for those. A third layout,
+  sums at the end of each code row, was measured and dropped.
+- **`rebuild` builds each edge once** (#143). Its reverse-link loop iterated each node's live list while
+  other threads appended to it, which could read a slot before it was written, and it linked back the
+  reverse links a node had already received. The adjacency is now the direct lists plus their reverse,
+  each edge once.
+- **Four exact indexes for metrics, tuned by distance evaluations.** The singleton indexes of Tellez,
+  Ruiz and Chávez (Information Systems 60, 2016) and the extreme pivots of Ruiz, Chávez, Ruiz and Tellez
+  (Knowledge and Information Systems, 2020), first written for the C# library natix:
+  - `ANNI`, a Dirichlet partition built by promoting random centers in steps, each one stealing only the
+    objects the triangle inequality cannot rule out; every object is filtered by its own center.
+  - `NANNI`, the same partition stored by cell: whole cells are skipped by their covering radius and by
+    the hyperplane rule, and the members a cell keeps form a contiguous run.
+  - `EPTable`, groups of pivots where each object keeps the pivot that sees it farthest from its mean
+    distance, stored in blocks a search visits by distance to the query.
+  - `NEP`, node-based extreme pivots: the nearest pivot defines the cell, as in `NANNI`, and the pivots
+    that see an object farthest above their mean filter it inside the cell, at no extra evaluation.
+
+  Each one tunes its number of centers or pivots on a sample of queries by the distance evaluations it
+  needs, never by wall time, and has a `permute*` function that stores a copy of the database in the
+  order its search visits it. They pay off where metric indexes do: low intrinsic dimension or costly
+  distances. Over 1M vectors of 8 dimensions under `L2`, `NEP` answered 53K queries per second, `NANNI`
+  45K, `EPTable` 39K and `ANNI` 15K, against 3.2K for an exhaustive search; over 200K words under
+  `Levenshtein`, `EPTable` answered 1,550, `NEP` 1,100 and `NANNI` 795, against 205 (64 threads, k = 10
+  and 5).
+
 ### 1.6.9
 
 - **The reverse links of a parallel insertion no longer queue on one lock** (#138). Every append
