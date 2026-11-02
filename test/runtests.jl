@@ -52,6 +52,7 @@ const TESTFILES = [
     "testbktree.jl",
     "testanni.jl",
     "testept.jl",
+    "testpruning.jl",
     "testtutorial.jl",
 ]
 
