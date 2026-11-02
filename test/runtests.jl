@@ -38,6 +38,7 @@ const TESTFILES = [
     "testneardup.jl",
     "testquantgraph.jl",
     "testsqencoder.jl",
+    "testsqlayouts.jl",
     "testrabitq.jl",
     "testallknn.jl",
     "testclosestpair.jl",
@@ -49,6 +50,8 @@ const TESTFILES = [
     "testspatialaccesstree.jl",
     "testspatialaccesstreeopt.jl",
     "testbktree.jl",
+    "testanni.jl",
+    "testept.jl",
     "testtutorial.jl",
 ]
 

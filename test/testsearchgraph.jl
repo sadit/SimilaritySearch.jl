@@ -10,8 +10,7 @@ using Test
 function prepare_benchmark(Database;
     ksearch::Int=8,
     # kept comfortably above SearchGraphContext's default starting_callback=256 (and its
-    # first logbase_callback=1.5 checkpoint at 384) so the hints callback still fires more
-    # than once -- smaller n hit an unrelated empty-hints edge case in matrixhints.
+    # first logbase_callback=1.5 checkpoint at 384) so the hints callback fires more than once
     n::Int=2_000,
     m::Int=30,
     dim::Int=4)
@@ -77,6 +76,11 @@ function abs_rebuild(graph, ctx, B)
     @info "===================== rebuild =============================="
     graph = rebuild(graph, ctx)
     @test B.n == length(B.db) == length(graph)
+    # the adjacency is the direct lists plus their reverse, each edge once (#143): with no
+    # near-duplicate members it is symmetric, without repeated entries and without loops
+    A = graph.adj
+    @test all(i -> allunique(neighbors(A, i)) && i ∉ neighbors(A, i), 1:length(graph))
+    @test all(i -> all(j -> i in neighbors(A, j), neighbors(A, i)), 1:length(graph))
     optimize_index!(graph, ctx, MinRecall(0.9); B.queries)  # using the actual dataset makes prone to overfitting hyperparameters (more noticeable in rebuilt indexes)
     @show graph.algo, length(B.queries), B.ksearch
     searchtime = @elapsed knns_ids, _ = searchbatch(graph, ctx, B.queries, B.ksearch)
@@ -133,6 +137,20 @@ function abs_matrixhints(graph, ctx, B, _Database)
     @show graph.algo
     @show quantile(neighbors_length.(Ref(graph.adj), 1:length(graph)), 0:0.1:1.0)
     @test recall >= 0.8
+end
+
+@testset "callbacks run when one insertion block crosses starting_callback" begin
+    # a block that starts below starting_callback and ends above it, crossing no logarithmic
+    # threshold, ran no callback until 1.6.9: 2000 objects in one block of 2048 left the graph
+    # without hints (found at 64 threads, where parallel_block defaults to 2048)
+    db = MatrixDatabase(rand(Float32, 4, 2000))
+    for block in (4096, 2048, 512)
+        G = SearchGraph(Dist.SqL2(), db)
+        ctx = SearchGraphContext(; parallel_block=block, reporters=[])
+        index!(G, ctx)
+        @test length(G) == 2000
+        @test !isempty(G.hints)
+    end
 end
 
 @testset "vector indexing with SearchGraph" begin

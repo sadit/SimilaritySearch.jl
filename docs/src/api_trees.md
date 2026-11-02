@@ -41,3 +41,35 @@ An exact index for discrete metrics, where a graph has no usable distance gradie
 BKTree.BKT
 BKTree.getcontext
 ```
+
+## Singleton indexes (`Anni` submodule)
+
+Exact indexes for metrics over a Dirichlet partition whose number of centers tunes itself on a
+sample of queries (Tellez, Ruiz and Chávez, Information Systems 60, 2016).
+
+```@docs
+Anni.ANNI
+Anni.NANNI
+Anni.getcontext
+Anni.annipermutation
+Anni.permuteanni
+Anni.nannipermutation
+Anni.permutenanni
+```
+
+## Extreme pivots (`ExtremePivots` submodule)
+
+An exact pivot table that keeps, per object and group, only the pivot that sees it farthest
+from its mean distance (Ruiz, Chávez, Ruiz and Tellez, Knowledge and Information Systems, 2020),
+and its node-based version, where the nearest pivot defines the cell and the far ones filter
+inside it.
+
+```@docs
+ExtremePivots.EPTable
+ExtremePivots.NEP
+ExtremePivots.getcontext
+ExtremePivots.eptpermutation
+ExtremePivots.permuteept
+ExtremePivots.neppermutation
+ExtremePivots.permutenep
+```

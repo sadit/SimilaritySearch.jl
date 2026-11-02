@@ -1,6 +1,6 @@
 # This file is a part of SimilaritySearch.jl
 
-export SQVec
+export SQVec, SQCodes
 
 """
     quantvector!(::Val{B}, vout::AbstractVector{UInt8}, v::AbstractVector; range=DEFAULT_RANGE, eps=1f-6) -> SQMinC
@@ -73,3 +73,47 @@ Base.length(q::SQVec{B}) where {B} = codesperbyte(Val(B)) * length(q.V)
 Base.eachindex(q::SQVec) = 1:length(q)
 Base.eltype(::SQVec) = Float32
 Base.eltype(::Type{<:SQVec}) = Float32
+
+"""
+    SQCodes{B,VEC<:AbstractVector{UInt8}}
+
+    SQCodes{B}(E::SQMinC, V::AbstractVector{UInt8})
+
+A vector quantized to `B` bits per coordinate without its code sums: the packed codes `V` and
+the parameters `E` that dequantize them, nothing else. It is what a
+[`GlobalCodesDatabase`](@ref) yields, and it exists because the distances between two codes of
+the same scale -- `SqL2`, `L2` and `L1` in the global family -- are one integer pass over the
+codes and never read `Sa`/`Saa`. An [`SQVec`](@ref) still loads both from the database for every
+evaluation, two more memory accesses per child in a graph search (measured below in
+[`GlobalCodesDatabase`](@ref)).
+
+Every distance of this module takes it. Where the sums are needed (codes of different scales,
+`NormCosine`, `Cosine`, a prepared [`SQQuery`](@ref)) they are computed from the codes on the
+spot, one more pass per evaluation, and the result is the very value the `SQVec` gives; a plain
+`Float32` vector is scanned as it is against an `SQVec`. `SQVec(a)` adds the sums back.
+"""
+struct SQCodes{B,VEC<:AbstractVector{UInt8}}
+    E::SQMinC
+    V::VEC
+end
+
+SQCodes{B}(E::SQMinC, V::VEC) where {B,VEC<:AbstractVector{UInt8}} = SQCodes{B,VEC}(E, V)
+SQVec(a::SQCodes{B}) where {B} = SQVec{B}(a.E, a.V)
+
+codewidth(::SQCodes{B}) where {B} = B
+
+Base.@propagate_inbounds function Base.getindex(q::SQCodes{B}, i::Integer)::Float32 where {B}
+    Float32(getcode(Val(B), q.V, i)) * q.E.c + q.E.min
+end
+
+Base.length(q::SQCodes{B}) where {B} = codesperbyte(Val(B)) * length(q.V)
+Base.eachindex(q::SQCodes) = 1:length(q)
+Base.eltype(::SQCodes) = Float32
+Base.eltype(::Type{<:SQCodes}) = Float32
+
+# a quantized vector with or without its sums: what the kernels that read only `E` and `V` take
+const _SQ{B} = Union{SQVec{B},SQCodes{B}}
+
+"`a` with its code sums: itself for an `SQVec`, the sums computed from the codes for an `SQCodes`."
+@inline _withsums(a::SQVec) = a
+@inline _withsums(a::SQCodes{B}) where {B} = SQVec{B}(a.E, a.V)
