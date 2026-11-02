@@ -107,10 +107,15 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             _pushres!(vstate, res, childID, d) === :duplicate && continue
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
-            # The distance test goes first: most children fail it, and then their adjacency, two
-            # dependent loads, is never read. This test had 14% of the compute threads' samples
-            # in a ccnews construction profile; the swap gave 5-12% more QPS at recall 0.9 (#139).
-            if d <= Δ * maximum(res) && neighbors_length(index.adj, childID) > 1
+            # No test on the child's degree: `neighbors_length(index.adj, childID) > 1` kept
+            # degree-1 nodes out of the beam at the price of reading the adjacency of every near
+            # child (two dependent loads, often a cache miss). A degree-1 node kept one neighbour
+            # and nobody kept it; it rarely reaches the beam, and expanding it reads one neighbour
+            # that is almost always visited already. Without the test, paired at the same tuned
+            # point with identical recall: +2-4% QPS on gooaq, yahooaq and ccnews, 3 builds each
+            # (AutotunedBeamSearch res-alpha/ESTRUCTURA.md 4.16). #139 had put the distance test
+            # first for the same reason.
+            if d <= Δ * maximum(res)
                 push_item!(beam, childID, d)
             end
         end
