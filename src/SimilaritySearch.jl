@@ -291,6 +291,18 @@ function _batchstats(v::AbstractVector{Int})
     (min=minimum(active), mean=mean(active), max=maximum(active))
 end
 
+"""
+    cacherows(k) -> Int
+
+The rows of a per-batch scratch matrix of 4-byte entries (`UInt32` ids, `Float32` distances)
+whose columns are handed out to batches, as the insertion and rebuild queues are: `k` rounded up
+to a multiple of 16, so a column spans whole 64-byte lines and a batch's pair of columns 128
+bytes. With `k` rows, neighbouring batches shared the line where one's columns end and the
+next one's begin whenever `4k` was not a multiple of 64 (k = 36 on the 600K-object SISAP 2025
+collections), and both write their queues with every candidate.
+"""
+cacherows(k::Integer) = cld(k, 16) * 16
+
 @inline add_distance_evaluations!(ctx::AbstractContext, v) = (ctx.costdists[ctx.batchid] += v)
 @inline add_block_evaluations!(ctx::AbstractContext, v) = (ctx.costblocks[ctx.batchid] += v)
 

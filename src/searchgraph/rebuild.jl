@@ -71,8 +71,8 @@ function rebuild(g::SearchGraph, ctx::SearchGraphContext;
         # never grows with the database size. Unlike Threads.threadid()-indexing, this
         # stays race-free under every scheduler (:dynamic/:static/:greedy), not just the
         # fixed-placement :static.
-        qcache_ids   = zeros(UInt32,  ksearch, 2 * @nbatches())
-        qcache_dists = zeros(Float32, ksearch, 2 * @nbatches())
+        qcache_ids   = zeros(UInt32,  cacherows(ksearch), 2 * @nbatches())
+        qcache_dists = zeros(Float32, cacherows(ksearch), 2 * @nbatches())
     @BEGINBATCH
         bctx = beginbatch(ctx, @batchid())
         tmp = knnqueue(bctx, view(qcache_ids, 1:ksearch, 2 * @batchid() - 1), view(qcache_dists, 1:ksearch, 2 * @batchid() - 1))

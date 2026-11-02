@@ -142,8 +142,7 @@ function _index!(index::SearchGraph, ctx::SearchGraphContext, objects)
         end
         _sequential_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
     else
-        qcache_ids, qcache_dists = let s = neighborhoodsize(ctx.neighborhood, n), t = 2 * ctx.maxbatches
-            isodd(s) && (s += 1)
+        qcache_ids, qcache_dists = let s = cacherows(neighborhoodsize(ctx.neighborhood, n)), t = 2 * ctx.maxbatches
             zeros(UInt32, s, t), zeros(Float32, s, t)
         end
         _parallel_append_items_loop!(index, ctx, length(index) + 1, n, qcache_ids, qcache_dists, objects)
