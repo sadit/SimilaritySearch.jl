@@ -42,7 +42,9 @@ export AbstractSearchIndex, AbstractContext, GenericContext, ExhaustiveSearch,
     RandomSortSat, ProximalSortSat, DistalSortSat,
     satpermutation, satpermutation!, permutesat,
     SatContext, BeamSearchSat, PruningSat, BeamSearchMultiSat, PrunParSat, BeamSearchParSat,
-    BKTree, BKT
+    BKTree, BKT,
+    Anni, ANNI, NANNI, annipermutation, permuteanni, nannipermutation, permutenanni,
+    ExtremePivots, EPTable, NEP, eptpermutation, permuteept, neppermutation, permutenep
 
 """
     abstract type AbstractContext end
@@ -359,6 +361,10 @@ include("SpatialAccessTree/SpatialAccessTree.jl")
 using .SpatialAccessTree
 include("BKTree/BKTree.jl")
 using .BKTree: BKT
+include("ANNI/Anni.jl")
+using .Anni: ANNI, NANNI, annipermutation, permuteanni, nannipermutation, permutenanni
+include("ExtremePivots/ExtremePivots.jl")
+using .ExtremePivots: EPTable, NEP, eptpermutation, permuteept, neppermutation, permutenep
 include("bichromatic/Bichromatic.jl")
 using .Bichromatic
 include("hsp.jl")

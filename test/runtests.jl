@@ -49,6 +49,8 @@ const TESTFILES = [
     "testspatialaccesstree.jl",
     "testspatialaccesstreeopt.jl",
     "testbktree.jl",
+    "testanni.jl",
+    "testept.jl",
     "testtutorial.jl",
 ]
 
