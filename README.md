@@ -202,6 +202,11 @@ so the exception is stated here instead of left for a reader to find.
   queries per second on SISAP 2025 ccnews and 0-6.4% on gooaq, and it saves 8 bytes per vector. Cosine
   and prepared queries still need the sums: use a `GlobalQuantDatabase` for those. A third layout,
   sums at the end of each code row, was measured and dropped.
+- **Callbacks run when an insertion block crosses `starting_callback`.** They fired only when a block
+  *started* at or above it, so a database inserted in one block that started at 1 never got hints or
+  construction tuning: 2000 objects under the default `parallel_block = 32 * nthreads()` at 64 threads,
+  where searches fell back to scanning the first `log2(n)` objects. Present since 1.6.9 (#140), which
+  made blocks grow with the thread count.
 - **`rebuild` builds each edge once** (#143). Its reverse-link loop iterated each node's live list while
   other threads appended to it, which could read a slot before it was written, and it linked back the
   reverse links a node had already received. The adjacency is now the direct lists plus their reverse,
