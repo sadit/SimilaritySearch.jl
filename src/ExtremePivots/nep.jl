@@ -193,11 +193,13 @@ function _fromstate!(nf::NEP, st::_NEPState)
 end
 
 """
-    _searchcount(nf::NEP, q, res) -> evaluations
+    _searchcount(nf::NEP, q, res, factor=1f0) -> evaluations
 
-The search of [`NEP`](@ref), returning the number of distances it evaluated.
+The search of [`NEP`](@ref), returning the number of distances it evaluated. Every filter
+tests against `factor` times the covering radius: the exact search for 1, the stretched
+triangle inequality of [`PruningSearch`](@ref) below it.
 """
-function _searchcount(nf::NEP, q, res::AbstractMetricQueue)
+function _searchcount(nf::NEP, q, res::AbstractMetricQueue, factor::Float32=1f0)
     dist = distance(nf)
     m = length(nf.pivots)
     m == 0 && return 0
@@ -213,7 +215,7 @@ function _searchcount(nf::NEP, q, res::AbstractMetricQueue)
 
     cost = m
     F = nf.nfar
-    r = covradius(res)
+    r = factor * covradius(res)
     @inbounds for i in sortperm(dq)
         dc = dq[i]
         dc > dmin + 2r && break      # every later cell is farther: the hyperplane rule holds for all of them
@@ -236,7 +238,7 @@ function _searchcount(nf::NEP, q, res::AbstractMetricQueue)
                 if keep
                     u = nf.members[j]
                     push_item!(res, u, Dist.evaluate(dist, q, database(nf, u)))
-                    r = covradius(res)
+                    r = factor * covradius(res)
                     cost += 1
                 end
             end

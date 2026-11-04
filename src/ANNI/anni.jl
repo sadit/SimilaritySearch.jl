@@ -165,11 +165,13 @@ function _promote!(anni::ANNI, ctx::AbstractContext, newcenters::AbstractVector{
 end
 
 """
-    _searchcount(anni::ANNI, q, res) -> evaluations
+    _searchcount(anni::ANNI, q, res, factor=1f0) -> evaluations
 
-The search of [`ANNI`](@ref), returning the number of distances it evaluated.
+The search of [`ANNI`](@ref), returning the number of distances it evaluated. Every filter
+tests against `factor` times the covering radius: the exact search for 1, the stretched
+triangle inequality of [`PruningSearch`](@ref) below it.
 """
-function _searchcount(anni::ANNI, q, res::AbstractMetricQueue)
+function _searchcount(anni::ANNI, q, res::AbstractMetricQueue, factor::Float32=1f0)
     dist = distance(anni)
     m = length(anni.centers)
     m == 0 && return 0
@@ -183,13 +185,13 @@ function _searchcount(anni::ANNI, q, res::AbstractMetricQueue)
 
     cost = m
     center, dcenter = anni.center, anni.dcenter
-    r = covradius(res)   # it only changes when an object is pushed
+    r = factor * covradius(res)   # it only changes when an object is pushed
     @inbounds for u in eachindex(center)
         a = center[u]
         a == 0 && continue
         if abs(dcq[a] - dcenter[u]) <= r
             push_item!(res, u, Dist.evaluate(dist, q, database(anni, u)))
-            r = covradius(res)
+            r = factor * covradius(res)
             cost += 1
         end
     end

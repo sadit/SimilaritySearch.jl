@@ -377,6 +377,7 @@ include("ANNI/Anni.jl")
 using .Anni: ANNI, NANNI, annipermutation, permuteanni, nannipermutation, permutenanni
 include("ExtremePivots/ExtremePivots.jl")
 using .ExtremePivots: EPTable, NEP, eptpermutation, permuteept, neppermutation, permutenep
+include("pruningsearch.jl")
 include("bichromatic/Bichromatic.jl")
 using .Bichromatic
 include("hsp.jl")
