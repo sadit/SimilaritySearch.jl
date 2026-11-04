@@ -16,14 +16,26 @@ Internal function that evaluates the distance between a database object `obj` wi
 It helps to evaluate, mark as visited, and enqueue in the result set.
 """
 @inline function enqueue_item!(index::SearchGraph, ctx, q, obj, res, objID, vstate)
-    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return res
+    add_distance_evaluations!(ctx, _enqueue_count!(index, q, obj, res, objID, vstate))
+    res
+end
+
+"""
+    _enqueue_count!(index::SearchGraph, q, obj, res, objID, vstate) -> 0 or 1
+
+[`enqueue_item!`](@ref) without the counter: the number of distances it evaluated. The loops
+over hints and starting points add these up in a local and write the context's counter once
+per search, instead of once per object (issue #144: the counters of neighbouring batches share
+a cache line).
+"""
+@inline function _enqueue_count!(index::SearchGraph, q, obj, res, objID, vstate)
+    check_visited_and_visit!(vstate, convert(UInt64, objID)) && return 0
     # a hint that is a near-duplicate member is not a node: nothing links to it, it links only
     # to its representative, and the search answers with representatives (see `Members`)
-    isempty(index.members) || !ismember(index, objID) || return res
+    isempty(index.members) || !ismember(index, objID) || return 0
     d = evaluate(distance(index), q, obj)
     _pushres!(vstate, res, objID, d)
-    add_distance_evaluations!(ctx, 1)
-    res
+    1
 end
 
 """
@@ -36,9 +48,11 @@ function beamsearch_init(::BeamSearch, index::SearchGraph, ctx, q, res::Abstract
     res = approx_by_hints!(index, ctx, q, hints, res, vstate)
     if length(res) == 0
         n = length(index)
+        c = 0
         for objID in 1:ceil(Int, log(2, 1 + n))
-            enqueue_item!(index, ctx, q, database(index, objID), res, objID, vstate)
+            c += _enqueue_count!(index, q, database(index, objID), res, objID, vstate)
         end
+        add_distance_evaluations!(ctx, c)
     end
 end
 
@@ -93,10 +107,15 @@ function beamsearch_inner_beam(bs::BeamSearch, index::SearchGraph, ctx::SearchGr
             _pushres!(vstate, res, childID, d) === :duplicate && continue
             costdists > maxvisits && @goto finish_search
             # covradius is the correct value but it uses a practical innecessary comparison (here we visited all hints)
-            # The distance test goes first: most children fail it, and then their adjacency, two
-            # dependent loads, is never read. This test had 14% of the compute threads' samples
-            # in a ccnews construction profile; the swap gave 5-12% more QPS at recall 0.9 (#139).
-            if d <= Δ * maximum(res) && neighbors_length(index.adj, childID) > 1
+            # No test on the child's degree: `neighbors_length(index.adj, childID) > 1` kept
+            # degree-1 nodes out of the beam at the price of reading the adjacency of every near
+            # child (two dependent loads, often a cache miss). A degree-1 node kept one neighbour
+            # and nobody kept it; it rarely reaches the beam, and expanding it reads one neighbour
+            # that is almost always visited already. Without the test, paired at the same tuned
+            # point with identical recall: +2-4% QPS on gooaq, yahooaq and ccnews, 3 builds each
+            # (AutotunedBeamSearch res-alpha/ESTRUCTURA.md 4.16). #139 had put the distance test
+            # first for the same reason.
+            if d <= Δ * maximum(res)
                 push_item!(beam, childID, d)
             end
         end
@@ -128,9 +147,11 @@ function search(bs::BeamSearch, index::SearchGraph, ctx::SearchGraphContext, q, 
     if n == 0
         res
     elseif n < SMALLINDEX
+        c = 0
         for i in 1:n
-            enqueue_item!(index, ctx, q, database(index, i), res, i, vstate)
+            c += _enqueue_count!(index, q, database(index, i), res, i, vstate)
         end
+        add_distance_evaluations!(ctx, c)
     else
         beamsearch_init(bs, index, ctx, q, res, hints, vstate)
         costdists, costblocks = beamsearch_inner_beam(bs, index, ctx, q, res, vstate)

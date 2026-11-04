@@ -6,10 +6,12 @@
 Approximate the result using a set of hints (the set of identifiers (integers)) behints  `hints`
 """
 function approx_by_hints!(index::SearchGraph, ctx, q, hints::T, res, vstate) where {T<:Union{AbstractVector,Tuple,Integer,Set}}
+    c = 0
     for objID in hints
-        enqueue_item!(index, ctx, q, database(index, objID), res, objID, vstate)
+        c += _enqueue_count!(index, q, database(index, objID), res, objID, vstate)
     end
 
+    add_distance_evaluations!(ctx, c)
     res
 end
 
@@ -59,10 +61,12 @@ function matrixhints(index::SearchGraph, ::Type{DBType}=MatrixDatabase) where {D
 end
 
 function approx_by_hints!(index::SearchGraph, ctx, q, h::AdjacentStoredHints, res, vstate)
+    c = 0
     for (i, objID) in enumerate(h.map)
-        enqueue_item!(index, ctx, q, h.hints[i], res, objID, vstate)
+        c += _enqueue_count!(index, q, h.hints[i], res, objID, vstate)
     end
 
+    add_distance_evaluations!(ctx, c)
     res
 end
 
