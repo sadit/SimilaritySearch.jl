@@ -118,11 +118,13 @@ function _fromanni!(nanni::NANNI, anni::ANNI)
 end
 
 """
-    _searchcount(nanni::NANNI, q, res) -> evaluations
+    _searchcount(nanni::NANNI, q, res, factor=1f0) -> evaluations
 
-The search of [`NANNI`](@ref), returning the number of distances it evaluated.
+The search of [`NANNI`](@ref), returning the number of distances it evaluated. Every filter
+tests against `factor` times the covering radius: the exact search for 1, the stretched
+triangle inequality of [`PruningSearch`](@ref) below it.
 """
-function _searchcount(nanni::NANNI, q, res::AbstractMetricQueue)
+function _searchcount(nanni::NANNI, q, res::AbstractMetricQueue, factor::Float32=1f0)
     dist = distance(nanni)
     m = length(nanni.centers)
     m == 0 && return 0
@@ -139,7 +141,7 @@ function _searchcount(nanni::NANNI, q, res::AbstractMetricQueue)
     cost = m
     @inbounds for i in sortperm(dcq)
         dc = dcq[i]
-        r = covradius(res)
+        r = factor * covradius(res)
         dc > dmin + 2r && break      # every later cell is farther: the hyperplane rule holds for all of them
         dc > nanni.cov[i] + r && continue
         lo, hi = nanni.cellstart[i], nanni.cellstart[i+1] - 1
@@ -152,7 +154,7 @@ function _searchcount(nanni::NANNI, q, res::AbstractMetricQueue)
             if dc - dx <= r   # r shrinks as the run is visited, so the lower end is checked again
                 u = nanni.members[j]
                 push_item!(res, u, Dist.evaluate(dist, q, database(nanni, u)))
-                r = covradius(res)
+                r = factor * covradius(res)
                 cost += 1
             end
             j += 1

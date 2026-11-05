@@ -183,11 +183,13 @@ function _querystats(dist, db::AbstractDatabase, nqueries::Integer, nsample::Int
 end
 
 """
-    _searchcount(ept::EPTable, q, res) -> evaluations
+    _searchcount(ept::EPTable, q, res, factor=1f0) -> evaluations
 
-The search of [`EPTable`](@ref), returning the number of distances it evaluated.
+The search of [`EPTable`](@ref), returning the number of distances it evaluated. Every filter
+tests against `factor` times the covering radius: the exact search for 1, the stretched
+triangle inequality of [`PruningSearch`](@ref) below it.
 """
-function _searchcount(ept::EPTable, q, res::AbstractMetricQueue)
+function _searchcount(ept::EPTable, q, res::AbstractMetricQueue, factor::Float32=1f0)
     dist = distance(ept)
     np = length(ept.pivots)
     np == 0 && return 0
@@ -202,7 +204,7 @@ function _searchcount(ept::EPTable, q, res::AbstractMetricQueue)
     cost = np
     piv, pdist = ept.piv, ept.pdist
     G = ngroups(ept)
-    r = covradius(res)   # it only changes when an object is pushed
+    r = factor * covradius(res)   # it only changes when an object is pushed
     if !isempty(ept.blockstart)   # the built table: blocks by increasing d(q, p), a run per block
         @inbounds for b in sortperm(view(dqp, ept.bpiv))
             dp = dqp[ept.bpiv[b]]
@@ -221,7 +223,7 @@ function _searchcount(ept::EPTable, q, res::AbstractMetricQueue)
 
                     if review
                         push_item!(res, u, Dist.evaluate(dist, q, database(ept, u)))
-                        r = covradius(res)
+                        r = factor * covradius(res)
                         cost += 1
                     end
                 end
@@ -245,7 +247,7 @@ function _searchcount(ept::EPTable, q, res::AbstractMetricQueue)
 
         if review
             push_item!(res, u, Dist.evaluate(dist, q, database(ept, u)))
-            r = covradius(res)
+            r = factor * covradius(res)
             cost += 1
         end
     end

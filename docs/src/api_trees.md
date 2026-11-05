@@ -73,3 +73,13 @@ ExtremePivots.permuteept
 ExtremePivots.neppermutation
 ExtremePivots.permutenep
 ```
+
+## Stretched triangle inequality
+
+The exact indexes above made approximate by a factor on the covering radius of every filter,
+tuned like the `Δ` of a beam search (Chávez and Navarro, Information Processing Letters 85, 2003).
+
+```@docs
+PruningSearch
+PruningSearchSpace
+```

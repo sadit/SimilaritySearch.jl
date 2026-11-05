@@ -193,6 +193,35 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.11
+
+- **The inner beam pushes a near child without reading its degree.** It tested
+  `neighbors_length(index.adj, childID) > 1` for every child that passed the distance test, to keep
+  degree-1 nodes out of the beam: two dependent loads into the child's adjacency that often miss the
+  cache. A degree-1 node rarely reaches the beam, and expanding it reads one neighbor that is almost
+  always visited already.
+- **Hints and starting points are counted in a local** (#144). `approx_by_hints!`, the starting points
+  of `beamsearch_init` and the scan of small indexes add their distance evaluations up in a local and
+  write the context's counter once per search instead of once per object, since the counters of
+  neighboring batches share a cache line. The rows of the per-batch insertion and rebuild queues are
+  rounded to whole cache lines (`cacherows`, a multiple of 16), so neighboring batches no longer share
+  the line where one ends and the next begins.
+
+  Together, against 1.6.10 on a `SearchGraph` of 8-bit codes (384 dimensions, QR rotation, 64 threads),
+  the same graphs answered 3-10% more queries per second at recall 0.9 on SISAP 2025 gooaq, yahooaq and
+  ccnews with the same distance evaluations, and construction was not slower: 4-19% less build time on
+  most of the collections measured.
+- **`PruningSearch`, the stretched triangle inequality over the exact metric indexes.** After Chávez and
+  Navarro (Information Processing Letters 85, 2003): every filter of `ANNI`, `NANNI`, `EPTable` and `NEP`
+  tests against `factor` times the covering radius instead of the radius itself, and `factor = 1` is the
+  exact search, unchanged. `PruningSearch` wraps a built index and `PruningSearchSpace` tunes the factor
+  through `optimize_index!` by distance evaluations, as `PruningSat` does for the SAT. Left to sample its
+  own queries, the tuning skips the pivots and centers: a pivot as a query sits at distance 0 from
+  itself and prunes as no external query can (recall 0.39 against 0.975 for the other internal queries
+  at factor 0.6), which pushed the tuned recall to 0.99 for a 0.9 target. On 5000 uniform vectors of 16
+  dimensions and k = 10, the four indexes reach recall 0.92-0.93 for a 0.9 target with 29-34% of the
+  exact evaluations.
+
 ### 1.6.10
 
 - **`GlobalCodesDatabase`, the codes without their sums.** `SqL2`, `L2` and `L1` between codes of one
