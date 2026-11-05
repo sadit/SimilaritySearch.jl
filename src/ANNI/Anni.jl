@@ -27,7 +27,7 @@ using Random: AbstractRNG, default_rng, randperm
 
 export ANNI, NANNI, getcontext, annipermutation, permuteanni, nannipermutation, permutenanni
 
-include("anni.jl")
+include("anniindex.jl")
 include("nanni.jl")
 
 end # module
