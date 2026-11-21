@@ -189,3 +189,44 @@ end
         @test tv >= 0 && tb >= 0 && tm >= 0
     end
 end
+
+# A database that is never closed is finalized together with its mapped matrix and its IOStream,
+# and Julia does not order those finalizers (issue #150). Both orders are forced here.
+@testset "MMapMatrixDatabase finalizer order" begin
+    mktempdir() do dir
+        # the matrix is unmapped before the database is finalized
+        path = joinpath(dir, "unmapped.mmapdb")
+        let db = MMapMatrixDatabase(path, 4, Float32; capacity_bits=2)
+            for i in 1:10
+                push_item!(db, fill(Float32(i), 4))
+            end
+            finalize(db.data.ref.mem)   # the finalizer of Mmap.mmap: munmap
+            SimilaritySearch._mmap_matrix_db_finalize!(db)
+            @test db.closed
+        end
+        db = MMapMatrixDatabase(path; read_only=true)
+        @test length(db) == 10
+        @test db[10] == fill(10f0, 4)
+        close(db)
+
+        # the IOStream is closed before the database is finalized: nothing to write, no error
+        path = joinpath(dir, "ioclosed.mmapdb")
+        let db = MMapMatrixDatabase(path, 4, Float32)
+            push_item!(db, ones(Float32, 4))
+            close(db.io)
+            SimilaritySearch._mmap_matrix_db_finalize!(db)
+            @test db.closed
+        end
+
+        # close is idempotent, and the finalizer does nothing after it
+        path = joinpath(dir, "twice.mmapdb")
+        db = MMapMatrixDatabase(path, 4, Float32)
+        push_item!(db, ones(Float32, 4))
+        close(db)
+        @test close(db) === nothing
+        @test SimilaritySearch._mmap_matrix_db_finalize!(db) === nothing
+        db = MMapMatrixDatabase(path; read_only=true)
+        @test length(db) == 1
+        close(db)
+    end
+end
