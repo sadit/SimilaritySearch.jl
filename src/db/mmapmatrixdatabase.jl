@@ -63,8 +63,11 @@ same process) and write the new columns into the mapped data, but do **not** msy
 persist/fsync the advanced `n` into the header -- that is exactly what `flush` does, and it
 is the caller's responsibility to call it whenever *it* considers durability to matter (once per
 batch, on a timer, before a deliberate checkpoint, ...), not something either mutating function does
-on your behalf. `close`/the finalizer call `flush` once as a last-resort safety net, but garbage
-collection timing is not a guarantee, so it is not a substitute for calling `flush` deliberately: a
+on your behalf. `close` calls `flush`. The finalizer of a database that was never closed `fsync`s the
+file and persists `n` as a last-resort safety net, without reading the mapped matrix, which the
+garbage collector may have unmapped already. If the collector closed the file first, the finalizer
+cannot write anything. Garbage collection timing is not a guarantee either, so the finalizer is not
+a substitute for calling `flush` deliberately: a
 process that pushes/appends and then crashes or is killed before an explicit `flush` (or a clean
 `close`) loses everything added since the last `flush`. What `flush` still guarantees when you do
 call it: `n` only ever advances on disk after the corresponding bytes are themselves durable, so a
@@ -206,10 +209,21 @@ function Base.flush(db::MMapMatrixDatabase)
     db
 end
 
+# The finalizer runs when `db` was never closed. It must not read `db.data`: the mapped matrix has
+# its own finalizer (on `db.data.ref.mem`, which unmaps it), and Julia does not order two
+# finalizers whose objects became unreachable together. If the matrix was unmapped first, `msync`
+# fails with ENOMEM before `n` is persisted, and a reopen sees none of the items (issue #150).
+# `fsync` on the file descriptor writes the pages modified through a shared mapping as well, so it
+# makes the data durable without touching the mapping. The `IOStream` has its own finalizer too: if
+# it was closed first, nothing can be written, and `n` stays as it was at the last `flush`.
 function _mmap_matrix_db_finalize!(db::MMapMatrixDatabase)
     db.closed && return nothing
     db.closed = true
-    flush(db)
+    isopen(db.io) || return nothing
+    if !db.read_only
+        ccall(:fsync, Cint, (Cint,), fd(db.io))
+        _mmap_matrix_db_persist_n!(db.io, db.n)
+    end
     close(db.io)
     nothing
 end
@@ -220,7 +234,13 @@ end
 Flushes (see `flush`), then unmaps and closes the underlying file. Idempotent --
 calling it more than once (or letting the finalizer run afterwards) is safe.
 """
-Base.close(db::MMapMatrixDatabase) = _mmap_matrix_db_finalize!(db)
+function Base.close(db::MMapMatrixDatabase)
+    db.closed && return nothing
+    flush(db)
+    db.closed = true
+    close(db.io)
+    nothing
+end
 
 function show(io::IO, db::MMapMatrixDatabase{Dim,NumType}; prefix="", indent="  ") where {Dim,NumType}
     println(io, prefix, "MMapMatrixDatabase{$Dim,$NumType}:")
