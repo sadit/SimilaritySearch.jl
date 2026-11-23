@@ -193,6 +193,16 @@ so the exception is stated here instead of left for a reader to find.
   at 8 bits the extrema were the only policy that did not lose (0.994 / 0.995, 0.981 / 0.991). The
   histogram with 32 or 16 bins was below 64 at every width for 0.1-0.2 µs less.
 
+### 1.6.12
+
+- **A `MMapMatrixDatabase` left to the garbage collector keeps its items** (#150). Julia does not order
+  the finalizers of the database, its mapped matrix and its `IOStream`. When the matrix was unmapped
+  first, the finalizer's `msync` failed with `ENOMEM` before `n` was written, and a reopen saw none of
+  the items (0 instead of 10 in the reproduction). When the `IOStream` was closed first, the finalizer
+  failed with `EBADF`. The finalizer no longer reads the matrix. It calls `fsync` on the file
+  descriptor, which also writes the pages modified through the shared mapping, and then writes `n`.
+  `close` is unchanged and still the recommended way to finish with a database.
+
 ### 1.6.11
 
 - **The inner beam pushes a near child without reading its degree.** It tested
