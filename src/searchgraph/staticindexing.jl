@@ -285,14 +285,25 @@ to reach a competitive recall/QpS trade-off against an equal-effort incremental 
     `method=:adh` needs no centering for an L2-family distance. See
     [Centering the data for linear sketches](@ref) for when centering may help.
 
-!!! note "Only accepts an empty `idx`, and doesn't (yet) support incremental growth"
-    Like `:knr`, this only accepts an `idx` with `length(idx) == 0` (`database(idx)` must
-    already hold the whole dataset to sketch, but no vertex may exist in the graph yet), and
-    rebuilds the whole topology from scratch every call -- there is no way to grow an
-    existing `:bitsketch`-built graph by inserting new items afterward. A proper two-stage
-    index design that supports incremental insertion on top of a fast bootstrap phase like
-    this one is tracked as a separate feature request (issue #60); for a workload that needs
-    online insertion today, use the normal incremental `index!(idx, ctx)` instead.
+!!! note "The bootstrap needs an empty graph, and the graph can grow afterwards"
+    Like `:knr`, this method only accepts an `idx` with `length(idx) == 0`. `database(idx)`
+    must already hold the objects to sketch, but the graph must have no vertex yet.
+
+    After the bootstrap, `idx` is an ordinary `SearchGraph`. [`append_items!`](@ref) and
+    [`push_item!`](@ref) insert new items with the normal incremental algorithm, against the
+    real `distance(idx)`. This needs a database that can grow, such as a
+    [`BlockMatrixDatabase`](@ref) or a [`VectorDatabase`](@ref). A `MatrixDatabase` cannot
+    grow, so `method=:gaussian`/`:qr` cannot be followed by insertions. Use `method=:adh`,
+    or `method=:external` with a sketch of the initial objects.
+
+    Call [`optimize_index!`](@ref) before inserting. Each insertion searches the graph with
+    `idx.algo[]`, which this method does not tune (see below). In issue #60, tuning after a
+    `:knr` bootstrap reduced the distance evaluations per query by 19% on a uniform
+    32-dimensional dataset. The fraction of the dataset given to the bootstrap sets the trade-off: a larger
+    fraction builds faster and costs more distance evaluations per query (issue #60).
+
+    To insert raw objects into a graph that stores compact codes, see
+    [`AsymmetricSearchGraph`](@ref).
 
 `idx.algo[]` is deliberately left untouched (never overwritten with the sketch-space-tuned
 `BeamSearch`): its `bsize`/`Δ`/`maxvisits` were tuned for Hamming distance's very different
